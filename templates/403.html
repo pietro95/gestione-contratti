@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Accesso negato{% endblock %}
+{% block content %}
+<h1 class="h4">Accesso negato</h1>
+<p>Il tuo ruolo non consente questa operazione.</p>
+<a href="{% url 'home' %}">Torna alla home</a>
+{% endblock %}

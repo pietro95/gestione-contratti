@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Accesso · Registro contratti IT/TLC{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-sm-8 col-md-5">
+    <h1 class="h4 mb-3">Accesso</h1>
+    <p class="text-body-secondary small">Usa le credenziali di dominio.</p>
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger" role="alert">{% for e in form.non_field_errors %}{{ e }}{% endfor %}</div>
+    {% endif %}
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+        {{ form.username }}
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+        {{ form.password }}
+      </div>
+      <button type="submit" class="btn btn-primary w-100">Entra</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
