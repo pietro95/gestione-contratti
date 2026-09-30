@@ -11,6 +11,7 @@ dependencies = [
     "python-ldap>=3.4.4,<4",
     "psycopg[binary]>=3.2,<4",
     "gunicorn>=23,<24",
+    "django-simple-history>=3.8,<4",
 ]
 
 [dependency-groups]
