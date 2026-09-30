@@ -1,0 +1,88 @@
+# Directory di test per TC-09 (docs/TEST_CASES.md). Dati fittizi, password di sola prova.
+dn: dc=esempio,dc=test
+objectClass: dcObject
+objectClass: organization
+o: Esempio
+dc: esempio
+
+dn: ou=Utenti,dc=esempio,dc=test
+objectClass: organizationalUnit
+ou: Utenti
+
+dn: ou=Gruppi,dc=esempio,dc=test
+objectClass: organizationalUnit
+ou: Gruppi
+
+dn: ou=Servizio,dc=esempio,dc=test
+objectClass: organizationalUnit
+ou: Servizio
+
+dn: cn=svc_contratti,ou=Servizio,dc=esempio,dc=test
+objectClass: user
+cn: svc_contratti
+sn: servizio
+sAMAccountName: svc_contratti
+userPassword: servizio-di-prova
+
+dn: cn=Mario Rossi,ou=Utenti,dc=esempio,dc=test
+objectClass: user
+cn: Mario Rossi
+givenName: Mario
+sn: Rossi
+mail: mrossi@esempio.test
+sAMAccountName: mrossi
+userPassword: password-mrossi
+
+dn: cn=Luca Bianchi,ou=Utenti,dc=esempio,dc=test
+objectClass: user
+cn: Luca Bianchi
+givenName: Luca
+sn: Bianchi
+mail: lbianchi@esempio.test
+sAMAccountName: lbianchi
+userPassword: password-lbianchi
+
+dn: cn=Giulia Verdi,ou=Utenti,dc=esempio,dc=test
+objectClass: user
+cn: Giulia Verdi
+givenName: Giulia
+sn: Verdi
+mail: gverdi@esempio.test
+sAMAccountName: gverdi
+userPassword: password-gverdi
+
+dn: cn=Nino Nessuno,ou=Utenti,dc=esempio,dc=test
+objectClass: user
+cn: Nino Nessuno
+givenName: Nino
+sn: Nessuno
+mail: nnessuno@esempio.test
+sAMAccountName: nnessuno
+userPassword: password-nnessuno
+
+# gverdi è Admin solo tramite GG_IT_Responsabili, annidato in GG_Contratti_Admin.
+dn: cn=GG_Contratti_Admin,ou=Gruppi,dc=esempio,dc=test
+objectClass: group
+cn: GG_Contratti_Admin
+member: cn=GG_IT_Responsabili,ou=Gruppi,dc=esempio,dc=test
+
+dn: cn=GG_IT_Responsabili,ou=Gruppi,dc=esempio,dc=test
+objectClass: group
+cn: GG_IT_Responsabili
+member: cn=Giulia Verdi,ou=Utenti,dc=esempio,dc=test
+
+dn: cn=GG_Contratti_Editor,ou=Gruppi,dc=esempio,dc=test
+objectClass: group
+cn: GG_Contratti_Editor
+member: cn=Mario Rossi,ou=Utenti,dc=esempio,dc=test
+
+dn: cn=GG_Contratti_Reader,ou=Gruppi,dc=esempio,dc=test
+objectClass: group
+cn: GG_Contratti_Reader
+member: cn=Luca Bianchi,ou=Utenti,dc=esempio,dc=test
+
+# nnessuno appartiene solo a un gruppo non applicativo.
+dn: cn=GG_Altro,ou=Gruppi,dc=esempio,dc=test
+objectClass: group
+cn: GG_Altro
+member: cn=Nino Nessuno,ou=Utenti,dc=esempio,dc=test
