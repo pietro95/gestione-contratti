@@ -43,16 +43,18 @@ jobs:
         if: steps.check.outputs.ready == 'true'
         run: |
           sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libldap2-dev libsasl2-dev slapd ldap-utils apparmor-utils
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libldap2-dev libsasl2-dev slapd ldap-utils
       - name: AppArmor in complain per slapd
         # Il profilo AppArmor di slapd su Ubuntu consente solo /etc/ldap e /var/lib/ldap:
         # slapdtest avvia slapd con configurazione e dati in una directory temporanea,
         # che il profilo bloccherebbe. Complain registra le violazioni senza bloccarle.
-        # Riguarda solo il runner effimero della CI.
+        # Riguarda solo il runner effimero della CI. Si usa apparmor_parser sul solo profilo
+        # di slapd: aa-complain analizza tutti i profili e fallisce su conflitti estranei
+        # presenti nell'immagine del runner (profili duplicati di msedge).
         if: steps.check.outputs.ready == 'true'
         run: |
           if [ -f /etc/apparmor.d/usr.sbin.slapd ]; then
-            sudo aa-complain /usr/sbin/slapd
+            sudo apparmor_parser --replace --Complain /etc/apparmor.d/usr.sbin.slapd
           fi
       - uses: astral-sh/setup-uv@v6
         if: steps.check.outputs.ready == 'true'
