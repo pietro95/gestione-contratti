@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Django
+/staticfiles/
+/media/
+*.log
+
+# Configurazione e segreti
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# DATI REALI: mai nel repository
+/data/
+*.xlsx
+*.xls
+*.csv
+*.sql
+*.dump
+!tests/fixtures/*.xlsx
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

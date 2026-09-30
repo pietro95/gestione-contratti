@@ -1,0 +1,198 @@
+# Casi di test di riferimento
+
+Ogni caso descrive: input, output atteso, regola della SPEC che verifica.
+
+I valori sono stati calcolati a mano e verificati con uno script indipendente. **Se un test non passa, l'errore è nel codice, non nel caso.** Un caso si modifica solo con l'approvazione di Pietro e insieme a una nuova revisione della SPEC.
+
+Convenzioni valide per tutti i casi:
+- importi in euro, IVA esclusa;
+- arrotondamento `ROUND_HALF_UP` al centesimo, con il residuo sull'ultimo anno o sull'ultima rata;
+- i giorni si contano estremi inclusi.
+
+---
+
+## TC-01 — Competenza pro-rata a giorni (correzione del bug Excel)
+
+SPEC §5.2 (vista Competenza) e §2.1 (bug dei mesi).
+
+Input:
+- voce fissa 4.800,00 €;
+- periodo di servizio dal 21/12/2025 al 20/12/2026 (12 mesi, 365 giorni).
+
+Output atteso (competenza):
+
+| Anno | Giorni | Importo |
+|---|---|---|
+| 2025 | 11 | 144,66 |
+| 2026 | 354 | 4.655,34 |
+| **Totale** | 365 | **4.800,00** |
+
+Controllo negativo: il vecchio Excel dava 400,00 + 4.800,00 = 5.200,00 (108%). Il totale di competenza deve essere **sempre** uguale al valore del contratto.
+
+## TC-02 — Pluriennale pagato in anticipo in un'unica soluzione
+
+SPEC §5.2. Il caso è modellato su "AutoCAD LT 36 mesi, spesa liquidata nel 2023".
+
+Input:
+- voce fissa 21.990,06 €;
+- servizio dal 24/03/2023 al 23/03/2026 (1.096 giorni);
+- fatturazione `Una tantum`, anticipata, fattura il 24/03/2023;
+- OdA emesso il 10/03/2023.
+
+Output atteso:
+
+| Anno | Impegno | Cassa (data fattura) | Competenza (giorni) |
+|---|---|---|---|
+| 2023 | 21.990,06 | 21.990,06 | 5.678,09 (283 gg) |
+| 2024 | 0,00 | 0,00 | 7.343,40 (366 gg) |
+| 2025 | 0,00 | 0,00 | 7.323,33 (365 gg) |
+| 2026 | 0,00 | 0,00 | 1.645,24 (82 gg) |
+| **Totale** | 21.990,06 | 21.990,06 | 21.990,06 |
+
+## TC-03 — Posticipato trimestrale con pagamento a 60 giorni
+
+SPEC §4 (Piano di fatturazione) e §5.2.
+
+Input:
+- canone fisso 24.000,00 € su 24 mesi, dal 01/07/2026 al 30/06/2028;
+- fatturazione `Posticipata`, trimestrale, rate uguali;
+- giorni di pagamento: 60 (data fattura + 60 giorni di calendario).
+
+Scadenzario atteso (8 rate da 3.000,00):
+
+| # | Data fattura | Data pagamento stimata |
+|---|---|---|
+| 1 | 30/09/2026 | 29/11/2026 |
+| 2 | 31/12/2026 | 01/03/2027 |
+| 3 | 31/03/2027 | 30/05/2027 |
+| 4 | 30/06/2027 | 29/08/2027 |
+| 5 | 30/09/2027 | 29/11/2027 |
+| 6 | 31/12/2027 | 29/02/2028 |
+| 7 | 31/03/2028 | 30/05/2028 |
+| 8 | 30/06/2028 | 29/08/2028 |
+
+Aggregati attesi:
+
+| Anno | Cassa per data fattura | Cassa per data pagamento | Competenza |
+|---|---|---|---|
+| 2026 | 6.000,00 | 3.000,00 | 6.041,04 (184 gg) |
+| 2027 | 12.000,00 | 12.000,00 | 11.983,58 (365 gg) |
+| 2028 | 6.000,00 | 9.000,00 | 5.975,38 (182 gg) |
+
+## TC-04 — Anticipato annuale su tre anni
+
+Input:
+- 3.000,00 € su 36 mesi, dal 03/03/2026 al 02/03/2029;
+- fatturazione `Anticipata`, annuale.
+
+Scadenzario atteso: 3 rate da 1.000,00 €, con data fattura 03/03/2026, 03/03/2027 e 03/03/2028.
+
+Cassa per data fattura: 2026 = 1.000,00; 2027 = 1.000,00; 2028 = 1.000,00; 2029 = 0,00.
+
+## TC-05 — Quota variabile: fisso / probabile / massimo
+
+SPEC §5.2 (livelli). Il caso è modellato su "Reperibilità ICT".
+
+Input:
+- fisso 6.000,00 €;
+- massimale variabile 14.000,00 €;
+- stima di consumo del variabile 30%.
+
+Output atteso (valore contrattuale):
+
+| Livello | Importo |
+|---|---|
+| Fisso | 6.000,00 |
+| Probabile | 10.200,00 |
+| Massimo | 20.000,00 |
+
+Vincoli:
+- la stima di consumo deve essere compresa tra 0% e 100%;
+- il livello massimo non può mai essere inferiore al probabile.
+
+## TC-06 — Data limite di avvio e alert
+
+SPEC §5.1.
+
+Parametri:
+- lead time: affidamento diretto = 4 mesi, procedura negoziata = 9 mesi;
+- finestra 🟡 = 3 mesi.
+
+Base comune: data di fine 31/12/2026, decisione del fabbisogno `Rinnovare`.
+
+| # | Procedura | Oggi | Stato pratica | Successore | Data limite attesa | Alert atteso |
+|---|---|---|---|---|---|---|
+| a | diretto | 30/09/2026 | Non avviata | no | 31/08/2026 | 🟠 |
+| b | diretto | 15/06/2026 | Non avviata | no | 31/08/2026 | 🟡 |
+| c | diretto | 15/01/2026 | Non avviata | no | 31/08/2026 | 🟢 |
+| d | diretto | 30/09/2026 | RDA predisposta | no | 31/08/2026 | 🟡 (pratica avanzata oltre `Offerta richiesta`: resta 🟡 fino alla scadenza) |
+| e | diretto | 05/01/2027 | RDA predisposta | no | 31/08/2026 | 🔴 |
+| f | diretto | 05/01/2027 | — | sì, attivo dal 01/01/2027 | — | nessuno |
+| g | negoziata | 30/06/2026 | Non avviata | no | 31/03/2026 | 🟠 |
+
+La sottrazione dei mesi segue la logica di fine mese: 31/12 − 4 mesi = 31/08; 31/12 − 9 mesi = 31/03; 30/06 − 4 mesi = 28/02 (29/02 negli anni bisestili).
+
+Con decisione `Dismettere` l'alert non si calcola mai.
+
+Il caso (d) è una regola esplicita: una pratica avviata oltre la data limite non è 🟠 ma 🟡, perché qualcuno ci sta già lavorando.
+
+## TC-07 — Rinnovi previsti ricorsivi
+
+SPEC §5.3.
+
+Input:
+- fabbisogno con decisione `Rinnovare`;
+- contratto attivo dal 01/01/2026 al 31/12/2026, 10.000,00 € fissi, `Anticipata` annuale;
+- adeguamento 3%;
+- orizzonte al 31/12/2028;
+- nessuna stima manuale.
+
+Contratti previsti attesi:
+
+| # | Periodo | Importo | Rata (data fattura) |
+|---|---|---|---|
+| P1 | 01/01/2027–31/12/2027 | 10.300,00 | 01/01/2027 |
+| P2 | 01/01/2028–31/12/2028 | 10.609,00 | 01/01/2028 |
+
+Nessun P3 (fuori orizzonte).
+
+Varianti:
+- con stima manuale sul fabbisogno di 12.000,00 € → P1 = 12.000,00 e P2 = 12.360,00 (l'adeguamento parte dalla stima);
+- con decisione `Dismettere` → nessun contratto previsto;
+- se un contratto reale successore viene registrato, P1 e P2 vengono sostituiti e non si sommano al reale.
+
+Impegno (default: anno di inizio del servizio): 2027 = 10.300,00; 2028 = 10.609,00.
+
+## TC-08 — Normalizzazione in import
+
+SPEC §7.
+
+| Input grezzo | Campo | Atteso |
+|---|---|---|
+| `"﻿5800005402"` | numero OdA | `"5800005402"` |
+| `"﻿B8A520EED4"` | CIG | `"B8A520EED4"` |
+| `"n/a"`, `"N/A"`, `"n/d"`, `""`, `None` | qualsiasi campo codice | `NULL` |
+| `"  POSDATA S.r.l. "` | fornitore | `"POSDATA S.r.l."` (trim) |
+| `"B941B595B"` | CIG | valore conservato + anomalia `CIG_LUNGHEZZA` nel report |
+| `580006042` | numero OdA | valore conservato + anomalia `ODA_FORMATO` |
+| `62700` | conto COGE | valore conservato + anomalia `CONTO_SCONOSCIUTO` (non presente nel piano dei conti) |
+| data di attivazione vuota con durata valorizzata | contratto | importato con data `NULL`, anomalia `DATA_MANCANTE`, escluso dai calcoli di budget e segnalato |
+| due righe con stesso OdA e stesso CIG e stesso periodo | contratto | un solo contratto con due voci |
+| due righe con stesso OdA e stesso CIG ma periodi diversi | contratto | due contratti distinti + anomalia `ODA_RIUSATO` |
+
+L'import con `--dry-run` non scrive nulla sul database e produce lo stesso report. Rieseguire l'import sugli stessi file non crea duplicati: l'import è idempotente.
+
+Il file `tests/fixtures/contratti_it_sample.xlsx` riproduce tutte queste anomalie (nomi e importi falsi).
+
+## TC-09 — Autenticazione LDAP e ruoli
+
+SPEC §8.1. I test girano contro un server LDAP di test (OpenLDAP via `slapdtest` di python-ldap, oppure un mock), mai contro l'AD reale.
+
+| Utente di test | Gruppi | Atteso |
+|---|---|---|
+| `mrossi` | `GG_Contratti_Editor` | login ok; può creare e modificare |
+| `lbianchi` | `GG_Contratti_Reader` | login ok; sola lettura; 403 sulle viste di modifica |
+| `gverdi` | gruppo annidato dentro `GG_Contratti_Admin` | login ok; amministratore |
+| `nnessuno` | nessun gruppo applicativo | login rifiutato |
+| `mrossi` | password errata | login rifiutato + riga nel log |
+| LDAP non raggiungibile | — | messaggio d'errore generico, nessun dettaglio tecnico all'utente; l'account break-glass locale funziona |

@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: contratti
+          POSTGRES_PASSWORD: contratti
+          POSTGRES_DB: contratti
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U contratti"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://contratti:contratti@localhost:5432/contratti
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DJANGO_SECRET_KEY: ci-only-not-secret
+    steps:
+      - uses: actions/checkout@v4
+      - name: Progetto inizializzato?
+        id: check
+        run: |
+          if [ -f pyproject.toml ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "pyproject.toml assente: F0 non ancora fatta, salto."
+          fi
+      - name: Dipendenze di sistema (python-ldap, slapd per i test)
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libldap2-dev libsasl2-dev slapd ldap-utils
+      - uses: astral-sh/setup-uv@v6
+        if: steps.check.outputs.ready == 'true'
+      - name: Sync
+        if: steps.check.outputs.ready == 'true'
+        run: uv sync --frozen
+      - name: Lint
+        if: steps.check.outputs.ready == 'true'
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: Migration mancanti
+        if: steps.check.outputs.ready == 'true'
+        run: uv run python manage.py makemigrations --check --dry-run
+      - name: Test
+        if: steps.check.outputs.ready == 'true'
+        run: uv run pytest -q
