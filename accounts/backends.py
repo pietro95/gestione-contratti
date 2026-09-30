@@ -1,6 +1,7 @@
 """Backend di autenticazione: LDAP con ruoli dai gruppi AD e break-glass locale."""
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import Group
 from django_auth_ldap.backend import LDAPBackend
@@ -38,7 +39,7 @@ class RoleLDAPBackend(LDAPBackend):
         return highest_role(role for role in ROLES if groups.is_member_of(role_groups[role]))
 
     def get_or_build_user(self, username, ldap_user):
-        # Qui le credenziali sono già verificate e l'utente non è ancora creato.
+        # Qui le credenziali sono già verificate e l'utente Django non è ancora salvato.
         role = self.resolve_role(ldap_user)
         if role is None:
             set_failure_reason(ldap_user._request, LoginAttempt.Esito.NESSUN_GRUPPO)
@@ -70,8 +71,7 @@ def _apply_role(user, role):
 
 
 def _revoke_role(username):
-    model = LDAPBackend().get_user_model()
-    user = model.objects.filter(username__iexact=username, is_breakglass=False).first()
+    user = get_user_model().objects.filter(username__iexact=username, is_breakglass=False).first()
     if user is None:
         return
     user.groups.remove(*Group.objects.filter(name__in=ROLES))
