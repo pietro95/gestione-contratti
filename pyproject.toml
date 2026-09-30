@@ -1,0 +1,48 @@
+[project]
+name = "gestione-contratti"
+version = "0.1.0"
+description = "Registro contratti IT/TLC (Siciliacque): rinnovi, budget, piano ordini"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "django>=5.2,<5.3",
+    "django-environ>=0.12,<0.13",
+    "django-auth-ldap>=5.2,<6",
+    "python-ldap>=3.4.4,<4",
+    "psycopg[binary]>=3.2,<4",
+    "gunicorn>=23,<24",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3,<9",
+    "pytest-django>=4.11,<5",
+    "ruff>=0.13,<0.14",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["static/vendor"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "DJ", "S", "SIM", "C4"]
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "S107"]
+# I moduli dev/test/prod estendono base con import *, dopo aver impostato i default.
+"config/settings/*" = ["F403", "F405", "E402"]
+"**/migrations/*" = ["E501"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py"]
+testpaths = ["tests"]
+addopts = "--ds=config.settings.test --strict-markers -ra"
+markers = [
+    "ldap: test che richiedono slapd (server LDAP di test)",
+]

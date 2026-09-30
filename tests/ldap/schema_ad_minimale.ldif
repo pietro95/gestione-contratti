@@ -1,0 +1,15 @@
+# Schema minimo in stile Active Directory per i test (NON è lo schema AD completo).
+# Stessi OID Microsoft di sAMAccountName, user e group; basta per login e gruppi.
+dn: cn=ad_minimale,cn=schema,cn=config
+objectClass: olcSchemaConfig
+cn: ad_minimale
+olcAttributeTypes: ( 1.2.840.113556.1.4.221 NAME 'sAMAccountName'
+  DESC 'Nome di login stile AD'
+  EQUALITY caseIgnoreMatch SUBSTR caseIgnoreSubstringsMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15{256} SINGLE-VALUE )
+olcObjectClasses: ( 1.2.840.113556.1.5.9 NAME 'user'
+  DESC 'Utente stile AD'
+  SUP inetOrgPerson STRUCTURAL MUST sAMAccountName )
+olcObjectClasses: ( 1.2.840.113556.1.5.8 NAME 'group'
+  DESC 'Gruppo stile AD'
+  SUP top STRUCTURAL MUST cn MAY ( member $ sAMAccountName $ description ) )
