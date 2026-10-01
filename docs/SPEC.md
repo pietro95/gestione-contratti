@@ -1,12 +1,13 @@
 # Istruzioni di progetto — Registro contratti IT/TLC
 
-Rev03 — 01/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
+Rev04 — 01/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
 - Rev01 (30/09/2026): decisa la piattaforma (web app interna, autenticazione LDAP), aggiunti requisiti non funzionali (§8), casi di test in `docs/TEST_CASES.md`, regole per i dati nel repository.
 - Rev02 (01/10/2026): decisioni prese durante F0, F1 e la preparazione di F2. Modello dati (§4): proroghe esercitate multiple, previsti manuali sul fabbisogno, stato pratica, modalità `Da verificare`, stima di consumo, data OdA, impianti e progetti, piano dei conti inserito a mano. Regole di calcolo (§5): aritmetica dei mesi a fine mese, data di fine con proroghe, tacito rinnovo negli alert, cassa solo per data fattura, quota variabile, SAL e consumo, ultimo periodo corto, adeguamento, impegno, rinnovi previsti, CAPEX senza ammortamento. Autenticazione (§8.1). Nuovo caso TC-10, TC-03 allineato alla regola di pagamento.
 - Rev03 (01/10/2026): rinnovi previsti (§5.3): un solo contratto di partenza per fabbisogno; nei report di budget i previsti già conclusi prima dell'anno selezionato non entrano e il fabbisogno è segnalato come rinnovo mancante. Tolto l'adeguamento dal piano di fatturazione (§4, §5.2): non serve, gli importi anno per anno sono già fissati a contratto. Resta l'adeguamento parametrico dei rinnovi previsti (§5.3).
+- Rev04 (01/10/2026): quote per periodo sulla voce (§4, §5.2, §5.3): importi fissi diversi per sotto-periodi, tipicamente annuali, facoltativi. Nuovo caso TC-11.
 
 ## 1. Obiettivo
 
@@ -96,6 +97,7 @@ Struttura: una riga per ogni istanza contrattuale (ogni rinnovo = nuova riga), f
 - conto COGE e centro di costo/WBS; si conserva anche il codice conto come importato, se non è nel piano dei conti;
 - importo fisso (imponibile, IVA esclusa);
 - massimale variabile e stima di consumo del variabile, espressa **o** in percentuale (0–100) **o** in importo (non oltre il massimale), mai in entrambe le forme;
+- **quote per periodo** (facoltative): importi fissi diversi per sotto-periodi del servizio, tipicamente annuali (es. 10.000 il primo anno, 10.500 il secondo). Le quote devono essere contigue, coprire tutto il periodo di servizio della voce e sommare all'importo fisso; se non lo fanno si ignorano e l'anomalia è segnalata;
 - piano di fatturazione.
 
 **Piano di fatturazione** (per voce):
@@ -113,7 +115,8 @@ Regole di generazione:
 - se la durata non è un multiplo della periodicità, l'ultimo periodo è più corto e la sua rata è proporzionale ai giorni; le altre rate restano uguali tra loro;
 - `A SAL`: nessuna rata generata, le rate si inseriscono a mano;
 - `A consumo`: rate mensili posticipate;
-- `Da verificare`: nessuna rata; la cassa usa il pro-rata a giorni e lo segnala.
+- `Da verificare`: nessuna rata; la cassa usa il pro-rata a giorni e lo segnala;
+- con quote per periodo, ogni quota si fattura come una voce a sé con lo stesso piano (la prima fattura esplicita vale solo per la prima quota); la numerazione delle rate prosegue. La `Una tantum` resta una sola rata dell'intero fisso.
 
 **Stato pratica di rinnovo** (workflow): `Non avviata` → `Offerta richiesta` → `Offerta ricevuta` → `RDA predisposta` → `RDA approvata` → `OdA emesso` → `Contratto attivo`.
 - La pratica si lega al **contratto in scadenza**; per un fabbisogno nuovo, senza contratti, si lega al fabbisogno. Mai a entrambi.
@@ -160,7 +163,7 @@ Esempio: licenza triennale da 30 k€ con pagamento anticipato unico → impegno
 
 Regole di dettaglio:
 - **Impegno**: contratto reale nell'anno della data dell'OdA, o se manca nell'anno di inizio del servizio; voce di una proroga nell'anno della data dell'atto; contratto previsto nell'anno di inizio del servizio.
-- **Competenza**: il periodo di servizio di una voce è quello del contratto; per una voce di proroga va dal giorno dopo la data di fine precedente alla nuova data di fine. I contratti CAPEX seguono lo stesso pro-rata a giorni: l'ammortamento è fuori perimetro.
+- **Competenza**: il periodo di servizio di una voce è quello del contratto; con quote per periodo, il fisso si ripartisce a giorni quota per quota (TC-11), il variabile sull'intera voce; per una voce di proroga va dal giorno dopo la data di fine precedente alla nuova data di fine. I contratti CAPEX seguono lo stesso pro-rata a giorni: l'ammortamento è fuori perimetro.
 
 Ogni vista ha tre livelli:
 - **fisso**: somma delle quote fisse;
@@ -174,7 +177,7 @@ In cassa la quota variabile (stimata o massima) si distribuisce sulle date delle
 Per ogni fabbisogno con decisione `Rinnovare` o `Da valutare`, il cui contratto attivo scade entro l'orizzonte (default 3 anni), il sistema genera un **contratto previsto**:
 - inizio = giorno dopo la scadenza (data di fine effettiva, proroghe comprese);
 - stessa durata **originale** del contratto precedente (senza proroghe) e stesso piano di fatturazione;
-- importo: ogni voce del contratto precedente, escluse le voci delle proroghe, si replica con fisso e massimale × (1 + adeguamento parametrico valido alla data di inizio del previsto);
+- importo: ogni voce del contratto precedente, escluse le voci delle proroghe, si replica con fisso e massimale × (1 + adeguamento parametrico valido alla data di inizio del previsto). Le quote per periodo non si replicano: il previsto riparte dal fisso totale della voce;
 - se il fabbisogno ha una stima manuale, la stima sostituisce il fisso totale ed è ripartita tra le voci in proporzione al loro fisso; l'adeguamento dei previsti successivi parte dalla stima (TC-07).
 
 La generazione è ricorsiva: un annuale che scade nel 2027 genera un previsto 2027 e poi un previsto 2028.
