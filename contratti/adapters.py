@@ -46,26 +46,19 @@ def adeguamento_alla_data(data: datetime.date) -> Decimal:
 
 
 def piano_engine(piano: m.PianoFatturazione, alla_data: datetime.date) -> Piano:
-    """Piano con i default risolti: giorni di pagamento, fine mese, adeguamento."""
+    """Piano con i default risolti: giorni di pagamento e fine mese."""
     giorni_pagamento = piano.giorni_pagamento
     if giorni_pagamento is None:
         giorni_pagamento = int(parametro(Chiave.GIORNI_PAGAMENTO, alla_data))
     fine_mese = piano.pagamento_fine_mese
     if fine_mese is None:
         fine_mese = parametro(Chiave.PAGAMENTO_FINE_MESE, alla_data) == 1
-    adeguamento = Decimal(0)
-    if piano.adeguamento == m.PianoFatturazione.Adeguamento.PERCENTUALE:
-        adeguamento = piano.adeguamento_pct
-    elif piano.adeguamento == m.PianoFatturazione.Adeguamento.ISTAT:
-        # Senza l'indice reale si usa la percentuale del parametro (SPEC §5.2).
-        adeguamento = adeguamento_alla_data(alla_data)
     return Piano(
         modalita=Modalita(piano.modalita),
         periodicita=piano.periodicita,
         data_prima_fattura=piano.data_prima_fattura,
         giorni_pagamento=giorni_pagamento,
         pagamento_fine_mese=fine_mese,
-        adeguamento_pct=adeguamento,
     )
 
 

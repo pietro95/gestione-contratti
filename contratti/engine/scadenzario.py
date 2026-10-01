@@ -1,8 +1,7 @@
 """Generazione dello scadenzario rate (SPEC §4, regole di generazione).
 
 La rata contiene solo la quota fissa. Rate uguali per periodo con residuo sull'ultima;
-un ultimo periodo più corto pesa in proporzione ai suoi giorni. L'adeguamento annuo
-moltiplica le rate dei periodi che iniziano dopo ciascun anniversario.
+un ultimo periodo più corto pesa in proporzione ai suoi giorni.
 """
 
 import datetime
@@ -58,16 +57,6 @@ def periodi(inizio: datetime.date, fine: datetime.date, mesi: int | None) -> lis
     return risultato
 
 
-def fattore_adeguamento(voce_inizio: datetime.date, data: datetime.date, pct: Decimal) -> Decimal:
-    """(1 + pct)^k, con k = anniversari dell'inizio compiuti alla data."""
-    if not pct:
-        return Decimal(1)
-    k = 0
-    while aggiungi_mesi(voce_inizio, 12 * (k + 1)) <= data:
-        k += 1
-    return (Decimal(1) + pct / Decimal(100)) ** k
-
-
 def genera_rate(voce: Voce, importo: Decimal | None = None) -> list[Rata]:
     """Rate della quota fissa (o di ``importo``) secondo il piano della voce.
 
@@ -87,10 +76,7 @@ def genera_rate(voce: Voce, importo: Decimal | None = None) -> list[Rata]:
 
     mesi = mesi_periodo(piano, voce.inizio, voce.fine)
     elenco = periodi(voce.inizio, voce.fine, mesi)
-    pesi = [
-        p.peso * fattore_adeguamento(voce.inizio, p.inizio, piano.adeguamento_pct) for p in elenco
-    ]
-    importi = ripartisci(valore_adeguato(voce, totale), pesi)
+    importi = ripartisci(totale, [p.peso for p in elenco])
 
     posticipata = piano.modalita in (Modalita.POSTICIPATA, Modalita.CONSUMO)
     rate = []
@@ -103,39 +89,3 @@ def genera_rate(voce: Voce, importo: Decimal | None = None) -> list[Rata]:
             data = p.fine if posticipata else p.inizio
         rate.append(Rata(k + 1, data, data_pagamento(data, piano), quota, p.inizio, p.fine))
     return rate
-
-
-def adeguamento_effettivo(voce: Voce) -> Decimal:
-    """L'adeguamento non si applica a una fattura unica anticipata (una tantum)."""
-    if not voce.piano or voce.piano.modalita == Modalita.UNA_TANTUM:
-        return Decimal(0)
-    return voce.piano.adeguamento_pct
-
-
-def pesi_giornalieri(voce: Voce) -> tuple[list[tuple[datetime.date, datetime.date]], list[Decimal]]:
-    """Segmenti annuali dall'inizio della voce, con il peso giornaliero dell'adeguamento."""
-    pct = adeguamento_effettivo(voce)
-    segmenti, fattori = [], []
-    k = 0
-    while True:
-        s_inizio = aggiungi_mesi(voce.inizio, 12 * k) if k else voce.inizio
-        if s_inizio > voce.fine:
-            break
-        s_fine = min(aggiungi_mesi(voce.inizio, 12 * (k + 1)) - UN_GIORNO, voce.fine)
-        segmenti.append((s_inizio, s_fine))
-        fattori.append((Decimal(1) + pct / Decimal(100)) ** k if pct else Decimal(1))
-        k += 1
-    return segmenti, fattori
-
-
-def valore_adeguato(voce: Voce, importo: Decimal) -> Decimal:
-    """Valore della voce con l'adeguamento: ogni giorno vale importo/giorni × fattore."""
-    if not adeguamento_effettivo(voce):
-        return arrotonda(importo)
-    segmenti, fattori = pesi_giornalieri(voce)
-    totale_giorni = giorni(voce.inizio, voce.fine)
-    pesato = sum(
-        (Decimal(giorni(a, b)) * f for (a, b), f in zip(segmenti, fattori, strict=True)),
-        Decimal(0),
-    )
-    return arrotonda(importo * pesato / Decimal(totale_giorni))

@@ -6,7 +6,7 @@ Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
 - Rev01 (30/09/2026): decisa la piattaforma (web app interna, autenticazione LDAP), aggiunti requisiti non funzionali (§8), casi di test in `docs/TEST_CASES.md`, regole per i dati nel repository.
 - Rev02 (01/10/2026): decisioni prese durante F0, F1 e la preparazione di F2. Modello dati (§4): proroghe esercitate multiple, previsti manuali sul fabbisogno, stato pratica, modalità `Da verificare`, stima di consumo, data OdA, impianti e progetti, piano dei conti inserito a mano. Regole di calcolo (§5): aritmetica dei mesi a fine mese, data di fine con proroghe, tacito rinnovo negli alert, cassa solo per data fattura, quota variabile, SAL e consumo, ultimo periodo corto, adeguamento, impegno, rinnovi previsti, CAPEX senza ammortamento. Autenticazione (§8.1). Nuovo caso TC-10, TC-03 allineato alla regola di pagamento.
-- Rev03 (01/10/2026): rinnovi previsti (§5.3): un solo contratto di partenza per fabbisogno; nei report di budget i previsti già conclusi prima dell'anno selezionato non entrano e il fabbisogno è segnalato come rinnovo mancante.
+- Rev03 (01/10/2026): rinnovi previsti (§5.3): un solo contratto di partenza per fabbisogno; nei report di budget i previsti già conclusi prima dell'anno selezionato non entrano e il fabbisogno è segnalato come rinnovo mancante. Tolto l'adeguamento dal piano di fatturazione (§4, §5.2): non serve, gli importi anno per anno sono già fissati a contratto. Resta l'adeguamento parametrico dei rinnovi previsti (§5.3).
 
 ## 1. Obiettivo
 
@@ -103,7 +103,7 @@ Struttura: una riga per ogni istanza contrattuale (ogni rinnovo = nuova riga), f
 - periodicità: mensile, bimestrale, trimestrale, semestrale, annuale, intera durata (obbligatoria per anticipata e posticipata);
 - data della prima fattura (default: inizio se anticipata, fine del primo periodo se posticipata);
 - giorni di pagamento (default parametrico: 60 gg d.f.f.m.). La data di pagamento stimata è la **fine del mese di (data fattura + giorni di pagamento)**. È solo informativa: il budget non la usa (§5.2);
-- adeguamento: nessuno, ISTAT o percentuale fissa (§5.2).
+- nessun adeguamento sul piano: i contratti che prevedono importi diversi negli anni li fissano già a contratto, anno per anno.
 
 Da questi dati il sistema genera uno **scadenzario rate** (data fattura, data pagamento stimata, importo) modificabile riga per riga. Le rate effettivamente fatturate possono essere marcate come consuntivo. Una rata aggiunta o modificata a mano resta marcata come tale.
 
@@ -161,7 +161,6 @@ Esempio: licenza triennale da 30 k€ con pagamento anticipato unico → impegno
 Regole di dettaglio:
 - **Impegno**: contratto reale nell'anno della data dell'OdA, o se manca nell'anno di inizio del servizio; voce di una proroga nell'anno della data dell'atto; contratto previsto nell'anno di inizio del servizio.
 - **Competenza**: il periodo di servizio di una voce è quello del contratto; per una voce di proroga va dal giorno dopo la data di fine precedente alla nuova data di fine. I contratti CAPEX seguono lo stesso pro-rata a giorni: l'ammortamento è fuori perimetro.
-- **Adeguamento sul piano**: `Percentuale` si applica a ogni anniversario della data di inizio; `ISTAT`, in assenza dell'indice reale, usa la percentuale del parametro di adeguamento.
 
 Ogni vista ha tre livelli:
 - **fisso**: somma delle quote fisse;

@@ -286,8 +286,8 @@ def marca_rate_modificate(formset):
 
 @admin.register(m.PianoFatturazione)
 class PianoFatturazioneAdmin(BaseAdmin):
-    list_display = ("voce", "modalita", "periodicita", "data_prima_fattura", "adeguamento")
-    list_filter = ("modalita", "periodicita", "adeguamento")
+    list_display = ("voce", "modalita", "periodicita", "data_prima_fattura")
+    list_filter = ("modalita", "periodicita")
     search_fields = ("voce__descrizione", "voce__contratto__numero_oda")
     autocomplete_fields = ("voce",)
     inlines = [RataInline]

@@ -2,7 +2,7 @@
 
 from decimal import Decimal
 
-from contratti.engine.budget import calcola, valore
+from contratti.engine.budget import calcola
 from contratti.engine.scadenzario import genera_rate
 from contratti.engine.tipi import Livello, Rata
 
@@ -104,25 +104,6 @@ def test_rate_modificate_a_mano_prevalgono():
     viste, _ = calcola([v])
     assert viste["cassa"].importo(2026) == euro("1100.00")
     assert viste["impegno"].importo(2026) == euro("1000.00")
-
-
-def test_adeguamento_percentuale_ad_ogni_anniversario():
-    v = voce(
-        "3000.00",
-        D(2026, 1, 1),
-        D(2028, 12, 31),
-        piano=piano("anticipata", "annuale", adeguamento_pct=euro("10")),
-    )
-    rate = genera_rate(v)
-    # Valore: 1.000 × (1 + 1,1 + 1,21) pesato a giorni (365, 365, 366) → somma rate.
-    assert [r.importo for r in rate][1] > [r.importo for r in rate][0]
-    assert rate[2].importo > rate[1].importo
-    totale = sum(r.importo for r in rate)
-    assert totale == valore(v)
-    viste, _ = calcola([v])
-    assert viste["competenza"].totale() == totale
-    assert viste["impegno"].totale() == totale
-    assert viste["competenza"].importo(2028) > viste["competenza"].importo(2026)
 
 
 def test_data_pagamento_informativa_senza_fine_mese():

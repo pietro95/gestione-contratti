@@ -209,11 +209,6 @@ def test_altre_modalita_senza_periodicita(modalita):
     assert f.piano(modalita=modalita, periodicita="").pk
 
 
-def test_adeguamento_percentuale_richiede_pct():
-    violates(lambda: f.piano(adeguamento="percentuale"))
-    assert f.piano(adeguamento="percentuale", adeguamento_pct=Decimal("2.50")).pk
-
-
 def test_un_solo_piano_per_voce():
     v = f.voce()
     f.piano(v)

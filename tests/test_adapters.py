@@ -60,12 +60,6 @@ def test_piano_con_default_risolti():
     assert (piano.giorni_pagamento, piano.pagamento_fine_mese) == (30, False)
 
 
-def test_istat_usa_il_parametro_di_adeguamento():
-    m.Parametro.objects.create(chiave="adeguamento_pct", valore=E("2.5"), valido_dal=D(2026, 1, 1))
-    p = f.piano(adeguamento="istat")
-    assert adapters.piano_engine(p, D(2026, 6, 1)).adeguamento_pct == E("2.5")
-
-
 def test_tc10_dal_database():
     c = tc10_contratto()
     assert adapters.data_fine_effettiva(c) == D(2027, 3, 31)

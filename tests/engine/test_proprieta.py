@@ -27,13 +27,7 @@ def voci(draw):
     fine = inizio + datetime.timedelta(days=draw(st.integers(min_value=0, max_value=6 * 366)))
     massimale = draw(importi)
     pct = draw(st.one_of(st.none(), st.decimals(min_value=0, max_value=100, places=2)))
-    piano = Piano(
-        modalita=draw(modalita),
-        periodicita=draw(periodicita),
-        adeguamento_pct=draw(
-            st.sampled_from([Decimal("0"), Decimal("2.5"), Decimal("3"), Decimal("10")])
-        ),
-    )
+    piano = Piano(modalita=draw(modalita), periodicita=draw(periodicita))
     return Voce(
         importo_fisso=draw(importi),
         inizio=inizio,

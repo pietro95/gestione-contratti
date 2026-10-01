@@ -12,12 +12,12 @@ from decimal import Decimal
 
 from contratti.engine.date import giorni, periodi_per_anno
 from contratti.engine.importi import ZERO, arrotonda, ripartisci
-from contratti.engine.scadenzario import genera_rate, pesi_giornalieri, valore_adeguato
+from contratti.engine.scadenzario import genera_rate
 from contratti.engine.tipi import Esito, Livello, Rata, Totali, Voce
 
 
 def quota_variabile(voce: Voce, livello: Livello) -> Decimal:
-    """Parte variabile della voce al livello richiesto (prima dell'adeguamento)."""
+    """Parte variabile della voce al livello richiesto."""
     if livello == Livello.FISSO:
         return ZERO
     if livello == Livello.MASSIMO:
@@ -30,25 +30,12 @@ def quota_variabile(voce: Voce, livello: Livello) -> Decimal:
 
 
 def valore(voce: Voce, livello: Livello = Livello.FISSO) -> Decimal:
-    """Valore della voce al livello, adeguamento compreso (TC-05 senza adeguamento)."""
-    return valore_adeguato(voce, voce.importo_fisso) + valore_adeguato(
-        voce, quota_variabile(voce, livello)
-    )
+    """Valore della voce al livello (TC-05): fisso + variabile del livello."""
+    return arrotonda(voce.importo_fisso) + quota_variabile(voce, livello)
 
 
 def competenza_per_anno(voce: Voce, importo: Decimal) -> dict[int, Decimal]:
-    """Pro-rata a giorni (pesati dall'eventuale adeguamento); residuo sull'ultimo anno."""
-    segmenti, fattori = pesi_giornalieri(voce)
-    pesi_anno: dict[int, Decimal] = {}
-    for (a, b), fattore in zip(segmenti, fattori, strict=True):
-        for anno, n in periodi_per_anno(a, b).items():
-            pesi_anno[anno] = pesi_anno.get(anno, Decimal(0)) + Decimal(n) * fattore
-    anni = sorted(pesi_anno)
-    quote = ripartisci(valore_adeguato(voce, importo), [pesi_anno[a] for a in anni])
-    return dict(zip(anni, quote, strict=True))
-
-
-def _pro_rata_semplice(voce: Voce, importo: Decimal) -> dict[int, Decimal]:
+    """Pro-rata a giorni sul periodo di servizio; residuo sull'ultimo anno (TC-01)."""
     per_anno = periodi_per_anno(voce.inizio, voce.fine)
     anni = sorted(per_anno)
     return dict(zip(anni, ripartisci(importo, [per_anno[a] for a in anni]), strict=True))
@@ -66,7 +53,7 @@ def cassa_per_anno(voce: Voce, livello: Livello, esiti: list[Esito]) -> dict[int
     giorni, segnalato.
     """
     rate = rate_della_voce(voce)
-    variabile = valore_adeguato(voce, quota_variabile(voce, livello))
+    variabile = quota_variabile(voce, livello)
     risultato: dict[int, Decimal] = {}
 
     if not rate:
@@ -77,7 +64,7 @@ def cassa_per_anno(voce: Voce, livello: Livello, esiti: list[Esito]) -> dict[int
                 f"Cassa stimata a pro-rata: nessuna rata ({modalita or 'piano assente'}).",
             )
         )
-        return _pro_rata_semplice(voce, valore(voce, livello))
+        return competenza_per_anno(voce, valore(voce, livello))
 
     for rata in rate:
         risultato[rata.data_fattura.year] = (

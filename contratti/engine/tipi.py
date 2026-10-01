@@ -48,8 +48,6 @@ class Piano:
     data_prima_fattura: datetime.date | None = None
     giorni_pagamento: int = 60
     pagamento_fine_mese: bool = True
-    # Adeguamento annuo (%) applicato a ogni anniversario dell'inizio; 0 = nessuno.
-    adeguamento_pct: Decimal = Decimal("0")
 
 
 @dataclass(frozen=True)

@@ -111,7 +111,7 @@ class Soglia(ConfigurazioneProvvisoria):
 
 
 class Parametro(ConfigurazioneProvvisoria):
-    """Parametro numerico con validità temporale: giorni di pagamento, adeguamento, ecc."""
+    """Parametro numerico con validità temporale (giorni di pagamento, adeguamento dei previsti)."""
 
     class Chiave(models.TextChoices):
         GIORNI_PAGAMENTO = "giorni_pagamento", "giorni di pagamento di default"
@@ -609,11 +609,6 @@ class VoceContratto(Archiviabile):
 class PianoFatturazione(models.Model):
     """Come e quando si fattura una voce; da qui si genera lo scadenzario (F2)."""
 
-    class Adeguamento(models.TextChoices):
-        NESSUNO = "nessuno", "Nessuno"
-        ISTAT = "istat", "ISTAT"
-        PERCENTUALE = "percentuale", "Percentuale fissa"
-
     voce = models.OneToOneField(
         VoceContratto, on_delete=models.PROTECT, related_name="piano_fatturazione"
     )
@@ -632,10 +627,6 @@ class PianoFatturazione(models.Model):
     pagamento_fine_mese = models.BooleanField(
         null=True, blank=True, help_text="Vuoto: parametro di default."
     )
-    adeguamento = models.CharField(
-        max_length=20, choices=Adeguamento.choices, default=Adeguamento.NESSUNO
-    )
-    adeguamento_pct = percentuale("adeguamento (%)", null=True, blank=True)
     note = models.TextField(blank=True)
     history = HistoricalRecords()
 
@@ -647,10 +638,6 @@ class PianoFatturazione(models.Model):
             models.CheckConstraint(
                 condition=~Q(modalita__in=["anticipata", "posticipata"]) | ~Q(periodicita=""),
                 name="contratti_piano_periodicita_se_a_rate",
-            ),
-            models.CheckConstraint(
-                condition=~Q(adeguamento="percentuale") | Q(adeguamento_pct__isnull=False),
-                name="contratti_piano_pct_se_adeguamento_percentuale",
             ),
         ]
 
