@@ -1,3 +1,5 @@
+from django.conf import settings
+
 from accounts.roles import can_write, role_of
 
 
@@ -6,3 +8,7 @@ def ruolo(request):
     if user is None or not user.is_authenticated:
         return {}
     return {"ruolo": role_of(user), "puo_modificare": can_write(user)}
+
+
+def versione(request):
+    return {"versione_app": settings.APP_VERSION}

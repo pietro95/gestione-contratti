@@ -57,6 +57,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "accounts.context_processors.ruolo",
+                "accounts.context_processors.versione",
             ],
         },
     },
@@ -97,6 +98,9 @@ CSRF_COOKIE_HTTPONLY = True
 LANGUAGE_CODE = "it"
 LANGUAGES = [("it", "Italiano")]
 TIME_ZONE = env("APP_TIME_ZONE", default="Europe/Rome")
+
+# Versione installata (tag git), impostata da deploy/deploy.sh; mostrata nel piè di pagina.
+APP_VERSION = env("APP_VERSION", default="sviluppo")
 USE_I18N = True
 USE_TZ = True
 USE_THOUSAND_SEPARATOR = True

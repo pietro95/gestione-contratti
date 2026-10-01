@@ -46,6 +46,9 @@
     {% endfor %}
     {% block content %}{% endblock %}
   </main>
+  <footer class="container small text-body-secondary border-top py-2 mb-3 d-print-none">
+    Registro contratti IT/TLC — versione {{ versione_app }}
+  </footer>
   <script src="{% static 'vendor/bootstrap-5.3.8/bootstrap.bundle.min.js' %}"></script>
   <script src="{% static 'vendor/htmx-2.0.11/htmx.min.js' %}"></script>
 </body>
