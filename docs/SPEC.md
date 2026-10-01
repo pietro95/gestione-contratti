@@ -5,7 +5,7 @@ Rev02 — 01/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
 - Rev01 (30/09/2026): decisa la piattaforma (web app interna, autenticazione LDAP), aggiunti requisiti non funzionali (§8), casi di test in `docs/TEST_CASES.md`, regole per i dati nel repository.
-- Rev02 (01/10/2026): decisioni prese durante F0, F1 e la preparazione di F2. Modello dati (§4): proroghe esercitate multiple, previsti manuali sul fabbisogno, stato pratica, modalità `Da verificare`, stima di consumo, data OdA, impianti e progetti, piano dei conti inserito a mano. Regole di calcolo (§5): data di fine con proroghe, tacito rinnovo negli alert, cassa solo per data fattura, quota variabile, SAL e consumo, ultimo periodo corto, adeguamento, impegno, rinnovi previsti, CAPEX senza ammortamento. Autenticazione (§8.1). Nuovo caso TC-10, TC-03 allineato alla regola di pagamento.
+- Rev02 (01/10/2026): decisioni prese durante F0, F1 e la preparazione di F2. Modello dati (§4): proroghe esercitate multiple, previsti manuali sul fabbisogno, stato pratica, modalità `Da verificare`, stima di consumo, data OdA, impianti e progetti, piano dei conti inserito a mano. Regole di calcolo (§5): aritmetica dei mesi a fine mese, data di fine con proroghe, tacito rinnovo negli alert, cassa solo per data fattura, quota variabile, SAL e consumo, ultimo periodo corto, adeguamento, impegno, rinnovi previsti, CAPEX senza ammortamento. Autenticazione (§8.1). Nuovo caso TC-10, TC-03 allineato alla regola di pagamento.
 
 ## 1. Obiettivo
 
@@ -133,6 +133,7 @@ Nessun dato di dominio si cancella fisicamente: si archivia, e la storia delle m
 
 ### 5.1 Scadenze e alert
 
+- **Aritmetica dei mesi** (addizione e sottrazione, ovunque nel calcolo): una data di fine mese resta a fine mese; le altre date mantengono il giorno, ridotto all'ultimo giorno del mese se questo è più corto. Esempi: 30/11 − 3 mesi = 31/08; 31/12 − 4 mesi = 31/08; 30/06 − 4 mesi = 28/02 (29/02 negli anni bisestili); 30/09 + 3 mesi = 31/12; 15/03 − 1 mese = 15/02; 31/05 − 3 mesi = 28/02.
 - `data_fine = data_inizio + durata − 1 giorno`, salvo override.
 - Con proroghe esercitate, la **data di fine effettiva** è la nuova data di fine più lontana tra le proroghe. Data limite, data ultima di disdetta e alert si calcolano sulla data di fine effettiva (TC-10).
 - `data_limite_avvio = data_fine − lead_time(procedura)`. Il lead time si può sovrascrivere sul singolo contratto. Sostituisce il valore fisso di 6 mesi.

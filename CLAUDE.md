@@ -51,7 +51,7 @@ deploy/            docker-compose.prod.yml, proxy, script di deploy e backup
 1. **Nessun dato reale nel repository.** Si usano solo `tests/fixtures/*.xlsx`, che sono anonimizzati. Non creare fixture con nomi di fornitori reali, CIG reali o importi reali.
 2. **Nessun segreto nel codice o nei commit.** La configurazione arriva da variabili d'ambiente; va documentata in `.env.example`.
 3. **Soldi in `Decimal`**, `DecimalField(max_digits=14, decimal_places=2)`. Mai `float`, nemmeno nei calcoli intermedi. Arrotondamento `ROUND_HALF_UP` al centesimo, residuo sull'ultima rata o sull'ultimo anno. I totali ripartiti devono quadrare al centesimo con il valore del contratto.
-4. **Date `datetime.date`**, estremi inclusi. Sottrazione e addizione di mesi con logica di fine mese (`dateutil.relativedelta`).
+4. **Date `datetime.date`**, estremi inclusi. Sottrazione e addizione di mesi con logica di fine mese (SPEC §5.1): una data di fine mese resta a fine mese (30/11 − 3 mesi = 31/08). `dateutil.relativedelta` da solo non basta (darebbe 30/08): va corretto per le date di fine mese.
 5. **Il motore di calcolo (`contratti/engine/`) è puro.** Funzioni e dataclass senza ORM né I/O. Gli adapter convertono i modelli in input del motore. Ogni regola della SPEC §5 ha test unitari che usano i valori di `docs/TEST_CASES.md`.
 6. **Valori derivati mai salvati come dato:** data di fine, data limite, alert, contratti previsti. Si calcolano. Unica eccezione: le rate dello scadenzario, che si generano e poi si possono modificare a mano. In quel caso va tracciato che la rata è stata modificata manualmente.
 7. **Soglie, lead time, adeguamenti e giorni di pagamento** sono tabelle di configurazione con valori iniziali caricati da una data migration. Mai costanti nel codice.

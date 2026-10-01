@@ -132,7 +132,7 @@ Base comune: data di fine 31/12/2026, decisione del fabbisogno `Rinnovare`.
 | f | diretto | 05/01/2027 | — | sì, attivo dal 01/01/2027 | — | nessuno |
 | g | negoziata | 30/06/2026 | Non avviata | no | 31/03/2026 | 🟠 |
 
-La sottrazione dei mesi segue la logica di fine mese: 31/12 − 4 mesi = 31/08; 31/12 − 9 mesi = 31/03; 30/06 − 4 mesi = 28/02 (29/02 negli anni bisestili).
+La sottrazione dei mesi segue la logica di fine mese (SPEC §5.1): una data di fine mese resta a fine mese. 31/12 − 4 mesi = 31/08; 31/12 − 9 mesi = 31/03; 30/06 − 4 mesi = 28/02 (29/02 negli anni bisestili); 30/11 − 3 mesi = 31/08.
 
 Con decisione `Dismettere` l'alert non si calcola mai.
 
@@ -229,7 +229,7 @@ Output atteso:
 
 Alert con decisione `Rinnovare` e pratica `Non avviata`, senza successore:
 - oggi 15/12/2026 → 🟠 (oltre la data limite);
-- oggi 15/07/2026 → 🟢 (inizio della finestra gialla: 30/11/2026 − 3 mesi = 30/08/2026, non ancora raggiunto);
+- oggi 15/07/2026 → 🟢 (inizio della finestra gialla: 30/11/2026 − 3 mesi = 31/08/2026, fine mese su fine mese, non ancora raggiunto);
 - oggi 15/04/2027 → 🔴.
 
 Il rinnovo previsto (TC-07) parte il 01/04/2027 con la durata originale di 12 mesi e la sola voce base (12.000,00 × (1 + adeguamento)); le voci di proroga non si replicano.
