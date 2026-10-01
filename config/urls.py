@@ -8,5 +8,6 @@ urlpatterns = [
     path("healthz", accounts_views.healthz, name="healthz"),
     path("accounts/", include("accounts.urls")),
     path("", include("contratti.urls")),
+    path("report/", include("reports.urls")),
     path("admin/", admin.site.urls),
 ]

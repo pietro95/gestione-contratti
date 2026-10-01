@@ -24,6 +24,7 @@ COLONNE = {
     "massimo": ("corrispettivo massimo",),
     "data": ("data di attivazione",),
     "mesi": ("mesi contratto",),
+    "scadenza": ("data di scadenza",),
     "stato": ("stato",),
     "note": ("note",),
 }
@@ -124,7 +125,9 @@ def _leggi_foglio_contratti(ws) -> list[RigaGrezza]:
         primo = n.testo(riga[0].value)
         if primo and primo.lower() == "totale":
             break
-        utili = {k: v for k, v in valori.items() if k not in ("stato", "note", "massimo")}
+        utili = {
+            k: v for k, v in valori.items() if k not in ("stato", "note", "massimo", "scadenza")
+        }
         if all(n.testo(v) is None for v in utili.values()):
             continue
         massimo = valori.get("massimo")
