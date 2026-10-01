@@ -1,48 +1,54 @@
 {% extends "base.html" %}
 {% load registro %}
-{% block title %}Piano ordini {{ piano.anno }}{% endblock %}
+{% block title %}Piano ordini {{ form.anno.value }}{% endblock %}
+{% block titolo_pagina %}Piano ordini {{ form.anno.value }}{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">Al {{ oggi|date:"d/m/Y" }} · contratti previsti con avvio del servizio nell'anno · importi imponibili sull'intera durata</div>{% endblock %}
+{% block azioni %}{% include "reports/_azioni.html" %}{% endblock %}
 {% block content %}
-<h1 class="h4">Piano ordini {{ piano.anno|stringformat:"s" }} <small class="text-body-secondary">al {{ oggi|date:"d/m/Y" }} — importi imponibili (IVA esclusa)</small></h1>
 {% include "reports/_filtri.html" %}
 {% if piano %}
-<p class="text-body-secondary small">Contratti previsti con avvio del servizio nel {{ piano.anno|stringformat:"s" }}, ordinati per data limite di avvio. Importi sull'intera durata.
-{% for s in piano.soglie %}Soglia: {{ s.descrizione }} = {{ s.importo|euro }}{% if s.provvisorio %} (provvisoria){% endif %}. {% endfor %}</p>
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Ordini da emettere</div><div class="kpi-valore">{{ piano.righe|length }}</div><div class="kpi-nota">contratti previsti nell'anno</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi verde"><div class="card-body"><div class="kpi-etichetta">Valore probabile</div><div class="kpi-valore">{{ totali.probabile|euro }}</div><div class="kpi-nota">fisso {{ totali.fisso|euro }}</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">Valore massimo</div><div class="kpi-valore">{{ totali.massimo|euro }}</div><div class="kpi-nota">base per le soglie</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi {% if piano.avvisi %}arancione{% else %}verde{% endif %}"><div class="card-body"><div class="kpi-etichetta">Possibile frazionamento</div><div class="kpi-valore">{{ piano.avvisi|length }}</div><div class="kpi-nota">{% for s in piano.soglie %}soglia {{ s.importo|euro }}{% if s.provvisorio %} (provvisoria){% endif %}{% endfor %}</div></div></div></div>
+</div>
 
 {% if piano.avvisi %}
 <div class="alert alert-warning">
-  <strong>Possibile frazionamento</strong>: gruppi di previsti che, sommati al livello massimo, raggiungono la soglia. Valutare l'accorpamento.
-  <ul class="mb-0">{% for a in piano.avvisi %}<li>{{ a.tipo|capfirst }} <strong>{{ a.nome }}</strong>: {{ a.righe|length }} previsti, totale {{ a.totale_massimo|euro }} ≥ {{ a.soglia.importo|euro }} ({% for r in a.righe %}{{ r.fabbisogno.descrizione }}{% if not forloop.last %}; {% endif %}{% endfor %})</li>{% endfor %}</ul>
+  <p class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Possibile frazionamento</p>
+  <p class="small mb-2">Gruppi di previsti che, sommati al livello massimo, raggiungono la soglia: valutare l'accorpamento.</p>
+  <ul class="mb-0 small">{% for a in piano.avvisi %}<li>{{ a.tipo|capfirst }} <strong>{{ a.nome }}</strong>: {{ a.righe|length }} previsti, totale {{ a.totale_massimo|euro }} ≥ {{ a.soglia.importo|euro }} ({% for r in a.righe %}{{ r.fabbisogno.descrizione }}{% if not forloop.last %}; {% endif %}{% endfor %})</li>{% endfor %}</ul>
 </div>
 {% endif %}
 
-<div class="table-responsive">
-<table class="table table-sm table-hover align-middle" id="piano">
-  <thead class="table-light">
-    <tr><th>Fabbisogno</th><th>Categoria</th><th>Fornitore uscente</th><th>Procedura presunta</th><th>Data limite</th><th>Avvio servizio</th><th>Durata</th><th>Pratica</th>{% for liv in livelli %}<th class="text-end text-capitalize">{{ liv.value }}</th>{% endfor %}</tr>
+<div class="tabella-card"><div class="table-responsive">
+<table class="table table-hover align-middle" id="piano">
+  <thead>
+    <tr><th>Fabbisogno</th><th>Fornitore uscente</th><th>Procedura</th><th>Data limite</th><th>Avvio</th><th>Durata</th><th>Pratica</th>{% for liv in livelli %}<th class="text-end text-capitalize">{{ liv.value }}</th>{% endfor %}</tr>
   </thead>
   <tbody>
-  {% for r in piano.righe %}
-    <tr>
-      <td><a href="{% url 'contratti:fabbisogno' r.fabbisogno.pk %}">{{ r.fabbisogno.descrizione }}</a> <span class="text-body-secondary small">{{ r.fabbisogno.area }}</span>{% if not r.contratto_uscente %} <span class="badge text-bg-info">nuovo</span>{% endif %}{% for s in r.sopra_soglia %} <span class="badge text-bg-danger" title="{{ s }}">oltre soglia</span>{% endfor %}</td>
-      <td>{{ r.categoria }}</td>
+  {% for r in piano.righe %}{% url 'contratti:fabbisogno' r.fabbisogno.pk as link %}
+    <tr data-href="{{ link }}">
+      <td style="min-width: 16rem"><a href="{{ link }}" class="fw-semibold">{{ r.fabbisogno.descrizione }}</a>
+        <div class="small text-body-secondary">{{ r.fabbisogno.area }} · {{ r.categoria }}{% if not r.contratto_uscente %} · <span class="stato stato-blu">nuovo</span>{% endif %}{% for s in r.sopra_soglia %} <span class="stato stato-rosso" title="{{ s }}">oltre soglia</span>{% endfor %}</div></td>
       <td>{{ r.fornitore_uscente|default:"—" }}</td>
-      <td>{{ r.procedura|default:"—" }} <span class="text-body-secondary small">{{ r.lead_time_mesi }} mesi</span></td>
-      <td>{{ r.data_limite|date:"d/m/Y" }}</td>
-      <td>{{ r.avvio|date:"d/m/Y" }}</td>
-      <td>{{ r.durata_mesi }} mesi</td>
+      <td class="text-nowrap">{{ r.procedura|default:"—" }}<div class="small text-body-secondary">{{ r.lead_time_mesi }} mesi di lead time</div></td>
+      <td class="text-nowrap">{{ r.data_limite|date:"d/m/Y" }}</td>
+      <td class="text-nowrap">{{ r.avvio|date:"d/m/Y" }}</td>
+      <td class="text-nowrap">{{ r.durata_mesi }} mesi</td>
       <td>{{ r.stato_pratica_label }}</td>
       <td class="text-end">{{ r.importi.fisso|euro }}</td>
       <td class="text-end">{{ r.importi.probabile|euro }}</td>
       <td class="text-end">{{ r.importi.massimo|euro }}</td>
     </tr>
   {% empty %}
-    <tr><td colspan="11" class="text-body-secondary">Nessun contratto previsto con avvio nell'anno.</td></tr>
+    <tr><td colspan="10"><div class="vuoto py-4">Nessun contratto previsto con avvio nell'anno.</div></td></tr>
   {% endfor %}
   </tbody>
-  <tfoot class="table-light fw-semibold">
-    <tr><td colspan="8">Totale ({{ piano.righe|length }} previsti)</td><td class="text-end">{{ totali.fisso|euro }}</td><td class="text-end">{{ totali.probabile|euro }}</td><td class="text-end">{{ totali.massimo|euro }}</td></tr>
+  <tfoot class="fw-semibold">
+    <tr><td colspan="7">Totale ({{ piano.righe|length }} previsti)</td><td class="text-end">{{ totali.fisso|euro }}</td><td class="text-end">{{ totali.probabile|euro }}</td><td class="text-end">{{ totali.massimo|euro }}</td></tr>
   </tfoot>
-</table>
-</div>
+</table></div></div>
 {% endif %}
 {% endblock %}

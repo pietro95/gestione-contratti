@@ -47,6 +47,8 @@ def budget(request):
         "livelli": LIVELLI,
         "gruppi": gruppi,
         "totale_celle": _celle(totali, livello),
+        "n_avvisi": len(b.rinnovi_mancanti) + len(b.avvisi) + (1 if b.senza_data else 0),
+        "kpi": [(ETICHETTE_VISTE[v], *[totali[p][v][livello] for p in PARTI]) for v in VISTE],
         "criterio": RAGGRUPPAMENTI[criterio],
         "livello": livello,
     }
