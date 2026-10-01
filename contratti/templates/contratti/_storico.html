@@ -1,6 +1,6 @@
-<h2 class="h5 mt-4">Storico modifiche</h2>
 {% if storico %}
-<table class="table table-sm small">
+<div class="tabella-card"><div class="table-responsive">
+<table class="table table-sm align-top">
   <thead><tr><th>Data</th><th>Utente</th><th>Operazione</th><th>Modifiche</th></tr></thead>
   <tbody>
   {% for h in storico %}
@@ -12,5 +12,5 @@
     </tr>
   {% endfor %}
   </tbody>
-</table>
-{% else %}<p class="text-body-secondary">Nessuna modifica registrata.</p>{% endif %}
+</table></div></div>
+{% else %}<p class="text-body-secondary mb-0">Nessuna modifica registrata.</p>{% endif %}

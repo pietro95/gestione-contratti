@@ -1,28 +1,27 @@
 {% extends "base.html" %}
 {% load registro %}
-{% block title %}{{ f }}{% endblock %}
+{% block title %}{{ f.ragione_sociale }}{% endblock %}
+{% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'contratti:fornitori' %}">Fornitori</a></li><li class="breadcrumb-item active" aria-current="page">{{ f.ragione_sociale }}</li></ol></nav>{% endblock %}
+{% block titolo_pagina %}{{ f.ragione_sociale }}{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">{% if f.archiviato %}<span class="stato stato-grigio">archiviato</span> {% endif %}P.IVA {{ f.partita_iva|default:"—" }} · codice SAP {{ f.codice_sap|default:"—" }}</div>{% endblock %}
+{% block azioni %}
+{% if puo_modificare %}
+  <a class="btn btn-outline-primary" href="{% url 'contratti:fornitore_modifica' f.pk %}"><i class="bi bi-pencil" aria-hidden="true"></i> Modifica</a>
+  <a class="btn btn-outline-danger" href="{% url 'contratti:archivia' 'fornitore' f.pk %}"><i class="bi bi-archive" aria-hidden="true"></i> {% if f.archiviato %}Ripristina{% else %}Archivia{% endif %}</a>
+{% endif %}
+{% endblock %}
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-  <div>
-    <h1 class="h4 mb-1">{{ f.ragione_sociale }} {% if f.archiviato %}<span class="badge text-bg-light">archiviato</span>{% endif %}</h1>
-    <div class="text-body-secondary">P.IVA {{ f.partita_iva|default:"—" }} · codice SAP {{ f.codice_sap|default:"—" }}</div>
-  </div>
-  {% if puo_modificare %}
-  <div class="d-flex gap-2">
-    <a class="btn btn-sm btn-outline-primary" href="{% url 'contratti:fornitore_modifica' f.pk %}">Modifica</a>
-    <a class="btn btn-sm btn-outline-danger" href="{% url 'contratti:archivia' 'fornitore' f.pk %}">{% if f.archiviato %}Ripristina{% else %}Archivia{% endif %}</a>
-  </div>
-  {% endif %}
-</div>
-{% if stesso_codice %}<div class="alert alert-warning small">Lo stesso codice SAP è usato anche da: {% for x in stesso_codice %}<a href="{% url 'contratti:fornitore' x.pk %}">{{ x }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}. Da verificare.</div>{% endif %}
-{% if f.note %}<p class="small">{{ f.note|linebreaksbr }}</p>{% endif %}
-<h2 class="h5">Contratti</h2>
-<table class="table table-sm">
+{% if stesso_codice %}<div class="alert alert-warning"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Lo stesso codice SAP è usato anche da: {% for x in stesso_codice %}<a href="{% url 'contratti:fornitore' x.pk %}">{{ x }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}. Da verificare.</div>{% endif %}
+{% if f.note %}<div class="card mb-4"><div class="card-body">{{ f.note|linebreaksbr }}</div></div>{% endif %}
+<h2 class="sezione-titolo">Contratti <span class="badge rounded-pill text-bg-light">{{ contratti|length }}</span></h2>
+<div class="tabella-card mb-4"><div class="table-responsive">
+<table class="table table-hover align-middle">
   <thead><tr><th>Fabbisogno</th><th>OdA</th><th>Inizio</th><th>Fine</th><th>Stato</th><th>Alert</th></tr></thead>
   <tbody>
-  {% for r in contratti %}<tr><td><a href="{% url 'contratti:contratto' r.contratto.pk %}">{{ r.contratto.fabbisogno.descrizione }}</a></td><td>{{ r.contratto.numero_oda|default:"—" }}</td><td>{{ r.contratto.data_inizio|date:"d/m/Y"|default:"—" }}</td><td>{{ r.fine|date:"d/m/Y"|default:"—" }}</td><td>{{ r.stato|stato_badge }}</td><td>{{ r.alert|alert_badge }}</td></tr>
-  {% empty %}<tr><td colspan="6" class="text-body-secondary">Nessun contratto.</td></tr>{% endfor %}
+  {% for r in contratti %}{% url 'contratti:contratto' r.contratto.pk as link %}<tr data-href="{{ link }}"><td><a href="{{ link }}">{{ r.contratto.fabbisogno.descrizione }}</a></td><td>{{ r.contratto.numero_oda|default:"—" }}</td><td class="text-nowrap">{{ r.contratto.data_inizio|date:"d/m/Y"|default:"—" }}</td><td class="text-nowrap">{{ r.fine|date:"d/m/Y"|default:"—" }}</td><td>{{ r.stato|stato_badge }}</td><td>{{ r.alert|alert_badge }}</td></tr>
+  {% empty %}<tr><td colspan="6"><div class="vuoto py-4">Nessun contratto.</div></td></tr>{% endfor %}
   </tbody>
-</table>
+</table></div></div>
+<h2 class="sezione-titolo">Storico modifiche</h2>
 {% include "contratti/_storico.html" %}
 {% endblock %}
