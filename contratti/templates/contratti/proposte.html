@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Proposte dell'import{% endblock %}
+{% block content %}
+<h1 class="h4">Proposte dell'import da valutare</h1>
+<p class="text-body-secondary">L'import non collega nulla da solo. Conferma prima i raggruppamenti (stesso fabbisogno), poi le coppie predecessore → successore.</p>
+<h2 class="h5 mt-3">Raggruppamenti <span class="badge text-bg-light">{{ raggruppamenti|length }}</span></h2>
+<table class="table table-sm align-middle">
+  <thead><tr><th>Proposta</th><th>Contratti</th><th></th></tr></thead>
+  <tbody>
+  {% for p in raggruppamenti %}
+    <tr><td>{{ p.motivazione }}</td>
+      <td class="small">{% for c in p.contratti.all %}<div><a href="{% url 'contratti:contratto' c.pk %}">{{ c.numero_oda|default:c.pk }}</a> dal {{ c.data_inizio|date:"d/m/Y"|default:"—" }}</div>{% endfor %}</td>
+      <td class="text-nowrap">{% if puo_modificare %}{% include "contratti/_azioni_proposta.html" with tipo="raggruppamento" %}{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="3" class="text-body-secondary">Nessuna proposta.</td></tr>{% endfor %}
+  </tbody>
+</table>
+<h2 class="h5 mt-3">Catene dei rinnovi <span class="badge text-bg-light">{{ predecessori|length }}</span></h2>
+<table class="table table-sm align-middle">
+  <thead><tr><th>Proposta</th><th>Predecessore → successore</th><th></th></tr></thead>
+  <tbody>
+  {% for p in predecessori %}
+    <tr><td>{{ p.motivazione }}</td>
+      <td class="small"><a href="{% url 'contratti:contratto' p.predecessore.pk %}">{{ p.predecessore.numero_oda|default:p.predecessore.pk }}</a> → <a href="{% url 'contratti:contratto' p.successore.pk %}">{{ p.successore.numero_oda|default:p.successore.pk }}</a></td>
+      <td class="text-nowrap">{% if puo_modificare %}{% include "contratti/_azioni_proposta.html" with tipo="predecessore" %}{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="3" class="text-body-secondary">Nessuna proposta.</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% endblock %}

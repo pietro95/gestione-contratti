@@ -4,5 +4,10 @@
 <p class="text-body-secondary">
   Ruolo: <strong>{{ ruolo|default:"nessuno" }}</strong>{% if puo_modificare %} (lettura e scrittura){% else %} (sola lettura){% endif %}.
 </p>
-<p>Le funzioni del registro arriveranno nelle prossime fasi.</p>
+<div class="d-flex flex-wrap gap-2">
+  <a class="btn btn-primary" href="{% url 'contratti:cruscotto' %}">Cruscotto degli alert</a>
+  <a class="btn btn-outline-primary" href="{% url 'contratti:contratti' %}">Contratti</a>
+  <a class="btn btn-outline-primary" href="{% url 'contratti:fabbisogni' %}">Fabbisogni</a>
+  <a class="btn btn-outline-primary" href="{% url 'contratti:fornitori' %}">Fornitori</a>
+</div>
 {% endblock %}

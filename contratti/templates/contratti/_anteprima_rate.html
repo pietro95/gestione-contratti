@@ -1,0 +1,8 @@
+{% load registro %}
+{% if errore %}<div class="alert alert-warning">{{ errore }}</div>
+{% elif rate %}
+<h2 class="h6">Anteprima: {{ rate|length }} rate, totale {{ totale|euro }}</h2>
+<table class="table table-sm"><thead><tr><th>#</th><th>Data fattura</th><th>Pagamento stimato</th><th class="text-end">Importo</th></tr></thead><tbody>
+{% for r in rate %}<tr><td>{{ r.numero }}</td><td>{{ r.data_fattura|date:"d/m/Y" }}</td><td>{{ r.data_pagamento|date:"d/m/Y" }}</td><td class="text-end">{{ r.importo|euro }}</td></tr>{% endfor %}
+</tbody></table>
+{% else %}<div class="alert alert-info">Nessuna rata da generare per questa modalità (SAL o da verificare).</div>{% endif %}

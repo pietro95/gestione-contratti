@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load registro %}
+{% block title %}Registra rinnovo{% endblock %}
+{% block content %}
+<h1 class="h4">Registra rinnovo di {{ predecessore }}</h1>
+<p class="text-body-secondary">Il contratto attuale finisce il {{ fine|date:"d/m/Y"|default:"—" }}. Il nuovo contratto avrà lo stesso fabbisogno e il contratto attuale come predecessore; le voci riportano il piano di fatturazione. Correggi importi, riferimenti e date.</p>
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "contratti/_campi.html" with form=form %}
+  <h2 class="h5">Voci</h2>
+  {{ formset.management_form }}
+  {% if formset.non_form_errors %}<div class="alert alert-danger">{{ formset.non_form_errors }}</div>{% endif %}
+  <table class="table table-sm align-middle">
+    <thead><tr><th>Riporta</th><th>Descrizione</th><th>Importo fisso</th><th>Massimale variabile</th></tr></thead>
+    <tbody>
+    {% for f in formset %}
+      <tr>
+        <td>{{ f.origine }}{{ f.riporta }}</td>
+        <td>{{ f.descrizione }}{% for e in f.descrizione.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td>
+        <td>{{ f.importo_fisso }}{% for e in f.importo_fisso.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td>
+        <td>{{ f.massimale_variabile }}</td>
+      </tr>
+    {% empty %}<tr><td colspan="4" class="text-body-secondary">Nessuna voce da riportare: aggiungile dopo il salvataggio.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  <button type="submit" class="btn btn-primary">Registra rinnovo</button>
+  <a class="btn btn-link" href="{% url 'contratti:contratto' predecessore.pk %}">Annulla</a>
+</form>
+{% endblock %}

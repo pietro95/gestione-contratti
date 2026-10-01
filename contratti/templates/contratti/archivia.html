@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h4">{% if oggetto.archiviato %}Ripristina{% else %}Archivia{% endif %}: {{ oggetto }}</h1>
+<p>{% if oggetto.archiviato %}L'elemento tornerà visibile negli elenchi e nei calcoli.{% else %}L'elemento non viene cancellato: esce dagli elenchi e dai calcoli e si può ripristinare.{% endif %}</p>
+<form method="post">
+  {% csrf_token %}
+  {% if oggetto.archiviato %}<input type="hidden" name="ripristina" value="1">{% endif %}
+  <button class="btn btn-{% if oggetto.archiviato %}primary{% else %}danger{% endif %}" type="submit">Conferma</button>
+  <a class="btn btn-link" href="{{ ritorno }}">Annulla</a>
+</form>
+{% endblock %}

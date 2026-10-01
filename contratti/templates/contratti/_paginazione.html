@@ -1,0 +1,8 @@
+{% load registro %}
+{% if pagina.paginator.num_pages > 1 %}
+<nav aria-label="Pagine"><ul class="pagination pagination-sm">
+  {% if pagina.has_previous %}<li class="page-item"><a class="page-link" href="?{% query_con pagina=pagina.previous_page_number %}">«</a></li>{% endif %}
+  <li class="page-item disabled"><span class="page-link">Pagina {{ pagina.number }} di {{ pagina.paginator.num_pages }}</span></li>
+  {% if pagina.has_next %}<li class="page-item"><a class="page-link" href="?{% query_con pagina=pagina.next_page_number %}">»</a></li>{% endif %}
+</ul></nav>
+{% endif %}

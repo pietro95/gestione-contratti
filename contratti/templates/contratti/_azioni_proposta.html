@@ -1,0 +1,2 @@
+<form method="post" action="{% url 'contratti:proposta_azione' tipo p.pk 'conferma' %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-success" type="submit">Conferma</button></form>
+<form method="post" action="{% url 'contratti:proposta_azione' tipo p.pk 'scarta' %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-outline-secondary" type="submit">Scarta</button></form>

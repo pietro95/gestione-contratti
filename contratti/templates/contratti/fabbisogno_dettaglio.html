@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load registro %}
+{% block title %}{{ f }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">{{ f.descrizione }} {% if f.archiviato %}<span class="badge text-bg-light">archiviato</span>{% endif %}</h1>
+    <div class="text-body-secondary">{{ f.area }} · {{ f.categoria }}{% if f.impianto %} · {{ f.impianto }}{% endif %} · decisione: <strong>{{ f.get_decisione_display }}</strong>{% if f.referente %} · referente {{ f.referente }}{% endif %}</div>
+  </div>
+  {% if puo_modificare %}
+  <div class="d-flex gap-2">
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'contratti:fabbisogno_modifica' f.pk %}">Modifica</a>
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'contratti:contratto_nuovo' %}?fabbisogno={{ f.pk }}">Nuovo contratto</a>
+    <a class="btn btn-sm btn-outline-danger" href="{% url 'contratti:archivia' 'fabbisogno' f.pk %}">{% if f.archiviato %}Ripristina{% else %}Archivia{% endif %}</a>
+  </div>
+  {% endif %}
+</div>
+{% if f.stima_prossimo_importo %}<p>Stima del prossimo importo: {{ f.stima_prossimo_importo|euro }}</p>{% endif %}
+{% if f.note %}<p class="small">{{ f.note|linebreaksbr }}</p>{% endif %}
+
+<h2 class="h5 mt-3">Contratti</h2>
+<table class="table table-sm">
+  <thead><tr><th>Contratto</th><th>Fornitore</th><th>Inizio</th><th>Fine</th><th>Stato</th><th>Alert</th></tr></thead>
+  <tbody>
+  {% for r in contratti %}
+    <tr><td><a href="{% url 'contratti:contratto' r.contratto.pk %}">{{ r.contratto.numero_oda|default:r.contratto.cig|default:r.contratto.pk }}</a>{% if r.contratto.archiviato %} <span class="badge text-bg-light">archiviato</span>{% endif %}</td><td>{{ r.contratto.fornitore }}</td><td>{{ r.contratto.data_inizio|date:"d/m/Y"|default:"—" }}</td><td>{{ r.fine|date:"d/m/Y"|default:"—" }}</td><td>{{ r.stato|stato_badge }}</td><td>{{ r.alert|alert_badge }}</td></tr>
+  {% empty %}<tr><td colspan="6" class="text-body-secondary">Nessun contratto.</td></tr>{% endfor %}
+  </tbody>
+</table>
+
+<h2 class="h5 mt-3">Contratti previsti <small class="text-body-secondary">(calcolati, non salvati)</small></h2>
+<table class="table table-sm">
+  <thead><tr><th>#</th><th>Periodo</th><th class="text-end">Importo fisso</th></tr></thead>
+  <tbody>
+  {% for p, totale in previsti %}<tr><td>P{{ p.numero }}</td><td>{{ p.inizio|date:"d/m/Y" }}–{{ p.fine|date:"d/m/Y" }}</td><td class="text-end">{{ totale|euro }}</td></tr>
+  {% empty %}<tr><td colspan="3" class="text-body-secondary">Nessun contratto previsto nell'orizzonte.</td></tr>{% endfor %}
+  </tbody>
+</table>
+
+{% if not contratti %}{% include "contratti/_pratica.html" with tipo_pratica="fabbisogno" oggetto_pratica=f %}{% endif %}
+{% include "contratti/_storico.html" %}
+{% endblock %}

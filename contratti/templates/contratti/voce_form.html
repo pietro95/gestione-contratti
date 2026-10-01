@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Voce di contratto{% endblock %}
+{% block content %}
+<h1 class="h4">{% if voce %}Modifica voce{% else %}Nuova voce{% endif %} — {{ c }}</h1>
+<form method="post" novalidate id="voce-form">
+  {% csrf_token %}
+  <h2 class="h6 mt-3">Voce</h2>
+  {% include "contratti/_campi.html" with form=form %}
+  <h2 class="h6">Piano di fatturazione</h2>
+  {% include "contratti/_campi.html" with form=piano_form %}
+  <h2 class="h6">Quote per periodo (facoltative, per importi diversi anno per anno)</h2>
+  {{ quote.management_form }}
+  {% if quote.non_form_errors %}<div class="alert alert-danger">{{ quote.non_form_errors }}</div>{% endif %}
+  <table class="table table-sm"><thead><tr><th>Dal</th><th>Al</th><th>Importo</th></tr></thead><tbody>
+  {% for q in quote %}<tr><td>{{ q.id }}{{ q.dal }}</td><td>{{ q.al }}</td><td>{{ q.importo }}{% for e in q.non_field_errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td></tr>{% endfor %}
+  </tbody></table>
+  <div class="d-flex gap-2 mb-3">
+    <button type="button" class="btn btn-outline-secondary"
+            hx-post="{% if voce %}{% url 'contratti:voce_anteprima_esistente' c.pk voce.pk %}{% else %}{% url 'contratti:voce_anteprima' c.pk %}{% endif %}"
+            hx-include="#voce-form" hx-target="#anteprima">Anteprima scadenzario</button>
+    <button type="submit" class="btn btn-primary">Salva</button>
+    <a class="btn btn-link" href="{% url 'contratti:contratto' c.pk %}">Annulla</a>
+  </div>
+  <div id="anteprima"></div>
+</form>
+{% endblock %}

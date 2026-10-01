@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ titolo }}{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">{{ titolo }}</h1>
+{% if nota %}<p class="text-body-secondary">{{ nota }}</p>{% endif %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "contratti/_campi.html" with form=form %}
+  <button type="submit" class="btn btn-primary">Salva</button>
+  {% if annulla %}<a class="btn btn-link" href="{{ annulla.get_absolute_url }}">Annulla</a>{% endif %}
+</form>
+{% endblock %}
