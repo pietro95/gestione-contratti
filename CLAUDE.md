@@ -16,9 +16,11 @@ Se la SPEC è ambigua o in conflitto con la richiesta, fermati e chiedi. Non sce
 
 - Python 3.12, Django 5.2 LTS, PostgreSQL 16.
 - Template Django + HTMX + Bootstrap 5. Le risorse statiche vanno in `static/vendor/`, senza CDN: l'app gira in rete interna. Niente framework SPA.
+- Interfaccia (F7): Bootstrap Icons, Tom Select (tendine con ricerca), flatpickr (calendario), font Maven Pro; tema in `static/css/app.css`, comportamenti in `static/js/app.js`. Identità: `static/img/logo/`, `docs/design/`.
+- File statici serviti dall'app con `whitenoise` (dietro Nginx Proxy Manager), raccolti nell'immagine Docker.
 - `django-auth-ldap` (Active Directory), `django-simple-history`, `openpyxl`, `django-environ`.
-- Test: `pytest`, `pytest-django`. Lint e format: `ruff`. Dipendenze con `uv`, lock file `uv.lock` versionato.
-- Produzione: Docker Compose (gunicorn + postgres + reverse proxy) su una VM interna. Deploy manuale.
+- Test: `pytest`, `pytest-django`, `playwright` (test nel browser in `tests/e2e`, con axe-core per l'accessibilità). Lint e format: `ruff`. Dipendenze con `uv`, lock file `uv.lock` versionato.
+- Produzione: Docker Compose (gunicorn + postgres + backup) sul server Docker aziendale, tutto in `/appdata/gestione-contratti`, dietro il Nginx Proxy Manager esistente. Deploy manuale con `deploy/deploy.sh <tag>` (`docs/RUNBOOK.md`).
 
 ## Comandi
 
@@ -29,7 +31,12 @@ uv run pytest                             # tutti i test
 uv run python manage.py migrate
 uv run python manage.py runserver
 uv run python manage.py import_excel <file.xlsx> --area IT --dry-run
+uv run python manage.py import_conti <piano_conti.csv> --dry-run
+uv run python manage.py quadratura_excel <file.xlsx> --area IT
+uv run pytest tests/e2e                   # solo i test nel browser (Chromium di Playwright)
 ```
+
+Sul server di produzione gli stessi comandi passano da `deploy/manage.sh` (es. `deploy/manage.sh import_excel /import/<file> --area IT`).
 
 Nelle sessioni cloud PostgreSQL è installato ma spento. Lo avvia `scripts/cloud_session_start.sh` (hook SessionStart); se non è attivo: `service postgresql start`.
 

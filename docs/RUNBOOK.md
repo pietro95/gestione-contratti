@@ -103,11 +103,51 @@ Modifica `config/.env` (`nano config/.env`). Valori da impostare:
 | `LDAP_GROUP_ADMIN/EDITOR/READER` | i DN dei gruppi AD dei ruoli |
 | `BACKUP_ORA`, `BACKUP_GIORNI` | ora del dump giornaliero e giorni di conservazione |
 
-Certificato della CA interna (serve per LDAPS):
+### 3.1 Certificato della CA interna e verifica di LDAPS
 
-```bash
-cp <PERCORSO>/ca-interna.pem /appdata/gestione-contratti/config/certs/ca-interna.pem
-```
+L'app si fida dei domain controller tramite il certificato **pubblico** della CA aziendale
+(AD CS): `config/certs/ca-interna.pem`. Nessuna chiave privata.
+
+1. **Esporta la CA**, da un server o PC Windows del dominio:
+   - sul server CA: `certutil -ca.cert ca-interna.cer`;
+   - oppure `certlm.msc` → Autorità di certificazione radice attendibili → la CA → Esporta →
+     *Codificato Base-64 X.509 (.cer)*.
+
+   Se i certificati sono emessi da una CA **subordinata**, servono entrambe: radice e
+   subordinata nello stesso file.
+2. **Sul server Docker**:
+   ```bash
+   # Base-64: basta copiarlo; binario (DER): va convertito
+   openssl x509 -inform der -in ca-interna.cer -out ca-interna.pem 2>/dev/null || cp ca-interna.cer ca-interna.pem
+   # con una subordinata: cat radice.pem subordinata.pem > ca-interna.pem
+   cp ca-interna.pem /appdata/gestione-contratti/config/certs/ca-interna.pem
+   ```
+3. **Verifica ogni DC** che metterai in `LDAP_SERVER_URI`, con il nome DNS completo, mai l'IP:
+   ```bash
+   openssl s_client -connect <dc01.dominio>:636 -CAfile ca-interna.pem \
+     -verify_hostname <dc01.dominio> -verify_return_error </dev/null 2>/dev/null | grep "Verify return code"
+   ```
+   L'esito deve essere `Verify return code: 0 (ok)`. Gli altri casi:
+
+   | Codice | Significato e rimedio |
+   |---|---|
+   | `20`, `21` | catena incompleta: manca la CA subordinata nel file |
+   | `62` | il nome usato non è nel certificato del DC: usa il nome DNS completo |
+   | `66` (`EE certificate key too weak`) | il certificato del DC ha una chiave < 2048 bit. Ubuntu e il container la rifiutano: va riemesso, vedi sotto |
+
+   **Riemettere il certificato dei DC con chiave a 2048 bit** (sulla CA):
+   1. `certtmpl.msc`: duplica il modello *Kerberos Authentication* (o *Domain Controller
+      Authentication*) e imposta:
+      - in *Crittografia*, dimensione minima 2048;
+      - in *Modelli sostituiti*, i modelli vecchi;
+      - in *Sicurezza*, Domain Controllers con Registrazione e Registrazione automatica.
+   2. `certsrv.msc` → Modelli di certificato → Nuovo → Modello di certificato da emettere.
+   3. Su ogni DC: `certutil -pulse`, poi verifica in `certlm.msc` → Personale.
+   4. Il DC usa il nuovo certificato dopo il riavvio, oppure subito con
+      `renewServerCertificate`:
+      - apri `ldp.exe` → Modify, DN vuoto;
+      - attributo `renewServerCertificate`, valore `1`, Add.
+   5. Ripeti la verifica del punto 3.
 
 ## 4. Primo avvio
 
@@ -215,6 +255,28 @@ I comandi applicativi si lanciano con `deploy/manage.sh`, che li esegue nel cont
 ```bash
 cd /appdata/gestione-contratti/app/deploy
 ```
+
+### 6.0 Avvio temporaneo senza Active Directory
+
+Se LDAPS non è ancora pronto (§3.1), l'app parte con gli account locali:
+1. Lascia `LDAP_SERVER_URI=` vuota nel `.env`. All'avvio compare l'avviso `accounts.W001`:
+   è atteso.
+2. Crea il tuo account amministratore:
+   ```bash
+   ./manage.sh createsuperuser
+   ```
+3. Da Amministrazione → Utenti crea gli account dei colleghi:
+   - **nome utente identico a quello di dominio** (il sAMAccountName, in minuscolo, es. `pverro`);
+   - il gruppo **Admin**, **Editor** o **Reader**.
+4. Quando LDAPS è pronto:
+   1. imposta `LDAP_SERVER_URI=ldaps://<dc>:636` e le altre variabili `LDAP_*`;
+   2. riavvia: `source comune.sh && compose restart web`;
+   3. crea l'account di emergenza (§6, punto 1).
+
+   Da quel momento si entra solo con le credenziali di dominio. Ogni account locale con lo
+   stesso nome diventa l'utente di dominio, con il suo storico; il ruolo viene dai gruppi AD
+   e la password locale non vale più. Gli account locali con nomi diversi non entrano più:
+   disattivali da Amministrazione → Utenti (togli *Attivo*).
 
 1. **Account di emergenza (break-glass)**: l'unico accesso locale ammesso con LDAP attivo. La
    password si digita, non passa da variabili; custodiscila come da procedura aziendale.
