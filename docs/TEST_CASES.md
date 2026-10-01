@@ -2,6 +2,8 @@
 
 Ogni caso descrive: input, output atteso, regola della SPEC che verifica.
 
+Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10.
+
 I valori sono stati calcolati a mano e verificati con uno script indipendente. **Se un test non passa, l'errore è nel codice, non nel caso.** Un caso si modifica solo con l'approvazione di Pietro e insieme a una nuova revisione della SPEC.
 
 Convenzioni valide per tutti i casi:
@@ -56,28 +58,28 @@ SPEC §4 (Piano di fatturazione) e §5.2.
 Input:
 - canone fisso 24.000,00 € su 24 mesi, dal 01/07/2026 al 30/06/2028;
 - fatturazione `Posticipata`, trimestrale, rate uguali;
-- giorni di pagamento: 60 (data fattura + 60 giorni di calendario).
+- giorni di pagamento: 60 d.f.f.m. (data di pagamento = fine del mese di data fattura + 60 giorni). La data di pagamento è informativa e non entra nel budget (SPEC §5.2).
 
 Scadenzario atteso (8 rate da 3.000,00):
 
 | # | Data fattura | Data pagamento stimata |
 |---|---|---|
-| 1 | 30/09/2026 | 29/11/2026 |
-| 2 | 31/12/2026 | 01/03/2027 |
-| 3 | 31/03/2027 | 30/05/2027 |
-| 4 | 30/06/2027 | 29/08/2027 |
-| 5 | 30/09/2027 | 29/11/2027 |
+| 1 | 30/09/2026 | 30/11/2026 |
+| 2 | 31/12/2026 | 31/03/2027 |
+| 3 | 31/03/2027 | 31/05/2027 |
+| 4 | 30/06/2027 | 31/08/2027 |
+| 5 | 30/09/2027 | 30/11/2027 |
 | 6 | 31/12/2027 | 29/02/2028 |
-| 7 | 31/03/2028 | 30/05/2028 |
-| 8 | 30/06/2028 | 29/08/2028 |
+| 7 | 31/03/2028 | 31/05/2028 |
+| 8 | 30/06/2028 | 31/08/2028 |
 
 Aggregati attesi:
 
-| Anno | Cassa per data fattura | Cassa per data pagamento | Competenza |
-|---|---|---|---|
-| 2026 | 6.000,00 | 3.000,00 | 6.041,04 (184 gg) |
-| 2027 | 12.000,00 | 12.000,00 | 11.983,58 (365 gg) |
-| 2028 | 6.000,00 | 9.000,00 | 5.975,38 (182 gg) |
+| Anno | Cassa (data fattura) | Competenza |
+|---|---|---|
+| 2026 | 6.000,00 | 6.041,04 (184 gg) |
+| 2027 | 12.000,00 | 11.983,58 (365 gg) |
+| 2028 | 6.000,00 | 5.975,38 (182 gg) |
 
 ## TC-04 — Anticipato annuale su tre anni
 
@@ -130,7 +132,7 @@ Base comune: data di fine 31/12/2026, decisione del fabbisogno `Rinnovare`.
 | f | diretto | 05/01/2027 | — | sì, attivo dal 01/01/2027 | — | nessuno |
 | g | negoziata | 30/06/2026 | Non avviata | no | 31/03/2026 | 🟠 |
 
-La sottrazione dei mesi segue la logica di fine mese: 31/12 − 4 mesi = 31/08; 31/12 − 9 mesi = 31/03; 30/06 − 4 mesi = 28/02 (29/02 negli anni bisestili).
+La sottrazione dei mesi segue la logica di fine mese (SPEC §5.1): una data di fine mese resta a fine mese. 31/12 − 4 mesi = 31/08; 31/12 − 9 mesi = 31/03; 30/06 − 4 mesi = 28/02 (29/02 negli anni bisestili); 30/11 − 3 mesi = 31/08.
 
 Con decisione `Dismettere` l'alert non si calcola mai.
 
@@ -196,3 +198,38 @@ SPEC §8.1. I test girano contro un server LDAP di test (OpenLDAP via `slapdtest
 | `nnessuno` | nessun gruppo applicativo | login rifiutato |
 | `mrossi` | password errata | login rifiutato + riga nel log |
 | LDAP non raggiungibile | — | messaggio d'errore generico, nessun dettaglio tecnico all'utente; l'account break-glass locale funziona |
+
+## TC-10 — Proroghe esercitate più volte
+
+SPEC §4 (Proroga), §5.1 (data di fine effettiva), §5.2 (impegno e competenza delle voci di proroga).
+
+Parametri: lead time affidamento diretto = 4 mesi.
+
+Input:
+- contratto in affidamento diretto, OdA emesso il 15/03/2025, dal 01/04/2025, 12 mesi (data di fine 31/03/2026);
+- voce base: fisso 12.000,00 €, `Anticipata` annuale;
+- proroga 1: atto del 10/02/2026, nuova data di fine 30/09/2026; voce di proroga 6.000,00 €, `Una tantum`, anticipata;
+- proroga 2: atto del 01/09/2026, nuova data di fine 31/03/2027; voce di proroga 6.300,00 €, `Una tantum`, anticipata.
+
+Date attese:
+- data di fine effettiva: 31/03/2027 (la più lontana tra le proroghe);
+- data limite di avvio: 30/11/2026 (31/03/2027 − 4 mesi);
+- periodo di servizio della voce di proroga 1: 01/04/2026–30/09/2026 (183 gg); della proroga 2: 01/10/2026–31/03/2027 (182 gg).
+
+Scadenzario atteso (data fattura): voce base 01/04/2025 = 12.000,00; proroga 1 01/04/2026 = 6.000,00; proroga 2 01/10/2026 = 6.300,00.
+
+Output atteso:
+
+| Anno | Impegno | Cassa (data fattura) | Competenza |
+|---|---|---|---|
+| 2025 | 12.000,00 | 12.000,00 | 9.041,10 (voce base, 275 gg) |
+| 2026 | 12.300,00 | 12.300,00 | 12.143,52 (base 2.958,90 su 90 gg + proroga 1 6.000,00 + proroga 2 3.184,62 su 92 gg) |
+| 2027 | 0,00 | 0,00 | 3.115,38 (proroga 2, 90 gg) |
+| **Totale** | 24.300,00 | 24.300,00 | 24.300,00 |
+
+Alert con decisione `Rinnovare` e pratica `Non avviata`, senza successore:
+- oggi 15/12/2026 → 🟠 (oltre la data limite);
+- oggi 15/07/2026 → 🟢 (inizio della finestra gialla: 30/11/2026 − 3 mesi = 31/08/2026, fine mese su fine mese, non ancora raggiunto);
+- oggi 15/04/2027 → 🔴.
+
+Il rinnovo previsto (TC-07) parte il 01/04/2027 con la durata originale di 12 mesi e la sola voce base (12.000,00 × (1 + adeguamento)); le voci di proroga non si replicano.

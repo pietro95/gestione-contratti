@@ -1,10 +1,11 @@
 # Istruzioni di progetto — Registro contratti IT/TLC
 
-Rev01 — 30/09/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
+Rev02 — 01/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
 - Rev01 (30/09/2026): decisa la piattaforma (web app interna, autenticazione LDAP), aggiunti requisiti non funzionali (§8), casi di test in `docs/TEST_CASES.md`, regole per i dati nel repository.
+- Rev02 (01/10/2026): decisioni prese durante F0, F1 e la preparazione di F2. Modello dati (§4): proroghe esercitate multiple, previsti manuali sul fabbisogno, stato pratica, modalità `Da verificare`, stima di consumo, data OdA, impianti e progetti, piano dei conti inserito a mano. Regole di calcolo (§5): aritmetica dei mesi a fine mese, data di fine con proroghe, tacito rinnovo negli alert, cassa solo per data fattura, quota variabile, SAL e consumo, ultimo periodo corto, adeguamento, impegno, rinnovi previsti, CAPEX senza ammortamento. Autenticazione (§8.1). Nuovo caso TC-10, TC-03 allineato alla regola di pagamento.
 
 ## 1. Obiettivo
 
@@ -56,53 +57,87 @@ Struttura: una riga per ogni istanza contrattuale (ogni rinnovo = nuova riga), f
 ## 4. Modello dati (logico)
 
 **Fornitore**: ragione sociale, P.IVA, codice SAP, note.
+- La P.IVA è facoltativa e, se presente, univoca.
+- Il codice SAP non è univoco: nei file attuali lo stesso codice è assegnato a più fornitori (§2.2). Il sistema lo ammette e lo segnala.
 
 **Fabbisogno** (servizio ricorrente):
 - descrizione, area (IT/TLC), categoria (licenze SW, manutenzione HW, connettività, servizi professionali, noleggio, ecc.);
-- referente;
+  - l'area è un elenco fisso (IT, TLC);
+  - la categoria è una tabella di configurazione, modificabile dall'amministrazione;
+- impianto (facoltativo, da tabella; es. un dissalatore);
+- referente: testo libero, più un collegamento facoltativo all'utente dell'applicazione;
 - decisione di continuità: `Rinnovare` / `Da valutare` / `Sostituire` / `Dismettere`;
-- stima del prossimo importo e note.
+- stima del prossimo importo e note;
+- **previsto manuale** (solo per un fabbisogno nuovo, senza contratti): data di avvio prevista, durata, procedura presunta, modalità e periodicità di fatturazione previste. Sono dati decisi e si salvano; il contratto previsto che ne deriva si calcola (§5.3). Avvio e durata vanno indicati insieme.
 
 **Contratto** (istanza):
-- chiave: fabbisogno, contratto predecessore;
-- riferimenti: fornitore, n. OdA SAP, n. RDA, CIG;
-- procedura (affidamento diretto, MEPA/ODA, RDO, negoziata, aperta, adesione a convenzione/AQ);
-- date: data stipula, data inizio, durata in mesi (la data di fine si calcola, con override ammesso);
-- rinnovo: opzione di rinnovo/proroga prevista (sì/no, mesi, importo), tacito rinnovo con termine di disdetta in giorni;
-- classificazione: finanziamento (ordinario / finanziato + progetto/WBS), natura (OPEX/CAPEX);
+- chiave: fabbisogno, contratto predecessore (dello stesso fabbisogno; un contratto ha al massimo un successore);
+- riferimenti: fornitore, n. OdA SAP, data di emissione dell'OdA, n. RDA, CIG. I codici si conservano come arrivano; le anomalie di formato vanno nel report d'import (§7);
+- procedura (affidamento diretto, MEPA/ODA, RDO, negoziata, aperta, adesione a convenzione/AQ), con override del lead time sul singolo contratto;
+- date: data stipula, data inizio, durata in mesi (la data di fine si calcola, con override ammesso). La data di inizio può mancare solo nei dati importati: il contratto resta escluso dai calcoli e segnalato (TC-08);
+- opzioni di rinnovo/proroga previste e non ancora esercitate: zero o più, ciascuna con tipo (rinnovo o proroga), mesi e importo;
+- proroghe esercitate: zero o più (vedi **Proroga**);
+- tacito rinnovo con termine di disdetta in giorni (obbligatorio se c'è tacito rinnovo);
+- classificazione: finanziamento (ordinario / finanziato), con progetto obbligatorio se e solo se finanziato; natura (OPEX/CAPEX);
 - documenti: link al protocollo o a SharePoint, senza caricare file.
+
+**Proroga** (0..n per contratto): proroga effettivamente esercitata, anche più volte sullo stesso contratto.
+- data dell'atto, nuova data di fine, riferimento (protocollo, OdA integrativo o atto aggiuntivo), note;
+- l'eventuale importo aggiuntivo non sta sulla proroga ma in una o più **voci di contratto** collegate alla proroga, ciascuna con il proprio piano di fatturazione. Una proroga senza importo è ammessa.
+
+**Progetto** (tabella): codice WBS e descrizione, per i contratti finanziati.
+
+**Impianto** (tabella): nome e note.
 
 **Voce di contratto** (1..n per contratto):
 - descrizione;
-- conto COGE e centro di costo/WBS;
+- proroga di riferimento, se la voce è l'importo di una proroga;
+- conto COGE e centro di costo/WBS; si conserva anche il codice conto come importato, se non è nel piano dei conti;
 - importo fisso (imponibile, IVA esclusa);
-- massimale variabile e stima di consumo variabile (%, o importo);
+- massimale variabile e stima di consumo del variabile, espressa **o** in percentuale (0–100) **o** in importo (non oltre il massimale), mai in entrambe le forme;
 - piano di fatturazione.
 
 **Piano di fatturazione** (per voce):
-- modalità: `Anticipata` / `Posticipata` / `Una tantum` / `A SAL` / `A consumo`;
-- periodicità: mensile, bimestrale, trimestrale, semestrale, annuale, intera durata;
+- modalità: `Anticipata` / `Posticipata` / `Una tantum` / `A SAL` / `A consumo` / `Da verificare` (solo per la migrazione, §7.6);
+- periodicità: mensile, bimestrale, trimestrale, semestrale, annuale, intera durata (obbligatoria per anticipata e posticipata);
 - data della prima fattura (default: inizio se anticipata, fine del primo periodo se posticipata);
-- giorni di pagamento (default parametrico, es. 60 gg d.f.f.m.);
-- adeguamento ISTAT o indicizzazione, se previsto.
+- giorni di pagamento (default parametrico: 60 gg d.f.f.m.). La data di pagamento stimata è la **fine del mese di (data fattura + giorni di pagamento)**. È solo informativa: il budget non la usa (§5.2);
+- adeguamento: nessuno, ISTAT o percentuale fissa (§5.2).
 
-Da questi dati il sistema genera uno **scadenzario rate** (data fattura, data pagamento stimata, importo) modificabile riga per riga. Le rate effettivamente fatturate possono essere marcate come consuntivo.
+Da questi dati il sistema genera uno **scadenzario rate** (data fattura, data pagamento stimata, importo) modificabile riga per riga. Le rate effettivamente fatturate possono essere marcate come consuntivo. Una rata aggiunta o modificata a mano resta marcata come tale.
 
-**Stato pratica di rinnovo** (workflow, sul fabbisogno o sul contratto successore): `Non avviata` → `Offerta richiesta` → `Offerta ricevuta` → `RDA predisposta` → `RDA approvata` → `OdA emesso` → `Contratto attivo`.
+Regole di generazione:
+- la rata contiene **solo la quota fissa**; la quota variabile non si salva sulle rate e la ripartisce il motore (§5.2, livelli);
+- rate uguali per periodo, con il residuo dell'arrotondamento sull'ultima;
+- se la durata non è un multiplo della periodicità, l'ultimo periodo è più corto e la sua rata è proporzionale ai giorni; le altre rate restano uguali tra loro;
+- `A SAL`: nessuna rata generata, le rate si inseriscono a mano;
+- `A consumo`: rate mensili posticipate;
+- `Da verificare`: nessuna rata; la cassa usa il pro-rata a giorni e lo segnala.
+
+**Stato pratica di rinnovo** (workflow): `Non avviata` → `Offerta richiesta` → `Offerta ricevuta` → `RDA predisposta` → `RDA approvata` → `OdA emesso` → `Contratto attivo`.
+- La pratica si lega al **contratto in scadenza**; per un fabbisogno nuovo, senza contratti, si lega al fabbisogno. Mai a entrambi.
+- Si conserva lo storico dei passaggi (stato, data, utente, note). Lo stato corrente è l'ultimo passaggio; senza passaggi vale `Non avviata`.
 
 **Tabelle di configurazione**:
 - lead time per procedura, in mesi;
-- soglie per l'importo;
-- piano dei conti con validità temporale e mappatura vecchio→nuovo (sostituisce la colonna "Nuovo codice conto da 01/01/26");
-- aliquote e indici.
+- soglie per l'importo, con validità temporale;
+- piano dei conti con validità temporale e mappatura vecchio→nuovo (sostituisce la colonna "Nuovo codice conto da 01/01/26"). Si **inserisce a mano** dall'amministrazione: non c'è import del piano dei conti, e i conti reali non entrano nel repository;
+- parametri con validità temporale: giorni di pagamento, pagamento a fine mese, adeguamento dei rinnovi previsti, finestra dell'alert giallo, orizzonte della previsione;
+- categorie dei fabbisogni.
+
+I valori iniziali sono caricati come **provvisori** e si modificano dall'amministrazione.
+
+Nessun dato di dominio si cancella fisicamente: si archivia, e la storia delle modifiche registra chi, quando, valore prima e dopo.
 
 ## 5. Logiche di calcolo
 
 ### 5.1 Scadenze e alert
 
+- **Aritmetica dei mesi** (addizione e sottrazione, ovunque nel calcolo): una data di fine mese resta a fine mese; le altre date mantengono il giorno, ridotto all'ultimo giorno del mese se questo è più corto. Esempi: 30/11 − 3 mesi = 31/08; 31/12 − 4 mesi = 31/08; 30/06 − 4 mesi = 28/02 (29/02 negli anni bisestili); 30/09 + 3 mesi = 31/12; 15/03 − 1 mese = 15/02; 31/05 − 3 mesi = 28/02.
 - `data_fine = data_inizio + durata − 1 giorno`, salvo override.
+- Con proroghe esercitate, la **data di fine effettiva** è la nuova data di fine più lontana tra le proroghe. Data limite, data ultima di disdetta e alert si calcolano sulla data di fine effettiva (TC-10).
 - `data_limite_avvio = data_fine − lead_time(procedura)`. Il lead time si può sovrascrivere sul singolo contratto. Sostituisce il valore fisso di 6 mesi.
-- Per i contratti a tacito rinnovo: `data_ultima_disdetta = data_fine − preavviso`.
+- Per i contratti a tacito rinnovo: `data_ultima_disdetta = data_fine − preavviso`. Negli alert (regole 3 e 4) la data di riferimento è la più vicina tra data limite e data ultima di disdetta.
 - Colori degli alert. Le regole si valutano in quest'ordine e vale la prima che si applica:
   1. nessun alert se la decisione del fabbisogno è `Dismettere` o se esiste un contratto successore registrato;
   2. 🔴 se oggi > data di fine;
@@ -117,27 +152,35 @@ Da questi dati il sistema genera uno **scadenzario rate** (data fattura, data pa
 | Vista | Domanda a cui risponde | Regola |
 |---|---|---|
 | **Impegno / ordini** | Quanto devo ordinare nell'anno X? (Procurement) | intero valore contrattuale nell'anno di emissione (o di previsto avvio) dell'OdA |
-| **Cassa / fatturato** | Quando escono i soldi? | somma delle rate dello scadenzario per data fattura (o data pagamento stimata) |
+| **Cassa / fatturato** | Quanto viene fatturato nell'anno X? | somma delle rate dello scadenzario **per data fattura**. La data di pagamento non è usata: il flusso di cassa effettivo è fuori perimetro |
 | **Competenza** | Quanto costa all'esercizio X? (conto economico) | pro-rata **a giorni** sul periodo di servizio, indipendente dalla fatturazione |
 
-Esempio: licenza triennale da 30 k€ con pagamento anticipato unico → impegno 30 k€ nell'anno 1, cassa 30 k€ nell'anno 1, competenza 10 k€ all'anno per 3 anni. Se la licenza è capitalizzata (CAPEX), la competenza segue invece l'ammortamento, da gestire come caso distinto.
+Esempio: licenza triennale da 30 k€ con pagamento anticipato unico → impegno 30 k€ nell'anno 1, cassa 30 k€ nell'anno 1, competenza 10 k€ all'anno per 3 anni.
+
+Regole di dettaglio:
+- **Impegno**: contratto reale nell'anno della data dell'OdA, o se manca nell'anno di inizio del servizio; voce di una proroga nell'anno della data dell'atto; contratto previsto nell'anno di inizio del servizio.
+- **Competenza**: il periodo di servizio di una voce è quello del contratto; per una voce di proroga va dal giorno dopo la data di fine precedente alla nuova data di fine. I contratti CAPEX seguono lo stesso pro-rata a giorni: l'ammortamento è fuori perimetro.
+- **Adeguamento sul piano**: `Percentuale` si applica a ogni anniversario della data di inizio; `ISTAT`, in assenza dell'indice reale, usa la percentuale del parametro di adeguamento.
 
 Ogni vista ha tre livelli:
 - **fisso**: somma delle quote fisse;
 - **probabile**: fisso + variabile × stima di consumo;
 - **massimo**: fisso + intero massimale.
 
+In cassa la quota variabile (stimata o massima) si distribuisce sulle date delle rate in proporzione agli importi fissi delle rate; se il fisso è zero, in proporzione ai giorni dei periodi. Per la modalità `A consumo` le rate mensili si calcolano sul livello richiesto.
+
 ### 5.3 Previsione rinnovi (scenario)
 
 Per ogni fabbisogno con decisione `Rinnovare` o `Da valutare`, il cui contratto attivo scade entro l'orizzonte (default 3 anni), il sistema genera un **contratto previsto**:
-- inizio = giorno dopo la scadenza;
-- stessa durata e stesso piano di fatturazione del contratto precedente;
-- importo = stima manuale del fabbisogno se presente, altrimenti ultimo importo × (1 + adeguamento parametrico).
+- inizio = giorno dopo la scadenza (data di fine effettiva, proroghe comprese);
+- stessa durata **originale** del contratto precedente (senza proroghe) e stesso piano di fatturazione;
+- importo: ogni voce del contratto precedente, escluse le voci delle proroghe, si replica con fisso e massimale × (1 + adeguamento parametrico valido alla data di inizio del previsto);
+- se il fabbisogno ha una stima manuale, la stima sostituisce il fisso totale ed è ripartita tra le voci in proporzione al loro fisso; l'adeguamento dei previsti successivi parte dalla stima (TC-07).
 
 La generazione è ricorsiva: un annuale che scade nel 2027 genera un previsto 2027 e poi un previsto 2028.
 
 - I contratti previsti entrano in tutte e tre le viste di budget, marcati come "previsionali" e filtrabili.
-- Nuovi fabbisogni (senza contratto predecessore) si inseriscono a mano come previsti.
+- Nuovi fabbisogni (senza contratto predecessore) si inseriscono a mano come previsti, con i dati del **previsto manuale** sul fabbisogno (§4).
 
 ### 5.4 Output per il Procurement
 
@@ -176,7 +219,7 @@ Export in XLSX, oltre al PDF quando serve da allegare.
 ## 7. Migrazione dati
 
 1. Normalizzare i campi: rimuovere il BOM, uniformare i nulli, applicare trim.
-2. Validare i codici: CIG di 10 caratteri alfanumerici, OdA SAP di 10 cifre, conti COGE presenti nel piano dei conti. Le anomalie vanno in un report, senza correzioni silenziose.
+2. Validare i codici: CIG di 10 caratteri alfanumerici, OdA SAP di 10 cifre, conti COGE presenti nel piano dei conti (inserito a mano prima dell'import). Le anomalie vanno in un report, senza correzioni silenziose.
 3. Deduplicare i fornitori e verificare i codici SAP condivisi (139952).
 4. Raggruppare in fabbisogni le righe che sono rinnovi l'una dell'altra (proposta automatica per descrizione + fornitore, poi conferma manuale) e impostare il predecessore.
 5. Accorpare in un unico contratto con più voci le righe che condividono OdA e CIG.
@@ -204,9 +247,13 @@ Export in XLSX, oltre al PDF quando serve da allegare.
     - `GG_Contratti_Reader` → sola lettura (Procurement, Controllo di gestione).
 
     I nomi dei gruppi sono configurabili.
-  - Un utente che non appartiene a nessuno dei tre gruppi non entra.
-  - Un solo account locale di emergenza (break-glass), con password lunga custodita fuori dall'applicazione.
-  - Tutti i parametri LDAP arrivano da variabili d'ambiente.
+  - Un utente che non appartiene a nessuno dei tre gruppi non entra; se aveva già un utente, perde ruolo e privilegi.
+  - Con più gruppi vale il ruolo più alto (Admin > Editor > Reader). L'annidamento dei gruppi è configurabile (matching rule AD, ricorsivo, nessuno).
+  - L'amministratore ha accesso completo all'amministrazione dell'applicazione; Editor e Reader lavorano dall'interfaccia operativa. Editor aggiunge e modifica i dati di dominio, Reader solo legge; le tabelle di configurazione le modifica solo l'amministratore; nessuno cancella.
+  - Un solo account locale di emergenza (break-glass), con password lunga (almeno 24 caratteri) custodita fuori dall'applicazione.
+  - Tutti i parametri LDAP arrivano da variabili d'ambiente. Senza server LDAP configurato vale solo il login locale (sviluppo).
+  - Il log dei login (riusciti e falliti, mai la password) si conserva 12 mesi.
+  - La sessione dura al massimo 8 ore; la rimozione da un gruppo AD ha effetto al login successivo.
 - **Codice**: repository GitHub privato. Lo sviluppo è affidato a Claude Code (sessioni cloud) tramite pull request; il merge su `main` lo fa solo Pietro, dopo revisione e CI verde.
 - **Deploy**: manuale sulla VM interna (`git pull` + `docker compose up -d --build` + `migrate`), con uno script di deploy nel repository. Nessun runner CI dentro la rete aziendale nella prima fase.
 
@@ -224,7 +271,7 @@ Export in XLSX, oltre al PDF quando serve da allegare.
 ## 9. Decisioni ancora aperte
 
 - **Budget di riferimento per il Controllo di gestione**: competenza economica o cassa? Quali conti sono CAPEX? Il sistema calcola comunque tutte e tre le viste, quindi la risposta non blocca lo sviluppo.
-- **Lead time per procedura** e soglie, da concordare con il Procurement. Sono parametri, con valori iniziali provvisori.
+- **Lead time per procedura** e soglie: parametri con valori iniziali provvisori, modificabili dall'amministrazione. Non bloccano lo sviluppo; le soglie UE dei settori speciali non sono caricate.
 - **Anno di imputazione dell'impegno per i contratti previsti**: il default è l'anno di inizio del servizio. Da confermare con il Procurement se preferisce l'anno della data limite di avvio.
 - **IVA**: gli importi sono sempre imponibile. Da verificare se il Procurement vuole anche l'IVA nel piano ordini.
 - **Mappatura dei gruppi AD e account di servizio**: da creare sul dominio.
