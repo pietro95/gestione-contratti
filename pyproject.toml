@@ -12,10 +12,12 @@ dependencies = [
     "psycopg[binary]>=3.2,<4",
     "gunicorn>=23,<24",
     "django-simple-history>=3.8,<4",
+    "python-dateutil>=2.9,<3",
 ]
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.100,<7",
     "pytest>=8.3,<9",
     "pytest-django>=4.11,<5",
     "ruff>=0.13,<0.14",

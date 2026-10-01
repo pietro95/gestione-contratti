@@ -247,6 +247,12 @@ class ProrogaAdmin(BaseAdmin):
     autocomplete_fields = ("contratto",)
 
 
+class QuotaInline(InlineSenzaCancellazione):
+    model = m.QuotaPeriodo
+    fields = ("dal", "al", "importo")
+    show_change_link = False
+
+
 class PianoInline(admin.StackedInline):
     model = m.PianoFatturazione
     extra = 0
@@ -259,7 +265,7 @@ class VoceContrattoAdmin(ArchiviabileAdmin):
     list_filter = ("archiviato", "piano_fatturazione__modalita")
     search_fields = ("descrizione", "contratto__numero_oda", "contratto__cig")
     autocomplete_fields = ("contratto", "proroga", "conto")
-    inlines = [PianoInline]
+    inlines = [QuotaInline, PianoInline]
 
 
 class RataInline(InlineSenzaCancellazione):
@@ -286,8 +292,8 @@ def marca_rate_modificate(formset):
 
 @admin.register(m.PianoFatturazione)
 class PianoFatturazioneAdmin(BaseAdmin):
-    list_display = ("voce", "modalita", "periodicita", "data_prima_fattura", "adeguamento")
-    list_filter = ("modalita", "periodicita", "adeguamento")
+    list_display = ("voce", "modalita", "periodicita", "data_prima_fattura")
+    list_filter = ("modalita", "periodicita")
     search_fields = ("voce__descrizione", "voce__contratto__numero_oda")
     autocomplete_fields = ("voce",)
     inlines = [RataInline]

@@ -65,13 +65,20 @@ def test_reader_solo_lettura():
     perms = _codenames("Reader")
     assert perms
     assert all(p.startswith("view_") for p in perms)
-    assert "view_contratto" in perms and "view_rata" in perms
+    assert "view_contratto" in perms and "view_rata" in perms and "view_quotaperiodo" in perms
 
 
 def test_editor_aggiunge_e_modifica_il_dominio():
     perms = _codenames("Editor")
     for azione in ("add", "change", "view"):
-        for modello in ("contratto", "vocecontratto", "fabbisogno", "fornitore", "rata"):
+        for modello in (
+            "contratto",
+            "vocecontratto",
+            "fabbisogno",
+            "fornitore",
+            "rata",
+            "quotaperiodo",
+        ):
             assert f"{azione}_{modello}" in perms
     # La configurazione la cambia solo Admin.
     for modello in ("procedura", "soglia", "parametro", "contocoge"):

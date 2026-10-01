@@ -111,7 +111,7 @@ class Soglia(ConfigurazioneProvvisoria):
 
 
 class Parametro(ConfigurazioneProvvisoria):
-    """Parametro numerico con validità temporale: giorni di pagamento, adeguamento, ecc."""
+    """Parametro numerico con validità temporale (giorni di pagamento, adeguamento dei previsti)."""
 
     class Chiave(models.TextChoices):
         GIORNI_PAGAMENTO = "giorni_pagamento", "giorni di pagamento di default"
@@ -606,13 +606,39 @@ class VoceContratto(Archiviabile):
             raise ValidationError({"proroga": "La proroga deve essere dello stesso contratto."})
 
 
+class QuotaPeriodo(models.Model):
+    """Importo fisso di una voce per un sotto-periodo (tipicamente un anno), facoltativo.
+
+    Le quote di una voce devono essere contigue, coprire tutto il periodo di servizio e
+    sommare all'importo fisso: il controllo è nel motore, che segnala le incoerenze.
+    """
+
+    voce = models.ForeignKey(VoceContratto, on_delete=models.PROTECT, related_name="quote")
+    dal = models.DateField()
+    al = models.DateField()
+    importo = importo("importo fisso del periodo")
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "quota per periodo"
+        verbose_name_plural = "quote per periodo"
+        ordering = ["voce", "dal"]
+        constraints = [
+            models.UniqueConstraint(fields=["voce", "dal"], name="contratti_quota_dal_unica"),
+            models.CheckConstraint(
+                condition=Q(al__gte=F("dal")), name="contratti_quota_periodo_coerente"
+            ),
+            models.CheckConstraint(
+                condition=Q(importo__gte=0), name="contratti_quota_importo_non_negativo"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.dal:%d/%m/%Y}–{self.al:%d/%m/%Y}: {self.importo}"
+
+
 class PianoFatturazione(models.Model):
     """Come e quando si fattura una voce; da qui si genera lo scadenzario (F2)."""
-
-    class Adeguamento(models.TextChoices):
-        NESSUNO = "nessuno", "Nessuno"
-        ISTAT = "istat", "ISTAT"
-        PERCENTUALE = "percentuale", "Percentuale fissa"
 
     voce = models.OneToOneField(
         VoceContratto, on_delete=models.PROTECT, related_name="piano_fatturazione"
@@ -632,10 +658,6 @@ class PianoFatturazione(models.Model):
     pagamento_fine_mese = models.BooleanField(
         null=True, blank=True, help_text="Vuoto: parametro di default."
     )
-    adeguamento = models.CharField(
-        max_length=20, choices=Adeguamento.choices, default=Adeguamento.NESSUNO
-    )
-    adeguamento_pct = percentuale("adeguamento (%)", null=True, blank=True)
     note = models.TextField(blank=True)
     history = HistoricalRecords()
 
@@ -647,10 +669,6 @@ class PianoFatturazione(models.Model):
             models.CheckConstraint(
                 condition=~Q(modalita__in=["anticipata", "posticipata"]) | ~Q(periodicita=""),
                 name="contratti_piano_periodicita_se_a_rate",
-            ),
-            models.CheckConstraint(
-                condition=~Q(adeguamento="percentuale") | Q(adeguamento_pct__isnull=False),
-                name="contratti_piano_pct_se_adeguamento_percentuale",
             ),
         ]
 

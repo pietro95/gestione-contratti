@@ -2,7 +2,7 @@
 
 Ogni caso descrive: input, output atteso, regola della SPEC che verifica.
 
-Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10.
+Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11.
 
 I valori sono stati calcolati a mano e verificati con uno script indipendente. **Se un test non passa, l'errore è nel codice, non nel caso.** Un caso si modifica solo con l'approvazione di Pietro e insieme a una nuova revisione della SPEC.
 
@@ -233,3 +233,30 @@ Alert con decisione `Rinnovare` e pratica `Non avviata`, senza successore:
 - oggi 15/04/2027 → 🔴.
 
 Il rinnovo previsto (TC-07) parte il 01/04/2027 con la durata originale di 12 mesi e la sola voce base (12.000,00 × (1 + adeguamento)); le voci di proroga non si replicano.
+
+## TC-11 — Importi diversi per periodo (quote annuali)
+
+SPEC §4 (Quota per periodo) e §5.2 (competenza per quota).
+
+Input:
+- voce fissa 31.500,00 €, servizio dal 01/07/2026 al 30/06/2029, `Anticipata` annuale, OdA nel 2026;
+- quote per periodo:
+  - 01/07/2026–30/06/2027: 10.000,00 (365 gg);
+  - 01/07/2027–30/06/2028: 10.500,00 (366 gg);
+  - 01/07/2028–30/06/2029: 11.000,00 (365 gg).
+
+Scadenzario atteso: 3 rate, ciascuna pari alla sua quota: 01/07/2026 = 10.000,00; 01/07/2027 = 10.500,00; 01/07/2028 = 11.000,00.
+
+Output atteso:
+
+| Anno | Impegno | Cassa (data fattura) | Competenza |
+|---|---|---|---|
+| 2026 | 31.500,00 | 10.000,00 | 5.041,10 (quota 1, 184 gg) |
+| 2027 | 0,00 | 10.500,00 | 10.237,59 (quota 1 4.958,90 su 181 gg + quota 2 5.278,69 su 184 gg) |
+| 2028 | 0,00 | 11.000,00 | 10.766,52 (quota 2 5.221,31 su 182 gg + quota 3 5.545,21 su 184 gg) |
+| 2029 | 0,00 | 0,00 | 5.454,79 (quota 3, 181 gg) |
+| **Totale** | 31.500,00 | 31.500,00 | 31.500,00 |
+
+Controllo: senza quote, la stessa voce darebbe in competenza 5.288,32 / 10.490,42 / 10.519,16 / 5.202,10 (pro-rata uniforme sul totale).
+
+Quote incoerenti (non contigue, fuori dal periodo della voce o con somma diversa dal fisso): si ignorano, il calcolo usa l'intera voce e segnala l'anomalia `QUOTE_INCOERENTI`.
