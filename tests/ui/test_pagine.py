@@ -96,3 +96,8 @@ def test_fabbisogno_mostra_i_previsti(reader, dati):
         reverse("contratti:fabbisogno", args=[dati["fabbisogno"].pk])
     ).content.decode()
     assert "Contratti previsti" in html and "01/01/2027" in html
+
+
+def test_versione_nel_pie_di_pagina(reader, settings):
+    settings.APP_VERSION = "v1.2"
+    assert "versione v1.2" in reader.get(reverse("home")).content.decode()

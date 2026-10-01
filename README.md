@@ -28,6 +28,12 @@ uv run ruff check . && uv run ruff format --check .
 
 Con Docker: `docker compose -f deploy/docker-compose.dev.yml up --build`, poi http://localhost:8000.
 
+## Produzione
+
+Server Docker aziendale condiviso, tutto sotto `/appdata/gestione-contratti`, dietro il reverse
+proxy nginx esistente: [`docs/RUNBOOK.md`](docs/RUNBOOK.md) (installazione, aggiornamento, backup,
+certificati) e [`deploy/restore.md`](deploy/restore.md) (ripristino).
+
 Configurazione: variabili d'ambiente, tutte documentate in [`.env.example`](.env.example).
 
 ### Autenticazione

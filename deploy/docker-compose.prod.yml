@@ -1,0 +1,82 @@
+# Produzione sul server Docker condiviso. Si usa SOLO tramite deploy/deploy.sh, che imposta
+# progetto, file .env e cartella dei dati:
+#   APP_DIR=/appdata/gestione-contratti  (codice in $APP_DIR/app, configurazione in $APP_DIR/config)
+#
+# Convivenza con gli altri container del server:
+# - progetto Compose fisso "gestione-contratti": container, rete e immagini hanno questo prefisso;
+# - nessun volume con nome, nessuna porta standard: i dati stanno in $APP_DIR, l'app ascolta
+#   solo su APP_BIND:APP_PORT (dal .env), il database non espone porte;
+# - il reverse proxy nginx esistente termina HTTPS e inoltra a APP_BIND:APP_PORT.
+name: gestione-contratti
+
+x-log: &log
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-app: &app
+  image: gestione-contratti:${APP_VERSION:-locale}
+  build:
+    context: ..
+    dockerfile: Dockerfile
+  env_file: "${APP_DIR:?APP_DIR non impostata, usare deploy/deploy.sh}/config/.env"
+  environment:
+    APP_VERSION: ${APP_VERSION:-locale}
+    TZ: Europe/Rome
+    GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS:---workers 3 --timeout 60}
+  volumes:
+    - ${APP_DIR}/static:/app/staticfiles
+    - ${APP_DIR}/config/certs:/etc/gestione-contratti/certs:ro
+    # Excel e CSV da importare; i report delle anomalie si scrivono accanto ai file.
+    - ${APP_DIR}/import:/import
+  networks: [interna]
+  logging: *log
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    env_file: ${APP_DIR}/config/.env
+    environment:
+      TZ: Europe/Rome
+    volumes:
+      - ${APP_DIR}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [interna]
+    logging: *log
+
+  web:
+    <<: *app
+    restart: unless-stopped
+    ports:
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:?APP_PORT mancante nel .env}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  backup:
+    image: postgres:16
+    restart: unless-stopped
+    env_file: ${APP_DIR}/config/.env
+    environment:
+      TZ: Europe/Rome
+      PGHOST: db
+      BACKUP_NEL_CONTAINER: "1"
+    entrypoint: ["/bin/bash", "/scripts/backup_pianificato.sh"]
+    volumes:
+      - ./backup.sh:/scripts/backup.sh:ro
+      - ./backup_pianificato.sh:/scripts/backup_pianificato.sh:ro
+      - ${APP_DIR}/backup:/backup
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [interna]
+    logging: *log
+
+networks:
+  interna: {}

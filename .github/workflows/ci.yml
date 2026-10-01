@@ -70,3 +70,113 @@ jobs:
       - name: Test
         if: steps.check.outputs.ready == 'true'
         run: uv run pytest -q
+
+  deploy:
+    # Prova dell'installazione di produzione (F6): stessa struttura del server
+    # (/appdata/gestione-contratti), deploy.sh, nginx 1.24 come reverse proxy, login via
+    # HTTPS, import, backup, verifica di ripristino e secondo deploy (aggiornamento).
+    runs-on: ubuntu-24.04
+    env:
+      BASE: /tmp/appdata/gestione-contratti
+      HOST_APP: contratti.test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: app
+      - name: Struttura come sul server e .env di prova
+        run: |
+          mkdir -p "$BASE/config/certs" "$BASE/import"
+          ln -s "$GITHUB_WORKSPACE/app" "$BASE/app"
+          cp app/tests/fixtures/contratti_it_sample.xlsx "$BASE/import/"
+          pwd_db=$(openssl rand -hex 24)
+          cat > "$BASE/config/.env" <<FINE
+          APP_PORT=18471
+          APP_BIND=127.0.0.1
+          DJANGO_SETTINGS_MODULE=config.settings.prod
+          DJANGO_SECRET_KEY=$(openssl rand -hex 32)
+          DJANGO_ALLOWED_HOSTS=$HOST_APP
+          DJANGO_CSRF_TRUSTED_ORIGINS=https://$HOST_APP
+          POSTGRES_USER=contratti
+          POSTGRES_PASSWORD=$pwd_db
+          POSTGRES_DB=contratti
+          DATABASE_URL=postgres://contratti:$pwd_db@db:5432/contratti
+          LDAP_SERVER_URI=
+          BACKUP_ORA=02:30
+          BACKUP_GIORNI=14
+          FINE
+          sed -i 's/^ *//' "$BASE/config/.env"
+          chmod 600 "$BASE/config/.env"
+      - name: Primo deploy
+        run: '"$BASE/app/deploy/deploy.sh" "$(git -C app rev-parse HEAD)"'
+      - name: Reverse proxy nginx con la configurazione d'esempio
+        run: |
+          mkdir -p /tmp/tls
+          openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=$HOST_APP" \
+            -keyout /tmp/tls/key.pem -out /tmp/tls/cert.pem
+          sed -e "s|__SERVER_NAME__|$HOST_APP|g" -e "s|__APP_UPSTREAM__|127.0.0.1:18471|g" \
+              -e "s|__STATIC_DIR__|$BASE/static|g" -e "s|__CERT__|/tmp/tls/cert.pem|g" \
+              -e "s|__KEY__|/tmp/tls/key.pem|g" \
+              app/deploy/nginx/gestione-contratti.conf.esempio > /tmp/nginx.conf
+          docker run -d --name ci-nginx --network host \
+            -v /tmp/nginx.conf:/etc/nginx/conf.d/default.conf:ro -v /tmp/tls:/tmp/tls:ro \
+            -v "$BASE/static:$BASE/static:ro" nginx:1.24
+          sleep 2
+          docker logs ci-nginx
+      - name: HTTPS, redirect, statici e login con CSRF
+        run: |
+          c="curl -sS --cacert /tmp/tls/cert.pem --resolve $HOST_APP:443:127.0.0.1"
+          test "$($c -o /dev/null -w '%{http_code}' https://$HOST_APP/healthz)" = 200
+          test "$(curl -sS -o /dev/null -w '%{http_code}' --resolve $HOST_APP:80:127.0.0.1 http://$HOST_APP/)" = 301
+          test "$($c -o /dev/null -w '%{http_code}' https://$HOST_APP/static/vendor/bootstrap-5.3.8/bootstrap.min.css)" = 200
+          cd "$BASE/app/deploy" && source ./comune.sh
+          compose exec -T -e DJANGO_SUPERUSER_PASSWORD=password-di-prova-ci web \
+            python manage.py createsuperuser --noinput --username prova --email prova@example.test
+          $c -c /tmp/cj -b /tmp/cj -o /dev/null https://$HOST_APP/accounts/login/
+          token=$(awk '$6 == "csrftoken" {print $7}' /tmp/cj)
+          codice=$($c -c /tmp/cj -b /tmp/cj -o /dev/null -w '%{http_code}' \
+            -H "Referer: https://$HOST_APP/accounts/login/" \
+            --data "csrfmiddlewaretoken=$token&username=prova&password=password-di-prova-ci" \
+            https://$HOST_APP/accounts/login/)
+          test "$codice" = 302
+          $c -b /tmp/cj https://$HOST_APP/report/budget/ | grep -q "Budget"
+          $c -b /tmp/cj https://$HOST_APP/ | grep -q "versione"
+      - name: Import, backup e verifica di ripristino
+        run: |
+          cd "$BASE/app/deploy" && source ./comune.sh
+          compose exec -T web python manage.py import_excel /import/contratti_it_sample.xlsx --area IT
+          test -f "$BASE/import/contratti_it_sample_anomalie_import.csv"
+          ./backup.sh prova
+          ls -l "$BASE/backup"
+          ./verifica_ripristino.sh | tee /tmp/verifica.txt
+          grep -q "Ripristino riuscito" /tmp/verifica.txt
+          if grep -q "diverso" /tmp/verifica.txt; then exit 1; fi
+      - name: Ripristino in produzione (dati modificati dopo il backup tornano indietro)
+        run: |
+          cd "$BASE/app/deploy"
+          conta='from contratti.models import Fornitore; print(Fornitore.objects.count())'
+          prima=$(./manage.sh shell -v 0 -c "$conta")
+          ./manage.sh shell -v 0 -c "from contratti.models import Fornitore; Fornitore.objects.create(ragione_sociale='Da annullare')"
+          test "$(./manage.sh shell -v 0 -c "$conta")" -eq $((prima + 1))
+          ./ripristina.sh "$(ls -1t "$BASE"/backup/*_prova.dump | head -n 1)" --conferma
+          test "$(./manage.sh shell -v 0 -c "$conta")" -eq "$prima"
+          # Dopo il riavvio l'app usa ancora l'immagine della versione installata.
+          versione=$(git -C "$BASE/app" describe --tags --always)
+          test "$(docker inspect gestione-contratti-web-1 --format '{{.Config.Image}}')" = "gestione-contratti:$versione"
+          ls "$BASE/backup" | grep -q "_prima_del_ripristino"
+      - name: Secondo deploy (aggiornamento con backup pre-aggiornamento)
+        run: |
+          "$BASE/app/deploy/deploy.sh" "$(git -C app rev-parse HEAD)"
+          ls "$BASE/backup" | grep -q "_pre_"
+      - name: Solo container del progetto
+        run: |
+          docker ps --format '{{.Names}}' | tee /tmp/container.txt
+          if grep -v -e '^gestione-contratti-' -e '^ci-nginx$' /tmp/container.txt; then exit 1; fi
+          # Il database non espone porte; l'app solo su 127.0.0.1.
+          if docker ps --format '{{.Names}} {{.Ports}}' | grep gestione-contratti-db | grep -q -- '->'; then exit 1; fi
+          docker ps --format '{{.Names}} {{.Ports}}' | grep gestione-contratti-web | grep -q '127.0.0.1:18471->8000'
+      - name: Log in caso di errore
+        if: failure()
+        run: |
+          cd "$BASE/app/deploy" && source ./comune.sh && compose ps -a && compose logs --tail 100
+          docker logs ci-nginx || true

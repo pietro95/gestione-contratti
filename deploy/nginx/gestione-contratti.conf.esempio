@@ -1,0 +1,42 @@
+# Configurazione per il reverse proxy nginx esistente (RUNBOOK §5).
+# Copiare in /etc/nginx/sites-available/gestione-contratti.conf e sostituire i segnaposto:
+#   __SERVER_NAME__  nome DNS dell'applicazione (lo stesso di DJANGO_ALLOWED_HOSTS)
+#   __APP_UPSTREAM__ indirizzo dell'app: APP_BIND:APP_PORT del .env (es. 127.0.0.1:18471)
+#   __STATIC_DIR__   /appdata/gestione-contratti/static
+#   __CERT__ __KEY__ certificato e chiave rilasciati dalla CA interna
+# Se nginx gira in un container, montare __STATIC_DIR__ in sola lettura nello stesso percorso.
+
+server {
+    listen 80;
+    server_name __SERVER_NAME__;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    # Sintassi compatibile con nginx 1.18 (Ubuntu 22.04) e 1.24 (Ubuntu 24.04).
+    listen 443 ssl http2;
+    server_name __SERVER_NAME__;
+
+    ssl_certificate     __CERT__;
+    ssl_certificate_key __KEY__;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+
+    client_max_body_size 20m;
+
+    # Statici serviti direttamente da nginx (Django in produzione non li serve).
+    location /static/ {
+        alias __STATIC_DIR__/;
+        expires 7d;
+        access_log off;
+    }
+
+    location / {
+        proxy_pass http://__APP_UPSTREAM__;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # Django si fida di questo header (SECURE_PROXY_SSL_HEADER): va sempre impostato qui.
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 75s;
+        proxy_redirect off;
+    }
+}
