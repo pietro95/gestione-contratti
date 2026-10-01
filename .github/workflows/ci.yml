@@ -160,6 +160,9 @@ jobs:
           test "$(./manage.sh shell -v 0 -c "$conta")" -eq $((prima + 1))
           ./ripristina.sh "$(ls -1t "$BASE"/backup/*_prova.dump | head -n 1)" --conferma
           test "$(./manage.sh shell -v 0 -c "$conta")" -eq "$prima"
+          # Dopo il riavvio l'app usa ancora l'immagine della versione installata.
+          versione=$(git -C "$BASE/app" describe --tags --always)
+          test "$(docker inspect gestione-contratti-web-1 --format '{{.Config.Image}}')" = "gestione-contratti:$versione"
           ls "$BASE/backup" | grep -q "_prima_del_ripristino"
       - name: Secondo deploy (aggiornamento con backup pre-aggiornamento)
         run: |

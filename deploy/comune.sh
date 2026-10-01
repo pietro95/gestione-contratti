@@ -14,7 +14,11 @@ DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC="$(cd "$DEPLOY_DIR/.." && pwd)"
 APP_DIR="${APP_DIR:-$(cd "$SRC/.." && pwd)}"
 ENV_FILE="$APP_DIR/config/.env"
-export APP_DIR
+# Versione del codice in app/: dà il nome all'immagine (gestione-contratti:<versione>), così
+# ogni comando compose usa l'immagine installata invece di ricostruirne una. deploy.sh la
+# aggiorna dopo il checkout.
+APP_VERSION="${APP_VERSION:-$(git -C "$SRC" describe --tags --always 2>/dev/null || echo locale)}"
+export APP_DIR APP_VERSION
 
 errore() {
   echo "ERRORE: $*" >&2
