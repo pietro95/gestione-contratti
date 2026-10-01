@@ -1,0 +1,15 @@
+<form method="get" class="row g-2 mb-3 align-items-end d-print-none">
+  {% for campo in form %}
+    <div class="col-auto">
+      <label class="form-label small mb-0" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+      {{ campo }}
+    </div>
+  {% endfor %}
+  {% if request.GET.oggi %}<input type="hidden" name="oggi" value="{{ request.GET.oggi }}">{% endif %}
+  <div class="col-auto"><button class="btn btn-sm btn-primary" type="submit">Aggiorna</button></div>
+  <div class="col-auto ms-auto">
+    <button class="btn btn-sm btn-outline-success" type="submit" name="formato" value="xlsx">Esporta XLSX</button>
+    <button class="btn btn-sm btn-outline-secondary" type="button" onclick="window.print()">Stampa / PDF</button>
+  </div>
+</form>
+{% if form.errors %}<div class="alert alert-danger">{{ form.errors }}</div>{% endif %}

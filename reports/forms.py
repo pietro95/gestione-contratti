@@ -1,0 +1,73 @@
+from django import forms
+
+from contratti import models as m
+from contratti.engine.tipi import Livello
+from contratti.forms import FormBase
+from reports.budget import RAGGRUPPAMENTI, Filtri
+
+
+class FiltriBudgetForm(FormBase):
+    anno = forms.IntegerField(min_value=2000, max_value=2100)
+    area = forms.ChoiceField(choices=[("", "Tutte le aree"), *m.Area.choices], required=False)
+    conto = forms.ModelChoiceField(
+        queryset=m.ContoCoge.objects.order_by("codice"), required=False, empty_label="Tutti i conti"
+    )
+    fornitore = forms.ModelChoiceField(
+        queryset=m.Fornitore.objects.filter(archiviato=False).order_by("ragione_sociale"),
+        required=False,
+        empty_label="Tutti i fornitori",
+    )
+    finanziamento = forms.ChoiceField(
+        choices=[("", "Ordinario e finanziato"), *m.Contratto.Finanziamento.choices],
+        required=False,
+    )
+    previsti = forms.ChoiceField(
+        choices=[("si", "Con i previsti"), ("no", "Solo consolidato")], required=False
+    )
+    per = forms.ChoiceField(choices=list(RAGGRUPPAMENTI.items()), required=False, label="Per")
+    livello = forms.ChoiceField(
+        choices=[(liv.value, liv.value.capitalize()) for liv in Livello], required=False
+    )
+
+    def __init__(self, dati, *, anno_default: int):
+        dati = dati.copy()
+        dati.setdefault("anno", str(anno_default))
+        super().__init__(dati)
+
+    def filtri(self) -> Filtri:
+        d = self.cleaned_data
+        return Filtri(
+            anno=d["anno"],
+            area=d.get("area") or "",
+            conto=d["conto"].pk if d.get("conto") else None,
+            fornitore=d["fornitore"].pk if d.get("fornitore") else None,
+            finanziamento=d.get("finanziamento") or "",
+            previsionali=d.get("previsti") != "no",
+        )
+
+    @property
+    def criterio(self) -> str:
+        return self.cleaned_data.get("per") or "conto"
+
+    @property
+    def livello_scelto(self) -> Livello:
+        return Livello(self.cleaned_data.get("livello") or Livello.PROBABILE)
+
+
+class FiltriPianoForm(FormBase):
+    anno = forms.IntegerField(min_value=2000, max_value=2100)
+    area = forms.ChoiceField(choices=[("", "Tutte le aree"), *m.Area.choices], required=False)
+    categoria = forms.ModelChoiceField(
+        queryset=m.Categoria.objects.all(), required=False, empty_label="Tutte le categorie"
+    )
+
+    def __init__(self, dati, *, anno_default: int):
+        dati = dati.copy()
+        dati.setdefault("anno", str(anno_default))
+        super().__init__(dati)
+
+    def descrizione(self) -> str:
+        d = self.cleaned_data
+        parti = [f"Area {d['area']}" if d.get("area") else "Tutte le aree"]
+        parti.append(f"categoria {d['categoria']}" if d.get("categoria") else "tutte le categorie")
+        return "; ".join(parti)

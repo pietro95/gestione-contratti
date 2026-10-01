@@ -5,9 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Registro contratti IT/TLC{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'vendor/bootstrap-5.3.8/bootstrap.min.css' %}">
+  <style>
+    .text-end { white-space: nowrap; } .text-start { white-space: normal; }
+    @media print { body { font-size: 9pt; } .table-responsive { overflow: visible; } }
+  </style>
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
-  <nav class="navbar navbar-expand bg-body-tertiary border-bottom mb-4">
+  <nav class="navbar navbar-expand bg-body-tertiary border-bottom mb-4 d-print-none">
     <div class="container">
       <a class="navbar-brand" href="{% url 'home' %}">Registro contratti IT/TLC</a>
       {% if user.is_authenticated %}
@@ -16,6 +20,8 @@
           <li class="nav-item"><a class="nav-link" href="{% url 'contratti:contratti' %}">Contratti</a></li>
           <li class="nav-item"><a class="nav-link" href="{% url 'contratti:fabbisogni' %}">Fabbisogni</a></li>
           <li class="nav-item"><a class="nav-link" href="{% url 'contratti:fornitori' %}">Fornitori</a></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'reports:budget' %}">Budget</a></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'reports:piano_ordini' %}">Piano ordini</a></li>
           <li class="nav-item"><a class="nav-link" href="{% url 'contratti:proposte' %}">Proposte import</a></li>
         </ul>
         <div class="d-flex align-items-center gap-3">
