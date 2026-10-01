@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "simple_history",
     "accounts",
     "contratti",
+    "reports",
 ]
 
 MIDDLEWARE = [
