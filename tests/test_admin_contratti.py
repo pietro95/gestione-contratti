@@ -18,6 +18,15 @@ D = datetime.date
 MODELLI = [model for model in admin.site._registry if model._meta.app_label == "contratti"]
 
 
+def _richiesta_admin():
+    from django.contrib.auth import get_user_model
+    from django.test import RequestFactory
+
+    richiesta = RequestFactory().get("/")
+    richiesta.user = get_user_model()(is_superuser=True, is_staff=True)
+    return richiesta
+
+
 def url(model, view, *args):
     return reverse(f"admin:contratti_{model._meta.model_name}_{view}", args=args)
 
@@ -36,6 +45,13 @@ def dati():
     m.StatoPratica.objects.create(contratto=c, stato="non_avviata", data=D(2026, 9, 1))
     m.Impianto.objects.create(nome="Impianto di prova")
     m.Progetto.objects.create(codice_wbs="WBS-PROVA-01", descrizione="Progetto prova")
+    successore = f.contratto(fabbisogno=c.fabbisogno, numero_oda="5800000002")
+    m.PropostaPredecessore.objects.create(
+        predecessore=c, successore=successore, motivazione="prova"
+    )
+    m.PropostaRaggruppamento.objects.create(motivazione="prova", chiave="k").contratti.set(
+        [c, successore]
+    )
     m.ContoCoge.objects.create(
         codice="6000000001", descrizione="Conto fittizio", valido_dal=D(2020, 1, 1)
     )
@@ -56,7 +72,9 @@ def test_admin_navigabile(admin_client, dati, model):
     obj = model.objects.first()
     assert admin_client.get(url(model, "changelist")).status_code == 200
     assert admin_client.get(url(model, "changelist"), {"q": "prova"}).status_code == 200
-    assert admin_client.get(url(model, "add")).status_code == 200
+    model_admin = admin.site._registry[model]
+    attesa_add = 200 if model_admin.has_add_permission(_richiesta_admin()) else 403
+    assert admin_client.get(url(model, "add")).status_code == attesa_add
     assert admin_client.get(url(model, "change", obj.pk)).status_code == 200
     assert admin_client.get(url(model, "history", obj.pk)).status_code == 200
 

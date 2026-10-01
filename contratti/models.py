@@ -435,6 +435,10 @@ class Contratto(Archiviabile):
 
     link_documenti = HttpsURLField("link ai documenti", max_length=500, blank=True)
     note = models.TextField(blank=True)
+    # Chiave stabile della riga Excel di provenienza: rende l'import idempotente.
+    chiave_import = models.CharField(  # noqa: DJ001
+        max_length=64, unique=True, null=True, blank=True, editable=False
+    )
     history = HistoricalRecords()
 
     class Meta:
@@ -564,6 +568,9 @@ class VoceContratto(Archiviabile):
     massimale_variabile = importo("massimale variabile", default=0)
     stima_consumo_pct = percentuale("stima di consumo (%)", null=True, blank=True)
     stima_consumo_importo = importo("stima di consumo (importo)", null=True, blank=True)
+    chiave_import = models.CharField(  # noqa: DJ001
+        max_length=64, unique=True, null=True, blank=True, editable=False
+    )
     history = HistoricalRecords()
 
     class Meta:
@@ -722,6 +729,8 @@ class StatoPratica(models.Model):
         NON_AVVIATA = "non_avviata", "Non avviata"
         OFFERTA_RICHIESTA = "offerta_richiesta", "Offerta richiesta"
         OFFERTA_RICEVUTA = "offerta_ricevuta", "Offerta ricevuta"
+        # Chiesto l'inserimento della RDA in SAP; diventa "predisposta" quando è inserita.
+        RDA_RICHIESTA = "rda_richiesta", "RDA richiesta"
         RDA_PREDISPOSTA = "rda_predisposta", "RDA predisposta"
         RDA_APPROVATA = "rda_approvata", "RDA approvata"
         ODA_EMESSO = "oda_emesso", "OdA emesso"
@@ -756,3 +765,69 @@ class StatoPratica(models.Model):
 
     def __str__(self):
         return f"{self.get_stato_display()} ({self.data:%d/%m/%Y})"
+
+
+# ---------------------------------------------------------------------------
+# Staging dell'import: proposte da confermare a mano, mai applicate in automatico
+# ---------------------------------------------------------------------------
+
+
+class StatoProposta(models.TextChoices):
+    PROPOSTA = "proposta", "Da valutare"
+    CONFERMATA = "confermata", "Confermata"
+    SCARTATA = "scartata", "Scartata"
+
+
+class PropostaRaggruppamento(models.Model):
+    """Contratti che l'import ritiene istanze dello stesso fabbisogno."""
+
+    contratti = models.ManyToManyField(Contratto, related_name="proposte_raggruppamento")
+    motivazione = models.CharField(max_length=300)
+    chiave = models.CharField(max_length=64, unique=True, editable=False)
+    stato = models.CharField(
+        max_length=12, choices=StatoProposta.choices, default=StatoProposta.PROPOSTA
+    )
+    creata_il = models.DateTimeField(auto_now_add=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "proposta di raggruppamento"
+        verbose_name_plural = "proposte di raggruppamento"
+        ordering = ["stato", "motivazione"]
+
+    def __str__(self):
+        return self.motivazione
+
+
+class PropostaPredecessore(models.Model):
+    """Coppia (predecessore → successore) proposta dall'import per la catena dei rinnovi."""
+
+    predecessore = models.ForeignKey(
+        Contratto, on_delete=models.PROTECT, related_name="proposte_come_predecessore"
+    )
+    successore = models.ForeignKey(
+        Contratto, on_delete=models.PROTECT, related_name="proposte_come_successore"
+    )
+    motivazione = models.CharField(max_length=300)
+    stato = models.CharField(
+        max_length=12, choices=StatoProposta.choices, default=StatoProposta.PROPOSTA
+    )
+    creata_il = models.DateTimeField(auto_now_add=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "proposta di predecessore"
+        verbose_name_plural = "proposte di predecessore"
+        ordering = ["stato", "successore__data_inizio"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["predecessore", "successore"], name="contratti_proposta_coppia_unica"
+            ),
+            models.CheckConstraint(
+                condition=~Q(predecessore=F("successore")),
+                name="contratti_proposta_non_se_stesso",
+            ),
+        ]
+
+    def __str__(self):
+        return self.motivazione

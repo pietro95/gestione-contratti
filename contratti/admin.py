@@ -326,6 +326,68 @@ class RataAdmin(BaseAdmin):
         super().save_model(request, obj, form, change)
 
 
+# --- Proposte dell'import (si confermano a mano) ---------------------------------
+
+
+def _applica(modeladmin, request, queryset, funzione, etichetta):
+    from contratti.importer.proposte import PropostaNonApplicabile
+
+    ok = 0
+    for proposta in queryset:
+        try:
+            funzione(proposta)
+            ok += 1
+        except PropostaNonApplicabile as exc:
+            modeladmin.message_user(request, f"{proposta}: {exc}", messages.ERROR)
+    if ok:
+        modeladmin.message_user(request, f"{etichetta}: {ok}.", messages.SUCCESS)
+
+
+@admin.action(description="Conferma le proposte selezionate")
+def conferma_raggruppamenti(modeladmin, request, queryset):
+    from contratti.importer.proposte import conferma_raggruppamento
+
+    _applica(modeladmin, request, queryset, conferma_raggruppamento, "Confermate")
+
+
+@admin.action(description="Conferma le proposte selezionate")
+def conferma_predecessori(modeladmin, request, queryset):
+    from contratti.importer.proposte import conferma_predecessore
+
+    _applica(modeladmin, request, queryset, conferma_predecessore, "Confermate")
+
+
+@admin.action(description="Scarta le proposte selezionate")
+def scarta_proposte(modeladmin, request, queryset):
+    from contratti.importer.proposte import scarta
+
+    _applica(modeladmin, request, queryset, scarta, "Scartate")
+
+
+@admin.register(m.PropostaRaggruppamento)
+class PropostaRaggruppamentoAdmin(BaseAdmin):
+    list_display = ("motivazione", "stato", "creata_il")
+    list_filter = ("stato",)
+    search_fields = ("motivazione",)
+    readonly_fields = ("motivazione", "contratti", "stato", "creata_il")
+    actions = [conferma_raggruppamenti, scarta_proposte]
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(m.PropostaPredecessore)
+class PropostaPredecessoreAdmin(BaseAdmin):
+    list_display = ("motivazione", "predecessore", "successore", "stato")
+    list_filter = ("stato",)
+    search_fields = ("motivazione",)
+    readonly_fields = ("predecessore", "successore", "motivazione", "stato", "creata_il")
+    actions = [conferma_predecessori, scarta_proposte]
+
+    def has_add_permission(self, request):
+        return False
+
+
 @admin.register(m.StatoPratica)
 class StatoPraticaAdmin(BaseAdmin):
     list_display = ("__str__", "contratto", "fabbisogno", "utente", "registrato_il")
