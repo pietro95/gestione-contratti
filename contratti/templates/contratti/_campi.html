@@ -1,12 +1,22 @@
-{% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors|join:" " }}</div>{% endif %}
-<div class="row g-3 mb-3">
-{% for campo in form.visible_fields %}
-  <div class="{% if campo.field.widget.input_type == 'checkbox' %}col-md-3 form-check pt-4 ms-2{% elif campo.name == 'note' or campo.name == 'descrizione' %}col-12{% else %}col-md-4{% endif %}">
-    {% if campo.field.widget.input_type == 'checkbox' %}{{ campo }} <label class="form-check-label" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
-    {% else %}<label class="form-label" for="{{ campo.id_for_label }}">{{ campo.label }}</label>{{ campo }}{% endif %}
-    {% if campo.help_text %}<div class="form-text">{{ campo.help_text }}</div>{% endif %}
-    {% for e in campo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-  </div>
+{% load registro %}
+{% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+{% for titolo, campi in form.gruppi %}
+<div class="card form-sezione">
+  {% if titolo %}<div class="card-header">{{ titolo }}</div>{% endif %}
+  <div class="card-body"><div class="row g-3">
+  {% for campo in campi %}
+    <div class="{{ campo|colonna }}">
+      {% if campo|e_checkbox %}
+        <div class="form-check mb-2">{{ campo }} <label class="form-check-label" for="{{ campo.id_for_label }}">{{ campo.label }}</label></div>
+      {% else %}
+        <label class="form-label" for="{{ campo.id_for_label }}">{{ campo.label }}{% if campo.field.required %} <span class="text-danger" aria-hidden="true">*</span>{% endif %}</label>
+        {{ campo }}
+      {% endif %}
+      {% if campo.help_text %}<div class="form-text">{{ campo.help_text }}</div>{% endif %}
+      {% for e in campo.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+    </div>
+  {% endfor %}
+  </div></div>
+</div>
 {% endfor %}
 {% for campo in form.hidden_fields %}{{ campo }}{% endfor %}
-</div>

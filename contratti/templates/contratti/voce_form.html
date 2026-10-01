@@ -1,26 +1,41 @@
 {% extends "base.html" %}
 {% block title %}Voce di contratto{% endblock %}
+{% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'contratti:contratti' %}">Contratti</a></li><li class="breadcrumb-item"><a href="{% url 'contratti:contratto' c.pk %}">{{ c }}</a></li><li class="breadcrumb-item active" aria-current="page">{% if voce %}Modifica voce{% else %}Nuova voce{% endif %}</li></ol></nav>{% endblock %}
+{% block titolo_pagina %}{% if voce %}Modifica voce{% else %}Nuova voce{% endif %}{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">{{ c }}</div>{% endblock %}
 {% block content %}
-<h1 class="h4">{% if voce %}Modifica voce{% else %}Nuova voce{% endif %} — {{ c }}</h1>
 <form method="post" novalidate id="voce-form">
   {% csrf_token %}
-  <h2 class="h6 mt-3">Voce</h2>
-  {% include "contratti/_campi.html" with form=form %}
-  <h2 class="h6">Piano di fatturazione</h2>
-  {% include "contratti/_campi.html" with form=piano_form %}
-  <h2 class="h6">Quote per periodo (facoltative, per importi diversi anno per anno)</h2>
-  {{ quote.management_form }}
-  {% if quote.non_form_errors %}<div class="alert alert-danger">{{ quote.non_form_errors }}</div>{% endif %}
-  <table class="table table-sm"><thead><tr><th>Dal</th><th>Al</th><th>Importo</th></tr></thead><tbody>
-  {% for q in quote %}<tr><td>{{ q.id }}{{ q.dal }}</td><td>{{ q.al }}</td><td>{{ q.importo }}{% for e in q.non_field_errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td></tr>{% endfor %}
-  </tbody></table>
-  <div class="d-flex gap-2 mb-3">
-    <button type="button" class="btn btn-outline-secondary"
+  <div class="row g-4">
+    <div class="col-xl-8">
+      {% include "contratti/_campi.html" with form=form %}
+      {% include "contratti/_campi.html" with form=piano_form %}
+      <div class="card form-sezione">
+        <div class="card-header">Quote per periodo <span class="fw-normal small text-body-secondary">facoltative: importi diversi anno per anno</span></div>
+        {{ quote.management_form }}
+        {% if quote.non_form_errors %}<div class="alert alert-danger m-3">{{ quote.non_form_errors }}</div>{% endif %}
+        <div class="table-responsive"><table class="table align-middle"><thead><tr><th>Dal</th><th>Al</th><th>Importo</th></tr></thead><tbody>
+        {% for q in quote %}<tr><td>{{ q.id }}<label class="visually-hidden" for="{{ q.dal.id_for_label }}">Dal</label>{{ q.dal }}</td><td><label class="visually-hidden" for="{{ q.al.id_for_label }}">Al</label>{{ q.al }}</td><td><label class="visually-hidden" for="{{ q.importo.id_for_label }}">Importo</label>{{ q.importo }}{% for e in q.non_field_errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}</td></tr>{% endfor %}
+        </tbody></table></div>
+      </div>
+    </div>
+    <div class="col-xl-4">
+      <div class="card position-sticky" style="top: 5rem">
+        <div class="card-header d-flex justify-content-between align-items-center">Anteprima dello scadenzario
+          <button type="button" class="btn btn-sm btn-outline-primary"
             hx-post="{% if voce %}{% url 'contratti:voce_anteprima_esistente' c.pk voce.pk %}{% else %}{% url 'contratti:voce_anteprima' c.pk %}{% endif %}"
-            hx-include="#voce-form" hx-target="#anteprima">Anteprima scadenzario</button>
-    <button type="submit" class="btn btn-primary">Salva</button>
-    <a class="btn btn-link" href="{% url 'contratti:contratto' c.pk %}">Annulla</a>
+            hx-include="#voce-form" hx-target="#anteprima" hx-indicator="#anteprima-attesa"><i class="bi bi-eye" aria-hidden="true"></i> Calcola</button>
+        </div>
+        <div class="card-body">
+          <div id="anteprima-attesa" class="htmx-indicator small text-body-secondary">Calcolo in corso…</div>
+          <div id="anteprima"><p class="small text-body-secondary mb-0">Compila importi e piano, poi premi «Calcola» per vedere le rate prima di salvare.</p></div>
+        </div>
+      </div>
+    </div>
   </div>
-  <div id="anteprima"></div>
+  <div class="form-azioni">
+    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Salva</button>
+    <a class="btn btn-outline-secondary" href="{% url 'contratti:contratto' c.pk %}">Annulla</a>
+  </div>
 </form>
 {% endblock %}
