@@ -22,8 +22,9 @@ errore() {
 }
 
 # Valore di una variabile del .env, senza eseguire il file (i DN LDAP contengono spazi).
+# Vuoto se la variabile manca (mai un errore: gli script girano con set -e).
 valore_env() {
-  grep -E "^$1=" "$ENV_FILE" | tail -n 1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'
+  { grep -E "^$1=" "$ENV_FILE" || true; } | tail -n 1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'
 }
 
 # Docker Compose limitato a questo progetto: non tocca gli altri container del server.
