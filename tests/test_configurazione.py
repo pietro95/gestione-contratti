@@ -19,6 +19,7 @@ def test_procedure_iniziali_provvisorie():
         "negoziata": 6,
         "aperta": 9,
         "adesione_convenzione": 2,
+        "da_verificare": 6,  # migration 0008, per l'import Excel
     }
     assert not m.Procedura.objects.filter(provvisorio=False).exists()
 
@@ -49,6 +50,7 @@ def test_categorie_iniziali():
         "Connettività",
         "Servizi professionali",
         "Noleggio",
+        "Da classificare",  # migration 0008, per l'import Excel
     }
 
 
