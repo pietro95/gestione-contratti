@@ -1,24 +1,26 @@
-"""Filtri di presentazione: importi all'italiana e badge degli alert."""
+"""Filtri e tag di presentazione: importi all'italiana, badge di stato, ordinamento e filtri."""
 
 from decimal import Decimal
 
-from django import template
+from django import forms, template
 from django.template.defaultfilters import floatformat
+from django.urls import NoReverseMatch, reverse
 from django.utils.html import format_html
 
 register = template.Library()
 
+# Testi brevi e colori coerenti in tutte le pagine (classi .stato-* di static/css/app.css).
 ALERT = {
-    "rosso": ("danger", "🔴 Scaduto"),
-    "arancione": ("warning", "🟠 Oltre la data limite"),
-    "giallo": ("warning-subtle text-dark", "🟡 In avvicinamento"),
-    "verde": ("success", "🟢 Regolare"),
+    "rosso": ("rosso", "Senza rinnovo"),
+    "arancione": ("arancione", "Oltre la data limite"),
+    "giallo": ("giallo", "In avvicinamento"),
+    "verde": ("verde", "Regolare"),
 }
 STATO = {
-    "attivo": ("success", "Attivo"),
-    "futuro": ("info", "Futuro"),
-    "scaduto": ("secondary", "Scaduto"),
-    "senza_data": ("dark", "Senza data"),
+    "attivo": ("verde", "Attivo"),
+    "futuro": ("blu", "Futuro"),
+    "scaduto": ("grigio", "Scaduto"),
+    "senza_data": ("grigio", "Senza data"),
 }
 
 
@@ -30,18 +32,56 @@ def euro(valore):
     return f"{floatformat(Decimal(valore), '2g')} €"
 
 
+def _badge(classe, testo):
+    return format_html('<span class="stato stato-{}">{}</span>', classe, testo)
+
+
 @register.filter
 def alert_badge(valore):
     if not valore:
         return "—"
-    classe, testo = ALERT[str(valore)]
-    return format_html('<span class="badge text-bg-{}">{}</span>', classe, testo)
+    return _badge(*ALERT[str(valore)])
+
+
+@register.filter
+def alert_testo(valore):
+    return ALERT[str(valore)][1] if valore else ""
 
 
 @register.filter
 def stato_badge(valore):
-    classe, testo = STATO.get(valore, ("light", valore))
-    return format_html('<span class="badge text-bg-{}">{}</span>', classe, testo)
+    classe, testo = STATO.get(valore, ("grigio", valore))
+    return _badge(classe, testo)
+
+
+@register.filter
+def iniziali(utente):
+    nome = (utente.get_full_name() or utente.get_username()).replace(".", " ").split()
+    return "".join(p[0] for p in nome[:2]).upper() or "?"
+
+
+LARGHI = {"descrizione", "note", "link_documenti", "fabbisogno", "fornitore"}
+
+
+@register.filter
+def colonna(campo):
+    """Larghezza della colonna di un campo nel form, dal tipo di widget e dal nome."""
+    widget = campo.field.widget
+    nome = campo.name.split("-")[-1]
+    if isinstance(widget, forms.Textarea):
+        return "col-12"
+    if nome in LARGHI:
+        return "col-12 col-lg-6" if nome in ("fabbisogno", "fornitore") else "col-12"
+    if isinstance(widget, forms.CheckboxInput):
+        return "col-sm-6 col-lg-4 d-flex align-items-end"
+    if isinstance(widget, forms.DateInput):
+        return "col-sm-6 col-lg-3"
+    return "col-sm-6 col-lg-4"
+
+
+@register.filter
+def e_checkbox(campo):
+    return isinstance(campo.field.widget, forms.CheckboxInput)
 
 
 @register.simple_tag(takes_context=True)
@@ -51,3 +91,53 @@ def query_con(context, **kwargs):
     for chiave, valore in kwargs.items():
         query[chiave] = valore
     return query.urlencode()
+
+
+@register.simple_tag(takes_context=True)
+def query_senza(context, *chiavi):
+    """Querystring corrente senza alcuni parametri (rimozione di un filtro attivo)."""
+    query = context["request"].GET.copy()
+    for chiave in (*chiavi, "pagina"):
+        query.pop(chiave, None)
+    return query.urlencode()
+
+
+@register.simple_tag(takes_context=True)
+def ordina(context, campo, etichetta):
+    """Intestazione di colonna ordinabile: alterna crescente / decrescente."""
+    query = context["request"].GET.copy()
+    attuale = query.get("ordina", "")
+    discendente = attuale == campo
+    query["ordina"] = f"-{campo}" if discendente else campo
+    query.pop("pagina", None)
+    if attuale == campo:
+        icona, aria = "bi-sort-up", "crescente"
+    elif attuale == f"-{campo}":
+        icona, aria = "bi-sort-down", "decrescente"
+    else:
+        icona, aria = "bi-arrow-down-up", None
+    return format_html(
+        '<a class="ordina" href="?{}">{} <i class="bi {}" aria-hidden="true"></i>{}</a>',
+        query.urlencode(),
+        etichetta,
+        icona,
+        format_html('<span class="visually-hidden"> (ordine {})</span>', aria) if aria else "",
+    )
+
+
+@register.inclusion_tag("_nav_voce.html", takes_context=True)
+def nav_voce(context, nome_url, etichetta, icona, *prefissi, conteggio=None):
+    """Voce della barra laterale, evidenziata se la pagina corrente le appartiene."""
+    try:
+        url = reverse(nome_url)
+    except NoReverseMatch:
+        url = "#"
+    percorso = context["request"].path
+    attivo = percorso == url or any(percorso.startswith(p) for p in prefissi)
+    return {
+        "url": url,
+        "etichetta": etichetta,
+        "icona": icona,
+        "attivo": attivo,
+        "conteggio": conteggio,
+    }

@@ -1,26 +1,34 @@
 {% extends "base.html" %}
-{% block title %}Accesso · Registro contratti IT/TLC{% endblock %}
-{% block content %}
-<div class="row justify-content-center">
-  <div class="col-sm-8 col-md-5">
-    <h1 class="h4 mb-3">Accesso</h1>
-    <p class="text-body-secondary small">Usa le credenziali di dominio.</p>
-    {% if form.non_field_errors %}
-      <div class="alert alert-danger" role="alert">{% for e in form.non_field_errors %}{{ e }}{% endfor %}</div>
-    {% endif %}
-    <form method="post" novalidate>
-      {% csrf_token %}
-      <input type="hidden" name="next" value="{{ next }}">
-      <div class="mb-3">
-        <label class="form-label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
-        {{ form.username }}
+{% load static %}
+{% block title %}Accesso{% endblock %}
+{% block corpo %}
+<main class="login-pagina">
+  <div>
+    <div class="card login-card">
+      <div class="card-body">
+        <img src="{% static 'img/logo/siciliacque.svg' %}" alt="Siciliacque">
+        <h1 class="h4 text-center mb-1">Registro contratti IT/TLC</h1>
+        <p class="text-center text-body-secondary small mb-4">Accedi con le credenziali di dominio.</p>
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger py-2 small" role="alert">{% for e in form.non_field_errors %}{{ e }}{% endfor %}</div>
+        {% endif %}
+        <form method="post" novalidate>
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ next }}">
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+            {{ form.username }}
+          </div>
+          <div class="mb-4">
+            <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+            {{ form.password }}
+          </div>
+          <button type="submit" class="btn btn-primary w-100 py-2">Entra</button>
+        </form>
+        <p class="small text-body-secondary mt-4 mb-0">Problemi di accesso? Contatta l'ufficio IT. In emergenza, senza Active Directory, si usa l'account di emergenza.</p>
       </div>
-      <div class="mb-3">
-        <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
-        {{ form.password }}
-      </div>
-      <button type="submit" class="btn btn-primary w-100">Entra</button>
-    </form>
+    </div>
+    <div class="login-piede">Siciliacque S.p.A. · versione {{ versione_app }}</div>
   </div>
-</div>
+</main>
 {% endblock %}
