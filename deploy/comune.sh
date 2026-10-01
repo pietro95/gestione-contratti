@@ -5,7 +5,6 @@
 #   app/       checkout git del codice (qui sta questo script)
 #   config/    .env (permessi 600) e certs/ (CA interna per LDAPS)
 #   postgres/  dati del database
-#   static/    file statici, serviti dal reverse proxy
 #   backup/    dump giornalieri e pre-aggiornamento
 #   import/    Excel e CSV da importare, con i report delle anomalie (in /import nel container)
 

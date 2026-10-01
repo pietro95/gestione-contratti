@@ -7,7 +7,7 @@ da adattare sono indicate come `<SEGNAPOSTO>`.
 ## 0. Principi
 
 - **Tutto in una cartella**: `/appdata/gestione-contratti`. Fuori da lì si tocca solo la
-  configurazione del reverse proxy nginx esistente (§5).
+  configurazione del reverse proxy esistente, Nginx Proxy Manager (§5).
 - **Nessun impatto sugli altri container**:
   - gli script usano solo il progetto Docker Compose `gestione-contratti` (container
     `gestione-contratti-*`, rete `gestione-contratti_interna`, immagini `gestione-contratti:*`);
@@ -25,7 +25,6 @@ Struttura:
 | `config/.env` | configurazione e password (permessi 600) |
 | `config/certs/ca-interna.pem` | certificato della CA interna, per LDAPS |
 | `postgres/` | dati del database |
-| `static/` | file statici, serviti da nginx |
 | `backup/` | dump giornalieri e pre-aggiornamento |
 | `import/` | Excel e CSV da importare, report delle anomalie (nel container: `/import`) |
 
@@ -65,7 +64,7 @@ sudo mkdir -p /appdata/gestione-contratti
 sudo chown "$USER": /appdata/gestione-contratti
 cd /appdata/gestione-contratti
 git clone github-gestione-contratti:pietro95/gestione-contratti.git app
-mkdir -p config/certs postgres static backup import
+mkdir -p config/certs postgres backup import
 ```
 
 ## 3. Configurazione (`config/.env`)
@@ -125,9 +124,8 @@ Lo script:
 3. costruisce l'immagine;
 4. avvia il database;
 5. applica le migration;
-6. pubblica i file statici in `static/`;
-7. avvia app e backup;
-8. attende che `/healthz` risponda.
+6. avvia app e backup;
+7. attende che `/healthz` risponda.
 
 Al termine stampa `Installata la versione v1.0.`
 
@@ -140,44 +138,75 @@ cd /appdata/gestione-contratti/app/deploy && source comune.sh && compose ps
 Devono comparire `gestione-contratti-db-1`, `-web-1` e `-backup-1`, tutti `Up`, con `db` e
 `web` `(healthy)`.
 
-## 5. Reverse proxy nginx
+## 5. Reverse proxy
 
-1. **DNS**: record A per il nome scelto (es. `contratti.siciliacque.local`) verso il server.
+L'app serve da sola anche i file statici (CSS, JavaScript): il proxy deve solo terminare HTTPS e
+inoltrare **tutto** a `APP_BIND:APP_PORT`, senza regole per `/static/`.
+
+Preliminari comuni:
+1. **DNS**: record A per il nome scelto (es. `contratti.siciliacque.it`) verso il server.
 2. **Certificato dalla CA interna**: richiesta con il nome nel SAN.
    ```bash
    openssl req -new -newkey rsa:3072 -nodes -keyout contratti.key -out contratti.csr \
      -subj "/CN=<NOME_DNS>" -addext "subjectAltName=DNS:<NOME_DNS>"
    ```
-   Consegna `contratti.csr` alla CA; metti certificato e chiave dove nginx tiene gli altri
-   (es. `/etc/nginx/ssl/`), con la chiave leggibile solo da root.
-3. **Configurazione**: parti da `app/deploy/nginx/gestione-contratti.conf.esempio`.
-   ```bash
-   sudo cp /appdata/gestione-contratti/app/deploy/nginx/gestione-contratti.conf.esempio \
-     /etc/nginx/sites-available/gestione-contratti.conf
-   sudo nano /etc/nginx/sites-available/gestione-contratti.conf
-   ```
-   Sostituisci i segnaposto:
+   Consegna `contratti.csr` alla CA (modello Web Server). La chiave resta sul server, leggibile
+   solo da root.
 
-   | Segnaposto | Valore |
-   |---|---|
-   | `__SERVER_NAME__` | nome DNS |
-   | `__APP_UPSTREAM__` | `APP_BIND:APP_PORT` |
-   | `__STATIC_DIR__` | `/appdata/gestione-contratti/static` |
-   | `__CERT__`, `__KEY__` | i percorsi del certificato e della chiave |
+### 5.1 Nginx Proxy Manager (il proxy in uso)
 
-   Poi attiva il sito:
-   ```bash
-   sudo ln -s /etc/nginx/sites-available/gestione-contratti.conf /etc/nginx/sites-enabled/
-   sudo nginx -t && sudo systemctl reload nginx
-   ```
-   `nginx -t` verifica la sintassi **senza** toccare gli altri siti; il `reload` non interrompe le
-   connessioni in corso.
-   **Se nginx gira in un container**:
-   - monta `/appdata/gestione-contratti/static` in sola lettura nello stesso percorso;
-   - usa come `__APP_UPSTREAM__` l'indirizzo dell'host visto dal container;
-   - ricarica con `docker exec <container-nginx> nginx -t && docker exec <container-nginx> nginx -s reload`.
-4. **Verifica** da un PC della rete: `https://<NOME_DNS>/healthz` risponde `{"status": "ok"}` e
-   `http://<NOME_DNS>` rimanda a `https://`.
+Nginx Proxy Manager gira in un container, quindi non raggiunge `127.0.0.1` dell'host. Nel `.env`:
+- `APP_BIND` = indirizzo dell'host raggiungibile dal container del proxy. Il gateway del bridge
+  Docker si trova con:
+  ```bash
+  docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}'
+  ```
+  Di solito è `172.17.0.1`. Se il proxy usa un'altra rete Docker, prendi il gateway di quella rete.
+- Mai `0.0.0.0` senza firewall: esporrebbe l'app senza HTTPS su tutta la rete.
+
+Nell'interfaccia di Nginx Proxy Manager:
+1. **SSL Certificates** → Add SSL Certificate → **Custom**: carica la chiave e il certificato.
+   Se la CA ha una subordinata, carica come certificato il file con certificato più subordinata.
+2. **Hosts → Proxy Hosts** → Add Proxy Host:
+   - **Details**:
+     - Domain Names: `<NOME_DNS>`;
+     - Scheme: `http`;
+     - Forward Hostname/IP: `APP_BIND`;
+     - Forward Port: `APP_PORT`;
+     - attiva *Block Common Exploits*.
+   - **SSL**: il certificato appena caricato, *Force SSL* e *HTTP/2 Support* attivi.
+   - **Custom locations** e **Advanced**: vuoti.
+
+     Nginx Proxy Manager invia già `X-Forwarded-Proto`, l'header da cui Django capisce che la
+     connessione è HTTPS. Se in futuro serve caricare file più grandi di 1 MB, in Advanced va
+     aggiunto `client_max_body_size 20m;`.
+3. Salva: il proxy si ricarica senza interrompere gli altri siti.
+
+### 5.2 Nginx con file di configurazione (alternativa)
+
+Parti da `app/deploy/nginx/gestione-contratti.conf.esempio`. Sostituisci `__SERVER_NAME__`,
+`__APP_UPSTREAM__` (`APP_BIND:APP_PORT`), `__CERT__` e `__KEY__`, poi:
+```bash
+sudo cp /appdata/gestione-contratti/app/deploy/nginx/gestione-contratti.conf.esempio \
+  /etc/nginx/sites-available/gestione-contratti.conf
+sudo nano /etc/nginx/sites-available/gestione-contratti.conf
+sudo ln -s /etc/nginx/sites-available/gestione-contratti.conf /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### 5.3 Verifica
+
+Da un PC della rete:
+- `https://<NOME_DNS>/healthz` risponde `{"status": "ok"}`;
+- `http://<NOME_DNS>` rimanda a `https://`;
+- la pagina di login appare con lo stile, non come testo semplice.
+
+Dal server:
+```bash
+curl -sk -o /dev/null -w "%{http_code} %{content_type}\n" \
+  https://<NOME_DNS>/static/vendor/bootstrap-5.3.8/bootstrap.min.css
+```
+Esito atteso: `200 text/css`.
 
 ## 6. Primo utilizzo
 
@@ -324,8 +353,8 @@ riavvio del server (`restart: unless-stopped`).
 | `deploy.sh`: "la porta … è già usata" | un altro servizio la usa: cambia `APP_PORT` nel `.env` e in nginx |
 | Errore 400 Bad Request | il nome usato non è in `DJANGO_ALLOWED_HOSTS` |
 | Errore 403 CSRF al login | `DJANGO_CSRF_TRUSTED_ORIGINS` deve essere `https://<NOME_DNS>`; nginx deve inviare `X-Forwarded-Proto https` |
-| Errore 502 da nginx | app ferma o `__APP_UPSTREAM__` errato: `compose ps`, poi `curl -H "Host: <NOME_DNS>" http://<APP_BIND>:<APP_PORT>/healthz` dal server |
-| Pagine senza stile | `__STATIC_DIR__` errato o non leggibile da nginx (`ls -l /appdata/gestione-contratti/static`) |
+| Errore 502 dal proxy | app ferma o indirizzo di inoltro errato (Forward Hostname/Port): `compose ps`, poi `curl -H "Host: <NOME_DNS>" http://<APP_BIND>:<APP_PORT>/healthz` dal server |
+| Pagine senza stile (testo semplice) | il CSS non arriva: verifica del §5.3; il proxy deve inoltrare anche `/static/` all'app, senza regole proprie |
 | L'app non parte, `accounts.E001` nel log | manca `config/certs/ca-interna.pem` |
 | Login AD rifiutato a tutti | `compose logs web \| grep -i ldap`; per diagnosi `LDAP_LOG_LEVEL=DEBUG`, poi `compose restart web` |
 | Emergenza senza AD | accesso con l'account break-glass (§6.1) |

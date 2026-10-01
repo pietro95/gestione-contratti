@@ -6,7 +6,8 @@
 # - progetto Compose fisso "gestione-contratti": container, rete e immagini hanno questo prefisso;
 # - nessun volume con nome, nessuna porta standard: i dati stanno in $APP_DIR, l'app ascolta
 #   solo su APP_BIND:APP_PORT (dal .env), il database non espone porte;
-# - il reverse proxy nginx esistente termina HTTPS e inoltra a APP_BIND:APP_PORT.
+# - il reverse proxy esistente (Nginx Proxy Manager) termina HTTPS e inoltra tutto, file
+#   statici compresi, a APP_BIND:APP_PORT: i file statici sono nell'immagine (WhiteNoise).
 name: gestione-contratti
 
 x-log: &log
@@ -26,7 +27,6 @@ x-app: &app
     TZ: Europe/Rome
     GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS:---workers 3 --timeout 60}
   volumes:
-    - ${APP_DIR}/static:/app/staticfiles
     - ${APP_DIR}/config/certs:/etc/gestione-contratti/certs:ro
     # Excel e CSV da importare; i report delle anomalie si scrivono accanto ai file.
     - ${APP_DIR}/import:/import
