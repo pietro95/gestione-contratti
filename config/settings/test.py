@@ -15,3 +15,7 @@ ALLOWED_HOSTS = ["testserver", "localhost"]
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 AUTHENTICATION_BACKENDS = ["django.contrib.auth.backends.ModelBackend"]
 DATABASES["default"]["CONN_MAX_AGE"] = 0
+
+# WhiteNoise senza collectstatic: file letti dalle cartelle sorgente a ogni richiesta.
+WHITENOISE_AUTOREFRESH = True
+WHITENOISE_USE_FINDERS = True

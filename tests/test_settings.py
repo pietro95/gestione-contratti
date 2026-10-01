@@ -43,3 +43,15 @@ def test_warning_deploy_senza_ldap():
 def test_nessun_errore_di_sistema():
     errors = [m for m in run_checks() if m.is_serious()]
     assert errors == []
+
+
+def test_file_statici_serviti_dall_app():
+    """Dietro Nginx Proxy Manager il proxy inoltra anche /static/: li serve WhiteNoise."""
+    from django.conf import settings
+
+    middleware = settings.MIDDLEWARE
+    assert "whitenoise.middleware.WhiteNoiseMiddleware" in middleware
+    assert middleware.index("whitenoise.middleware.WhiteNoiseMiddleware") == (
+        middleware.index("django.middleware.security.SecurityMiddleware") + 1
+    )
+    assert settings.STORAGES["staticfiles"]["BACKEND"].startswith("whitenoise.")

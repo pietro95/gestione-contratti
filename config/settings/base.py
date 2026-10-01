@@ -33,6 +33,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # File statici serviti dall'app (il reverse proxy inoltra tutto, anche /static/).
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -108,6 +110,13 @@ USE_THOUSAND_SEPARATOR = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# Compressione gzip/brotli in collectstatic; nomi senza hash (le librerie hanno la versione
+# nel percorso), cache del browser di un'ora.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
+WHITENOISE_MAX_AGE = 3600
 
 LOGGING = {
     "version": 1,

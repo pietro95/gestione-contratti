@@ -25,7 +25,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PATH=/opt/venv/bin:$PATH \
 COPY --from=build /opt/venv /opt/venv
 WORKDIR /app
 COPY --chown=app:app . .
+RUN mkdir /app/staticfiles && chown app:app /app/staticfiles
 USER app
+# File statici dentro l'immagine: li serve l'app (WhiteNoise), coerenti con la versione.
+# Variabili fittizie: collectstatic non usa né il database né la chiave.
+RUN DJANGO_SECRET_KEY=solo-build DATABASE_URL=postgres://build@localhost/build \
+    python manage.py collectstatic --noinput >/dev/null
 
 EXPOSE 8000
 # Il controllo usa il primo host ammesso: con un Host non ammesso Django risponde 400.
