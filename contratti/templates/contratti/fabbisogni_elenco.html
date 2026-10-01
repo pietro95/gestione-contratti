@@ -1,25 +1,28 @@
 {% extends "base.html" %}
+{% load registro %}
 {% block title %}Fabbisogni{% endblock %}
+{% block titolo_pagina %}Fabbisogni{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">Il fabbisogno è l'esigenza stabile (es. "licenze gestionale"); i contratti ne sono le istanze nel tempo.</div>{% endblock %}
+{% block azioni %}{% if puo_modificare %}<a class="btn btn-primary" href="{% url 'contratti:fabbisogno_nuovo' %}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuovo fabbisogno</a>{% endif %}{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="h4 m-0">Fabbisogni</h1>
-  {% if puo_modificare %}<a class="btn btn-primary btn-sm" href="{% url 'contratti:fabbisogno_nuovo' %}">Nuovo fabbisogno</a>{% endif %}
-</div>
-<form method="get" class="row g-2 mb-3">
-  <div class="col-md-4"><input type="search" name="q" value="{{ filtri.q }}" class="form-control form-control-sm" placeholder="Cerca"></div>
-  <div class="col-auto"><select name="area" class="form-select form-select-sm"><option value="">Area</option>{% for v, t in aree %}<option value="{{ v }}" {% if filtri.area == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
-  <div class="col-auto"><select name="decisione" class="form-select form-select-sm"><option value="">Decisione</option>{% for v, t in decisioni %}<option value="{{ v }}" {% if filtri.decisione == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
-  <div class="col-auto"><select name="categoria" class="form-select form-select-sm"><option value="">Categoria</option>{% for c in categorie %}<option value="{{ c.pk }}" {% if filtri.categoria == c.pk|stringformat:"s" %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
-  <div class="col-auto form-check pt-1"><input class="form-check-input" type="checkbox" name="archiviati" value="1" id="arch" {% if filtri.archiviati %}checked{% endif %}><label class="form-check-label small" for="arch">Archiviati</label></div>
-  <div class="col-auto"><button class="btn btn-sm btn-outline-primary" type="submit">Filtra</button></div>
+<form method="get" class="filtri row g-3 align-items-end">
+  <div class="col-md-6 col-xl-4"><label class="form-label" for="f-q">Cerca</label><input id="f-q" type="search" name="q" value="{{ filtri.q }}" class="form-control" placeholder="Descrizione, referente, note"></div>
+  <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-area">Area</label><select id="f-area" name="area" class="form-select"><option value="">Tutte</option>{% for v, t in aree %}<option value="{{ v }}" {% if filtri.area == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+  <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-dec">Decisione</label><select id="f-dec" name="decisione" class="form-select"><option value="">Tutte</option>{% for v, t in decisioni %}<option value="{{ v }}" {% if filtri.decisione == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+  <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-cat">Categoria</label><select id="f-cat" name="categoria" class="form-select"><option value="">Tutte</option>{% for c in categorie %}<option value="{{ c.pk }}" {% if filtri.categoria == c.pk|stringformat:"s" %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
+  <div class="col-auto"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="archiviati" value="1" id="f-arch" {% if filtri.archiviati %}checked{% endif %}><label class="form-check-label" for="f-arch">Archiviati</label></div></div>
+  <div class="col-auto"><button class="btn btn-primary" type="submit">Applica</button></div>
 </form>
-<table class="table table-sm table-hover">
-  <thead><tr><th>Descrizione</th><th>Area</th><th>Categoria</th><th>Decisione</th><th>Contratti</th></tr></thead>
+{% include "contratti/_filtri_attivi.html" %}
+<div class="tabella-card"><div class="table-responsive">
+<table class="table table-hover align-middle">
+  <thead><tr><th>{% ordina 'descrizione' 'Descrizione' %}</th><th>{% ordina 'area' 'Area' %}</th><th>{% ordina 'categoria' 'Categoria' %}</th><th>{% ordina 'decisione' 'Decisione' %}</th><th class="text-end">{% ordina 'contratti' 'Contratti' %}</th></tr></thead>
   <tbody>
-  {% for f in pagina %}
-    <tr><td><a href="{% url 'contratti:fabbisogno' f.pk %}">{{ f.descrizione }}</a>{% if f.archiviato %} <span class="badge text-bg-light">archiviato</span>{% endif %}</td><td>{{ f.area }}</td><td>{{ f.categoria }}</td><td>{{ f.get_decisione_display }}</td><td>{{ f.n_contratti }}</td></tr>
-  {% empty %}<tr><td colspan="5" class="text-body-secondary">Nessun fabbisogno.</td></tr>{% endfor %}
+  {% for f in pagina %}{% url 'contratti:fabbisogno' f.pk as link %}
+    <tr data-href="{{ link }}"><td><a href="{{ link }}" class="fw-semibold">{{ f.descrizione }}</a>{% if f.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}</td><td>{{ f.area }}</td><td>{{ f.categoria }}</td><td>{{ f.get_decisione_display }}</td><td class="text-end">{{ f.n_contratti }}</td></tr>
+  {% empty %}<tr><td colspan="5"><div class="vuoto"><i class="bi bi-inbox" aria-hidden="true"></i>Nessun fabbisogno con questi filtri.</div></td></tr>{% endfor %}
   </tbody>
-</table>
+</table></div>
 {% include "contratti/_paginazione.html" %}
+</div>
 {% endblock %}

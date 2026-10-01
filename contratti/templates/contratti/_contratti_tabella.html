@@ -1,20 +1,31 @@
 {% load registro %}
-<p class="small text-body-secondary">{{ totale }} contratti</p>
-<table class="table table-sm table-hover align-middle">
-  <thead><tr><th>Fabbisogno / descrizione</th><th>Fornitore</th><th>OdA</th><th>CIG</th><th>Inizio</th><th>Fine</th><th>Stato</th><th>Alert</th></tr></thead>
+{% include "contratti/_filtri_attivi.html" %}
+<div class="tabella-card">
+<div class="table-responsive">
+<table class="table table-hover align-middle">
+  <thead><tr>
+    <th>{% ordina 'fabbisogno' 'Fabbisogno / descrizione' %}</th>
+    <th>{% ordina 'fornitore' 'Fornitore' %}</th>
+    <th>OdA · CIG</th>
+    <th>{% ordina 'inizio' 'Inizio' %}</th>
+    <th>{% ordina 'fine' 'Fine' %}</th>
+    <th>Stato</th>
+    <th>{% ordina 'alert' 'Alert' %}</th>
+  </tr></thead>
   <tbody>
-  {% for r in pagina %}
-    <tr{% if r.contratto.archiviato %} class="text-body-secondary"{% endif %}>
-      <td><a href="{% url 'contratti:contratto' r.contratto.pk %}">{{ r.contratto.fabbisogno.descrizione }}</a>{% if r.contratto.descrizione and r.contratto.descrizione != r.contratto.fabbisogno.descrizione %}<div class="small text-body-secondary">{{ r.contratto.descrizione }}</div>{% endif %}</td>
-      <td>{{ r.contratto.fornitore }}</td>
-      <td class="small">{{ r.contratto.numero_oda|default:"—" }}</td>
-      <td class="small">{{ r.contratto.cig|default:"—" }}</td>
-      <td>{{ r.contratto.data_inizio|date:"d/m/Y"|default:"—" }}</td>
-      <td>{{ r.fine|date:"d/m/Y"|default:"—" }}</td>
-      <td>{{ r.stato|stato_badge }}{% if r.contratto.archiviato %} <span class="badge text-bg-light">archiviato</span>{% endif %}</td>
+  {% for r in pagina %}{% url 'contratti:contratto' r.contratto.pk as link %}
+    <tr data-href="{{ link }}"{% if r.contratto.archiviato %} class="text-body-secondary"{% endif %}>
+      <td><a href="{{ link }}" class="fw-semibold">{{ r.contratto.fabbisogno.descrizione }}</a>{% if r.contratto.descrizione and r.contratto.descrizione != r.contratto.fabbisogno.descrizione %}<div class="small text-body-secondary">{{ r.contratto.descrizione }}</div>{% endif %}</td>
+      <td>{{ r.contratto.fornitore }}<div class="small text-body-secondary">{{ r.contratto.fabbisogno.area }}</div></td>
+      <td class="small">{{ r.contratto.numero_oda|default:"—" }}<div class="text-body-secondary">{{ r.contratto.cig|default:"—" }}</div></td>
+      <td class="text-nowrap">{{ r.contratto.data_inizio|date:"d/m/Y"|default:"—" }}</td>
+      <td class="text-nowrap">{{ r.fine|date:"d/m/Y"|default:"—" }}</td>
+      <td>{{ r.stato|stato_badge }}{% if r.contratto.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}</td>
       <td>{{ r.alert|alert_badge }}</td>
     </tr>
-  {% empty %}<tr><td colspan="8" class="text-body-secondary">Nessun contratto.</td></tr>{% endfor %}
+  {% empty %}<tr><td colspan="7"><div class="vuoto"><i class="bi bi-inbox" aria-hidden="true"></i>Nessun contratto con questi filtri.</div></td></tr>{% endfor %}
   </tbody>
 </table>
+</div>
 {% include "contratti/_paginazione.html" %}
+</div>

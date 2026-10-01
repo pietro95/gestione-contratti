@@ -1,20 +1,26 @@
 {% extends "base.html" %}
 {% block title %}Contratti{% endblock %}
+{% block titolo_pagina %}Contratti{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">Ogni riga è un contratto; rinnovi e proroghe sono nel dettaglio.</div>{% endblock %}
+{% block azioni %}{% if puo_modificare %}<a class="btn btn-primary" href="{% url 'contratti:contratto_nuovo' %}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuovo contratto</a>{% endif %}{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="h4 m-0">Contratti</h1>
-  {% if puo_modificare %}<a class="btn btn-primary btn-sm" href="{% url 'contratti:contratto_nuovo' %}">Nuovo contratto</a>{% endif %}
-</div>
-<form method="get" class="row g-2 mb-3" hx-get="{% url 'contratti:contratti' %}" hx-target="#tabella" hx-trigger="change, keyup changed delay:400ms from:input[name=q]" hx-push-url="true">
-  <div class="col-md-3"><input type="search" name="q" value="{{ filtri.q }}" class="form-control form-control-sm" placeholder="Descrizione, OdA, CIG, RDA, fornitore"></div>
-  <div class="col-auto"><select name="area" class="form-select form-select-sm"><option value="">Area</option>{% for v, t in aree %}<option value="{{ v }}" {% if filtri.area == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
-  <div class="col-auto"><select name="stato" class="form-select form-select-sm"><option value="">Stato</option>{% for v, t in stati %}<option value="{{ v }}" {% if filtri.stato == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
-  <div class="col-auto"><select name="alert" class="form-select form-select-sm"><option value="">Alert</option>{% for v, t in alert %}<option value="{{ v }}" {% if filtri.alert == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
-  <div class="col-auto"><select name="finanziamento" class="form-select form-select-sm"><option value="">Finanziamento</option>{% for v, t in finanziamenti %}<option value="{{ v }}" {% if filtri.finanziamento == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
-  <div class="col-md-2"><select name="fornitore" class="form-select form-select-sm"><option value="">Fornitore</option>{% for f in fornitori %}<option value="{{ f.pk }}" {% if filtri.fornitore == f.pk|stringformat:"s" %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
-  <div class="col-auto"><input type="number" name="anno" value="{{ filtri.anno }}" class="form-control form-control-sm" placeholder="Anno" style="width:6rem"></div>
-  <div class="col-auto form-check pt-1"><input class="form-check-input" type="checkbox" name="archiviati" value="1" id="arch" {% if filtri.archiviati %}checked{% endif %}><label class="form-check-label small" for="arch">Archiviati</label></div>
-  <div class="col-auto"><button class="btn btn-sm btn-outline-primary" type="submit">Filtra</button></div>
+<form method="get" class="filtri" hx-get="{% url 'contratti:contratti' %}" hx-target="#tabella" hx-trigger="change, keyup changed delay:400ms from:input[name=q]" hx-push-url="true">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-6 col-xl-4"><label class="form-label" for="f-q">Cerca</label><input id="f-q" type="search" name="q" value="{{ filtri.q }}" class="form-control" placeholder="Descrizione, OdA, CIG, RDA, fornitore"></div>
+    <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-area">Area</label><select id="f-area" name="area" class="form-select"><option value="">Tutte</option>{% for v, t in aree %}<option value="{{ v }}" {% if filtri.area == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+    <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-stato">Stato</label><select id="f-stato" name="stato" class="form-select"><option value="">Tutti</option>{% for v, t in stati %}<option value="{{ v }}" {% if filtri.stato == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+    <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-alert">Alert</label><select id="f-alert" name="alert" class="form-select"><option value="">Tutti</option>{% for v, t in alert %}<option value="{{ v }}" {% if filtri.alert == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+    <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-anno">Attivi nell'anno</label><input id="f-anno" type="number" name="anno" value="{{ filtri.anno }}" class="form-control" placeholder="es. {% now 'Y' %}" min="2000" max="2100"></div>
+  </div>
+  <button class="btn btn-link btn-sm px-0 mt-2" type="button" data-bs-toggle="collapse" data-bs-target="#altri-filtri" aria-expanded="{% if filtri.fornitore or filtri.finanziamento or filtri.archiviati %}true{% else %}false{% endif %}" aria-controls="altri-filtri"><i class="bi bi-sliders" aria-hidden="true"></i> Altri filtri</button>
+  <div class="collapse{% if filtri.fornitore or filtri.finanziamento or filtri.archiviati %} show{% endif %}" id="altri-filtri">
+    <div class="row g-3 align-items-end pt-2">
+      <div class="col-md-6 col-xl-4"><label class="form-label" for="f-forn">Fornitore</label><select id="f-forn" name="fornitore" class="form-select js-cerca"><option value="">Tutti i fornitori</option>{% for f in fornitori %}<option value="{{ f.pk }}" {% if filtri.fornitore == f.pk|stringformat:"s" %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
+      <div class="col-sm-6 col-xl-3"><label class="form-label" for="f-fin">Finanziamento</label><select id="f-fin" name="finanziamento" class="form-select"><option value="">Tutti</option>{% for v, t in finanziamenti %}<option value="{{ v }}" {% if filtri.finanziamento == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+      <div class="col-sm-6 col-xl-3"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="archiviati" value="1" id="f-arch" {% if filtri.archiviati %}checked{% endif %}><label class="form-check-label" for="f-arch">Includi gli archiviati</label></div></div>
+    </div>
+  </div>
+  <noscript><button class="btn btn-primary mt-3" type="submit">Applica</button></noscript>
 </form>
 <div id="tabella">{% include "contratti/_contratti_tabella.html" %}</div>
 {% endblock %}

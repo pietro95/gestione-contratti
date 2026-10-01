@@ -1,8 +1,10 @@
 {% load registro %}
-{% if pagina.paginator.num_pages > 1 %}
-<nav aria-label="Pagine"><ul class="pagination pagination-sm">
-  {% if pagina.has_previous %}<li class="page-item"><a class="page-link" href="?{% query_con pagina=pagina.previous_page_number %}">«</a></li>{% endif %}
-  <li class="page-item disabled"><span class="page-link">Pagina {{ pagina.number }} di {{ pagina.paginator.num_pages }}</span></li>
-  {% if pagina.has_next %}<li class="page-item"><a class="page-link" href="?{% query_con pagina=pagina.next_page_number %}">»</a></li>{% endif %}
-</ul></nav>
-{% endif %}
+<div class="tabella-piede">
+  <span>{{ pagina.paginator.count }} elementi{% if pagina.paginator.num_pages > 1 %} · pagina {{ pagina.number }} di {{ pagina.paginator.num_pages }}{% endif %}</span>
+  {% if pagina.paginator.num_pages > 1 %}
+  <nav aria-label="Pagine"><ul class="pagination pagination-sm">
+    <li class="page-item{% if not pagina.has_previous %} disabled{% endif %}">{% if pagina.has_previous %}<a class="page-link" href="?{% query_con pagina=pagina.previous_page_number %}" aria-label="Pagina precedente">‹ Precedente</a>{% else %}<span class="page-link">‹ Precedente</span>{% endif %}</li>
+    <li class="page-item{% if not pagina.has_next %} disabled{% endif %}">{% if pagina.has_next %}<a class="page-link" href="?{% query_con pagina=pagina.next_page_number %}" aria-label="Pagina successiva">Successiva ›</a>{% else %}<span class="page-link">Successiva ›</span>{% endif %}</li>
+  </ul></nav>
+  {% endif %}
+</div>
