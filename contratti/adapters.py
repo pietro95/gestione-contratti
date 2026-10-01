@@ -3,9 +3,13 @@
 Qui si leggono il database e i parametri di configurazione; il motore non li vede mai.
 """
 
+import contextlib
+import contextvars
 import datetime
 from dataclasses import replace
 from decimal import Decimal
+
+from django.db.models import Prefetch
 
 from contratti import models as m
 from contratti.engine import previsioni, scadenze
@@ -26,12 +30,66 @@ from contratti.engine.tipi import (
 Chiave = m.Parametro.Chiave
 
 
+# Relazioni lette dal calcolo: da passare a prefetch_related sui contratti.
+PREFETCH_CALCOLO = (
+    "proroghe",
+    Prefetch(
+        "voci",
+        queryset=m.VoceContratto.objects.select_related("piano_fatturazione", "conto"),
+    ),
+    "voci__quote",
+    "voci__piano_fatturazione__rate",
+)
+
+
+# Da passare a prefetch_related sui fabbisogni per calcolare i previsti senza query.
+PREFETCH_FABBISOGNO = (
+    Prefetch(
+        "contratti",
+        queryset=m.Contratto.objects.select_related(
+            "procedura", "fornitore", "successore"
+        ).prefetch_related(*PREFETCH_CALCOLO),
+    ),
+)
+
+
 class ParametroMancante(LookupError):
     pass
 
 
+_cache_parametri: contextvars.ContextVar[dict | None] = contextvars.ContextVar(
+    "cache_parametri", default=None
+)
+
+
+@contextlib.contextmanager
+def parametri_in_cache():
+    """Durante un report i parametri non cambiano: una query per chiave."""
+    token = _cache_parametri.set({})
+    try:
+        yield
+    finally:
+        _cache_parametri.reset(token)
+
+
 def parametro(chiave: str, alla_data: datetime.date) -> Decimal:
     """Valore del parametro valido alla data (l'ultimo con ``valido_dal`` ≤ data)."""
+    cache = _cache_parametri.get()
+    if cache is None:
+        return _parametro(chiave, alla_data)
+    if chiave not in cache:
+        cache[chiave] = list(
+            m.Parametro.objects.filter(chiave=chiave)
+            .order_by("-valido_dal")
+            .values_list("valido_dal", "valore")
+        )
+    for valido_dal, valore in cache[chiave]:
+        if valido_dal <= alla_data:
+            return valore
+    raise ParametroMancante(f"Parametro {chiave} non definito al {alla_data:%d/%m/%Y}.")
+
+
+def _parametro(chiave: str, alla_data: datetime.date) -> Decimal:
     p = (
         m.Parametro.objects.filter(chiave=chiave, valido_dal__lte=alla_data)
         .order_by("-valido_dal")
@@ -75,7 +133,7 @@ def scadenza(contratto: m.Contratto) -> Scadenza | None:
         durata_mesi=contratto.durata_mesi,
         lead_time_mesi=lead_time,
         fine_override=contratto.data_fine_override,
-        nuove_date_fine=tuple(contratto.proroghe.values_list("nuova_data_fine", flat=True)),
+        nuove_date_fine=tuple(p.nuova_data_fine for p in contratto.proroghe.all()),
         tacito_rinnovo=contratto.tacito_rinnovo,
         preavviso_disdetta_giorni=contratto.preavviso_disdetta_giorni,
     )
@@ -87,7 +145,7 @@ def _rate_salvate(voce: m.VoceContratto) -> tuple[Rata, ...] | None:
         return None
     rate = tuple(
         Rata(r.numero, r.data_fattura, r.data_pagamento_stimata, r.importo)
-        for r in piano.rate.order_by("numero")
+        for r in sorted(piano.rate.all(), key=lambda r: r.numero)
     )
     return rate or None
 
@@ -97,7 +155,7 @@ def periodi_proroghe(contratto: m.Contratto) -> dict[int, tuple[datetime.date, d
     s = scadenza(contratto)
     precedente = scadenze.data_fine_contrattuale(s)
     periodi = {}
-    for p in contratto.proroghe.order_by("nuova_data_fine"):
+    for p in sorted(contratto.proroghe.all(), key=lambda p: (p.nuova_data_fine, p.pk)):
         periodi[p.pk] = (precedente + UN_GIORNO, p.nuova_data_fine)
         precedente = p.nuova_data_fine
     return periodi
@@ -122,7 +180,9 @@ def voce_engine(
         stima_consumo_pct=voce.stima_consumo_pct,
         stima_consumo_importo=voce.stima_consumo_importo,
         rate=_rate_salvate(voce) if con_rate_salvate else None,
-        quote=tuple(Quota(q.dal, q.al, q.importo) for q in voce.quote.order_by("dal")),
+        quote=tuple(
+            Quota(q.dal, q.al, q.importo) for q in sorted(voce.quote.all(), key=lambda q: q.dal)
+        ),
         riferimento=voce.pk,
     )
 
@@ -142,10 +202,11 @@ def voci_contratto(
     fine_base = scadenze.data_fine_contrattuale(s)
     anno_base = (contratto.data_oda or contratto.data_inizio).year
     periodi = periodi_proroghe(contratto)
-    atti = dict(contratto.proroghe.values_list("pk", "data_atto"))
+    atti = {p.pk: p.data_atto for p in contratto.proroghe.all()}
     risultato = []
-    voci = contratto.voci.filter(archiviato=False).select_related("piano_fatturazione")
-    for voce in voci.order_by("id"):
+    # .all() e filtri in Python: con PREFETCH_CALCOLO nessuna query per contratto.
+    voci = sorted((v for v in contratto.voci.all() if not v.archiviato), key=lambda v: v.pk)
+    for voce in voci:
         if voce.proroga_id:
             inizio, fine = periodi[voce.proroga_id]
             anno = atti[voce.proroga_id].year
@@ -184,13 +245,46 @@ def orizzonte_default(oggi: datetime.date) -> datetime.date:
     return datetime.date(oggi.year + anni, 12, 31)
 
 
+def _successore_attivo(contratto: m.Contratto) -> bool:
+    try:
+        return not contratto.successore.archiviato
+    except m.Contratto.DoesNotExist:
+        return False
+
+
+def _prefetch_contratti(fabbisogno: m.Fabbisogno) -> bool:
+    return "contratti" in getattr(fabbisogno, "_prefetched_objects_cache", {})
+
+
 def contratti_terminali(fabbisogno: m.Fabbisogno):
-    """Contratti del fabbisogno senza successore: da qui partono i rinnovi previsti."""
+    """Contratti del fabbisogno senza successore: da qui partono i rinnovi previsti.
+
+    Con ``PREFETCH_FABBISOGNO`` già caricato non fa query.
+    """
+    if _prefetch_contratti(fabbisogno):
+        return [
+            c
+            for c in fabbisogno.contratti.all()
+            if not c.archiviato and c.data_inizio is not None and not _successore_attivo(c)
+        ]
     return (
         fabbisogno.contratti.filter(archiviato=False, data_inizio__isnull=False)
         .exclude(successore__archiviato=False)
-        .select_related("procedura")
+        .select_related("procedura", "fornitore")
+        .prefetch_related(*PREFETCH_CALCOLO)
     )
+
+
+def contratto_base_previsti(fabbisogno: m.Fabbisogno) -> m.Contratto | None:
+    """Contratto da cui partono i previsti: il terminale che scade per ultimo.
+
+    Un fabbisogno non ha contratti paralleli (SPEC §5.3): gli altri terminali sono
+    catene interrotte.
+    """
+    terminali = list(contratti_terminali(fabbisogno))
+    if not terminali:
+        return None
+    return max(terminali, key=lambda c: (scadenze.data_fine_effettiva(scadenza(c)), c.pk))
 
 
 def previsti_fabbisogno(
@@ -199,17 +293,13 @@ def previsti_fabbisogno(
     """Contratti previsti del fabbisogno fino all'orizzonte (SPEC §5.3)."""
     if fabbisogno.archiviato:
         return []
-    terminali = list(contratti_terminali(fabbisogno))
-    if not terminali:
-        if fabbisogno.contratti.filter(archiviato=False).exists():
+    contratto = contratto_base_previsti(fabbisogno)
+    if contratto is None:
+        if any(not c.archiviato for c in fabbisogno.contratti.all()):
             return []
         return _previsti_manuali(fabbisogno, orizzonte)
-
-    # Un fabbisogno non ha contratti paralleli (SPEC §5.3): i previsti partono dal
-    # contratto terminale che scade per ultimo; gli altri sono catene interrotte.
-    contratto = max(terminali, key=lambda c: (scadenze.data_fine_effettiva(scadenza(c)), c.pk))
     voci, _ = voci_contratto(contratto, con_rate_salvate=False)
-    proroghe = set(contratto.voci.exclude(proroga=None).values_list("pk", flat=True))
+    proroghe = {v.pk for v in contratto.voci.all() if v.proroga_id}
     base = ContrattoBase(
         fine_effettiva=scadenze.data_fine_effettiva(scadenza(contratto)),
         durata_mesi=contratto.durata_mesi,
