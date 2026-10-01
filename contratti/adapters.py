@@ -17,6 +17,7 @@ from contratti.engine.tipi import (
     Esito,
     Modalita,
     Piano,
+    Quota,
     Rata,
     Scadenza,
     Voce,
@@ -121,6 +122,7 @@ def voce_engine(
         stima_consumo_pct=voce.stima_consumo_pct,
         stima_consumo_importo=voce.stima_consumo_importo,
         rate=_rate_salvate(voce) if con_rate_salvate else None,
+        quote=tuple(Quota(q.dal, q.al, q.importo) for q in voce.quote.order_by("dal")),
         riferimento=voce.pk,
     )
 

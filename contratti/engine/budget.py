@@ -12,7 +12,7 @@ from decimal import Decimal
 
 from contratti.engine.date import giorni, periodi_per_anno
 from contratti.engine.importi import ZERO, arrotonda, ripartisci
-from contratti.engine.scadenzario import genera_rate
+from contratti.engine.scadenzario import genera_rate, quote_valide
 from contratti.engine.tipi import Esito, Livello, Rata, Totali, Voce
 
 
@@ -39,6 +39,27 @@ def competenza_per_anno(voce: Voce, importo: Decimal) -> dict[int, Decimal]:
     per_anno = periodi_per_anno(voce.inizio, voce.fine)
     anni = sorted(per_anno)
     return dict(zip(anni, ripartisci(importo, [per_anno[a] for a in anni]), strict=True))
+
+
+def competenza_fisso(voce: Voce, esiti: list[Esito]) -> dict[int, Decimal]:
+    """Competenza del fisso: per quota se ci sono quote coerenti, altrimenti sulla voce."""
+    if voce.quote and quote_valide(voce) is None:
+        esiti.append(
+            Esito(
+                "QUOTE_INCOERENTI",
+                "Quote per periodo non contigue, fuori dal periodo o con somma diversa dal "
+                "fisso: ignorate, competenza e rate sull'intera voce.",
+            )
+        )
+    quote = quote_valide(voce)
+    if not quote:
+        return competenza_per_anno(voce, voce.importo_fisso)
+    risultato: dict[int, Decimal] = {}
+    for q in quote:
+        parte = Voce(importo_fisso=q.importo, inizio=q.inizio, fine=q.fine, anno_impegno=0)
+        for anno, importo in competenza_per_anno(parte, q.importo).items():
+            risultato[anno] = risultato.get(anno, ZERO) + importo
+    return risultato
 
 
 def rate_della_voce(voce: Voce) -> list[Rata]:
@@ -96,10 +117,12 @@ def calcola(voci: Iterable[Voce]) -> tuple[dict[str, Totali], list[Esito]]:
             viste["impegno"].aggiungi(voce.anno_impegno, livello, importo_livello)
             for anno, importo in cassa_per_anno(voce, livello, esiti).items():
                 viste["cassa"].aggiungi(anno, livello, importo)
-            fisso = competenza_per_anno(voce, voce.importo_fisso)
+            fisso = competenza_fisso(voce, esiti)
             var = competenza_per_anno(voce, quota_variabile(voce, livello))
-            for anno in fisso:
-                viste["competenza"].aggiungi(anno, livello, fisso[anno] + var.get(anno, ZERO))
+            for anno in sorted(set(fisso) | set(var)):
+                viste["competenza"].aggiungi(
+                    anno, livello, fisso.get(anno, ZERO) + var.get(anno, ZERO)
+                )
     # Un avviso per voce basta: i livelli ripetono lo stesso.
     unici = list(dict.fromkeys(esiti))
     return viste, unici

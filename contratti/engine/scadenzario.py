@@ -5,12 +5,20 @@ un ultimo periodo più corto pesa in proporzione ai suoi giorni.
 """
 
 import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 
 from contratti.engine.date import UN_GIORNO, aggiungi_mesi, fine_mese, giorni
 from contratti.engine.importi import arrotonda, ripartisci
-from contratti.engine.tipi import INTERA_DURATA, MESI_PERIODICITA, Modalita, Piano, Rata, Voce
+from contratti.engine.tipi import (
+    INTERA_DURATA,
+    MESI_PERIODICITA,
+    Modalita,
+    Piano,
+    Quota,
+    Rata,
+    Voce,
+)
 
 
 @dataclass(frozen=True)
@@ -57,13 +65,51 @@ def periodi(inizio: datetime.date, fine: datetime.date, mesi: int | None) -> lis
     return risultato
 
 
+def quote_valide(voce: Voce) -> tuple[Quota, ...] | None:
+    """Quote per periodo se coerenti con la voce, altrimenti ``None``.
+
+    Coerenti: contigue, dalla data di inizio alla data di fine della voce, con somma
+    uguale all'importo fisso.
+    """
+    if not voce.quote:
+        return None
+    quote = sorted(voce.quote, key=lambda q: q.inizio)
+    if quote[0].inizio != voce.inizio or quote[-1].fine != voce.fine:
+        return None
+    for prima, dopo in zip(quote, quote[1:], strict=False):
+        if dopo.inizio != prima.fine + UN_GIORNO:
+            return None
+    if any(q.fine < q.inizio for q in quote):
+        return None
+    if sum((q.importo for q in quote), Decimal(0)) != voce.importo_fisso:
+        return None
+    return tuple(quote)
+
+
 def genera_rate(voce: Voce, importo: Decimal | None = None) -> list[Rata]:
     """Rate della quota fissa (o di ``importo``) secondo il piano della voce.
 
     SAL e Da verificare non generano rate: le prime si inseriscono a mano, per le
-    seconde la cassa usa il pro-rata (SPEC §4).
+    seconde la cassa usa il pro-rata (SPEC §4). Con quote per periodo coerenti, ogni
+    quota si fattura come una voce a sé, con lo stesso piano; la numerazione prosegue.
     """
     piano = voce.piano
+    quote = quote_valide(voce) if importo is None else None
+    if quote and piano is not None and piano.modalita != Modalita.UNA_TANTUM:
+        rate: list[Rata] = []
+        for i, q in enumerate(quote):
+            parte = replace(
+                voce,
+                inizio=q.inizio,
+                fine=q.fine,
+                importo_fisso=q.importo,
+                quote=(),
+                piano=piano if i == 0 else replace(piano, data_prima_fattura=None),
+            )
+            for r in genera_rate(parte):
+                rate.append(replace(r, numero=len(rate) + 1))
+        return rate
+
     totale = voce.importo_fisso if importo is None else importo
     if piano is None or piano.modalita in (Modalita.SAL, Modalita.DA_VERIFICARE):
         return []

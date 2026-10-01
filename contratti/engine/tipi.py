@@ -62,6 +62,15 @@ class Rata:
 
 
 @dataclass(frozen=True)
+class Quota:
+    """Importo fisso di un sotto-periodo della voce (tipicamente un anno)."""
+
+    inizio: datetime.date
+    fine: datetime.date
+    importo: Decimal
+
+
+@dataclass(frozen=True)
 class Voce:
     """Voce economica con il suo periodo di servizio e l'anno di impegno."""
 
@@ -75,6 +84,8 @@ class Voce:
     stima_consumo_importo: Decimal | None = None
     # Rate salvate (generate e poi eventualmente modificate a mano). None = da generare.
     rate: tuple[Rata, ...] | None = None
+    # Quote per periodo, facoltative: contigue, a copertura del servizio, somma = fisso.
+    quote: tuple[Quota, ...] = ()
     riferimento: object = None
 
 

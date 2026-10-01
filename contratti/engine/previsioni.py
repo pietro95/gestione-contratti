@@ -38,6 +38,8 @@ def _sposta(voce: Voce, inizio: datetime.date, fine: datetime.date, fisso, massi
         ),
         piano=piano,
         rate=None,
+        # Il previsto riparte dall'importo totale, senza le quote del contratto precedente.
+        quote=(),
     )
 
 
