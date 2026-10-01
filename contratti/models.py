@@ -606,6 +606,37 @@ class VoceContratto(Archiviabile):
             raise ValidationError({"proroga": "La proroga deve essere dello stesso contratto."})
 
 
+class QuotaPeriodo(models.Model):
+    """Importo fisso di una voce per un sotto-periodo (tipicamente un anno), facoltativo.
+
+    Le quote di una voce devono essere contigue, coprire tutto il periodo di servizio e
+    sommare all'importo fisso: il controllo è nel motore, che segnala le incoerenze.
+    """
+
+    voce = models.ForeignKey(VoceContratto, on_delete=models.PROTECT, related_name="quote")
+    dal = models.DateField()
+    al = models.DateField()
+    importo = importo("importo fisso del periodo")
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "quota per periodo"
+        verbose_name_plural = "quote per periodo"
+        ordering = ["voce", "dal"]
+        constraints = [
+            models.UniqueConstraint(fields=["voce", "dal"], name="contratti_quota_dal_unica"),
+            models.CheckConstraint(
+                condition=Q(al__gte=F("dal")), name="contratti_quota_periodo_coerente"
+            ),
+            models.CheckConstraint(
+                condition=Q(importo__gte=0), name="contratti_quota_importo_non_negativo"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.dal:%d/%m/%Y}–{self.al:%d/%m/%Y}: {self.importo}"
+
+
 class PianoFatturazione(models.Model):
     """Come e quando si fattura una voce; da qui si genera lo scadenzario (F2)."""
 
