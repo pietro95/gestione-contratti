@@ -20,6 +20,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "hypothesis>=6.100,<7",
+    "playwright>=1.55,<2",
     "pytest>=8.3,<9",
     "pytest-django>=4.11,<5",
     "ruff>=0.13,<0.14",
@@ -50,4 +51,5 @@ testpaths = ["tests"]
 addopts = "--ds=config.settings.test --strict-markers -ra"
 markers = [
     "ldap: test che richiedono slapd (server LDAP di test)",
+    "e2e: test nel browser (Playwright, Chromium)",
 ]

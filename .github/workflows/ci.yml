@@ -61,6 +61,9 @@ jobs:
       - name: Sync
         if: steps.check.outputs.ready == 'true'
         run: uv sync --frozen
+      - name: Chromium per i test nel browser (Playwright, F7)
+        if: steps.check.outputs.ready == 'true'
+        run: uv run playwright install --with-deps chromium
       - name: Lint
         if: steps.check.outputs.ready == 'true'
         run: uv run ruff check . && uv run ruff format --check .

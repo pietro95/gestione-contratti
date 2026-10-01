@@ -181,3 +181,18 @@ def test_certificato_non_fidato_rifiuta_il_login(client, settings, ldap_env):
 
     assert_rejected(login(client, "mrossi", "password-mrossi"))
     assert LoginAttempt.objects.get().esito == LoginAttempt.Esito.LDAP_NON_DISPONIBILE
+
+
+def test_utente_locale_omonimo_passa_ad_ad(client, ldap_auth, make_user):
+    """Avvio senza AD con account locali (RUNBOOK §6.0): attivando LDAP, l'utente locale con
+    lo stesso nome di dominio è lo stesso utente; il ruolo viene da AD, la password locale
+    non vale più."""
+    locale = make_user("mrossi", password="password-locale-temporanea", role=READER)
+
+    assert_rejected(login(client, "mrossi", "password-locale-temporanea"))
+    assert_logged_in(login(client, "mrossi", "password-mrossi"))
+
+    utente = get_user_model().objects.get(username="mrossi")
+    assert utente.pk == locale.pk  # stesso utente: lo storico delle modifiche resta suo
+    assert role_of(utente) == EDITOR  # il ruolo di AD sostituisce quello assegnato a mano
+    assert list(utente.groups.values_list("name", flat=True)) == [EDITOR]
