@@ -89,7 +89,12 @@ def test_tendina_con_ricerca(pagina, dati):
     wrapper = pagina.locator("select#id_fornitore ~ .ts-wrapper")
     assert wrapper.count() == 1  # Tom Select attivo sulla tendina dei fornitori (15 voci)
     wrapper.locator(".ts-control").click()
-    wrapper.locator("input").press_sequentially("prova 07")
+    # Si scrive solo quando la tendina è aperta e il campo ha il fuoco: digitando subito,
+    # i primi caratteri possono andare persi e il filtro non restringe le voci.
+    expect(wrapper.locator(".ts-dropdown")).to_be_visible()
+    campo = wrapper.locator("input")
+    expect(campo).to_be_focused()
+    campo.fill("prova 07")
     opzioni = pagina.locator(".ts-dropdown .option:visible")
     expect(opzioni).to_have_count(1)  # il filtro di Tom Select è ritardato di qualche ms
     opzioni.first.click()
