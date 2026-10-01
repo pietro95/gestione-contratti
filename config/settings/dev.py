@@ -17,3 +17,7 @@ DEBUG = True
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "[::1]"])
 
 globals().update(configure_authentication(os.environ))
+
+# WhiteNoise senza collectstatic: file letti dalle cartelle sorgente a ogni richiesta.
+WHITENOISE_AUTOREFRESH = True
+WHITENOISE_USE_FINDERS = True

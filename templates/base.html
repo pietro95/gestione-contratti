@@ -13,7 +13,10 @@
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   <nav class="navbar navbar-expand bg-body-tertiary border-bottom mb-4 d-print-none">
     <div class="container">
-      <a class="navbar-brand" href="{% url 'home' %}">Registro contratti IT/TLC</a>
+      <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'home' %}">
+        <img src="{% static 'img/logo/siciliacque.svg' %}" alt="Siciliacque" height="32">
+        <span>Registro contratti IT/TLC</span>
+      </a>
       {% if user.is_authenticated %}
         <ul class="navbar-nav me-auto">
           <li class="nav-item"><a class="nav-link" href="{% url 'contratti:cruscotto' %}">Cruscotto</a></li>

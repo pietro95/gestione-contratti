@@ -86,3 +86,63 @@ Ogni fase è una PR (o poche PR) verso `main`. Una fase è chiusa solo quando tu
 - Runbook `docs/RUNBOOK.md`: installazione della VM, variabili, rinnovo del certificato, aggiornamento.
 
 **Accettazione:** installazione da zero su una VM pulita seguendo solo il runbook (verifica manuale di Pietro).
+
+## F7 — Interfaccia grafica e identità aziendale
+
+Bozza (Rev00): le scelte indicate con *[da confermare]* attendono la decisione di Pietro.
+
+Obiettivo: rendere l'applicazione usabile ogni giorno da chi non l'ha sviluppata. Le funzioni
+restano quelle di F4–F5; cambiano struttura delle pagine, gerarchia visiva e flussi.
+
+**Identità**
+- Logo aziendale nell'intestazione, nella pagina di login, nei PDF stampati e come favicon.
+  Il file viene fornito da Pietro (SVG, o PNG ad alta risoluzione) e sta in `static/img/`.
+- Colori aziendali come variabili CSS che personalizzano Bootstrap (`static/css/app.css`),
+  senza compilazione Sass. *[da confermare: codici colore del manuale d'identità]*
+- Font servito in locale da `static/vendor/`, nessun CDN. *[da confermare: font aziendale o
+  Titillium Web]*
+
+**Struttura**
+- Barra laterale con le sezioni:
+  - Operatività: Cruscotto, Contratti, Fabbisogni, Fornitori;
+  - Report: Budget, Piano ordini;
+  - Gestione: Proposte import, Amministrazione (solo Admin).
+- Barra superiore con ricerca globale (descrizione, OdA, CIG, fornitore), utente e ruolo.
+- Intestazione di pagina uniforme: breadcrumb, titolo, azioni principali a destra.
+- Messaggi come notifiche temporanee; conferme (archiviazione, proposte) in finestre modali.
+
+**Pagine**
+- **Home = cruscotto**:
+  - schede con i numeri chiave (scaduti, oltre la data limite, in avvicinamento, proposte da
+    valutare, budget dell'anno corrente);
+  - prossime scadenze a 90 giorni;
+  - azioni rapide.
+- **Elenchi**:
+  - colonne ordinabili e intestazione fissa;
+  - filtri in un pannello richiudibile, con i filtri attivi mostrati come etichette rimovibili;
+  - importi allineati a destra con cifre a larghezza fissa;
+  - stati come badge; riga cliccabile;
+  - messaggio guidato quando l'elenco è vuoto.
+- **Dettaglio contratto**:
+  - scheda riassuntiva (date chiave, alert, valore, fornitore);
+  - schede: Voci e piano, Scadenzario, Proroghe e rinnovi, Pratica, Storico;
+  - linea temporale della catena dei rinnovi.
+- **Form**:
+  - campi raggruppati in sezioni su più colonne, con aiuti in linea;
+  - date in formato gg/mm/aaaa in tutti i browser *[da confermare: calendario a comparsa]*;
+  - ricerca nelle tendine lunghe (fornitori, fabbisogni) *[da confermare: libreria locale]*.
+- **Budget e piano ordini**: schede di riepilogo in alto, tabella più leggibile (prima colonna
+  fissa, livelli selezionabili), avvisi richiudibili, export nell'intestazione.
+- **Login**: pagina con logo e messaggi chiari (credenziali di dominio, account di emergenza).
+- **Stampa**: intestazione con logo, data e filtri, per i PDF da allegare.
+
+**Qualità**
+- Accessibilità WCAG 2.1 AA: contrasto, navigazione da tastiera, focus visibile, etichette.
+- Desktop e tablet (≥ 1024 px); su schermi più piccoli almeno la consultazione.
+- Nessuna risorsa esterna: tutte le librerie in `static/vendor/` con licenza documentata.
+
+**Accettazione:**
+- test esistenti verdi e nessuna funzione persa (stessi URL e stessi permessi);
+- test end-to-end nel browser (Playwright, in CI) sulle pagine principali: caricamento senza
+  errori JavaScript, navigazione da tastiera, nessuna violazione di accessibilità grave;
+- revisione di Pietro sugli screenshot delle pagine principali, prima e dopo.

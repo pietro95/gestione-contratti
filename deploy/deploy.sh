@@ -3,8 +3,8 @@
 #
 #   /appdata/gestione-contratti/app/deploy/deploy.sh <versione>     es. v1.0 (tag git)
 #
-# Passi: controlli → backup pre-aggiornamento → checkout della versione → build → migrate →
-# collectstatic → riavvio → attesa di /healthz. Si ferma al primo errore.
+# Passi: controlli → backup pre-aggiornamento → checkout della versione → build (con i file
+# statici) → migrate → riavvio → attesa di /healthz. Si ferma al primo errore.
 # Agisce solo sul progetto Compose "gestione-contratti": nessun prune, nessun down -v,
 # nessuna operazione sugli altri container o immagini del server.
 set -euo pipefail
@@ -40,7 +40,7 @@ main() {
   [ -z "$(git -C "$SRC" status --porcelain --untracked-files=no)" ] \
     || errore "modifiche locali in $SRC: il codice sul server non si modifica a mano."
 
-  mkdir -p "$APP_DIR"/{postgres,static,backup,import,config/certs}
+  mkdir -p "$APP_DIR"/{postgres,backup,import,config/certs}
 
   in_esecuzione=false
   if [ -n "$(compose ps --quiet db 2>/dev/null)" ]; then
@@ -69,10 +69,8 @@ main() {
   compose up --detach --wait db
   echo "==> Migration"
   compose run --rm --no-deps web python manage.py migrate --noinput
-  echo "==> File statici in $APP_DIR/static (e permessi di $APP_DIR/import)"
-  compose run --rm --no-deps --user 0 web sh -c \
-    "python manage.py collectstatic --noinput --clear >/dev/null \
-       && chown -R 1000:1000 /app/staticfiles /import"
+  echo "==> Permessi di $APP_DIR/import"
+  compose run --rm --no-deps --user 0 web chown -R 1000:1000 /import
   compose run --rm --no-deps web python manage.py check --deploy --fail-level ERROR
 
   # --- Avvio ----------------------------------------------------------------------------
