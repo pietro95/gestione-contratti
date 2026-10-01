@@ -1,0 +1,20 @@
+{% load registro %}
+<p class="small text-body-secondary">{{ totale }} contratti</p>
+<table class="table table-sm table-hover align-middle">
+  <thead><tr><th>Fabbisogno / descrizione</th><th>Fornitore</th><th>OdA</th><th>CIG</th><th>Inizio</th><th>Fine</th><th>Stato</th><th>Alert</th></tr></thead>
+  <tbody>
+  {% for r in pagina %}
+    <tr{% if r.contratto.archiviato %} class="text-body-secondary"{% endif %}>
+      <td><a href="{% url 'contratti:contratto' r.contratto.pk %}">{{ r.contratto.fabbisogno.descrizione }}</a>{% if r.contratto.descrizione and r.contratto.descrizione != r.contratto.fabbisogno.descrizione %}<div class="small text-body-secondary">{{ r.contratto.descrizione }}</div>{% endif %}</td>
+      <td>{{ r.contratto.fornitore }}</td>
+      <td class="small">{{ r.contratto.numero_oda|default:"—" }}</td>
+      <td class="small">{{ r.contratto.cig|default:"—" }}</td>
+      <td>{{ r.contratto.data_inizio|date:"d/m/Y"|default:"—" }}</td>
+      <td>{{ r.fine|date:"d/m/Y"|default:"—" }}</td>
+      <td>{{ r.stato|stato_badge }}{% if r.contratto.archiviato %} <span class="badge text-bg-light">archiviato</span>{% endif %}</td>
+      <td>{{ r.alert|alert_badge }}</td>
+    </tr>
+  {% empty %}<tr><td colspan="8" class="text-body-secondary">Nessun contratto.</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% include "contratti/_paginazione.html" %}

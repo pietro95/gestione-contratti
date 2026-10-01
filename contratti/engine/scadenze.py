@@ -37,6 +37,29 @@ def data_riferimento_alert(s: Scadenza) -> datetime.date:
     return min(limite, disdetta) if disdetta else limite
 
 
+def alert_date(
+    fine: datetime.date,
+    riferimento: datetime.date,
+    oggi: datetime.date,
+    *,
+    decisione: str,
+    stato_pratica: str | None,
+    ha_successore: bool,
+    finestra_mesi: int,
+) -> Alert | None:
+    """Regole di SPEC §5.1 su date già calcolate; vale la prima che si applica."""
+    if decisione in DECISIONI_SENZA_ALERT or ha_successore:
+        return None
+    if oggi > fine:
+        return Alert.ROSSO
+    stato = stato_pratica or "non_avviata"
+    if oggi > riferimento:
+        return Alert.ARANCIONE if stato in STATI_NON_AVANZATI else Alert.GIALLO
+    if oggi >= aggiungi_mesi(riferimento, -finestra_mesi):
+        return Alert.GIALLO
+    return Alert.VERDE
+
+
 def alert(
     s: Scadenza,
     oggi: datetime.date,
@@ -46,15 +69,37 @@ def alert(
     ha_successore: bool,
     finestra_mesi: int,
 ) -> Alert | None:
-    """Colore dell'alert; le regole si valutano in ordine e vale la prima (TC-06)."""
-    if decisione in DECISIONI_SENZA_ALERT or ha_successore:
-        return None
-    if oggi > data_fine_effettiva(s):
-        return Alert.ROSSO
-    riferimento = data_riferimento_alert(s)
-    stato = stato_pratica or "non_avviata"
-    if oggi > riferimento:
-        return Alert.ARANCIONE if stato in STATI_NON_AVANZATI else Alert.GIALLO
-    if oggi >= aggiungi_mesi(riferimento, -finestra_mesi):
-        return Alert.GIALLO
-    return Alert.VERDE
+    """Colore dell'alert di un contratto (TC-06, TC-10)."""
+    return alert_date(
+        data_fine_effettiva(s),
+        data_riferimento_alert(s),
+        oggi,
+        decisione=decisione,
+        stato_pratica=stato_pratica,
+        ha_successore=ha_successore,
+        finestra_mesi=finestra_mesi,
+    )
+
+
+def alert_previsto_manuale(
+    avvio: datetime.date,
+    lead_time_mesi: int,
+    oggi: datetime.date,
+    *,
+    decisione: str,
+    stato_pratica: str | None,
+    finestra_mesi: int,
+) -> Alert | None:
+    """Fabbisogno nuovo: il servizio deve partire all'avvio previsto.
+
+    Data limite = avvio − lead time; rosso se l'avvio è passato senza contratto.
+    """
+    return alert_date(
+        avvio - UN_GIORNO,
+        aggiungi_mesi(avvio, -lead_time_mesi),
+        oggi,
+        decisione=decisione,
+        stato_pratica=stato_pratica,
+        ha_successore=False,
+        finestra_mesi=finestra_mesi,
+    )

@@ -139,3 +139,34 @@ def test_tacito_rinnovo_usa_la_data_piu_vicina():
     assert alert(s, D(2026, 10, 15), stato_pratica="non_avviata", **kw) == Alert.ARANCIONE
     assert alert(s, D(2026, 7, 2), stato_pratica="non_avviata", **kw) == Alert.GIALLO
     assert alert(s, D(2026, 7, 1), stato_pratica="non_avviata", **kw) == Alert.VERDE
+
+
+# --- Fabbisogno nuovo con previsto manuale (cruscotto F4) ------------------------
+
+
+@pytest.mark.parametrize(
+    ("oggi", "atteso"),
+    [
+        (
+            D(2026, 9, 30),
+            Alert.VERDE,
+        ),  # limite 01/04/2027 (01/07/2027 − 3 mesi), finestra dal 01/01/2027
+        (D(2027, 1, 15), Alert.GIALLO),
+        (D(2027, 4, 15), Alert.ARANCIONE),
+        (D(2027, 7, 2), Alert.ROSSO),
+    ],
+)
+def test_alert_previsto_manuale(oggi, atteso):
+    from contratti.engine.scadenze import alert_previsto_manuale
+
+    assert (
+        alert_previsto_manuale(
+            D(2027, 7, 1),
+            3,
+            oggi,
+            decisione="rinnovare",
+            stato_pratica=None,
+            finestra_mesi=FINESTRA,
+        )
+        == atteso
+    )

@@ -11,6 +11,13 @@
     <div class="container">
       <a class="navbar-brand" href="{% url 'home' %}">Registro contratti IT/TLC</a>
       {% if user.is_authenticated %}
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item"><a class="nav-link" href="{% url 'contratti:cruscotto' %}">Cruscotto</a></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'contratti:contratti' %}">Contratti</a></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'contratti:fabbisogni' %}">Fabbisogni</a></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'contratti:fornitori' %}">Fornitori</a></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'contratti:proposte' %}">Proposte import</a></li>
+        </ul>
         <div class="d-flex align-items-center gap-3">
           <span class="navbar-text">
             {{ user.get_full_name|default:user.username }}
@@ -25,7 +32,12 @@
       {% endif %}
     </div>
   </nav>
-  <main class="container">
+  <main class="container mb-5">
+    {% for m in messages %}
+      <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags }}{% endif %} alert-dismissible" role="alert">
+        {{ m }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi"></button>
+      </div>
+    {% endfor %}
     {% block content %}{% endblock %}
   </main>
   <script src="{% static 'vendor/bootstrap-5.3.8/bootstrap.bundle.min.js' %}"></script>
