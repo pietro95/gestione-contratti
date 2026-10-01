@@ -266,6 +266,11 @@ class Fornitore(Archiviabile):
     def __str__(self):
         return self.ragione_sociale
 
+    def get_absolute_url(self):
+        from django.urls import reverse
+
+        return reverse("contratti:fornitore", args=[self.pk])
+
     def fornitori_stesso_codice_sap(self):
         """Altri fornitori con lo stesso codice SAP: da verificare, non da bloccare."""
         if not self.codice_sap:
@@ -373,6 +378,11 @@ class Fabbisogno(Archiviabile):
     def __str__(self):
         return f"[{self.area}] {self.descrizione}"
 
+    def get_absolute_url(self):
+        from django.urls import reverse
+
+        return reverse("contratti:fabbisogno", args=[self.pk])
+
 
 class Contratto(Archiviabile):
     """Singola istanza contrattuale; un rinnovo è un nuovo contratto sullo stesso fabbisogno."""
@@ -472,6 +482,11 @@ class Contratto(Archiviabile):
     def __str__(self):
         riferimento = self.numero_oda or self.cig or f"#{self.pk}"
         return f"{self.fabbisogno.descrizione} — {riferimento}"
+
+    def get_absolute_url(self):
+        from django.urls import reverse
+
+        return reverse("contratti:contratto", args=[self.pk])
 
     def clean(self):
         super().clean()
