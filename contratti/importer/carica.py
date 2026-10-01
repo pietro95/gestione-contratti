@@ -27,6 +27,26 @@ DESCRIZIONE_ASSENTE = "(senza descrizione)"
 WBS_DA_DEFINIRE = "WBS-DA-DEFINIRE"
 
 
+def raggruppa(righe: list[Riga]) -> dict[tuple, list[Riga]]:
+    """Righe con stesso foglio, OdA, CIG e periodo → un contratto (ordine delle righe)."""
+    gruppi: dict[tuple, list[Riga]] = defaultdict(list)
+    for r in righe:
+        if r.numero_oda or r.cig:
+            chiave = (r.foglio, r.numero_oda, r.cig, r.data_inizio, r.mesi)
+        else:
+            chiave = (r.foglio, None, None, r.numero)
+        gruppi[chiave].append(r)
+    return gruppi
+
+
+def chiave_contratto(area: str, chiave_gruppo: tuple) -> str:
+    return _hash(area, *chiave_gruppo)
+
+
+def chiave_voce(chiave_del_contratto: str, indice: int) -> str:
+    return _hash(f"{chiave_del_contratto}:{indice}")
+
+
 class _Rollback(Exception):
     pass
 
@@ -132,13 +152,7 @@ class _Caricamento:
                     r.foglio, r.numero, "CONTO_SCONOSCIUTO", "conto", r.conto,
                     "Conto non presente nel piano dei conti.",
                 )  # fmt: skip
-        gruppi: dict[tuple, list[Riga]] = defaultdict(list)
-        for r in righe:
-            if r.numero_oda or r.cig:
-                chiave = (r.foglio, r.numero_oda, r.cig, r.data_inizio, r.mesi)
-            else:
-                chiave = (r.foglio, None, None, r.numero)
-            gruppi[chiave].append(r)
+        gruppi = raggruppa(righe)
 
         periodi_per_oda = defaultdict(set)
         for (_foglio, oda, cig, *resto), _ in gruppi.items():
@@ -160,7 +174,7 @@ class _Caricamento:
 
     def _contratto(self, chiave_gruppo: tuple, gruppo: list[Riga]):
         primo = gruppo[0]
-        chiave = _hash(self.area, *chiave_gruppo)
+        chiave = chiave_contratto(self.area, chiave_gruppo)
         if m.Contratto.objects.filter(chiave_import=chiave).exists():
             self.report.conteggi["contratti_gia_presenti"] += 1
             return
@@ -206,7 +220,7 @@ class _Caricamento:
                 note="Stato importato dall'Excel.",
             )
         for i, r in enumerate(gruppo):
-            self._voce(contratto, r, f"{chiave}:{i}")
+            self._voce(contratto, r, chiave_voce(chiave, i))
 
     def _voce(self, contratto: m.Contratto, r: Riga, chiave: str):
         conto = self.conti.get(r.conto) if r.conto else None
@@ -217,7 +231,7 @@ class _Caricamento:
             codice_conto_importato=r.conto or "",
             importo_fisso=r.minimo or Decimal("0.00"),
             massimale_variabile=r.extra or Decimal("0.00"),
-            chiave_import=_hash(chiave),
+            chiave_import=chiave,
         )
         m.PianoFatturazione.objects.create(voce=voce, modalita="da_verificare", periodicita="")
         self.report.conteggi["voci_create"] += 1
