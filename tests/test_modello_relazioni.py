@@ -151,6 +151,7 @@ def test_storia_delle_modifiche():
         m.PianoFatturazione,
         m.Rata,
         m.StatoPratica,
+        m.QuotaPeriodo,
     ],
 )
 def test_ogni_entita_ha_la_storia(model):

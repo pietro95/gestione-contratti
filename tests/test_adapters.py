@@ -212,3 +212,39 @@ def test_previsti_dal_solo_contratto_terminale_piu_recente(tc07):
         (D(2027, 1, 1), E("10300.00")),
         (D(2028, 1, 1), E("10609.00")),
     ]
+
+
+def tc11_contratto():
+    c = f.contratto(data_inizio=D(2026, 7, 1), durata_mesi=36, data_oda=D(2026, 6, 1))
+    v = f.voce(c, importo_fisso=E("31500.00"))
+    f.piano(v, modalita="anticipata", periodicita="annuale")
+    for dal, al, importo in (
+        (D(2026, 7, 1), D(2027, 6, 30), "10000.00"),
+        (D(2027, 7, 1), D(2028, 6, 30), "10500.00"),
+        (D(2028, 7, 1), D(2029, 6, 30), "11000.00"),
+    ):
+        m.QuotaPeriodo.objects.create(voce=v, dal=dal, al=al, importo=E(importo))
+    return c
+
+
+def test_tc11_dal_database():
+    voci, _ = adapters.voci_contratto(tc11_contratto())
+    viste, esiti = calcola(voci)
+    assert esiti == []
+    assert [viste["competenza"].importo(a) for a in (2026, 2027, 2028, 2029)] == [
+        E("5041.10"),
+        E("10237.59"),
+        E("10766.52"),
+        E("5454.79"),
+    ]
+    assert viste["cassa"].importo(2027) == E("10500.00")
+
+
+def test_previsto_riparte_dal_totale_senza_quote():
+    c = tc11_contratto()
+    c.fabbisogno.decisione = "rinnovare"
+    c.fabbisogno.save()
+    (p1,) = adapters.previsti_fabbisogno(c.fabbisogno, D(2029, 12, 31))
+    assert (p1.inizio, p1.fine) == (D(2029, 7, 1), D(2032, 6, 30))
+    assert p1.voci[0].importo_fisso == E("31500.00")  # adeguamento provvisorio 0%
+    assert p1.voci[0].quote == ()

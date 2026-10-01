@@ -269,3 +269,30 @@ def test_importi_decimal_a_due_decimali():
     assert isinstance(v.importo_fisso, Decimal)
     field = m.VoceContratto._meta.get_field("importo_fisso")
     assert (field.max_digits, field.decimal_places) == (14, 2)
+
+
+# --- Quote per periodo ------------------------------------------------------------
+
+
+def test_quota_periodo_coerente_e_importo_non_negativo():
+    v = f.voce()
+    violates(
+        lambda: m.QuotaPeriodo.objects.create(
+            voce=v, dal=D(2026, 7, 1), al=D(2026, 6, 30), importo=Decimal("1")
+        )
+    )
+    violates(
+        lambda: m.QuotaPeriodo.objects.create(
+            voce=v, dal=D(2026, 1, 1), al=D(2026, 12, 31), importo=Decimal("-1")
+        )
+    )
+
+
+def test_quota_inizio_unico_per_voce():
+    v = f.voce()
+    m.QuotaPeriodo.objects.create(voce=v, dal=D(2026, 1, 1), al=D(2026, 6, 30), importo=1)
+    violates(
+        lambda: m.QuotaPeriodo.objects.create(
+            voce=v, dal=D(2026, 1, 1), al=D(2026, 12, 31), importo=1
+        )
+    )

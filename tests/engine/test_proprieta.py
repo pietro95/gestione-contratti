@@ -9,7 +9,7 @@ from hypothesis import strategies as st
 from contratti.engine.budget import calcola, valore
 from contratti.engine.importi import ripartisci
 from contratti.engine.scadenzario import genera_rate
-from contratti.engine.tipi import Livello, Modalita, Piano, Voce
+from contratti.engine.tipi import Livello, Modalita, Piano, Quota, Voce
 
 importi = st.decimals(min_value=Decimal("0"), max_value=Decimal("9999999.99"), places=2)
 date_inizio = st.dates(min_value=datetime.date(2020, 1, 1), max_value=datetime.date(2035, 12, 31))
@@ -75,3 +75,35 @@ def test_ripartisci_quadra_sempre(totale, pesi):
     quote = ripartisci(totale, pesi)
     assert sum(quote) == totale
     assert all(q >= 0 for q in quote)
+
+
+@st.composite
+def voci_con_quote(draw):
+    v = draw(voci())
+    giorni_totali = (v.fine - v.inizio).days + 1
+    tagli = sorted(
+        set(draw(st.lists(st.integers(1, max(1, giorni_totali - 1)), max_size=5))) - {giorni_totali}
+    )
+    confini = [0, *tagli, giorni_totali]
+    pesi = [confini[i + 1] - confini[i] for i in range(len(confini) - 1)]
+    importi_quote = ripartisci(v.importo_fisso, pesi)
+    quote = tuple(
+        Quota(
+            v.inizio + datetime.timedelta(days=confini[i]),
+            v.inizio + datetime.timedelta(days=confini[i + 1] - 1),
+            importi_quote[i],
+        )
+        for i in range(len(pesi))
+    )
+    return Voce(**{**v.__dict__, "quote": quote})
+
+
+@settings(max_examples=200, deadline=None)
+@given(voci_con_quote())
+def test_con_quote_tutto_quadra(v):
+    viste, esiti = calcola([v])
+    assert esiti == [] or [e.codice for e in esiti] == ["CASSA_PRO_RATA"]
+    for livello in Livello:
+        assert viste["competenza"].totale(livello) == valore(v, livello)
+        assert viste["cassa"].totale(livello) == valore(v, livello)
+    assert sum((r.importo for r in genera_rate(v)), Decimal("0")) == valore(v, Livello.FISSO)

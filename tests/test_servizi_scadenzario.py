@@ -67,3 +67,20 @@ def test_sal_nessuna_rata_generata():
     v = f.voce(c)
     f.piano(v, modalita="sal", periodicita="")
     assert genera_scadenzario(v) == []
+
+
+def test_genera_le_rate_per_quota():
+    c = f.contratto(data_inizio=D(2026, 7, 1), durata_mesi=24)
+    v = f.voce(c, importo_fisso=Decimal("20500.00"))
+    f.piano(v, modalita="anticipata", periodicita="annuale")
+    m.QuotaPeriodo.objects.create(
+        voce=v, dal=D(2026, 7, 1), al=D(2027, 6, 30), importo=Decimal("10000.00")
+    )
+    m.QuotaPeriodo.objects.create(
+        voce=v, dal=D(2027, 7, 1), al=D(2028, 6, 30), importo=Decimal("10500.00")
+    )
+    rate = genera_scadenzario(v)
+    assert [(r.numero, r.data_fattura, r.importo) for r in rate] == [
+        (1, D(2026, 7, 1), Decimal("10000.00")),
+        (2, D(2027, 7, 1), Decimal("10500.00")),
+    ]

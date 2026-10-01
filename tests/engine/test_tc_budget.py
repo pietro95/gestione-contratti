@@ -222,3 +222,104 @@ def test_tc10_viste():
     }
     for vista in viste.values():
         assert vista.totale() == euro("24300.00")
+
+
+# --- TC-11 -------------------------------------------------------------------
+
+
+def tc11(quote=None):
+    from contratti.engine.tipi import Quota
+
+    if quote is None:
+        quote = (
+            Quota(D(2026, 7, 1), D(2027, 6, 30), euro("10000.00")),
+            Quota(D(2027, 7, 1), D(2028, 6, 30), euro("10500.00")),
+            Quota(D(2028, 7, 1), D(2029, 6, 30), euro("11000.00")),
+        )
+    return voce(
+        "31500.00",
+        D(2026, 7, 1),
+        D(2029, 6, 30),
+        piano=piano("anticipata", "annuale"),
+        quote=quote,
+    )
+
+
+def test_tc11_scadenzario_per_quota():
+    rate = genera_rate(tc11())
+    assert [(r.numero, r.data_fattura, r.importo) for r in rate] == [
+        (1, D(2026, 7, 1), euro("10000.00")),
+        (2, D(2027, 7, 1), euro("10500.00")),
+        (3, D(2028, 7, 1), euro("11000.00")),
+    ]
+
+
+def test_tc11_viste():
+    viste, esiti = calcola([tc11()])
+    anni = [2026, 2027, 2028, 2029]
+    assert esiti == []
+    assert per_anno(viste["impegno"], anni) == {
+        2026: euro("31500.00"),
+        2027: euro("0.00"),
+        2028: euro("0.00"),
+        2029: euro("0.00"),
+    }
+    assert per_anno(viste["cassa"], anni) == {
+        2026: euro("10000.00"),
+        2027: euro("10500.00"),
+        2028: euro("11000.00"),
+        2029: euro("0.00"),
+    }
+    assert per_anno(viste["competenza"], anni) == {
+        2026: euro("5041.10"),
+        2027: euro("10237.59"),
+        2028: euro("10766.52"),
+        2029: euro("5454.79"),
+    }
+
+
+def test_tc11_controllo_senza_quote():
+    viste, _ = calcola([tc11(quote=())])
+    assert per_anno(viste["competenza"], [2026, 2027, 2028, 2029]) == {
+        2026: euro("5288.32"),
+        2027: euro("10490.42"),
+        2028: euro("10519.16"),
+        2029: euro("5202.10"),
+    }
+
+
+@pytest.mark.parametrize(
+    "difetto",
+    ["buco", "fuori_periodo", "somma_diversa"],
+)
+def test_tc11_quote_incoerenti_ignorate_e_segnalate(difetto):
+    from contratti.engine.tipi import Quota
+
+    quote = {
+        "buco": (
+            Quota(D(2026, 7, 1), D(2027, 6, 29), euro("10000.00")),
+            Quota(D(2027, 7, 1), D(2029, 6, 30), euro("21500.00")),
+        ),
+        "fuori_periodo": (
+            Quota(D(2026, 7, 1), D(2027, 6, 30), euro("10000.00")),
+            Quota(D(2027, 7, 1), D(2029, 7, 31), euro("21500.00")),
+        ),
+        "somma_diversa": (
+            Quota(D(2026, 7, 1), D(2027, 6, 30), euro("10000.00")),
+            Quota(D(2027, 7, 1), D(2029, 6, 30), euro("21499.99")),
+        ),
+    }[difetto]
+    v = tc11(quote)
+    viste, esiti = calcola([v])
+    assert [e.codice for e in esiti] == ["QUOTE_INCOERENTI"]
+    assert viste["competenza"].importo(2026) == euro("5288.32")  # come senza quote
+    assert [r.importo for r in genera_rate(v)] == [euro("10500.00")] * 3
+
+
+def test_tc11_una_tantum_ignora_le_quote():
+    from dataclasses import replace
+
+    v = replace(tc11(), piano=piano("una_tantum"))
+    assert [(r.data_fattura, r.importo) for r in genera_rate(v)] == [
+        (D(2026, 7, 1), euro("31500.00"))
+    ]
