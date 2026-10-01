@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load registro %}
+{% block title %}Ricerca{% endblock %}
+{% block titolo_pagina %}Ricerca{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">{% if q %}{{ trovati }} risultati per «{{ q }}»{% else %}Scrivi almeno due caratteri nella barra in alto.{% endif %}</div>{% endblock %}
+{% block content %}
+{% if q and not trovati %}<div class="card"><div class="vuoto"><i class="bi bi-search" aria-hidden="true"></i>Nessun risultato. Prova con una parte dell'OdA, del CIG o del nome del fornitore.</div></div>{% endif %}
+{% if risultati.contratti %}
+<h2 class="sezione-titolo">Contratti <span class="badge rounded-pill text-bg-light">{{ risultati.contratti|length }}</span></h2>
+<div class="tabella-card"><div class="table-responsive"><table class="table table-hover align-middle">
+  <thead><tr><th>Fabbisogno</th><th>Fornitore</th><th>OdA</th><th>CIG</th><th>Fine</th><th>Stato</th></tr></thead>
+  <tbody>{% for r in risultati.contratti %}{% url 'contratti:contratto' r.contratto.pk as link %}
+    <tr data-href="{{ link }}"><td><a href="{{ link }}">{{ r.contratto.fabbisogno.descrizione }}</a>{% if r.contratto.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}</td><td>{{ r.contratto.fornitore }}</td><td>{{ r.contratto.numero_oda|default:"—" }}</td><td>{{ r.contratto.cig|default:"—" }}</td><td class="text-nowrap">{{ r.fine|date:"d/m/Y"|default:"—" }}</td><td>{{ r.stato|stato_badge }}</td></tr>
+  {% endfor %}</tbody>
+</table></div></div>
+{% endif %}
+<div class="row g-4">
+{% if risultati.fabbisogni %}
+<div class="col-lg-6"><h2 class="sezione-titolo">Fabbisogni <span class="badge rounded-pill text-bg-light">{{ risultati.fabbisogni|length }}</span></h2>
+<div class="card"><ul class="list-group list-group-flush">{% for f in risultati.fabbisogni %}<li class="list-group-item"><a href="{% url 'contratti:fabbisogno' f.pk %}">{{ f.descrizione }}</a> <span class="small text-body-secondary">{{ f.area }} · {{ f.categoria }}</span></li>{% endfor %}</ul></div></div>
+{% endif %}
+{% if risultati.fornitori %}
+<div class="col-lg-6"><h2 class="sezione-titolo">Fornitori <span class="badge rounded-pill text-bg-light">{{ risultati.fornitori|length }}</span></h2>
+<div class="card"><ul class="list-group list-group-flush">{% for f in risultati.fornitori %}<li class="list-group-item"><a href="{% url 'contratti:fornitore' f.pk %}">{{ f.ragione_sociale }}</a> <span class="small text-body-secondary">{% if f.codice_sap %}SAP {{ f.codice_sap }}{% endif %}{% if f.partita_iva %} · P.IVA {{ f.partita_iva }}{% endif %}</span></li>{% endfor %}</ul></div></div>
+{% endif %}
+</div>
+{% endblock %}

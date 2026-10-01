@@ -68,6 +68,83 @@ def storico(oggetto) -> list[dict]:
 
 
 @login_required
+def home(request):
+    """Pagina iniziale: numeri chiave, cose da fare, prossime scadenze, budget dell'anno."""
+    from reports.budget import Filtri, calcola_budget
+
+    oggi = oggi_richiesta(request)
+    gruppi = selettori.cruscotto(oggi, {})
+    righe = selettori.righe_contratti(selettori.contratti_base().filter(archiviato=False), oggi)
+    entro = oggi + datetime.timedelta(days=90)
+    prossime = sorted(
+        (r for r in righe if r.stato == "attivo" and r.fine and oggi <= r.fine <= entro),
+        key=lambda r: r.fine,
+    )
+    priorita = {Alert.ROSSO: 0, Alert.ARANCIONE: 1, Alert.GIALLO: 2}
+    da_fare = sorted(
+        (r for colore in priorita for r in gruppi[colore]),
+        key=lambda r: (priorita[r.alert], r.data_limite or datetime.date.max),
+    )
+    budget = None
+    try:
+        totali = calcola_budget(Filtri(anno=oggi.year), oggi).totali()["totale"]
+        budget = {v: totali[v][Livello.PROBABILE] for v in ("impegno", "cassa", "competenza")}
+    except adapters.ParametroMancante:
+        pass
+    return render(
+        request,
+        "home.html",
+        {
+            "oggi": oggi,
+            "conteggi": {colore.value: len(gruppi[colore]) for colore in priorita},
+            "attivi": sum(1 for r in righe if r.stato == "attivo"),
+            "da_fare": da_fare[:8],
+            "da_fare_totale": len(da_fare),
+            "prossime": prossime[:8],
+            "prossime_totale": len(prossime),
+            "budget": budget,
+        },
+    )
+
+
+@login_required
+def cerca(request):
+    """Ricerca globale su contratti, fabbisogni e fornitori (barra superiore)."""
+    q = request.GET.get("q", "").strip()
+    risultati = {"contratti": [], "fabbisogni": [], "fornitori": []}
+    if len(q) >= 2:
+        oggi = oggi_richiesta(request)
+        contratti = selettori.contratti_base().filter(
+            Q(descrizione__icontains=q)
+            | Q(fabbisogno__descrizione__icontains=q)
+            | Q(numero_oda__icontains=q)
+            | Q(cig__icontains=q)
+            | Q(numero_rda__icontains=q)
+            | Q(fornitore__ragione_sociale__icontains=q)
+        )
+        risultati["contratti"] = selettori.righe_contratti(
+            contratti.order_by("archiviato", "-data_inizio")[:25], oggi
+        )
+        risultati["fabbisogni"] = list(
+            m.Fabbisogno.objects.filter(Q(descrizione__icontains=q) | Q(referente__icontains=q))
+            .select_related("categoria")
+            .order_by("archiviato", "descrizione")[:15]
+        )
+        risultati["fornitori"] = list(
+            m.Fornitore.objects.filter(
+                Q(ragione_sociale__icontains=q)
+                | Q(partita_iva__icontains=q)
+                | Q(codice_sap__icontains=q)
+            ).order_by("archiviato", "ragione_sociale")[:15]
+        )
+    return render(
+        request,
+        "contratti/cerca.html",
+        {"q": q, "risultati": risultati, "trovati": sum(len(v) for v in risultati.values())},
+    )
+
+
+@login_required
 def cruscotto(request):
     oggi = oggi_richiesta(request)
     filtri = {"area": request.GET.get("area", ""), "categoria": request.GET.get("categoria", "")}
@@ -138,23 +215,84 @@ def _filtra_contratti(request, oggi):
     return righe
 
 
+ORDINAMENTI_CONTRATTI = {
+    "fabbisogno": lambda r: r.contratto.fabbisogno.descrizione.lower(),
+    "fornitore": lambda r: r.contratto.fornitore.ragione_sociale.lower(),
+    "inizio": lambda r: r.contratto.data_inizio or datetime.date.min,
+    "fine": lambda r: r.fine or datetime.date.min,
+    "alert": lambda r: (selettori.ORDINE_ALERT[r.alert], r.data_limite or datetime.date.max),
+}
+STATI_TEMPORALI = [
+    ("attivo", "Attivo"),
+    ("futuro", "Futuro"),
+    ("scaduto", "Scaduto"),
+    ("senza_data", "Senza data"),
+]
+
+
+def ordina_righe(righe, ordina: str, criteri: dict):
+    campo = ordina.lstrip("-")
+    if campo not in criteri:
+        return righe
+    return sorted(righe, key=criteri[campo], reverse=ordina.startswith("-"))
+
+
+def filtri_attivi(g, etichette: dict) -> list[tuple[str, str]]:
+    """(parametro, testo) dei filtri valorizzati, per le etichette rimovibili."""
+    attivi = []
+    for chiave, descrivi in etichette.items():
+        valore = g.get(chiave, "").strip()
+        if valore:
+            testo = descrivi(valore) if callable(descrivi) else f"{descrivi}: {valore}"
+            if testo:
+                attivi.append((chiave, testo))
+    return attivi
+
+
+def _ordine_qs(ordina: str, campi: dict, default: tuple) -> tuple:
+    campo = campi.get(ordina.lstrip("-"))
+    if not campo:
+        return default
+    return (f"-{campo}" if ordina.startswith("-") else campo, "pk")
+
+
+def _nome(modello, pk):
+    try:
+        return str(modello.objects.get(pk=int(pk)))
+    except (ValueError, modello.DoesNotExist):
+        return None
+
+
 @login_required
 def contratti_elenco(request):
     oggi = oggi_richiesta(request)
-    righe = _filtra_contratti(request, oggi)
-    pagina = Paginator(righe, PER_PAGINA).get_page(request.GET.get("pagina"))
+    g = request.GET
+    righe = ordina_righe(
+        _filtra_contratti(request, oggi), g.get("ordina", ""), ORDINAMENTI_CONTRATTI
+    )
+    pagina = Paginator(righe, PER_PAGINA).get_page(g.get("pagina"))
     contesto = {
         "pagina": pagina,
         "totale": len(righe),
+        "attivi": filtri_attivi(
+            g,
+            {
+                "q": "Testo",
+                "area": "Area",
+                "stato": lambda v: "Stato: " + dict(STATI_TEMPORALI).get(v, v),
+                "alert": lambda v: "Alert: " + v,
+                "anno": "Attivi nell'anno",
+                "fornitore": lambda v: (_nome(m.Fornitore, v) or v),
+                "finanziamento": lambda v: m.Contratto.Finanziamento(v).label
+                if v in m.Contratto.Finanziamento.values
+                else v,
+                "archiviati": lambda v: "Con gli archiviati",
+            },
+        ),
         "filtri": request.GET,
         "aree": m.Area.choices,
         "fornitori": m.Fornitore.objects.filter(archiviato=False),
-        "stati": [
-            ("attivo", "Attivo"),
-            ("futuro", "Futuro"),
-            ("scaduto", "Scaduto"),
-            ("senza_data", "Senza data"),
-        ],
+        "stati": STATI_TEMPORALI,
         "alert": [(a.value, a.value.capitalize()) for a in Alert],
         "finanziamenti": m.Contratto.Finanziamento.choices,
     }
@@ -163,6 +301,29 @@ def contratti_elenco(request):
         "contratti/contratti_elenco.html"
     )  # fmt: skip
     return render(request, template, contesto)
+
+
+def _catena(contratto) -> list:
+    """Contratti della catena dei rinnovi, dal più vecchio al più recente."""
+    prima, c, visti = [], contratto.predecessore, {contratto.pk}
+    while c is not None and c.pk not in visti and len(prima) < 20:
+        prima.insert(0, c)
+        visti.add(c.pk)
+        c = c.predecessore
+    dopo, c = [], m.Contratto.objects.filter(predecessore=contratto).first()
+    while c is not None and c.pk not in visti and len(dopo) < 20:
+        dopo.append(c)
+        visti.add(c.pk)
+        c = m.Contratto.objects.filter(predecessore=c).first()
+    return [*prima, contratto, *dopo]
+
+
+def _previsti_dopo(contratto, oggi):
+    """Rinnovi previsti, se questo è il contratto da cui partono."""
+    base = adapters.contratto_base_previsti(contratto.fabbisogno)
+    if base is None or base.pk != contratto.pk:
+        return []
+    return adapters.previsti_fabbisogno(contratto.fabbisogno, adapters.orizzonte_default(oggi))
 
 
 def _contratto(pk):
@@ -199,6 +360,8 @@ def contratto_dettaglio(request, pk):
             "pratica": contratto.stati_pratica.select_related("utente").order_by("-data", "-id"),
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
             "storico": storico(contratto),
+            "catena": _catena(contratto),
+            "previsti": _previsti_dopo(contratto, oggi),
             "puo_modificare": role_of(request.user) in ("Admin", "Editor"),
         },
     )
@@ -515,13 +678,35 @@ def fabbisogni_elenco(request):
             qs = qs.filter(**{campo: g[campo]})
     if g.get("categoria"):
         qs = qs.filter(categoria_id=g["categoria"])
-    pagina = Paginator(qs.order_by("area", "descrizione"), PER_PAGINA).get_page(g.get("pagina"))
+    ordine = _ordine_qs(
+        g.get("ordina", ""),
+        {
+            "descrizione": "descrizione",
+            "area": "area",
+            "categoria": "categoria__nome",
+            "decisione": "decisione",
+            "contratti": "n_contratti",
+        },
+        ("area", "descrizione"),
+    )
+    pagina = Paginator(qs.order_by(*ordine), PER_PAGINA).get_page(g.get("pagina"))
     return render(
         request,
         "contratti/fabbisogni_elenco.html",
         {
             "pagina": pagina,
             "filtri": g,
+            "attivi": filtri_attivi(
+                g,
+                {
+                    "q": "Testo",
+                    "area": "Area",
+                    "decisione": lambda v: "Decisione: "
+                    + dict(m.Fabbisogno.Decisione.choices).get(v, v),
+                    "categoria": lambda v: _nome(m.Categoria, v),
+                    "archiviati": lambda v: "Con gli archiviati",
+                },
+            ),
             "aree": m.Area.choices,
             "decisioni": m.Fabbisogno.Decisione.choices,
             "categorie": m.Categoria.objects.all(),
@@ -587,8 +772,22 @@ def fornitori_elenco(request):
             | Q(partita_iva__icontains=q)
             | Q(codice_sap__icontains=q)
         )
-    pagina = Paginator(qs.order_by("ragione_sociale"), PER_PAGINA).get_page(g.get("pagina"))
-    return render(request, "contratti/fornitori_elenco.html", {"pagina": pagina, "filtri": g})
+    ordine = _ordine_qs(
+        g.get("ordina", ""),
+        {
+            "ragione_sociale": "ragione_sociale",
+            "codice_sap": "codice_sap",
+            "contratti": "n_contratti",
+        },
+        ("ragione_sociale",),
+    )
+    pagina = Paginator(qs.order_by(*ordine), PER_PAGINA).get_page(g.get("pagina"))
+    attivi = filtri_attivi(g, {"q": "Testo", "archiviati": lambda v: "Con gli archiviati"})
+    return render(
+        request,
+        "contratti/fornitori_elenco.html",
+        {"pagina": pagina, "filtri": g, "attivi": attivi},
+    )
 
 
 @login_required
