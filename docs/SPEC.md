@@ -1,6 +1,6 @@
 # Istruzioni di progetto — Registro contratti IT/TLC
 
-Rev04 — 01/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
+Rev05 — 01/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
@@ -8,6 +8,7 @@ Storico revisioni:
 - Rev02 (01/10/2026): decisioni prese durante F0, F1 e la preparazione di F2. Modello dati (§4): proroghe esercitate multiple, previsti manuali sul fabbisogno, stato pratica, modalità `Da verificare`, stima di consumo, data OdA, impianti e progetti, piano dei conti inserito a mano. Regole di calcolo (§5): aritmetica dei mesi a fine mese, data di fine con proroghe, tacito rinnovo negli alert, cassa solo per data fattura, quota variabile, SAL e consumo, ultimo periodo corto, adeguamento, impegno, rinnovi previsti, CAPEX senza ammortamento. Autenticazione (§8.1). Nuovo caso TC-10, TC-03 allineato alla regola di pagamento.
 - Rev03 (01/10/2026): rinnovi previsti (§5.3): un solo contratto di partenza per fabbisogno; nei report di budget i previsti già conclusi prima dell'anno selezionato non entrano e il fabbisogno è segnalato come rinnovo mancante. Tolto l'adeguamento dal piano di fatturazione (§4, §5.2): non serve, gli importi anno per anno sono già fissati a contratto. Resta l'adeguamento parametrico dei rinnovi previsti (§5.3).
 - Rev04 (01/10/2026): quote per periodo sulla voce (§4, §5.2, §5.3): importi fissi diversi per sotto-periodi, tipicamente annuali, facoltativi. Nuovo caso TC-11.
+- Rev05 (01/10/2026): nuovo stato pratica `RDA richiesta` (§4); regole di dettaglio dell'import Excel (§7): mappatura di colonne e stati, contratti finanziati e dissalatori, valori di attesa per i dati mancanti, proposte da confermare.
 
 ## 1. Obiettivo
 
@@ -118,7 +119,8 @@ Regole di generazione:
 - `Da verificare`: nessuna rata; la cassa usa il pro-rata a giorni e lo segnala;
 - con quote per periodo, ogni quota si fattura come una voce a sé con lo stesso piano (la prima fattura esplicita vale solo per la prima quota); la numerazione delle rate prosegue. La `Una tantum` resta una sola rata dell'intero fisso.
 
-**Stato pratica di rinnovo** (workflow): `Non avviata` → `Offerta richiesta` → `Offerta ricevuta` → `RDA predisposta` → `RDA approvata` → `OdA emesso` → `Contratto attivo`.
+**Stato pratica di rinnovo** (workflow): `Non avviata` → `Offerta richiesta` → `Offerta ricevuta` → `RDA richiesta` → `RDA predisposta` → `RDA approvata` → `OdA emesso` → `Contratto attivo`.
+- `RDA richiesta`: l'IT ha chiesto l'inserimento della RDA in SAP; diventa `RDA predisposta` quando la RDA è inserita.
 - La pratica si lega al **contratto in scadenza**; per un fabbisogno nuovo, senza contratti, si lega al fabbisogno. Mai a entrambi.
 - Si conserva lo storico dei passaggi (stato, data, utente, note). Lo stato corrente è l'ultimo passaggio; senza passaggi vale `Non avviata`.
 
@@ -232,6 +234,15 @@ Export in XLSX, oltre al PDF quando serve da allegare.
 6. Assegnare a ogni voce il piano di fatturazione reale, dalle fatture o dagli ordini. Dove non è noto, impostare `Da verificare`: in questo caso il budget di cassa usa il pro-rata e lo segnala.
 7. Mappare i vecchi stati: `Rinnovato` / `Non rinnovare` diventano decisioni sul fabbisogno; `Offerta richiesta` / `RDA predisposta` diventano stato pratica; `Attivo` / `Scaduto` si derivano dalle date.
 8. Controllo di quadratura: totali per anno ricalcolati a competenza, confrontati con la dashboard Excel. Le differenze attese sono dovute al bug dei mesi e vanno documentate.
+
+Regole di dettaglio dell'import (comando `import_excel`, Rev05):
+- **Colonne**: "Contratto" → n. OdA (conservato com'è); "Corrispettivo Minimo" → importo fisso; "Corrispettivo Extra" → massimale variabile (nessuna stima di consumo: il probabile coincide con il fisso finché non la si inserisce); "Corrispettivo Massimo" non si importa, serve solo a segnalare le formule sovrascritte e i valori incoerenti; conto: quello "dal 01/01/26" se presente, altrimenti il vecchio (le coppie vecchio → nuovo trovate vanno nel report, per compilare a mano la mappatura).
+- **RDA**: il numero RDA si ricava dalle note ("RDA nnnnnnnnnn", oppure una nota di sole 10 cifre che inizia con 51); la nota resta intatta.
+- **Stati**: `Non rinnovare` → decisione `Dismettere`; `Rinnovato` e `Attivo` → `Rinnovare`; `Offerta richiesta`, `Offerta ricevuta`, `RDA Richiesta`, `RDA Predisposta` → passaggio della pratica **sul contratto della riga stessa** (è il contratto in scadenza), alla data dell'import, con decisione `Rinnovare`; `Scaduto`, `In scadenza`, `Da rinnovare` → nessun dato, si ricavano dalle date.
+- **Contratti finanziati e dissalatori**: i fogli "Contratti_Finanziati" e "Contratti Dissalatori" sono spese su altre WBS: finanziamento `Finanziato`, progetto dalla colonna "Codice WBS"; se manca, progetto `WBS-DA-DEFINIRE` e anomalia.
+- **Dati mancanti**: categoria `Da classificare`; procedura `Da verificare` (lead time 6 mesi, come il preavviso fisso degli Excel); piano di fatturazione `Da verificare`; fornitore assente → `(non indicato)`; descrizione assente → `(senza descrizione)`; durata assente → 12 mesi. Ogni sostituzione è segnalata.
+- **Raggruppamenti e catene**: ogni contratto entra in un fabbisogno provvisorio; l'import propone i raggruppamenti (stessa descrizione normalizzata e stesso fornitore) e le coppie predecessore → successore. Le proposte si confermano o scartano a mano; un predecessore si conferma solo dopo il raggruppamento. Confermando un raggruppamento, i contratti passano al fabbisogno del più recente e i fabbisogni provvisori svuotati si archiviano.
+- **Idempotenza**: ogni riga ha una chiave d'import stabile; rieseguire l'import non crea duplicati e non sovrascrive le modifiche fatte dopo.
 
 ## 8. Decisioni prese e requisiti non funzionali
 
