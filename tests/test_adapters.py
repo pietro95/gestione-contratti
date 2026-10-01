@@ -204,3 +204,17 @@ def test_previsto_manuale_di_fabbisogno_nuovo():
 
 def test_orizzonte_default():
     assert adapters.orizzonte_default(D(2026, 10, 1)) == D(2029, 12, 31)
+
+
+def test_previsti_dal_solo_contratto_terminale_piu_recente(tc07):
+    # Contratto vecchio non collegato alla catena (caso da import): non genera previsti.
+    fab, _ = tc07
+    vecchio = f.contratto(fabbisogno=fab, data_inizio=D(2020, 1, 1), durata_mesi=12)
+    f.piano(
+        f.voce(vecchio, importo_fisso=E("500.00")), modalita="anticipata", periodicita="annuale"
+    )
+    previsti = adapters.previsti_fabbisogno(fab, D(2028, 12, 31))
+    assert [(p.inizio, p.voci[0].importo_fisso) for p in previsti] == [
+        (D(2027, 1, 1), E("10300.00")),
+        (D(2028, 1, 1), E("10609.00")),
+    ]

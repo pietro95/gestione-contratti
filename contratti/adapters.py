@@ -205,27 +205,28 @@ def previsti_fabbisogno(
     if fabbisogno.archiviato:
         return []
     terminali = list(contratti_terminali(fabbisogno))
-    if not terminali and not fabbisogno.contratti.filter(archiviato=False).exists():
+    if not terminali:
+        if fabbisogno.contratti.filter(archiviato=False).exists():
+            return []
         return _previsti_manuali(fabbisogno, orizzonte)
 
-    risultato = []
-    for contratto in terminali:
-        s = scadenza(contratto)
-        voci, _ = voci_contratto(contratto, con_rate_salvate=False)
-        proroghe = set(contratto.voci.exclude(proroga=None).values_list("pk", flat=True))
-        base = ContrattoBase(
-            fine_effettiva=scadenze.data_fine_effettiva(s),
-            durata_mesi=contratto.durata_mesi,
-            voci=tuple(v for v in voci if v.riferimento not in proroghe),
-        )
-        risultato += previsioni.previsti(
-            base,
-            decisione=fabbisogno.decisione,
-            orizzonte=orizzonte,
-            adeguamento=adeguamento_alla_data,
-            stima_manuale=fabbisogno.stima_prossimo_importo,
-        )
-    return risultato
+    # Un fabbisogno non ha contratti paralleli (SPEC §5.3): i previsti partono dal
+    # contratto terminale che scade per ultimo; gli altri sono catene interrotte.
+    contratto = max(terminali, key=lambda c: (scadenze.data_fine_effettiva(scadenza(c)), c.pk))
+    voci, _ = voci_contratto(contratto, con_rate_salvate=False)
+    proroghe = set(contratto.voci.exclude(proroga=None).values_list("pk", flat=True))
+    base = ContrattoBase(
+        fine_effettiva=scadenze.data_fine_effettiva(scadenza(contratto)),
+        durata_mesi=contratto.durata_mesi,
+        voci=tuple(v for v in voci if v.riferimento not in proroghe),
+    )
+    return previsioni.previsti(
+        base,
+        decisione=fabbisogno.decisione,
+        orizzonte=orizzonte,
+        adeguamento=adeguamento_alla_data,
+        stima_manuale=fabbisogno.stima_prossimo_importo,
+    )
 
 
 def _previsti_manuali(fabbisogno: m.Fabbisogno, orizzonte: datetime.date):

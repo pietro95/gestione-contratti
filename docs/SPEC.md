@@ -1,11 +1,12 @@
 # Istruzioni di progetto — Registro contratti IT/TLC
 
-Rev02 — 01/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
+Rev03 — 01/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
 - Rev01 (30/09/2026): decisa la piattaforma (web app interna, autenticazione LDAP), aggiunti requisiti non funzionali (§8), casi di test in `docs/TEST_CASES.md`, regole per i dati nel repository.
 - Rev02 (01/10/2026): decisioni prese durante F0, F1 e la preparazione di F2. Modello dati (§4): proroghe esercitate multiple, previsti manuali sul fabbisogno, stato pratica, modalità `Da verificare`, stima di consumo, data OdA, impianti e progetti, piano dei conti inserito a mano. Regole di calcolo (§5): aritmetica dei mesi a fine mese, data di fine con proroghe, tacito rinnovo negli alert, cassa solo per data fattura, quota variabile, SAL e consumo, ultimo periodo corto, adeguamento, impegno, rinnovi previsti, CAPEX senza ammortamento. Autenticazione (§8.1). Nuovo caso TC-10, TC-03 allineato alla regola di pagamento.
+- Rev03 (01/10/2026): rinnovi previsti (§5.3): un solo contratto di partenza per fabbisogno; nei report di budget i previsti già conclusi prima dell'anno selezionato non entrano e il fabbisogno è segnalato come rinnovo mancante.
 
 ## 1. Obiettivo
 
@@ -178,6 +179,9 @@ Per ogni fabbisogno con decisione `Rinnovare` o `Da valutare`, il cui contratto 
 - se il fabbisogno ha una stima manuale, la stima sostituisce il fisso totale ed è ripartita tra le voci in proporzione al loro fisso; l'adeguamento dei previsti successivi parte dalla stima (TC-07).
 
 La generazione è ricorsiva: un annuale che scade nel 2027 genera un previsto 2027 e poi un previsto 2028.
+
+- Un fabbisogno non ha contratti paralleli. Se ha più contratti senza successore (per esempio un contratto vecchio non collegato alla catena), i previsti partono solo da quello che scade per ultimo.
+- Un contratto scaduto da tempo, senza successore e con decisione `Rinnovare` o `Da valutare`, genera previsti anche per periodi già trascorsi. Nei report di budget dell'anno X entrano solo i previsti che finiscono dal 01/01/X in poi; gli altri non entrano, e il fabbisogno è segnalato come **rinnovo mancante**.
 
 - I contratti previsti entrano in tutte e tre le viste di budget, marcati come "previsionali" e filtrabili.
 - Nuovi fabbisogni (senza contratto predecessore) si inseriscono a mano come previsti, con i dati del **previsto manuale** sul fabbisogno (§4).
