@@ -19,6 +19,7 @@ def _voce(**kw):
         "voce-proroga": "",
         "voce-conto": "",
         "voce-centro_costo": "",
+        "voce-natura": "OPEX",
         "voce-wbs": "",
         "voce-importo_fisso": "24.000,00",
         "voce-massimale_variabile": "0",

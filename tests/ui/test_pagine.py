@@ -109,7 +109,10 @@ def test_id_oltre_mille_non_formattati_con_il_separatore(editor, dati):
 
     fornitore = m.Fornitore.objects.create(pk=12345, ragione_sociale="Fornitore 12345")
     fab = m.Fabbisogno.objects.create(
-        pk=23456, descrizione="Id grande", area="IT", categoria=dati["fabbisogno"].categoria
+        pk=23456,
+        descrizione="Id grande",
+        cluster=dati["fabbisogno"].cluster,
+        categoria=dati["fabbisogno"].categoria,
     )
     html = editor.get(reverse("contratti:contratti")).content.decode()
     assert f'value="{fornitore.pk}"' in html

@@ -45,10 +45,12 @@ def _stato_temporale(contratto, fine, oggi) -> str:
 def contratti_base():
     return (
         m.Contratto.objects.select_related(
-            "fabbisogno", "fabbisogno__categoria", "fornitore", "procedura", "progetto"
+            "fabbisogno", "fabbisogno__categoria", "fabbisogno__cluster", "fornitore", "procedura"
         )
         .prefetch_related(
             "proroghe",
+            # Natura e finanziamento del contratto si ricavano dalle voci.
+            Prefetch("voci", queryset=m.VoceContratto.objects.select_related("wbs")),
             Prefetch("stati_pratica", queryset=m.StatoPratica.objects.order_by("-data", "-id")),
         )
         .annotate(
@@ -93,6 +95,13 @@ def righe_contratti(queryset, oggi: datetime.date) -> list[RigaContratto]:
     return [riga_contratto(c, oggi, finestra) for c in queryset]
 
 
+def codici_cluster(valore) -> list[str]:
+    """Il filtro «area»: un codice di cluster o una lista di codici; vuoto = tutti."""
+    if not valore:
+        return []
+    return [valore] if isinstance(valore, str) else [v for v in valore if v]
+
+
 def righe_previsti_manuali(oggi: datetime.date, filtri: dict) -> list[RigaContratto]:
     """Fabbisogni nuovi (senza contratti) con previsto manuale, per il cruscotto."""
     finestra = finestra_alert(oggi)
@@ -105,8 +114,8 @@ def righe_previsti_manuali(oggi: datetime.date, filtri: dict) -> list[RigaContra
             Prefetch("stati_pratica", queryset=m.StatoPratica.objects.order_by("-data", "-id"))
         )
     )
-    if filtri.get("area"):
-        qs = qs.filter(area=filtri["area"])
+    if codici := codici_cluster(filtri.get("area")):
+        qs = qs.filter(cluster__codice__in=codici)
     if filtri.get("categoria"):
         qs = qs.filter(categoria_id=filtri["categoria"])
     default = m.Procedura.objects.filter(codice="da_verificare").first()
@@ -151,8 +160,8 @@ def contratti_terminali():
 
 def cruscotto(oggi: datetime.date, filtri: dict) -> dict[Alert, list[RigaContratto]]:
     qs = contratti_terminali().filter(fabbisogno__archiviato=False)
-    if filtri.get("area"):
-        qs = qs.filter(fabbisogno__area=filtri["area"])
+    if codici := codici_cluster(filtri.get("area")):
+        qs = qs.filter(fabbisogno__cluster__codice__in=codici)
     if filtri.get("categoria"):
         qs = qs.filter(fabbisogno__categoria_id=filtri["categoria"])
     gruppi: dict[Alert, list[RigaContratto]] = {
@@ -168,12 +177,13 @@ def cruscotto(oggi: datetime.date, filtri: dict) -> dict[Alert, list[RigaContrat
     return gruppi
 
 
-def voci_piano_da_verificare():
+def voci_piano_da_verificare(codici: list[str] | None = None):
     """Voci attive senza piano di fatturazione reale: il loro fatturato è un pro-rata.
 
     Le più pesanti prima (fisso + massimale): sono quelle che spostano di più il budget.
+    ``codici``: cluster da mostrare; vuoto = tutti.
     """
-    return (
+    qs = (
         m.VoceContratto.objects.filter(
             archiviato=False, contratto__archiviato=False, contratto__fabbisogno__archiviato=False
         )
@@ -185,3 +195,6 @@ def voci_piano_da_verificare():
         .annotate(peso=F("importo_fisso") + F("massimale_variabile"))
         .order_by("-peso", "contratto__fabbisogno__descrizione", "pk")
     )
+    if codici:
+        qs = qs.filter(contratto__fabbisogno__cluster__codice__in=codici)
+    return qs

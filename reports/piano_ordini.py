@@ -19,6 +19,7 @@ from contratti.engine.budget import valore
 from contratti.engine.date import UN_GIORNO, aggiungi_mesi
 from contratti.engine.importi import ZERO
 from contratti.engine.tipi import ContrattoPrevisto, Livello
+from contratti.selettori import codici_cluster
 from reports.budget import LIVELLI, NATURE, orizzonte_report
 
 CATEGORIA_NON_CLASSIFICATA = "Da classificare"
@@ -37,7 +38,10 @@ class RigaPiano:
     stato_pratica: str | None
     importi: dict[Livello, Decimal]
     numero_previsto: int
-    natura: str = m.Natura.OPEX
+    natura: str = m.Natura.OPEX  # OPEX, CAPEX o "OPEX e CAPEX"
+    # Importi per natura delle voci (F9.2: un contratto può avere quote OPEX e CAPEX).
+    per_natura: dict[str, dict[Livello, Decimal]] = field(default_factory=dict)
+    a_progetto: bool = False
     sopra_soglia: list[str] = field(default_factory=list)
 
     @property
@@ -74,15 +78,14 @@ class PianoOrdini:
     def totali(self, natura: str = "") -> dict[Livello, Decimal]:
         totali = dict.fromkeys(LIVELLI, ZERO)
         for r in self.righe:
-            if natura and r.natura != natura:
-                continue
+            importi = r.per_natura.get(natura) if natura else r.importi
             for livello in LIVELLI:
-                totali[livello] += r.importi[livello]
+                totali[livello] += (importi or {}).get(livello, ZERO)
         return totali
 
     def totali_per_natura(self) -> dict[str, dict[Livello, Decimal]]:
         """OPEX e CAPEX distinti: sono budget diversi anche quando si ordinano insieme."""
-        nature = [n for n in NATURE if any(r.natura == n for r in self.righe)]
+        nature = [n for n in NATURE if any(n in r.per_natura for r in self.righe)]
         return {n: self.totali(n) for n in nature}
 
 
@@ -112,6 +115,15 @@ def _riga(
     procedura_default: m.Procedura | None,
 ) -> RigaPiano:
     importi = {liv: sum((valore(v, liv) for v in p.voci), ZERO) for liv in LIVELLI}
+    per_natura: dict[str, dict[Livello, Decimal]] = {}
+    a_progetto = False
+    modelli = {v.pk: v for v in base.voci.all()} if base is not None else {}
+    for v in p.voci:
+        classe = adapters.classificazione_prevista(f, modelli.get(v.riferimento))
+        a_progetto = a_progetto or classe.a_progetto
+        somme = per_natura.setdefault(classe.natura, dict.fromkeys(LIVELLI, ZERO))
+        for liv in LIVELLI:
+            somme[liv] += valore(v, liv)
     if base is not None:
         procedura = base.procedura
         lead = adapters.scadenza(base).lead_time_mesi
@@ -140,7 +152,9 @@ def _riga(
         stato_pratica=stato,
         importi=importi,
         numero_previsto=p.numero,
-        natura=adapters.natura_previsti(f, base),
+        natura=next(iter(per_natura)) if len(per_natura) == 1 else m.Contratto.MISTA,
+        per_natura=per_natura,
+        a_progetto=a_progetto,
     )
 
 
@@ -148,7 +162,7 @@ def calcola_piano(
     anno: int,
     oggi: datetime.date,
     *,
-    area: str = "",
+    area: str | tuple[str, ...] = "",
     categoria: int | None = None,
     natura: str = "",
 ) -> PianoOrdini:
@@ -156,16 +170,16 @@ def calcola_piano(
         return _calcola_piano(anno, oggi, area, categoria, natura)
 
 
-def _calcola_piano(anno: int, oggi: datetime.date, area: str, categoria: int | None, natura: str):
+def _calcola_piano(anno: int, oggi: datetime.date, area, categoria: int | None, natura: str):
     orizzonte = orizzonte_report(anno, oggi)
     procedura_default = m.Procedura.objects.filter(codice="da_verificare").first()
     fabbisogni = (
         m.Fabbisogno.objects.filter(archiviato=False)
-        .select_related("categoria", "previsto_procedura")
+        .select_related("cluster", "categoria", "previsto_procedura")
         .prefetch_related(*adapters.PREFETCH_FABBISOGNO)
     )
-    if area:
-        fabbisogni = fabbisogni.filter(area=area)
+    if codici := codici_cluster(area):
+        fabbisogni = fabbisogni.filter(cluster__codice__in=codici)
     if categoria:
         fabbisogni = fabbisogni.filter(categoria_id=categoria)
     righe: list[RigaPiano] = []
@@ -177,7 +191,7 @@ def _calcola_piano(anno: int, oggi: datetime.date, area: str, categoria: int | N
         durata = base.durata_mesi if base is not None else f.previsto_durata_mesi
         righe += [_riga(f, base, p, durata, procedura_default) for p in previsti]
     if natura:
-        righe = [r for r in righe if r.natura == natura]
+        righe = [r for r in righe if natura in r.per_natura]
     righe.sort(key=lambda r: (r.data_limite, r.fabbisogno.descrizione))
     soglie = soglie_valide(datetime.date(anno, 1, 1))
     return PianoOrdini(anno, righe, soglie, avvisi_frazionamento(righe, soglie))

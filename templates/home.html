@@ -2,7 +2,7 @@
 {% load registro %}
 {% block title %}Cruscotto{% endblock %}
 {% block titolo_pagina %}Cruscotto{% endblock %}
-{% block sottotitolo %}<div class="sottotitolo">Situazione al {{ oggi|date:"d/m/Y" }} · {{ attivi }} contratti attivi</div>{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">Situazione al {{ oggi|date:"d/m/Y" }} · {{ attivi }} contratti attivi{% if cluster_propri %} · i tuoi cluster: {% for c in cluster_propri %}{{ c.codice }}{% if not forloop.last %}, {% endif %}{% endfor %} (<a href="{% url 'contratti:cruscotto' %}?area=tutti">vedi tutti</a>){% endif %}</div>{% endblock %}
 {% block azioni %}
   {% if puo_modificare %}<a class="btn btn-primary" href="{% url 'contratti:contratto_nuovo' %}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuovo contratto</a>{% endif %}
   <a class="btn btn-outline-primary" href="{% url 'contratti:cruscotto' %}"><i class="bi bi-bell" aria-hidden="true"></i> Tutti gli alert</a>

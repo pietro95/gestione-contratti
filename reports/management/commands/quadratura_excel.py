@@ -1,13 +1,12 @@
 """Quadratura dei totali per anno con il Dashboard Excel (SPEC §7.8).
 
-python manage.py quadratura_excel Contratti_IT.xlsx --area IT
+python manage.py quadratura_excel Contratti_IT.xlsx --cluster IT
 """
 
 from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
 
-from contratti.models import Area
 from reports import xlsx
 from reports.export import quadratura_xlsx
 from reports.quadratura import CAUSE, quadra
@@ -29,7 +28,9 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("file", type=Path)
-        parser.add_argument("--area", required=True, choices=Area.values)
+        parser.add_argument(
+            "--cluster", "--area", dest="area", required=True, help="Codice del cluster (es. IT)."
+        )
         parser.add_argument(
             "--anni", type=_anni, help="Es. 2024-2028 (default: anni del Dashboard)."
         )

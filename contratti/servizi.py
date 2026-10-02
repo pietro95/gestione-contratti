@@ -98,9 +98,12 @@ def registra_rinnovo(
         origine = origini.get(dati_voce.pop("origine", None))
         voce = m.VoceContratto(contratto=contratto, **dati_voce)
         if origine is not None:
-            voce.conto = voce.conto or origine.conto
+            # Il rinnovo prende la classificazione decisa per i rinnovi, se c'è (F9.2).
+            classe = adapters.classificazione_prevista(predecessore.fabbisogno, origine)
+            voce.natura = classe.natura
+            voce.conto = voce.conto or classe.conto
+            voce.wbs = voce.wbs or classe.wbs
             voce.centro_costo = voce.centro_costo or origine.centro_costo
-            voce.wbs = voce.wbs or origine.wbs
         voce.full_clean()
         voce.save()
         _copia_piano(getattr(origine, "piano_fatturazione", None), voce)
@@ -127,6 +130,17 @@ def registra_proroga(contratto: m.Contratto, dati: dict, voce: dict | None = Non
     proroga.save()
     if voce:
         piano = {k: voce.pop(k) for k in ("modalita", "periodicita") if k in voce}
+        # Se le voci del contratto hanno una sola natura e WBS, la proroga le eredita (F9.2).
+        classi = {
+            (v.natura, v.wbs_id, v.conto_id)
+            for v in contratto.voci.filter(archiviato=False, proroga__isnull=True)
+        }
+        if len(classi) == 1:
+            natura, wbs_id, conto_id = classi.pop()
+            voce.setdefault("natura", natura)
+            voce.setdefault("wbs_id", wbs_id)
+            if not voce.get("conto"):
+                voce.setdefault("conto_id", conto_id)
         nuova = m.VoceContratto(contratto=contratto, proroga=proroga, **voce)
         nuova.full_clean()
         nuova.save()
@@ -589,7 +603,7 @@ def anteprima_accorpamento(
         _qs_collegamenti([origine, destinazione]).exclude(pk__in=da_archiviare)
     )
     for campo, etichetta in (
-        ("area", "Area diversa"),
+        ("cluster_id", "Cluster diverso"),
         ("categoria_id", "Categoria diversa"),
         ("decisione", "Decisione diversa"),
         ("natura_previsti", "Natura dei rinnovi diversa"),

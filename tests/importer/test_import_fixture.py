@@ -35,8 +35,8 @@ def test_import_completo_senza_eccezioni(importati):
     it, tlc = importati
     assert it.conteggi["contratti_creati"] == 67
     assert tlc.conteggi["contratti_creati"] == 23
-    assert m.Contratto.objects.filter(fabbisogno__area="IT").count() == 67
-    assert m.Contratto.objects.filter(fabbisogno__area="TLC").count() == 23
+    assert m.Contratto.objects.filter(fabbisogno__cluster__codice="IT").count() == 67
+    assert m.Contratto.objects.filter(fabbisogno__cluster__codice="TLC").count() == 23
     # Nessun nullo scritto come testo.
     for campo in ("numero_contratto", "cig"):
         valori = set(m.Contratto.objects.values_list(campo, flat=True))
@@ -88,9 +88,11 @@ def test_valori_normalizzati(importati):
 
 
 def test_finanziati_e_dissalatori(importati):
-    finanziati = m.Contratto.objects.filter(finanziamento="finanziato")
-    assert finanziati.count() == 6  # 5 TLC finanziati + 1 dissalatori IT
-    assert set(finanziati.values_list("progetto__codice_wbs", flat=True)) == {"WBS-DA-DEFINIRE"}
+    # Spese su WBS a progetto: voci CAPEX, contratti "finanziati" (F9.2).
+    voci = m.VoceContratto.objects.filter(wbs__tipo=m.WBS.Tipo.PROGETTO)
+    assert voci.values("contratto").distinct().count() == 6  # 5 TLC finanziati + 1 dissalatori
+    assert set(voci.values_list("natura", flat=True)) == {"CAPEX"}
+    assert set(voci.values_list("wbs__codice_wbs", flat=True)) == {"WBS-DA-DEFINIRE"}
     assert m.Contratto.objects.filter(fornitore__ragione_sociale="(non indicato)").count() == 1
 
 

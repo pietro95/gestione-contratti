@@ -3,7 +3,7 @@
 {% block title %}{{ tipo.titolo }} — {{ imp.nome_file }}{% endblock %}
 {% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'contratti:importazioni' %}">Import</a></li><li class="breadcrumb-item active" aria-current="page">{{ imp.nome_file }}</li></ol></nav>{% endblock %}
 {% block titolo_pagina %}{{ tipo.titolo }}{% endblock %}
-{% block sottotitolo %}<div class="sottotitolo">{% include "contratti/import/_stato.html" %} <span>· {{ imp.nome_file }}{% if imp.opzioni.area %} · area {{ imp.opzioni.area }}{% endif %} · caricato da {{ imp.utente }} il {{ imp.caricata_il|date:"d/m/Y H:i" }}{% if imp.confermata_il %} · {% if imp.stato == "confermata" %}confermato{% else %}tentato{% endif %} da {{ imp.confermata_da }} il {{ imp.confermata_il|date:"d/m/Y H:i" }}{% endif %}</span></div>{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">{% include "contratti/import/_stato.html" %} <span>· {{ imp.nome_file }}{% if imp.opzioni.area %} · cluster {{ imp.opzioni.area }}{% endif %} · caricato da {{ imp.utente }} il {{ imp.caricata_il|date:"d/m/Y H:i" }}{% if imp.confermata_il %} · {% if imp.stato == "confermata" %}confermato{% else %}tentato{% endif %} da {{ imp.confermata_da }} il {{ imp.confermata_il|date:"d/m/Y H:i" }}{% endif %}</span></div>{% endblock %}
 {% block azioni %}
   {% if imp.stato != "errore" and imp.stato != "scaduta" and imp.stato != "annullata" %}<a class="btn btn-outline-primary" href="{% url 'contratti:importazione_report' imp.pk %}"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i> {% if imp.tipo == "quadratura" %}Scarica la quadratura{% else %}Scarica il report{% endif %}</a>{% endif %}
 {% endblock %}

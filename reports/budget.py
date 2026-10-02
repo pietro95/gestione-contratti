@@ -16,6 +16,7 @@ from contratti import models as m
 from contratti.engine import budget
 from contratti.engine.importi import ZERO
 from contratti.engine.tipi import Esito, Livello, Voce
+from contratti.selettori import codici_cluster
 
 # Il fatturato (rate per data fattura) è il budget di riferimento: prima colonna.
 # "impegno" resta il nome interno della vista (SPEC §5.2, TEST_CASES); in pagina è "Ordinato".
@@ -32,11 +33,13 @@ LIVELLI = tuple(Livello)
 PARTI = ("consolidato", "previsionale", "totale")
 RAGGRUPPAMENTI = {
     "conto": "Conto",
-    "area": "Area",
+    "area": "Cluster",
     "fornitore": "Fornitore",
-    "finanziamento": "Finanziamento",
+    "wbs": "WBS",
     "fabbisogno": "Fabbisogno",
 }
+# Voci su WBS a progetto (es. dissalatori): fuori dai budget dei cluster (F9.2).
+PROGETTI = {"": "Escluse", "includi": "Incluse", "solo": "Solo WBS a progetto"}
 
 # vista → livello → importo
 Somme = dict[str, dict[Livello, Decimal]]
@@ -55,12 +58,25 @@ def _somma(a: Somme, b: Somme) -> None:
 @dataclass(frozen=True)
 class Filtri:
     anno: int
-    area: str = ""
+    area: str | tuple[str, ...] = ""  # codice di cluster o tupla di codici; vuoto = tutti
     conto: int | None = None
     fornitore: int | None = None
-    finanziamento: str = ""
+    progetti: str = ""  # voci su WBS a progetto: "" escluse, "includi", "solo"
     previsionali: bool = True
     natura: str = ""  # vuoto: entrambe, da presentare separate
+    wbs: int | None = None
+
+    def ammette(self, cl: adapters.Classificazione) -> bool:
+        """La voce, con la sua classificazione, entra in questo budget?"""
+        if self.natura and cl.natura != self.natura:
+            return False
+        if self.conto and (cl.conto is None or cl.conto.pk != self.conto):
+            return False
+        if self.wbs and (cl.wbs is None or cl.wbs.pk != self.wbs):
+            return False
+        if self.progetti == "solo":
+            return cl.a_progetto
+        return self.progetti == "includi" or not cl.a_progetto
 
 
 @dataclass
@@ -77,19 +93,26 @@ class VoceBudget:
     importi: Somme
     numero_previsto: int | None = None
     esiti: list[Esito] = field(default_factory=list)
-    natura: str = m.Natura.OPEX
-    # Solo per i previsti: conto deciso sul fabbisogno al posto di quello della voce d'origine.
-    conto_previsti: m.ContoCoge | None = None
+    # Natura, conto e WBS: della voce reale, o decisi per i suoi rinnovi (previsti).
+    classe: adapters.Classificazione = field(
+        default_factory=lambda: adapters.Classificazione(m.Natura.OPEX, None, None)
+    )
 
     @property
     def area(self) -> str:
         return self.fabbisogno.area
 
     @property
+    def natura(self) -> str:
+        return self.classe.natura
+
+    @property
     def conto(self) -> m.ContoCoge | None:
-        if self.conto_previsti is not None:
-            return self.conto_previsti
-        return self.voce.conto if self.voce else None
+        return self.classe.conto
+
+    @property
+    def wbs(self) -> m.WBS | None:
+        return self.classe.wbs
 
     @property
     def fornitore(self) -> m.Fornitore | None:
@@ -97,11 +120,7 @@ class VoceBudget:
 
     @property
     def finanziamento(self) -> str:
-        if self.contratto is None:
-            return m.Contratto.Finanziamento.ORDINARIO
-        if self.previsionale:
-            return adapters.finanziamento_previsti(self.fabbisogno, self.contratto)
-        return self.contratto.finanziamento
+        return self.classe.finanziamento
 
     def gruppo(self, criterio: str) -> tuple[str, str]:
         """(chiave, etichetta) del gruppo a cui appartiene la voce."""
@@ -113,8 +132,13 @@ class VoceBudget:
         if criterio == "fornitore":
             f = self.fornitore
             return (str(f.pk), str(f)) if f else ("", "(nuovo fabbisogno, fornitore da scegliere)")
-        if criterio == "finanziamento":
-            return self.finanziamento, m.Contratto.Finanziamento(self.finanziamento).label
+        if criterio == "wbs":
+            w = self.wbs
+            if w is not None:
+                return w.codice_wbs, str(w)
+            if self.natura == m.Natura.CAPEX:
+                return "", "(CAPEX: WBS da indicare)"
+            return "", "(OPEX: nessuna WBS)"
         return str(self.fabbisogno.pk), str(self.fabbisogno)
 
 
@@ -124,7 +148,7 @@ class RinnovoMancante:
     previsti_esclusi: int
     dal: datetime.date
     al: datetime.date
-    natura: str = m.Natura.OPEX
+    nature: frozenset = frozenset({m.Natura.OPEX})
 
 
 @dataclass
@@ -154,20 +178,13 @@ class Budget:
             filtri=replace(self.filtri, natura=natura),
             oggi=self.oggi,
             voci=voci,
-            rinnovi_mancanti=[r for r in self.rinnovi_mancanti if r.natura == natura],
+            rinnovi_mancanti=[r for r in self.rinnovi_mancanti if natura in r.nature],
             avvisi=dict(avvisi),
             senza_data=self.senza_data,
         )
 
     def gruppi(self, criterio: str) -> list["Gruppo"]:
-        per_chiave: dict[str, list[VoceBudget]] = defaultdict(list)
-        etichette: dict[str, str] = {}
-        for v in self.voci:
-            chiave, etichetta = v.gruppo(criterio)
-            per_chiave[chiave].append(v)
-            etichette[chiave] = etichetta
-        gruppi = [Gruppo(k, etichette[k], vv, _totali(vv)) for k, vv in per_chiave.items()]
-        return sorted(gruppi, key=lambda g: g.etichetta.lower())
+        return raggruppa(self.voci, criterio)
 
 
 @dataclass
@@ -176,6 +193,21 @@ class Gruppo:
     etichetta: str
     voci: list[VoceBudget]
     totali: dict[str, Somme]
+
+    def sotto(self, criterio: str) -> list["Gruppo"]:
+        """Dettaglio del gruppo, es. i conti di una WBS (come lo legge il CdG)."""
+        return raggruppa(self.voci, criterio)
+
+
+def raggruppa(voci: list[VoceBudget], criterio: str) -> list[Gruppo]:
+    per_chiave: dict[str, list[VoceBudget]] = defaultdict(list)
+    etichette: dict[str, str] = {}
+    for v in voci:
+        chiave, etichetta = v.gruppo(criterio)
+        per_chiave[chiave].append(v)
+        etichette[chiave] = etichetta
+    gruppi = [Gruppo(k, etichette[k], vv, _totali(vv)) for k, vv in per_chiave.items()]
+    return sorted(gruppi, key=lambda g: g.etichetta.lower())
 
 
 def _totali(voci: list[VoceBudget]) -> dict[str, Somme]:
@@ -207,15 +239,11 @@ def orizzonte_report(anno: int, oggi: datetime.date) -> datetime.date:
 
 def _contratti(filtri: Filtri):
     qs = m.Contratto.objects.filter(archiviato=False, fabbisogno__archiviato=False)
-    if filtri.area:
-        qs = qs.filter(fabbisogno__area=filtri.area)
+    if codici := codici_cluster(filtri.area):
+        qs = qs.filter(fabbisogno__cluster__codice__in=codici)
     if filtri.fornitore:
         qs = qs.filter(fornitore_id=filtri.fornitore)
-    if filtri.finanziamento:
-        qs = qs.filter(finanziamento=filtri.finanziamento)
-    if filtri.natura:
-        qs = qs.filter(natura=filtri.natura)
-    return qs.select_related("fabbisogno", "fornitore", "procedura").prefetch_related(
+    return qs.select_related("fabbisogno__cluster", "fornitore", "procedura").prefetch_related(
         *adapters.PREFETCH_CALCOLO
     )
 
@@ -236,7 +264,8 @@ def _calcola_budget(filtri: Filtri, oggi: datetime.date) -> Budget:
         voci_engine, _ = adapters.voci_contratto(c)
         for ve in voci_engine:
             voce = modelli[ve.riferimento]
-            if filtri.conto and voce.conto_id != filtri.conto:
+            classe = adapters.classificazione(voce)
+            if not filtri.ammette(classe):
                 continue
             importi, esiti = importi_anno(ve, filtri.anno)
             if not _non_nulla(importi):
@@ -251,7 +280,7 @@ def _calcola_budget(filtri: Filtri, oggi: datetime.date) -> Budget:
                 fine=ve.fine,
                 importi=importi,
                 esiti=esiti,
-                natura=c.natura,
+                classe=classe,
             )
             voci.append(vb)
 
@@ -271,11 +300,13 @@ def _voci_previste(filtri: Filtri, oggi: datetime.date):
     orizzonte = orizzonte_report(filtri.anno, oggi)
     fabbisogni = (
         m.Fabbisogno.objects.filter(archiviato=False)
-        .select_related("categoria", "previsto_procedura", "conto_previsti")
+        .select_related(
+            "cluster", "categoria", "previsto_procedura", "conto_previsti", "wbs_previsti"
+        )
         .prefetch_related(*adapters.PREFETCH_FABBISOGNO)
     )
-    if filtri.area:
-        fabbisogni = fabbisogni.filter(area=filtri.area)
+    if codici := codici_cluster(filtri.area):
+        fabbisogni = fabbisogni.filter(cluster__codice__in=codici)
     voci: list[VoceBudget] = []
     mancanti: list[RinnovoMancante] = []
     for f in fabbisogni.order_by("pk"):
@@ -283,28 +314,26 @@ def _voci_previste(filtri: Filtri, oggi: datetime.date):
         if filtri.fornitore and (base is None or base.fornitore_id != filtri.fornitore):
             continue
         natura = adapters.natura_previsti(f, base)
-        if filtri.natura and natura != filtri.natura:
-            continue
-        finanziamento = adapters.finanziamento_previsti(f, base)
-        if filtri.finanziamento and finanziamento != filtri.finanziamento:
-            continue
+        nature = frozenset(m.Natura.values) if natura == m.Contratto.MISTA else frozenset({natura})
         previsti = adapters.previsti_fabbisogno(f, orizzonte)
         # SPEC §5.3: nell'anno X entrano solo i previsti che finiscono dal 01/01/X in poi.
         esclusi = [p for p in previsti if p.fine < inizio_anno]
         passati = [p for p in esclusi if p.fine < oggi]
         if passati:
             mancanti.append(
-                RinnovoMancante(f, len(passati), passati[0].inizio, passati[-1].fine, natura)
+                RinnovoMancante(f, len(passati), passati[0].inizio, passati[-1].fine, nature)
             )
         riferimenti = {v.riferimento for p in previsti for v in p.voci if v.riferimento}
-        modelli = m.VoceContratto.objects.select_related("conto").in_bulk(riferimenti)
+        modelli = m.VoceContratto.objects.select_related(
+            "conto", "wbs", "conto_rinnovi", "wbs_rinnovi"
+        ).in_bulk(riferimenti)
         for p in previsti:
             if p.fine < inizio_anno:
                 continue
             for ve in p.voci:
                 voce = modelli.get(ve.riferimento)
-                conto = adapters.conto_previsto(f, voce)
-                if filtri.conto and (conto is None or conto.pk != filtri.conto):
+                classe = adapters.classificazione_prevista(f, voce)
+                if not filtri.ammette(classe):
                     continue
                 importi, esiti = importi_anno(ve, filtri.anno)
                 if not _non_nulla(importi):
@@ -321,8 +350,7 @@ def _voci_previste(filtri: Filtri, oggi: datetime.date):
                         importi=importi,
                         numero_previsto=p.numero,
                         esiti=esiti,
-                        natura=natura,
-                        conto_previsti=f.conto_previsti,
+                        classe=classe,
                     )
                 )
     return voci, mancanti

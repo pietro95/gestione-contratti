@@ -44,7 +44,9 @@ def dati():
     m.OpzioneContratto.objects.create(contratto=c, tipo="rinnovo", mesi=12)
     m.StatoPratica.objects.create(contratto=c, stato="non_avviata", data=D(2026, 9, 1))
     m.Impianto.objects.create(nome="Impianto di prova")
-    m.Progetto.objects.create(codice_wbs="WBS-PROVA-01", descrizione="Progetto prova")
+    m.WBS.objects.create(codice_wbs="WBS-PROVA-01", descrizione="Progetto prova")
+    it, _ = m.Cluster.objects.get_or_create(codice="IT", defaults={"nome": "IT"})
+    m.AssegnazioneCluster.objects.create(username="responsabile.prova", cluster=it)
     successore = f.contratto(fabbisogno=c.fabbisogno, numero_contratto="5800000002")
     m.PropostaPredecessore.objects.create(
         predecessore=c, successore=successore, motivazione="prova"
@@ -70,7 +72,7 @@ def dati():
 
 def test_tutti_i_modelli_registrati():
     attesi = {
-        "procedura", "soglia", "parametro", "categoria", "impianto", "progetto", "contocoge",
+        "procedura", "soglia", "parametro", "categoria", "impianto", "wbs", "cluster", "contocoge",
         "fornitore", "fabbisogno", "contratto", "proroga", "vocecontratto",
         "pianofatturazione", "rata", "statopratica",
     }  # fmt: skip

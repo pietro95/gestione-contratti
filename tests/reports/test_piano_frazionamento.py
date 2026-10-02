@@ -70,7 +70,7 @@ def test_da_classificare_e_non_indicato_non_si_raggruppano():
 def test_filtri_area_e_categoria():
     _in_scadenza("Licenza A", "1000.00")
     c = _in_scadenza("Rete B", "1000.00", categoria=f.categoria("Connettività"))
-    c.fabbisogno.area = m.Area.TLC
+    c.fabbisogno.cluster = f.cluster("TLC")
     c.fabbisogno.save()
     assert [r.fabbisogno.descrizione for r in calcola_piano(2027, OGGI, area="TLC").righe] == [
         "Rete B"

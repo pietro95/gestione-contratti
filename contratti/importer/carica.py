@@ -90,12 +90,18 @@ class _Caricamento:
     def __init__(self, report: Report, area: str, oggi: datetime.date):
         self.report = report
         self.area = area
+        try:
+            self.cluster = m.Cluster.objects.get(codice=area)
+        except m.Cluster.DoesNotExist as exc:
+            raise ValueError(f"Cluster inesistente: {area}.") from exc
         self.oggi = oggi
         self.procedura = m.Procedura.objects.get(codice="da_verificare")
         self.categoria = m.Categoria.objects.get(nome="Da classificare")
-        self.conti = {c.codice: c for c in m.ContoCoge.objects.order_by("valido_dal")}
+        conti = m.ContoCoge.objects.select_related("cluster").order_by("valido_dal")
+        self.conti = {c.codice: c for c in conti}
         self.fornitori = {chiave_nome(f.ragione_sociale): f for f in m.Fornitore.objects.all()}
         self.creati_ora: set[str] = set()
+        self._wbs: m.WBS | None = None  # WBS del contratto in corso di creazione
 
     # --- Fornitori ---------------------------------------------------------------
 
@@ -217,18 +223,23 @@ class _Caricamento:
         descrizione = primo.descrizione or DESCRIZIONE_ASSENTE
         fabbisogno = m.Fabbisogno.objects.create(
             descrizione=descrizione,
-            area=self.area,
+            cluster=self.cluster,
             categoria=self.categoria,
             decisione=primo.decisione,
             note="Fabbisogno provvisorio creato dall'import Excel.",
         )
+        # Fogli dei finanziati e dissalatori: spese CAPEX su una WBS a progetto (F9.2).
         progetto = None
         if primo.finanziato:
             codice = primo.wbs or WBS_DA_DEFINIRE
-            progetto, _ = m.Progetto.objects.get_or_create(
+            progetto, _ = m.WBS.objects.get_or_create(
                 codice_wbs=codice,
-                defaults={"descrizione": "Da definire" if not primo.wbs else codice},
+                defaults={
+                    "descrizione": "Da definire" if not primo.wbs else codice,
+                    "tipo": m.WBS.Tipo.PROGETTO,
+                },
             )
+        self._wbs = progetto
         note = [f"Import Excel: {primo.foglio}, riga {', '.join(str(r.numero) for r in gruppo)}."]
         note += [r.note for r in gruppo if r.note]
         contratto = m.Contratto.objects.create(
@@ -241,8 +252,6 @@ class _Caricamento:
             procedura=self.procedura,
             data_inizio=primo.data_inizio,
             durata_mesi=primo.mesi,
-            finanziamento="finanziato" if progetto else "ordinario",
-            progetto=progetto,
             note="\n".join(note),
             chiave_import=chiave,
         )
@@ -259,11 +268,20 @@ class _Caricamento:
 
     def _voce(self, contratto: m.Contratto, r: Riga, chiave: str):
         conto = self.conti.get(r.conto) if r.conto else None
+        if conto is not None and conto.cluster_id and conto.cluster_id != self.cluster.pk:
+            self.report.anomalia(
+                r.foglio, r.numero, "CONTO_ALTRO_CLUSTER", "conto", r.conto,
+                f"Il conto è del cluster {conto.cluster.codice}, non di {self.cluster.codice}: "
+                "verifica il cluster del contratto o il conto.",
+            )  # fmt: skip
         voce = m.VoceContratto.objects.create(
             contratto=contratto,
             descrizione=r.descrizione or DESCRIZIONE_ASSENTE,
             conto=conto,
             codice_conto_importato=r.conto or "",
+            natura=m.Natura.CAPEX if self._wbs else m.Natura.OPEX,
+            wbs=self._wbs,
+            codice_wbs_importato=r.wbs or "",
             importo_fisso=r.minimo or Decimal("0.00"),
             massimale_variabile=r.extra or Decimal("0.00"),
             chiave_import=chiave,

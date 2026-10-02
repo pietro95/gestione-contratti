@@ -5,6 +5,10 @@
 {% block sottotitolo %}<div class="sottotitolo">{{ voci|length }} voci · {{ totale|euro }} tra fisso e massimale</div>{% endblock %}
 {% block content %}
 <div class="alert alert-info small" style="max-width: 60rem"><i class="bi bi-info-circle" aria-hidden="true"></i> Il budget di riferimento è il fatturato, cioè le rate per data fattura. Per queste voci il piano non è noto (dati importati dagli Excel): il fatturato è stimato a pro-rata sui giorni del servizio, come facevano gli Excel. Imposta modalità e periodicità reali, poi genera lo scadenzario. Le voci più pesanti sono in cima.</div>
+<form method="get" class="filtri row g-3 align-items-end">
+  <div class="col-sm-5 col-xl-3"><label class="form-label" for="f-area">Cluster</label><select id="f-area" name="area" class="form-select">{% for v, t in aree %}<option value="{{ v }}" {% if area_scelta == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+  <div class="col-auto"><button class="btn btn-primary" type="submit">Applica</button></div>
+</form>
 <div class="tabella-card"><div class="table-responsive">
 <table class="table table-hover align-middle" id="piani">
   <thead><tr><th>Fabbisogno · contratto</th><th>Voce</th><th>Natura</th><th>Servizio</th><th class="text-end">Fisso</th><th class="text-end">Massimale</th>{% if puo_modificare %}<th><span class="visually-hidden">Azioni</span></th>{% endif %}</tr></thead>
@@ -13,7 +17,7 @@
     <tr data-href="{{ link }}">
       <td style="min-width: 16rem"><a href="{{ link }}" class="fw-semibold">{{ v.contratto.fabbisogno.descrizione }}</a><div class="small text-body-secondary">{{ v.contratto.numero_contratto|default:v.contratto.cig|default:"senza numero" }} · {{ v.contratto.fornitore }}</div></td>
       <td>{{ v.descrizione }}</td>
-      <td>{{ v.contratto.natura }}</td>
+      <td>{{ v.natura }}{% if v.wbs %}<div class="small text-body-secondary">{{ v.wbs.codice_wbs }}</div>{% endif %}</td>
       <td class="text-nowrap">{% if v.contratto.data_inizio %}dal {{ v.contratto.data_inizio|date:"d/m/Y" }}, {{ v.contratto.durata_mesi }} mesi{% else %}senza data di inizio{% endif %}</td>
       <td class="text-end">{{ v.importo_fisso|euro }}</td>
       <td class="text-end">{{ v.massimale_variabile|euro }}</td>

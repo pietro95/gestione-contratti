@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Spese per WBS{% endblock %}
+{% block titolo_pagina %}Spese per WBS{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">WBS di cluster (CAPEX del cluster) e WBS a progetto (fuori dai budget dei cluster): apri una WBS per i contratti e gli importi anno per anno.</div>{% endblock %}
+{% block content %}
+<form method="get" class="filtri row g-3 align-items-end">
+  <div class="col-sm-4 col-xl-3"><label class="form-label" for="f-area">Cluster</label><select id="f-area" name="area" class="form-select">{% for v, t in aree %}<option value="{{ v }}" {% if area_scelta == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+  <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-tipo">Tipo</label><select id="f-tipo" name="tipo" class="form-select"><option value="">Tutti</option>{% for v, t in tipi %}<option value="{{ v }}" {% if filtri.tipo == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+  <div class="col-auto"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="archiviate" value="1" id="f-arch" {% if filtri.archiviate %}checked{% endif %}><label class="form-check-label" for="f-arch">Non attive</label></div></div>
+  <div class="col-auto"><button class="btn btn-primary" type="submit">Applica</button></div>
+</form>
+<p class="small text-body-secondary">Le WBS a progetto si vedono sempre; le WBS di cluster solo dei cluster scelti.</p>
+<div class="tabella-card"><div class="table-responsive">
+<table class="table table-hover align-middle">
+  <thead><tr><th>WBS</th><th>Descrizione</th><th>Tipo</th><th>Cluster</th><th class="text-end">Voci</th></tr></thead>
+  <tbody>
+  {% for w in elenco %}{% url 'reports:wbs_spese' w.pk as link %}
+    <tr data-href="{{ link }}"><td><a href="{{ link }}" class="fw-semibold">{{ w.codice_wbs }}</a>{% if w.archiviato %} <span class="stato stato-grigio">non attiva</span>{% endif %}</td><td>{{ w.descrizione }}</td><td><span class="stato {% if w.tipo == 'progetto' %}stato-grigio{% else %}stato-blu{% endif %}">{{ w.get_tipo_display }}</span></td><td>{{ w.cluster.codice|default:"—" }}</td><td class="text-end">{{ w.n_voci }}</td></tr>
+  {% empty %}<tr><td colspan="5"><div class="vuoto py-4">Nessuna WBS. Si caricano con l'import «Struttura ICTDINN».</div></td></tr>{% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}
