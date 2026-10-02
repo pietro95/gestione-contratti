@@ -81,7 +81,7 @@ def dati(transactional_db):
         fornitore=fornitori[0],
         data_inizio=D(2026, 1, 1),
         durata_mesi=12,
-        numero_oda="5800000001",
+        numero_contratto="5800000001",
     )
     v = f.voce(c, importo_fisso=Decimal("10000.00"))
     f.piano(v, modalita="anticipata", periodicita="annuale")

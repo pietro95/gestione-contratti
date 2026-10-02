@@ -117,7 +117,7 @@ def cerca(request):
         contratti = selettori.contratti_base().filter(
             Q(descrizione__icontains=q)
             | Q(fabbisogno__descrizione__icontains=q)
-            | Q(numero_oda__icontains=q)
+            | Q(numero_contratto__icontains=q)
             | Q(cig__icontains=q)
             | Q(numero_rda__icontains=q)
             | Q(fornitore__ragione_sociale__icontains=q)
@@ -184,7 +184,7 @@ def _filtra_contratti(request, oggi):
         qs = qs.filter(
             Q(descrizione__icontains=q)
             | Q(fabbisogno__descrizione__icontains=q)
-            | Q(numero_oda__icontains=q)
+            | Q(numero_contratto__icontains=q)
             | Q(cig__icontains=q)
             | Q(numero_rda__icontains=q)
             | Q(fornitore__ragione_sociale__icontains=q)

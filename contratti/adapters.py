@@ -192,7 +192,7 @@ def voci_contratto(
 ) -> tuple[list[Voce], list[Esito]]:
     """Voci con periodo di servizio e anno di impegno (SPEC §5.2, TC-10).
 
-    Voce base: periodo del contratto, impegno nell'anno dell'OdA (o dell'inizio).
+    Voce base: periodo del contratto, impegno nell'anno di emissione del contratto (o dell'inizio).
     Voce di proroga: dal giorno dopo la fine precedente alla nuova fine, impegno
     nell'anno dell'atto.
     """
@@ -200,7 +200,7 @@ def voci_contratto(
     if s is None:
         return [], [Esito("DATA_MANCANTE", f"{contratto}: data di inizio mancante, escluso.")]
     fine_base = scadenze.data_fine_contrattuale(s)
-    anno_base = (contratto.data_oda or contratto.data_inizio).year
+    anno_base = (contratto.data_emissione or contratto.data_inizio).year
     periodi = periodi_proroghe(contratto)
     atti = {p.pk: p.data_atto for p in contratto.proroghe.all()}
     risultato = []

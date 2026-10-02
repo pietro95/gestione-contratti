@@ -132,7 +132,7 @@ def test_filtri_attivi_e_ordinamento(pagina, dati):
         procedura=dati["contratto"].procedura,
         data_inizio=datetime.date(2024, 1, 1),
         durata_mesi=12,
-        numero_oda="5800000002",
+        numero_contratto="5800000002",
     )
     pagina.goto(f"{pagina.base}/contratti/?ordina=inizio")
     prima = pagina.locator("#tabella tbody tr").first.inner_text()

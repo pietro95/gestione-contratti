@@ -6,7 +6,7 @@
 {% block content %}
 <form method="get" class="filtri" hx-get="{% url 'contratti:contratti' %}" hx-target="#tabella" hx-trigger="change, keyup changed delay:400ms from:input[name=q]" hx-push-url="true">
   <div class="row g-3 align-items-end">
-    <div class="col-md-6 col-xl-4"><label class="form-label" for="f-q">Cerca</label><input id="f-q" type="search" name="q" value="{{ filtri.q }}" class="form-control" placeholder="Descrizione, OdA, CIG, RDA, fornitore"></div>
+    <div class="col-md-6 col-xl-4"><label class="form-label" for="f-q">Cerca</label><input id="f-q" type="search" name="q" value="{{ filtri.q }}" class="form-control" placeholder="Descrizione, n. contratto, CIG, RDA, fornitore"></div>
     <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-area">Area</label><select id="f-area" name="area" class="form-select"><option value="">Tutte</option>{% for v, t in aree %}<option value="{{ v }}" {% if filtri.area == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
     <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-stato">Stato</label><select id="f-stato" name="stato" class="form-select"><option value="">Tutti</option>{% for v, t in stati %}<option value="{{ v }}" {% if filtri.stato == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
     <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-alert">Alert</label><select id="f-alert" name="alert" class="form-select"><option value="">Tutti</option>{% for v, t in alert %}<option value="{{ v }}" {% if filtri.alert == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>

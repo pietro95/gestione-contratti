@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% load registro %}
 {% block title %}{{ c.fabbisogno.descrizione }}{% endblock %}
-{% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'contratti:contratti' %}">Contratti</a></li><li class="breadcrumb-item"><a href="{% url 'contratti:fabbisogno' c.fabbisogno.pk %}">{{ c.fabbisogno.descrizione }}</a></li><li class="breadcrumb-item active" aria-current="page">{{ c.numero_oda|default:c.cig|default:"contratto" }}</li></ol></nav>{% endblock %}
+{% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'contratti:contratti' %}">Contratti</a></li><li class="breadcrumb-item"><a href="{% url 'contratti:fabbisogno' c.fabbisogno.pk %}">{{ c.fabbisogno.descrizione }}</a></li><li class="breadcrumb-item active" aria-current="page">{{ c.numero_contratto|default:c.cig|default:"contratto" }}</li></ol></nav>{% endblock %}
 {% block titolo_pagina %}{{ c.fabbisogno.descrizione }}{% endblock %}
 {% block sottotitolo %}
 <div class="sottotitolo">
   {{ riga.stato|stato_badge }} {{ riga.alert|alert_badge }}{% if c.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}
   <span>· <a href="{% url 'contratti:fornitore' c.fornitore.pk %}">{{ c.fornitore }}</a></span>
   <span>· {{ c.fabbisogno.area }}</span>
-  {% if c.numero_oda %}<span>· OdA {{ c.numero_oda }}</span>{% endif %}
+  {% if c.numero_contratto %}<span>· N. {{ c.numero_contratto }}</span>{% endif %}
 </div>
 {% endblock %}
 {% block azioni %}
@@ -52,7 +52,7 @@
           <dt>Fabbisogno</dt><dd><a href="{% url 'contratti:fabbisogno' c.fabbisogno.pk %}">{{ c.fabbisogno.descrizione }}</a> · {{ c.fabbisogno.get_decisione_display }}</dd>
           <dt>Descrizione</dt><dd>{{ c.descrizione|default:"—" }}</dd>
           <dt>Fornitore</dt><dd><a href="{% url 'contratti:fornitore' c.fornitore.pk %}">{{ c.fornitore }}</a></dd>
-          <dt>OdA</dt><dd>{{ c.numero_oda|default:"—" }}{% if c.data_oda %} del {{ c.data_oda|date:"d/m/Y" }}{% endif %}</dd>
+          <dt>N. contratto</dt><dd>{{ c.numero_contratto|default:"—" }}{% if c.data_emissione %} del {{ c.data_emissione|date:"d/m/Y" }}{% endif %}</dd>
           <dt>RDA</dt><dd>{{ c.numero_rda|default:"—" }}</dd>
           <dt>CIG</dt><dd>{{ c.cig|default:"—" }}</dd>
           <dt>Procedura</dt><dd>{{ c.procedura }} · lead time {% if c.lead_time_mesi_override is not None %}{{ c.lead_time_mesi_override }}{% else %}{{ c.procedura.lead_time_mesi }}{% endif %} mesi</dd>
@@ -120,7 +120,7 @@
     <ol class="catena mb-4">
       {% for x in catena %}
         {% if not forloop.first %}<li class="freccia" aria-hidden="true"><i class="bi bi-arrow-right"></i></li>{% endif %}
-        <li class="{% if x.pk == c.pk %}corrente{% endif %}">{% if x.pk == c.pk %}{{ x.data_inizio|date:"Y"|default:"?" }} · questo contratto{% else %}<a href="{% url 'contratti:contratto' x.pk %}">{{ x.data_inizio|date:"Y"|default:"?" }} · {{ x.numero_oda|default:x.fornitore }}</a>{% endif %}</li>
+        <li class="{% if x.pk == c.pk %}corrente{% endif %}">{% if x.pk == c.pk %}{{ x.data_inizio|date:"Y"|default:"?" }} · questo contratto{% else %}<a href="{% url 'contratti:contratto' x.pk %}">{{ x.data_inizio|date:"Y"|default:"?" }} · {{ x.numero_contratto|default:x.fornitore }}</a>{% endif %}</li>
       {% endfor %}
       {% for p in previsti %}
         <li class="freccia" aria-hidden="true"><i class="bi bi-arrow-right"></i></li>

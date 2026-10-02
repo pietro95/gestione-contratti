@@ -22,7 +22,7 @@ def tc10_contratto():
     c = f.contratto(
         data_inizio=D(2025, 4, 1),
         durata_mesi=12,
-        data_oda=D(2025, 3, 15),
+        data_emissione=D(2025, 3, 15),
         lead_time_mesi_override=4,
     )
     base = f.voce(c, importo_fisso=E("12000.00"))
@@ -215,7 +215,7 @@ def test_previsti_dal_solo_contratto_terminale_piu_recente(tc07):
 
 
 def tc11_contratto():
-    c = f.contratto(data_inizio=D(2026, 7, 1), durata_mesi=36, data_oda=D(2026, 6, 1))
+    c = f.contratto(data_inizio=D(2026, 7, 1), durata_mesi=36, data_emissione=D(2026, 6, 1))
     v = f.voce(c, importo_fisso=E("31500.00"))
     f.piano(v, modalita="anticipata", periodicita="annuale")
     for dal, al, importo in (

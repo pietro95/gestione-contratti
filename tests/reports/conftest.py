@@ -39,7 +39,7 @@ def archivio(conti):
         fabbisogno=fab,
         data_inizio=D(2026, 1, 1),
         durata_mesi=24,
-        data_oda=D(2025, 12, 15),
+        data_emissione=D(2025, 12, 15),
         finanziamento=m.Contratto.Finanziamento.FINANZIATO,
         progetto=m.Progetto.objects.create(codice_wbs="WBS-PROVA", descrizione="Prova"),
     )

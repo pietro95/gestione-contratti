@@ -1,7 +1,7 @@
 """Caricamento nel database delle righe normalizzate (SPEC §7, TC-08).
 
-- Righe con stesso OdA, CIG e periodo → un contratto con più voci.
-- Stesso OdA e CIG ma periodi diversi → contratti distinti e anomalia ODA_RIUSATO.
+- Righe con stesso numero di contratto, CIG e periodo → un contratto con più voci.
+- Stesso numero di contratto e CIG ma periodi diversi → contratti distinti e anomalia ODA_RIUSATO.
 - Ogni contratto entra in un proprio fabbisogno provvisorio; raggruppamenti e catene
   dei rinnovi restano proposte da confermare (``proposte.py``).
 - Idempotente: una riga già importata (chiave d'import) non si ricrea né si modifica.
@@ -28,11 +28,11 @@ WBS_DA_DEFINIRE = "WBS-DA-DEFINIRE"
 
 
 def raggruppa(righe: list[Riga]) -> dict[tuple, list[Riga]]:
-    """Righe con stesso foglio, OdA, CIG e periodo → un contratto (ordine delle righe)."""
+    """Stesso foglio, numero di contratto, CIG e periodo → un contratto (ordine delle righe)."""
     gruppi: dict[tuple, list[Riga]] = defaultdict(list)
     for r in righe:
-        if r.numero_oda or r.cig:
-            chiave = (r.foglio, r.numero_oda, r.cig, r.data_inizio, r.mesi)
+        if r.numero_contratto or r.cig:
+            chiave = (r.foglio, r.numero_contratto, r.cig, r.data_inizio, r.mesi)
         else:
             chiave = (r.foglio, None, None, r.numero)
         gruppi[chiave].append(r)
@@ -163,8 +163,8 @@ class _Caricamento:
             if (oda or cig) and len(periodi_per_oda[(oda, cig)]) > 1:
                 for r in gruppo:
                     self.report.anomalia(
-                        r.foglio, r.numero, "ODA_RIUSATO", "numero_oda", oda or cig,
-                        "Stesso OdA e CIG su periodi diversi: contratti distinti, da verificare.",
+                        r.foglio, r.numero, "ODA_RIUSATO", "numero_contratto", oda or cig,
+                        "Stesso numero e CIG, periodi diversi: contratti distinti, da verificare.",
                     )  # fmt: skip
             self._contratto(chiave, gruppo)
 
@@ -200,7 +200,7 @@ class _Caricamento:
             fabbisogno=fabbisogno,
             fornitore=fornitore,
             descrizione=descrizione,
-            numero_oda=primo.numero_oda,
+            numero_contratto=primo.numero_contratto,
             cig=primo.cig,
             numero_rda=next((r.numero_rda for r in gruppo if r.numero_rda), None),
             procedura=self.procedura,

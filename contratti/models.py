@@ -409,10 +409,10 @@ class Contratto(Archiviabile):
 
     # Riferimenti SAP e ANAC: conservati come arrivano, le anomalie vanno nel report d'import.
     # NULL e non stringa vuota: TC-08 normalizza n/a, n/d, vuoto a NULL.
-    numero_oda = models.CharField("numero OdA", max_length=20, null=True, blank=True)  # noqa: DJ001
+    numero_contratto = models.CharField("numero contratto", max_length=20, null=True, blank=True)  # noqa: DJ001
     numero_rda = models.CharField("numero RDA", max_length=20, null=True, blank=True)  # noqa: DJ001
     cig = models.CharField("CIG", max_length=20, null=True, blank=True)  # noqa: DJ001
-    data_oda = models.DateField("data emissione OdA", null=True, blank=True)
+    data_emissione = models.DateField("data emissione contratto", null=True, blank=True)
 
     procedura = models.ForeignKey(Procedura, on_delete=models.PROTECT, related_name="contratti")
     lead_time_mesi_override = models.PositiveSmallIntegerField(
@@ -480,7 +480,7 @@ class Contratto(Archiviabile):
         ]
 
     def __str__(self):
-        riferimento = self.numero_oda or self.cig or f"#{self.pk}"
+        riferimento = self.numero_contratto or self.cig or f"#{self.pk}"
         return f"{self.fabbisogno.descrizione} — {riferimento}"
 
     def get_absolute_url(self):
@@ -540,7 +540,7 @@ class Proroga(models.Model):
     data_atto = models.DateField("data dell'atto")
     nuova_data_fine = models.DateField("nuova data di fine")
     riferimento = models.CharField(
-        max_length=200, blank=True, help_text="Protocollo, OdA integrativo o atto aggiuntivo."
+        max_length=200, blank=True, help_text="Protocollo, contratto integrativo o atto aggiuntivo."
     )
     note = models.TextField(blank=True)
     history = HistoricalRecords()
@@ -748,7 +748,7 @@ class StatoPratica(models.Model):
         RDA_RICHIESTA = "rda_richiesta", "RDA richiesta"
         RDA_PREDISPOSTA = "rda_predisposta", "RDA predisposta"
         RDA_APPROVATA = "rda_approvata", "RDA approvata"
-        ODA_EMESSO = "oda_emesso", "OdA emesso"
+        CONTRATTO_EMESSO = "contratto_emesso", "Contratto emesso"
         CONTRATTO_ATTIVO = "contratto_attivo", "Contratto attivo"
 
     contratto = models.ForeignKey(

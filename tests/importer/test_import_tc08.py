@@ -57,7 +57,7 @@ def test_conto_sconosciuto_conservato(excel):
         area="IT",
         oggi=OGGI,
     )
-    conosciuta, sconosciuta = m.VoceContratto.objects.order_by("contratto__numero_oda")
+    conosciuta, sconosciuta = m.VoceContratto.objects.order_by("contratto__numero_contratto")
     assert conosciuta.conto.codice == "600001"
     assert sconosciuta.conto is None
     assert sconosciuta.codice_conto_importato == "62700"
@@ -109,7 +109,7 @@ def test_mappatura_stati(excel):
         ]
     )
     report = importa(percorso, area="IT", oggi=OGGI)
-    c = {x.numero_oda: x for x in m.Contratto.objects.select_related("fabbisogno")}
+    c = {x.numero_contratto: x for x in m.Contratto.objects.select_related("fabbisogno")}
     assert c["5800000001"].fabbisogno.decisione == "dismettere"
     assert c["5800000002"].fabbisogno.decisione == "rinnovare"
     assert c["5800000006"].fabbisogno.decisione == "da_valutare"

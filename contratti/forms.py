@@ -200,8 +200,8 @@ class FabbisognoForm(ModelFormBootstrap):
 CAMPI_CONTRATTO = [
     "fornitore",
     "descrizione",
-    "numero_oda",
-    "data_oda",
+    "numero_contratto",
+    "data_emissione",
     "numero_rda",
     "cig",
     "procedura",
@@ -225,7 +225,14 @@ class ContrattoForm(ModelFormBootstrap):
         ("Oggetto e fornitore", ["fabbisogno", "fornitore", "descrizione"]),
         (
             "Ordine e procedura",
-            ["numero_oda", "data_oda", "numero_rda", "cig", "procedura", "lead_time_mesi_override"],
+            [
+                "numero_contratto",
+                "data_emissione",
+                "numero_rda",
+                "cig",
+                "procedura",
+                "lead_time_mesi_override",
+            ],
         ),
         (
             "Durata",
