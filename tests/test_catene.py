@@ -130,14 +130,21 @@ def test_collegamento_non_proposto_rifiutato(due):
     assert not a.archiviato and x.fabbisogno == a
 
 
-def test_periodi_sovrapposti_nessun_collegamento_e_avviso(due):
+def test_periodi_sovrapposti_collegamento_proposto_con_avviso(due):
+    """Il rinnovo può partire prima della scadenza: si propone, con l'avviso."""
     a, b = due
-    _catena(a, 2024)
+    (x,) = _catena(a, 2024)
     c = f.contratto(fabbisogno=b, data_inizio=D(2024, 6, 1), durata_mesi=12)
     anteprima = servizi.anteprima_accorpamento(a, b)
-    assert anteprima.collegamenti == []
-    assert any("sovrapposti" in x for x in anteprima.avvisi)
-    assert c.pk
+    assert anteprima.collegamenti == [(x, c)]
+    assert any("periodi sovrapposti" in v for v in anteprima.avvisi)
+
+
+def test_contratto_parallelo_che_finisce_prima_non_e_un_rinnovo(due):
+    a, _ = due
+    (x,) = _catena(a, 2024)
+    f.contratto(fabbisogno=a, data_inizio=D(2024, 3, 1), durata_mesi=6)  # finisce prima
+    assert servizi.collegamenti_del_fabbisogno(a) == []
 
 
 def test_previsto_manuale_e_pratica_scelta_esplicita():
@@ -294,3 +301,50 @@ def test_rinnovo_che_ha_gia_un_predecessore_avviso(due):
     assert anteprima.collegamenti == []
     assert any("già il rinnovo di un altro contratto" in v for v in anteprima.avvisi)
     assert x.pk and y.predecessore_id
+
+
+def _caso_pietro(fabbisogno):
+    """Rinnovo che parte prima della scadenza: 01/03/2025–28/02/2026, poi dal 01/01/2026."""
+    vecchio = f.contratto(
+        fabbisogno=fabbisogno, numero_contratto="OA1 64/25", data_inizio=D(2025, 3, 1)
+    )
+    nuovo = f.contratto(
+        fabbisogno=fabbisogno, numero_contratto="5800005645", data_inizio=D(2026, 1, 1)
+    )
+    return vecchio, nuovo
+
+
+def test_rinnovo_prima_della_scadenza_proposto_e_collegato(due):
+    a, _ = due
+    vecchio, nuovo = _caso_pietro(a)
+    assert adapters.data_fine_effettiva(vecchio) == D(2026, 2, 28)
+    assert adapters.alert_contratto(vecchio, D(2026, 10, 1)) == adapters.Alert.ROSSO
+    assert servizi.collegamenti_del_fabbisogno(a) == [(vecchio, nuovo)]
+    servizi.collega_contratti(a, [(vecchio.pk, nuovo.pk)])
+    _ricarica(nuovo)
+    assert nuovo.predecessore == vecchio
+    assert adapters.alert_contratto(vecchio, D(2026, 10, 1)) != adapters.Alert.ROSSO
+
+
+def test_collegamento_a_mano_e_scollegamento(due):
+    a, b = due
+    vecchio, nuovo = _caso_pietro(a)
+    precedente = f.contratto(fabbisogno=a, data_inizio=D(2024, 1, 1))
+    altrove = f.contratto(fabbisogno=b, data_inizio=D(2026, 1, 1))
+    assert servizi.candidati_rinnovo(vecchio) == [nuovo]  # né precedenti né altri fabbisogni
+    with pytest.raises(servizi.OperazioneNonAmmessa):
+        servizi.collega_rinnovo(vecchio, altrove)
+    with pytest.raises(servizi.OperazioneNonAmmessa):
+        servizi.collega_rinnovo(vecchio, precedente)
+    servizi.collega_rinnovo(vecchio, nuovo)
+    _ricarica(nuovo)
+    assert nuovo.predecessore == vecchio
+    assert nuovo.history.first().history_change_reason == (
+        f"Collegato a mano come rinnovo di #{vecchio.pk}"
+    )
+    assert servizi.candidati_rinnovo(vecchio) == []  # ha già il successore
+    assert servizi.scollega_predecessore(nuovo) == vecchio
+    _ricarica(nuovo)
+    assert nuovo.predecessore is None
+    with pytest.raises(servizi.OperazioneNonAmmessa):
+        servizi.scollega_predecessore(nuovo)

@@ -112,7 +112,7 @@ def test_catena_interrotta_avviso_e_collegamento_dal_fabbisogno(editor):
     vecchio = f.contratto(fabbisogno=fab, numero_contratto="5800000881", data_inizio=D(2025, 1, 1))
     nuovo = f.contratto(fabbisogno=fab, numero_contratto="5800000882", data_inizio=D(2026, 1, 1))
     html = editor.get(reverse("contratti:contratto", args=[vecchio.pk])).content.decode()
-    assert "Collegalo dal fabbisogno" in html and "5800000882" in html
+    assert "collegalo</a>" in html and "5800000882" in html
     html = editor.get(reverse("contratti:fabbisogno", args=[fab.pk])).content.decode()
     assert "Catena dei rinnovi interrotta" in html
     risposta = editor.post(
@@ -126,7 +126,7 @@ def test_catena_interrotta_avviso_e_collegamento_dal_fabbisogno(editor):
     html = editor.get(reverse("contratti:fabbisogno", args=[fab.pk])).content.decode()
     assert "Catena dei rinnovi interrotta" not in html
     html = editor.get(reverse("contratti:contratto", args=[vecchio.pk])).content.decode()
-    assert "Collegalo dal fabbisogno" not in html
+    assert "collegalo</a>" not in html
 
 
 def test_collegamento_non_proposto_rifiutato_dalla_vista(editor):
@@ -139,5 +139,24 @@ def test_collegamento_non_proposto_rifiutato_dalla_vista(editor):
         follow=True,
     )
     assert "Collegamento non tra quelli proposti" in risposta.content.decode()
+    nuovo.refresh_from_db()
+    assert nuovo.predecessore is None
+
+
+def test_collega_e_scollega_a_mano_dal_contratto(editor):
+    fab = f.fabbisogno("Abbonamento di prova", decisione="rinnovare")
+    vecchio = f.contratto(fabbisogno=fab, numero_contratto="OA1 64/25", data_inizio=D(2025, 3, 1))
+    nuovo = f.contratto(fabbisogno=fab, numero_contratto="5800005645", data_inizio=D(2026, 1, 1))
+    url = reverse("contratti:contratto_collega", args=[vecchio.pk])
+    html = editor.get(url).content.decode()
+    assert "5800005645" in html and "inizia prima della scadenza" in html
+    assert editor.post(url, {"successore": ""}).status_code == 200  # nessuna scelta
+    risposta = editor.post(url, {"successore": nuovo.pk})
+    assert risposta.status_code == 302
+    nuovo.refresh_from_db()
+    assert nuovo.predecessore == vecchio
+    html = editor.get(reverse("contratti:contratto", args=[nuovo.pk])).content.decode()
+    assert "Scollega dal predecessore" in html
+    editor.post(reverse("contratti:contratto_scollega", args=[nuovo.pk]))
     nuovo.refresh_from_db()
     assert nuovo.predecessore is None
