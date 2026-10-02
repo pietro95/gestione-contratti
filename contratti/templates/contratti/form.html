@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 {% block title %}{{ titolo }}{% endblock %}
+{% block breadcrumb %}{% if annulla %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{{ annulla.get_absolute_url }}">{{ annulla }}</a></li><li class="breadcrumb-item active" aria-current="page">{{ titolo }}</li></ol></nav>{% endif %}{% endblock %}
+{% block titolo_pagina %}{{ titolo }}{% endblock %}
+{% block sottotitolo %}{% if nota %}<div class="sottotitolo">{{ nota }}</div>{% endif %}<div class="sottotitolo small">I campi con <span class="text-danger">*</span> sono obbligatori.</div>{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">{{ titolo }}</h1>
-{% if nota %}<p class="text-body-secondary">{{ nota }}</p>{% endif %}
 <form method="post" novalidate>
   {% csrf_token %}
   {% include "contratti/_campi.html" with form=form %}
-  <button type="submit" class="btn btn-primary">Salva</button>
-  {% if annulla %}<a class="btn btn-link" href="{{ annulla.get_absolute_url }}">Annulla</a>{% endif %}
+  <div class="form-azioni">
+    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Salva</button>
+    {% if annulla %}<a class="btn btn-outline-secondary" href="{{ annulla.get_absolute_url }}">Annulla</a>{% else %}<a class="btn btn-outline-secondary" href="javascript:history.back()">Annulla</a>{% endif %}
+  </div>
 </form>
 {% endblock %}

@@ -1,60 +1,79 @@
 {% extends "base.html" %}
 {% load registro %}
-{% block title %}Budget {{ budget.filtri.anno }}{% endblock %}
+{% block title %}Budget {{ form.anno.value }}{% endblock %}
+{% block titolo_pagina %}Budget {{ form.anno.value }}{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">Al {{ oggi|date:"d/m/Y" }} · importi imponibili (IVA esclusa){% if budget %} · livello {{ livello.value }}{% endif %}</div>{% endblock %}
+{% block azioni %}{% include "reports/_azioni.html" %}{% endblock %}
 {% block content %}
-<h1 class="h4">Budget {{ budget.filtri.anno|stringformat:"s" }} <small class="text-body-secondary">al {{ oggi|date:"d/m/Y" }} — importi imponibili (IVA esclusa)</small></h1>
 {% include "reports/_filtri.html" %}
 {% if budget %}
-<h2 class="h5 mt-3">Riepilogo</h2>
-<div class="table-responsive">
-<table class="table table-sm table-bordered align-middle text-end" id="riepilogo">
-  <thead class="table-light">
+<div class="row g-3 mb-4">
+  {% for vista, consolidato, previsionale, totale in kpi %}
+  <div class="col-md-4"><div class="card kpi blu"><div class="card-body">
+    <div class="kpi-etichetta">{{ vista }} · {{ livello.value }}</div>
+    <div class="kpi-valore">{{ totale|euro }}</div>
+    <div class="kpi-nota">consolidato {{ consolidato|euro }} · previsionale {{ previsionale|euro }}</div>
+  </div></div></div>
+  {% endfor %}
+</div>
+
+{% if budget.rinnovi_mancanti or budget.avvisi or budget.senza_data %}
+<div class="accordion mb-4" id="avvisi">
+  <div class="accordion-item">
+    <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#avvisi-corpo" aria-expanded="false" aria-controls="avvisi-corpo">
+      <i class="bi bi-exclamation-triangle text-warning me-2" aria-hidden="true"></i> Avvisi sul calcolo
+      <span class="badge rounded-pill text-bg-light ms-2">{{ n_avvisi }}</span></button></h2>
+    <div id="avvisi-corpo" class="accordion-collapse collapse" data-bs-parent="#avvisi"><div class="accordion-body">
+      {% if budget.rinnovi_mancanti %}
+        <p class="fw-semibold mb-1">Rinnovi mancanti ({{ budget.rinnovi_mancanti|length }})</p>
+        <p class="small text-body-secondary">Fabbisogni con previsti già conclusi prima del 01/01/{{ budget.filtri.anno|stringformat:"s" }} senza contratto: esclusi dal budget.</p>
+        <ul class="small">{% for r in budget.rinnovi_mancanti %}<li><a href="{% url 'contratti:fabbisogno' r.fabbisogno.pk %}">{{ r.fabbisogno }}</a>: {{ r.previsti_esclusi }} previsti, dal {{ r.dal|date:"d/m/Y" }} al {{ r.al|date:"d/m/Y" }}</li>{% endfor %}</ul>
+      {% endif %}
+      {% if budget.senza_data %}<p class="small">{{ budget.senza_data }} contratti senza data di inizio sono esclusi dai calcoli.</p>{% endif %}
+      {% for messaggio, voci in budget.avvisi.items %}
+        <details class="small mb-1"><summary>{{ messaggio }} — {{ voci|length }} voci</summary><ul class="mb-1">{% for v in voci %}<li>{{ v }}</li>{% endfor %}</ul></details>
+      {% endfor %}
+    </div></div>
+  </div>
+</div>
+{% endif %}
+
+<h2 class="sezione-titolo">Riepilogo per vista e livello</h2>
+<div class="tabella-card mb-4"><div class="table-responsive">
+<table class="table table-sm align-middle text-end" id="riepilogo">
+  <thead>
     <tr><th class="text-start" rowspan="2">Vista</th>{% for liv in livelli %}<th colspan="3" class="text-center text-capitalize">{{ liv.value }}</th>{% endfor %}</tr>
     <tr>{% for liv in livelli %}<th>Consolidato</th><th>Previsionale</th><th>Totale</th>{% endfor %}</tr>
   </thead>
   <tbody>
   {% for vista, per_livello in riepilogo %}
-    <tr><th class="text-start">{{ vista }}</th>{% for c in per_livello %}<td>{{ c.0|euro }}</td><td class="text-body-secondary">{{ c.1|euro }}</td><td class="fw-semibold">{{ c.2|euro }}</td>{% endfor %}</tr>
+    <tr><th class="text-start" scope="row">{{ vista }}</th>{% for c in per_livello %}<td>{{ c.0|euro }}</td><td class="text-body-secondary">{{ c.1|euro }}</td><td class="fw-semibold">{{ c.2|euro }}</td>{% endfor %}</tr>
   {% endfor %}
   </tbody>
-</table>
-</div>
+</table></div></div>
 
-{% if budget.rinnovi_mancanti or budget.avvisi or budget.senza_data %}
-<div class="alert alert-warning">
-  {% if budget.rinnovi_mancanti %}
-    <strong>Rinnovi mancanti</strong> ({{ budget.rinnovi_mancanti|length }}): fabbisogni con previsti già conclusi prima del 01/01/{{ budget.filtri.anno|stringformat:"s" }} senza contratto, esclusi dal budget.
-    <ul class="mb-2">{% for r in budget.rinnovi_mancanti %}<li><a href="{% url 'contratti:fabbisogno' r.fabbisogno.pk %}">{{ r.fabbisogno }}</a>: {{ r.previsti_esclusi }} previsti, dal {{ r.dal|date:"d/m/Y" }} al {{ r.al|date:"d/m/Y" }}</li>{% endfor %}</ul>
-  {% endif %}
-  {% if budget.senza_data %}<p class="mb-2">{{ budget.senza_data }} contratti senza data di inizio sono esclusi dai calcoli.</p>{% endif %}
-  {% for messaggio, voci in budget.avvisi.items %}
-    <details><summary>{{ messaggio }} — {{ voci|length }} voci</summary><ul class="small mb-1">{% for v in voci %}<li>{{ v }}</li>{% endfor %}</ul></details>
-  {% endfor %}
-</div>
-{% endif %}
-
-<h2 class="h5 mt-4">Per {{ criterio|lower }} <small class="text-body-secondary">livello {{ livello.value }}</small></h2>
-<div class="table-responsive">
-<table class="table table-sm table-hover align-middle text-end" id="gruppi">
-  <thead class="table-light">
+<h2 class="sezione-titolo">Per {{ criterio|lower }} <span class="fw-normal small text-body-secondary">livello {{ livello.value }} · clic su una riga per le voci</span></h2>
+<div class="tabella-card mb-4"><div class="table-responsive">
+<table class="table table-hover align-middle text-end table-prima-fissa" id="gruppi">
+  <thead>
     <tr><th class="text-start" rowspan="2">{{ criterio }}</th>{% for v in viste %}<th colspan="3" class="text-center">{{ v }}</th>{% endfor %}</tr>
     <tr>{% for v in viste %}<th>Consolidato</th><th>Previsionale</th><th>Totale</th>{% endfor %}</tr>
   </thead>
   <tbody>
   {% for g in gruppi %}
     <tr>
-      <td class="text-start"><a href="#g{{ forloop.counter }}" data-bs-toggle="collapse" role="button" aria-expanded="false">{{ g.etichetta }}</a> <span class="badge text-bg-light">{{ g.voci|length }}</span></td>
+      <td class="text-start"><a href="#g{{ forloop.counter }}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="g{{ forloop.counter }}"><i class="bi bi-chevron-right small" aria-hidden="true"></i> {{ g.etichetta }}</a> <span class="badge rounded-pill text-bg-light">{{ g.voci|length }}</span></td>
       {% for c in g.celle %}<td>{{ c.0|euro }}</td><td class="text-body-secondary">{{ c.1|euro }}</td><td class="fw-semibold">{{ c.2|euro }}</td>{% endfor %}
     </tr>
-    <tr class="collapse" id="g{{ forloop.counter }}"><td colspan="10" class="bg-body-tertiary">
+    <tr class="collapse" id="g{{ forloop.counter }}"><td colspan="10" class="bg-body-tertiary p-3">
       <table class="table table-sm mb-0 small">
         <thead><tr><th class="text-start">Tipo</th><th class="text-start">Fabbisogno / voce</th><th class="text-start">Servizio</th>{% for v in viste %}<th>{{ v }}</th>{% endfor %}</tr></thead>
         <tbody>
         {% for v, importi in g.voci %}
           <tr>
-            <td class="text-start">{% if v.previsionale %}<span class="badge text-bg-info">previsto {{ v.numero_previsto }}</span>{% else %}<span class="badge text-bg-success">contratto</span>{% endif %}</td>
+            <td class="text-start">{% if v.previsionale %}<span class="stato stato-blu">previsto {{ v.numero_previsto }}</span>{% else %}<span class="stato stato-verde">contratto</span>{% endif %}</td>
             <td class="text-start">{% if v.contratto and not v.previsionale %}<a href="{% url 'contratti:contratto' v.contratto.pk %}">{{ v.fabbisogno.descrizione }}</a>{% else %}<a href="{% url 'contratti:fabbisogno' v.fabbisogno.pk %}">{{ v.fabbisogno.descrizione }}</a>{% endif %} — {{ v.descrizione }}</td>
-            <td class="text-start">{{ v.inizio|date:"d/m/Y" }}–{{ v.fine|date:"d/m/Y" }}</td>
+            <td class="text-start text-nowrap">{{ v.inizio|date:"d/m/Y" }} – {{ v.fine|date:"d/m/Y" }}</td>
             {% for i in importi %}<td>{{ i|euro }}</td>{% endfor %}
           </tr>
         {% endfor %}
@@ -62,13 +81,12 @@
       </table>
     </td></tr>
   {% empty %}
-    <tr><td colspan="10" class="text-start text-body-secondary">Nessuna voce con importi nell'anno.</td></tr>
+    <tr><td colspan="10" class="text-start"><div class="vuoto py-4">Nessuna voce con importi nell'anno.</div></td></tr>
   {% endfor %}
   </tbody>
-  <tfoot class="table-light fw-semibold">
+  <tfoot class="fw-semibold">
     <tr><td class="text-start">Totale</td>{% for c in totale_celle %}<td>{{ c.0|euro }}</td><td>{{ c.1|euro }}</td><td>{{ c.2|euro }}</td>{% endfor %}</tr>
   </tfoot>
-</table>
-</div>
+</table></div></div>
 {% endif %}
 {% endblock %}

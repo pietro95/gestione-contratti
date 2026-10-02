@@ -1,0 +1,3 @@
+<button class="btn btn-outline-primary" type="submit" form="export" name="formato" value="xlsx"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i> Esporta XLSX</button>
+<button class="btn btn-outline-secondary" type="button" onclick="window.print()"><i class="bi bi-printer" aria-hidden="true"></i> Stampa / PDF</button>
+<form id="export" method="get" class="d-none">{% for chiave, valori in request.GET.lists %}{% if chiave != "formato" %}{% for v in valori %}<input type="hidden" name="{{ chiave }}" value="{{ v }}">{% endfor %}{% endif %}{% endfor %}</form>

@@ -32,6 +32,10 @@ class FiltriBudgetForm(FormBase):
     def __init__(self, dati, *, anno_default: int):
         dati = dati.copy()
         dati.setdefault("anno", str(anno_default))
+        # I default si vedono anche nelle tendine: livello probabile, per conto, con i previsti.
+        dati.setdefault("livello", Livello.PROBABILE.value)
+        dati.setdefault("per", "conto")
+        dati.setdefault("previsti", "si")
         super().__init__(dati)
 
     def filtri(self) -> Filtri:

@@ -60,6 +60,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "accounts.context_processors.ruolo",
                 "accounts.context_processors.versione",
+                "contratti.context_processors.navigazione",
             ],
         },
     },

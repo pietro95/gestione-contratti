@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Accesso negato{% endblock %}
+{% block titolo_pagina %}Accesso negato{% endblock %}
 {% block content %}
-<h1 class="h4">Accesso negato</h1>
-<p>Il tuo ruolo non consente questa operazione.</p>
-<a href="{% url 'home' %}">Torna alla home</a>
+<div class="card"><div class="vuoto"><i class="bi bi-shield-lock" aria-hidden="true"></i>
+  <p class="mb-3">Il tuo ruolo non consente questa operazione.</p>
+  <a class="btn btn-outline-primary" href="{% url 'home' %}">Torna al cruscotto</a>
+</div></div>
 {% endblock %}

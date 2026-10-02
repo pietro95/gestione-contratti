@@ -5,12 +5,19 @@ from django.forms import inlineformset_factory
 
 from contratti import models as m
 
+# Date scritte gg/mm/aaaa (calendario flatpickr nel browser); si accetta anche aaaa-mm-gg.
+FORMATI_DATA = ["%d/%m/%Y", "%Y-%m-%d", "%d/%m/%y"]
+
 
 class DataInput(forms.DateInput):
-    input_type = "date"
+    input_type = "text"
 
-    def __init__(self, **kwargs):
-        super().__init__(format="%Y-%m-%d", **kwargs)
+    def __init__(self, attrs=None, **kwargs):
+        base = {"placeholder": "gg/mm/aaaa", "autocomplete": "off", "inputmode": "numeric"}
+        attrs = {**base, **(attrs or {})}
+        classi = set(attrs.get("class", "form-control").split()) | {"form-control", "js-data"}
+        attrs["class"] = " ".join(sorted(classi))
+        super().__init__(attrs=attrs, format="%d/%m/%Y", **kwargs)
 
 
 def interpreta_importo(testo: str) -> str:
@@ -66,7 +73,37 @@ def _come_importo(campo: forms.DecimalField) -> "ImportoField":
 
 
 class FormBootstrap:
-    """Classi Bootstrap su tutti i widget; importi come testo all'italiana."""
+    """Classi Bootstrap su tutti i widget; importi come testo all'italiana; date gg/mm/aaaa.
+
+    ``sezioni``: [(titolo, [nomi dei campi])] per raggruppare i campi nel form; i campi non
+    elencati finiscono in una sezione finale.
+    """
+
+    sezioni: list[tuple[str, list[str]]] = []
+
+    def gruppi(self):
+        visibili = {b.name: b for b in self.visible_fields()}
+        if not self.sezioni:
+            return [(None, list(visibili.values()))]
+        risultato, usati = [], set()
+        for titolo, nomi in self.sezioni:
+            campi = [visibili[n] for n in nomi if n in visibili]
+            usati.update(b.name for b in campi)
+            if campi:
+                risultato.append((titolo, campi))
+        resto = [b for n, b in visibili.items() if n not in usati]
+        if resto:
+            risultato.append(("Altri dati", resto))
+        return risultato
+
+    def full_clean(self):
+        super().full_clean()
+        for nome in self.errors:
+            if nome in self.fields:
+                widget = self.fields[nome].widget
+                classi = widget.attrs.get("class", "")
+                if "is-invalid" not in classi:
+                    widget.attrs["class"] = f"{classi} is-invalid".strip()
 
     def _stile(self):
         for nome, campo in list(self.fields.items()):
@@ -75,7 +112,10 @@ class FormBootstrap:
             widget = campo.widget
             if isinstance(campo, forms.DateField):
                 campo.widget = DataInput(attrs=widget.attrs)
+                campo.input_formats = FORMATI_DATA
                 widget = campo.widget
+            if isinstance(widget, forms.Textarea) and str(widget.attrs.get("rows", "10")) == "10":
+                widget.attrs["rows"] = 3  # il default di Django (10 righe) è troppo alto
             if isinstance(widget, forms.CheckboxInput):
                 widget.attrs.setdefault("class", "form-check-input")
             elif isinstance(widget, forms.Select):
@@ -108,6 +148,21 @@ class FornitoreForm(ModelFormBootstrap):
 
 
 class FabbisognoForm(ModelFormBootstrap):
+    sezioni = [
+        ("Fabbisogno", ["descrizione", "area", "categoria", "impianto", "referente"]),
+        ("Decisione sul rinnovo", ["decisione", "stima_prossimo_importo", "note"]),
+        (
+            "Previsto manuale (solo per fabbisogni nuovi, senza contratti)",
+            [
+                "previsto_data_avvio",
+                "previsto_durata_mesi",
+                "previsto_procedura",
+                "previsto_modalita",
+                "previsto_periodicita",
+            ],
+        ),
+    ]
+
     class Meta:
         model = m.Fabbisogno
         fields = [
@@ -166,6 +221,27 @@ CAMPI_CONTRATTO = [
 
 
 class ContrattoForm(ModelFormBootstrap):
+    sezioni = [
+        ("Oggetto e fornitore", ["fabbisogno", "fornitore", "descrizione"]),
+        (
+            "Ordine e procedura",
+            ["numero_oda", "data_oda", "numero_rda", "cig", "procedura", "lead_time_mesi_override"],
+        ),
+        (
+            "Durata",
+            [
+                "data_stipula",
+                "data_inizio",
+                "durata_mesi",
+                "data_fine_override",
+                "tacito_rinnovo",
+                "preavviso_disdetta_giorni",
+            ],
+        ),
+        ("Classificazione", ["finanziamento", "progetto", "natura"]),
+        ("Documenti e note", ["link_documenti", "note"]),
+    ]
+
     class Meta:
         model = m.Contratto
         fields = ["fabbisogno", *CAMPI_CONTRATTO]
@@ -197,6 +273,15 @@ VociRinnovoFormSet = forms.formset_factory(VoceRinnovoForm, extra=0)
 
 
 class VoceForm(ModelFormBootstrap):
+    sezioni = [
+        ("Voce", ["descrizione", "proroga"]),
+        ("Contabilità", ["conto", "centro_costo", "wbs"]),
+        (
+            "Importi",
+            ["importo_fisso", "massimale_variabile", "stima_consumo_pct", "stima_consumo_importo"],
+        ),
+    ]
+
     class Meta:
         model = m.VoceContratto
         fields = [
@@ -240,6 +325,20 @@ class SceltaConDefault(forms.NullBooleanSelect):
 
 
 class PianoForm(ModelFormBootstrap):
+    sezioni = [
+        (
+            "Piano di fatturazione",
+            [
+                "modalita",
+                "periodicita",
+                "data_prima_fattura",
+                "giorni_pagamento",
+                "pagamento_fine_mese",
+                "note",
+            ],
+        )
+    ]
+
     class Meta:
         model = m.PianoFatturazione
         fields = [

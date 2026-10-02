@@ -1,29 +1,35 @@
 {% extends "base.html" %}
 {% load registro %}
 {% block title %}Registra rinnovo{% endblock %}
+{% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'contratti:contratti' %}">Contratti</a></li><li class="breadcrumb-item"><a href="{% url 'contratti:contratto' predecessore.pk %}">{{ predecessore }}</a></li><li class="breadcrumb-item active" aria-current="page">Rinnovo</li></ol></nav>{% endblock %}
+{% block titolo_pagina %}Registra rinnovo{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">{{ predecessore }} · finisce il {{ fine|date:"d/m/Y"|default:"—" }}</div>{% endblock %}
 {% block content %}
-<h1 class="h4">Registra rinnovo di {{ predecessore }}</h1>
-<p class="text-body-secondary">Il contratto attuale finisce il {{ fine|date:"d/m/Y"|default:"—" }}. Il nuovo contratto avrà lo stesso fabbisogno e il contratto attuale come predecessore; le voci riportano il piano di fatturazione. Correggi importi, riferimenti e date.</p>
+<div class="alert alert-info"><i class="bi bi-info-circle" aria-hidden="true"></i> Il nuovo contratto avrà lo stesso fabbisogno e il contratto attuale come predecessore. Le voci riportano conto, centro di costo, WBS e piano di fatturazione: correggi importi, riferimenti e date.</div>
 <form method="post" novalidate>
   {% csrf_token %}
   {% include "contratti/_campi.html" with form=form %}
-  <h2 class="h5">Voci</h2>
-  {{ formset.management_form }}
-  {% if formset.non_form_errors %}<div class="alert alert-danger">{{ formset.non_form_errors }}</div>{% endif %}
-  <table class="table table-sm align-middle">
-    <thead><tr><th>Riporta</th><th>Descrizione</th><th>Importo fisso</th><th>Massimale variabile</th></tr></thead>
-    <tbody>
-    {% for f in formset %}
-      <tr>
-        <td>{{ f.origine }}{{ f.riporta }}</td>
-        <td>{{ f.descrizione }}{% for e in f.descrizione.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td>
-        <td>{{ f.importo_fisso }}{% for e in f.importo_fisso.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td>
-        <td>{{ f.massimale_variabile }}</td>
-      </tr>
-    {% empty %}<tr><td colspan="4" class="text-body-secondary">Nessuna voce da riportare: aggiungile dopo il salvataggio.</td></tr>{% endfor %}
-    </tbody>
-  </table>
-  <button type="submit" class="btn btn-primary">Registra rinnovo</button>
-  <a class="btn btn-link" href="{% url 'contratti:contratto' predecessore.pk %}">Annulla</a>
+  <div class="card form-sezione">
+    <div class="card-header">Voci da riportare</div>
+    {{ formset.management_form }}
+    {% if formset.non_form_errors %}<div class="alert alert-danger m-3">{{ formset.non_form_errors }}</div>{% endif %}
+    <div class="table-responsive"><table class="table align-middle">
+      <thead><tr><th>Riporta</th><th>Descrizione</th><th>Importo fisso</th><th>Massimale variabile</th></tr></thead>
+      <tbody>
+      {% for f in formset %}
+        <tr>
+          <td>{{ f.origine }}<div class="form-check">{{ f.riporta }}<label class="visually-hidden" for="{{ f.riporta.id_for_label }}">Riporta la voce {{ forloop.counter }}</label></div></td>
+          <td><label class="visually-hidden" for="{{ f.descrizione.id_for_label }}">Descrizione</label>{{ f.descrizione }}{% for e in f.descrizione.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}</td>
+          <td><label class="visually-hidden" for="{{ f.importo_fisso.id_for_label }}">Importo fisso</label>{{ f.importo_fisso }}{% for e in f.importo_fisso.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}</td>
+          <td><label class="visually-hidden" for="{{ f.massimale_variabile.id_for_label }}">Massimale variabile</label>{{ f.massimale_variabile }}</td>
+        </tr>
+      {% empty %}<tr><td colspan="4"><div class="vuoto py-3">Nessuna voce da riportare: aggiungile dopo il salvataggio.</div></td></tr>{% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+  <div class="form-azioni">
+    <button type="submit" class="btn btn-primary"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Registra rinnovo</button>
+    <a class="btn btn-outline-secondary" href="{% url 'contratti:contratto' predecessore.pk %}">Annulla</a>
+  </div>
 </form>
 {% endblock %}

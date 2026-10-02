@@ -1,28 +1,34 @@
 {% extends "base.html" %}
 {% block title %}Proposte dell'import{% endblock %}
+{% block titolo_pagina %}Proposte dell'import{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">L'import non collega nulla da solo: conferma prima i raggruppamenti (stesso fabbisogno), poi le catene dei rinnovi.</div>{% endblock %}
 {% block content %}
-<h1 class="h4">Proposte dell'import da valutare</h1>
-<p class="text-body-secondary">L'import non collega nulla da solo. Conferma prima i raggruppamenti (stesso fabbisogno), poi le coppie predecessore → successore.</p>
-<h2 class="h5 mt-3">Raggruppamenti <span class="badge text-bg-light">{{ raggruppamenti|length }}</span></h2>
-<table class="table table-sm align-middle">
-  <thead><tr><th>Proposta</th><th>Contratti</th><th></th></tr></thead>
+<div class="row g-3 mb-2">
+  <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">1 · Raggruppamenti</div><div class="kpi-valore">{{ raggruppamenti|length }}</div><div class="kpi-nota">contratti dello stesso fabbisogno</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">2 · Catene dei rinnovi</div><div class="kpi-valore">{{ predecessori|length }}</div><div class="kpi-nota">coppie predecessore → successore</div></div></div></div>
+</div>
+<h2 class="sezione-titolo">1 · Raggruppamenti</h2>
+<div class="tabella-card mb-4"><div class="table-responsive">
+<table class="table align-middle">
+  <thead><tr><th>Proposta</th><th>Contratti</th><th class="text-end"><span class="visually-hidden">Azioni</span></th></tr></thead>
   <tbody>
   {% for p in raggruppamenti %}
     <tr><td>{{ p.motivazione }}</td>
-      <td class="small">{% for c in p.contratti.all %}<div><a href="{% url 'contratti:contratto' c.pk %}">{{ c.numero_oda|default:c.pk }}</a> dal {{ c.data_inizio|date:"d/m/Y"|default:"—" }}</div>{% endfor %}</td>
-      <td class="text-nowrap">{% if puo_modificare %}{% include "contratti/_azioni_proposta.html" with tipo="raggruppamento" %}{% endif %}</td></tr>
-  {% empty %}<tr><td colspan="3" class="text-body-secondary">Nessuna proposta.</td></tr>{% endfor %}
+      <td class="small">{% for c in p.contratti.all %}<div><a href="{% url 'contratti:contratto' c.pk %}">{{ c.numero_oda|default:c.pk }}</a> <span class="text-body-secondary">dal {{ c.data_inizio|date:"d/m/Y"|default:"—" }}</span></div>{% endfor %}</td>
+      <td class="text-end text-nowrap">{% if puo_modificare %}{% include "contratti/_azioni_proposta.html" with tipo="raggruppamento" %}{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="3"><div class="vuoto py-4"><i class="bi bi-check2-circle" aria-hidden="true"></i>Nessun raggruppamento da valutare.</div></td></tr>{% endfor %}
   </tbody>
-</table>
-<h2 class="h5 mt-3">Catene dei rinnovi <span class="badge text-bg-light">{{ predecessori|length }}</span></h2>
-<table class="table table-sm align-middle">
-  <thead><tr><th>Proposta</th><th>Predecessore → successore</th><th></th></tr></thead>
+</table></div></div>
+<h2 class="sezione-titolo">2 · Catene dei rinnovi</h2>
+<div class="tabella-card mb-4"><div class="table-responsive">
+<table class="table align-middle">
+  <thead><tr><th>Proposta</th><th>Predecessore → successore</th><th class="text-end"><span class="visually-hidden">Azioni</span></th></tr></thead>
   <tbody>
   {% for p in predecessori %}
     <tr><td>{{ p.motivazione }}</td>
-      <td class="small"><a href="{% url 'contratti:contratto' p.predecessore.pk %}">{{ p.predecessore.numero_oda|default:p.predecessore.pk }}</a> → <a href="{% url 'contratti:contratto' p.successore.pk %}">{{ p.successore.numero_oda|default:p.successore.pk }}</a></td>
-      <td class="text-nowrap">{% if puo_modificare %}{% include "contratti/_azioni_proposta.html" with tipo="predecessore" %}{% endif %}</td></tr>
-  {% empty %}<tr><td colspan="3" class="text-body-secondary">Nessuna proposta.</td></tr>{% endfor %}
+      <td class="small"><a href="{% url 'contratti:contratto' p.predecessore.pk %}">{{ p.predecessore.numero_oda|default:p.predecessore.pk }}</a> <i class="bi bi-arrow-right" aria-label="seguito da"></i> <a href="{% url 'contratti:contratto' p.successore.pk %}">{{ p.successore.numero_oda|default:p.successore.pk }}</a></td>
+      <td class="text-end text-nowrap">{% if puo_modificare %}{% include "contratti/_azioni_proposta.html" with tipo="predecessore" %}{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="3"><div class="vuoto py-4"><i class="bi bi-check2-circle" aria-hidden="true"></i>Nessuna catena da valutare.</div></td></tr>{% endfor %}
   </tbody>
-</table>
+</table></div></div>
 {% endblock %}

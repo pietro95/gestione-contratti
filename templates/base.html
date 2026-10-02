@@ -1,58 +1,103 @@
-{% load static %}<!doctype html>
+{% load static registro %}<!doctype html>
 <html lang="it">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Registro contratti IT/TLC{% endblock %}</title>
+  <title>{% block title %}Registro contratti{% endblock %} · Siciliacque</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon/favicon-32.png' %}">
+  <link rel="icon" type="image/png" sizes="48x48" href="{% static 'img/favicon/favicon-48.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'img/favicon/favicon-180.png' %}">
   <link rel="stylesheet" href="{% static 'vendor/bootstrap-5.3.8/bootstrap.min.css' %}">
-  <style>
-    .text-end { white-space: nowrap; } .text-start { white-space: normal; }
-    @media print { body { font-size: 9pt; } .table-responsive { overflow: visible; } }
-  </style>
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons-1.13.1/bootstrap-icons.min.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/tom-select-2.6.2/tom-select.bootstrap5.min.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/flatpickr-4.6.13/flatpickr.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
-  <nav class="navbar navbar-expand bg-body-tertiary border-bottom mb-4 d-print-none">
-    <div class="container">
-      <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'home' %}">
-        <img src="{% static 'img/logo/siciliacque.svg' %}" alt="Siciliacque" height="32">
-        <span>Registro contratti IT/TLC</span>
-      </a>
-      {% if user.is_authenticated %}
-        <ul class="navbar-nav me-auto">
-          <li class="nav-item"><a class="nav-link" href="{% url 'contratti:cruscotto' %}">Cruscotto</a></li>
-          <li class="nav-item"><a class="nav-link" href="{% url 'contratti:contratti' %}">Contratti</a></li>
-          <li class="nav-item"><a class="nav-link" href="{% url 'contratti:fabbisogni' %}">Fabbisogni</a></li>
-          <li class="nav-item"><a class="nav-link" href="{% url 'contratti:fornitori' %}">Fornitori</a></li>
-          <li class="nav-item"><a class="nav-link" href="{% url 'reports:budget' %}">Budget</a></li>
-          <li class="nav-item"><a class="nav-link" href="{% url 'reports:piano_ordini' %}">Piano ordini</a></li>
-          <li class="nav-item"><a class="nav-link" href="{% url 'contratti:proposte' %}">Proposte import</a></li>
-        </ul>
-        <div class="d-flex align-items-center gap-3">
-          <span class="navbar-text">
-            {{ user.get_full_name|default:user.username }}
-            {% if ruolo %}<span class="badge text-bg-secondary">{{ ruolo }}</span>{% endif %}
-          </span>
-          {% if user.is_staff %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'admin:index' %}">Amministrazione</a>{% endif %}
-          <form method="post" action="{% url 'accounts:logout' %}" class="m-0">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-sm btn-outline-primary">Esci</button>
-          </form>
-        </div>
-      {% endif %}
+{% block corpo %}
+  <a class="app-skip" href="#contenuto">Salta al contenuto</a>
+
+  <nav class="app-sidebar offcanvas-lg offcanvas-start" tabindex="-1" id="menu" aria-label="Menu principale">
+    <a class="app-brand" href="{% url 'home' %}"><img src="{% static 'img/logo/siciliacque_bianco.svg' %}" alt="Siciliacque — home"></a>
+    <div class="app-nome">Registro contratti IT/TLC</div>
+    <div class="app-nav">
+      <div class="app-sezione">Operatività</div>
+      {% nav_voce 'home' 'Cruscotto' 'bi-speedometer2' '/cruscotto/' %}
+      {% nav_voce 'contratti:contratti' 'Contratti' 'bi-file-earmark-text' '/contratti/' '/voci/' '/rate/' %}
+      {% nav_voce 'contratti:fabbisogni' 'Fabbisogni' 'bi-diagram-3' '/fabbisogni/' %}
+      {% nav_voce 'contratti:fornitori' 'Fornitori' 'bi-building' '/fornitori/' %}
+      <div class="app-sezione">Report</div>
+      {% nav_voce 'reports:budget' 'Budget' 'bi-cash-stack' %}
+      {% nav_voce 'reports:piano_ordini' 'Piano ordini' 'bi-cart-check' %}
+      <div class="app-sezione">Gestione</div>
+      {% nav_voce 'contratti:proposte' 'Proposte import' 'bi-inboxes' conteggio=proposte_aperte %}
+      {% if user.is_staff %}{% nav_voce 'admin:index' 'Amministrazione' 'bi-gear' '/admin/' %}{% endif %}
     </div>
   </nav>
-  <main class="container mb-5">
+
+  <div class="app-main">
+    <header class="app-topbar d-print-none">
+      <button class="btn btn-outline-secondary d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#menu" aria-controls="menu" aria-label="Apri il menu"><i class="bi bi-list" aria-hidden="true"></i></button>
+      <form class="app-cerca" role="search" method="get" action="{% url 'contratti:cerca' %}">
+        <label class="visually-hidden" for="cerca-globale">Cerca</label>
+        <div class="input-group">
+          <span class="input-group-text bg-transparent border-0"><i class="bi bi-search" aria-hidden="true"></i></span>
+          <input id="cerca-globale" class="form-control" type="search" name="q" value="{{ request.GET.q|default:'' }}" placeholder="Cerca contratti, OdA, CIG, fornitori, fabbisogni…">
+        </div>
+      </form>
+      <div class="app-utente">
+        <span class="app-avatar" aria-hidden="true">{{ user|iniziali }}</span>
+        <div class="d-none d-md-block lh-sm">
+          <div class="fw-semibold">{{ user.get_full_name|default:user.username }}</div>
+          <div class="small text-body-secondary">{{ ruolo|default:"nessun ruolo" }}{% if puo_modificare %} · modifica{% else %} · sola lettura{% endif %}</div>
+        </div>
+        <form method="post" action="{% url 'accounts:logout' %}" class="m-0">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-box-arrow-right" aria-hidden="true"></i> Esci</button>
+        </form>
+      </div>
+    </header>
+
+    <main class="app-content" id="contenuto" tabindex="-1">
+      <div class="solo-stampa"><img src="{% static 'img/logo/siciliacque.svg' %}" alt="Siciliacque"><span>Registro contratti IT/TLC · stampato il {% now "d/m/Y H:i" %}</span></div>
+      {% block breadcrumb %}{% endblock %}
+      {% block intestazione %}
+      <div class="page-header">
+        <div>
+          <h1>{% block titolo_pagina %}{% endblock %}</h1>
+          {% block sottotitolo %}{% endblock %}
+        </div>
+        <div class="azioni d-print-none">{% block azioni %}{% endblock %}</div>
+      </div>
+      {% endblock %}
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="app-footer d-print-none">Siciliacque S.p.A. · Registro contratti IT/TLC · versione {{ versione_app }}</footer>
+  </div>
+{% endblock %}
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" aria-live="polite">
     {% for m in messages %}
-      <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags }}{% endif %} alert-dismissible" role="alert">
-        {{ m }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Chiudi"></button>
+      <div class="toast align-items-center border-0 text-bg-{% if m.tags == 'error' %}danger{% elif m.tags == 'warning' %}warning{% elif m.tags == 'success' %}success{% else %}primary{% endif %}" role="{% if m.tags == 'error' %}alert{% else %}status{% endif %}" data-autohide="{% if m.tags == 'error' or m.tags == 'warning' %}false{% else %}true{% endif %}">
+        <div class="d-flex"><div class="toast-body">{{ m }}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Chiudi"></button></div>
       </div>
     {% endfor %}
-    {% block content %}{% endblock %}
-  </main>
-  <footer class="container small text-body-secondary border-top py-2 mb-3 d-print-none">
-    Registro contratti IT/TLC — versione {{ versione_app }}
-  </footer>
+  </div>
+
+  <div class="modal fade" id="modale-conferma" tabindex="-1" aria-labelledby="modale-conferma-titolo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+      <div class="modal-header"><h2 class="modal-title h5" id="modale-conferma-titolo">Confermi l'operazione?</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button></div>
+      <div class="modal-body"></div>
+      <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annulla</button><button type="button" class="btn btn-primary" data-conferma-ok>Conferma</button></div>
+    </div></div>
+  </div>
+
   <script src="{% static 'vendor/bootstrap-5.3.8/bootstrap.bundle.min.js' %}"></script>
   <script src="{% static 'vendor/htmx-2.0.11/htmx.min.js' %}"></script>
+  <script src="{% static 'vendor/tom-select-2.6.2/tom-select.complete.min.js' %}"></script>
+  <script src="{% static 'vendor/flatpickr-4.6.13/flatpickr.min.js' %}"></script>
+  <script src="{% static 'vendor/flatpickr-4.6.13/it.js' %}"></script>
+  <script src="{% static 'js/app.js' %}"></script>
 </body>
 </html>

@@ -6,6 +6,7 @@ app_name = "contratti"
 
 urlpatterns = [
     path("cruscotto/", views.cruscotto, name="cruscotto"),
+    path("cerca/", views.cerca, name="cerca"),
     path("contratti/", views.contratti_elenco, name="contratti"),
     path("contratti/nuovo/", views.contratto_nuovo, name="contratto_nuovo"),
     path("contratti/<int:pk>/", views.contratto_dettaglio, name="contratto"),

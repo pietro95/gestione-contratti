@@ -1,19 +1,26 @@
-<h2 class="h5 mt-4">Pratica di rinnovo</h2>
-{% if pratica %}
-<ol class="list-group list-group-numbered mb-2">
-  {% for p in pratica %}
-    <li class="list-group-item small">
-      <strong>{{ p.get_stato_display }}</strong> — {{ p.data|date:"d/m/Y" }}{% if p.utente %} ({{ p.utente }}){% endif %}{% if p.note %}: {{ p.note }}{% endif %}
-    </li>
-  {% endfor %}
-</ol>
-{% else %}<p class="text-body-secondary">Pratica non avviata.</p>{% endif %}
-{% if puo_modificare %}
-<form method="post" action="{% url 'contratti:pratica_avanza' tipo_pratica oggetto_pratica.pk %}" class="row g-2 align-items-end">
-  {% csrf_token %}
-  <div class="col-md-3"><label class="form-label small">Nuovo stato</label>{{ form_pratica.stato }}</div>
-  <div class="col-md-2"><label class="form-label small">Data</label>{{ form_pratica.data }}</div>
-  <div class="col-md-5"><label class="form-label small">Nota</label>{{ form_pratica.note }}</div>
-  <div class="col-md-2"><button class="btn btn-outline-primary w-100" type="submit">Registra</button></div>
-</form>
-{% endif %}
+<div class="row g-4">
+  <div class="col-lg-6">
+    <h2 class="h6 text-uppercase text-body-secondary">Avanzamento della pratica di rinnovo</h2>
+    {% if pratica %}
+    <ol class="timeline">
+      {% for p in pratica %}
+        <li><div class="fw-semibold">{{ p.get_stato_display }}</div>
+          <div class="small text-body-secondary">{{ p.data|date:"d/m/Y" }}{% if p.utente %} · {{ p.utente }}{% endif %}</div>
+          {% if p.note %}<div class="small">{{ p.note }}</div>{% endif %}</li>
+      {% endfor %}
+    </ol>
+    {% else %}<p class="text-body-secondary">Pratica non avviata.</p>{% endif %}
+  </div>
+  {% if puo_modificare %}
+  <div class="col-lg-6">
+    <h2 class="h6 text-uppercase text-body-secondary">Registra un passaggio</h2>
+    <form method="post" action="{% url 'contratti:pratica_avanza' tipo_pratica oggetto_pratica.pk %}" class="row g-3">
+      {% csrf_token %}
+      <div class="col-sm-7"><label class="form-label" for="{{ form_pratica.stato.id_for_label }}">Nuovo stato</label>{{ form_pratica.stato }}</div>
+      <div class="col-sm-5"><label class="form-label" for="{{ form_pratica.data.id_for_label }}">Data</label>{{ form_pratica.data }}</div>
+      <div class="col-12"><label class="form-label" for="{{ form_pratica.note.id_for_label }}">Nota</label>{{ form_pratica.note }}</div>
+      <div class="col-12"><button class="btn btn-primary" type="submit">Registra</button></div>
+    </form>
+  </div>
+  {% endif %}
+</div>

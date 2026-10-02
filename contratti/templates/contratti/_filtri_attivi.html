@@ -1,0 +1,8 @@
+{% load registro %}
+{% if attivi %}
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3" aria-label="Filtri attivi">
+  <span class="small text-body-secondary">Filtri:</span>
+  {% for chiave, etichetta in attivi %}<span class="chip">{{ etichetta }}<a href="?{% query_senza chiave %}" aria-label="Rimuovi il filtro {{ etichetta }}"><i class="bi bi-x-lg" aria-hidden="true"></i></a></span>{% endfor %}
+  <a class="small" href="?">Rimuovi tutti</a>
+</div>
+{% endif %}

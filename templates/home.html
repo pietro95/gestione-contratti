@@ -1,15 +1,66 @@
 {% extends "base.html" %}
+{% load registro %}
+{% block title %}Cruscotto{% endblock %}
+{% block titolo_pagina %}Cruscotto{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">Situazione al {{ oggi|date:"d/m/Y" }} · {{ attivi }} contratti attivi</div>{% endblock %}
+{% block azioni %}
+  {% if puo_modificare %}<a class="btn btn-primary" href="{% url 'contratti:contratto_nuovo' %}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuovo contratto</a>{% endif %}
+  <a class="btn btn-outline-primary" href="{% url 'contratti:cruscotto' %}"><i class="bi bi-bell" aria-hidden="true"></i> Tutti gli alert</a>
+{% endblock %}
 {% block content %}
-<h1 class="h3">Benvenuto, {{ user.get_full_name|default:user.username }}</h1>
-<p class="text-body-secondary">
-  Ruolo: <strong>{{ ruolo|default:"nessuno" }}</strong>{% if puo_modificare %} (lettura e scrittura){% else %} (sola lettura){% endif %}.
-</p>
-<div class="d-flex flex-wrap gap-2">
-  <a class="btn btn-primary" href="{% url 'contratti:cruscotto' %}">Cruscotto degli alert</a>
-  <a class="btn btn-outline-primary" href="{% url 'contratti:contratti' %}">Contratti</a>
-  <a class="btn btn-outline-primary" href="{% url 'contratti:fabbisogni' %}">Fabbisogni</a>
-  <a class="btn btn-outline-primary" href="{% url 'contratti:fornitori' %}">Fornitori</a>
-  <a class="btn btn-outline-primary" href="{% url 'reports:budget' %}">Budget</a>
-  <a class="btn btn-outline-primary" href="{% url 'reports:piano_ordini' %}">Piano ordini</a>
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3"><a class="card kpi rosso" href="{% url 'contratti:cruscotto' %}#rosso"><div class="card-body"><div class="kpi-etichetta">Scaduti senza rinnovo</div><div class="kpi-valore">{{ conteggi.rosso }}</div><div class="kpi-nota">servizio non coperto da contratto</div></div></a></div>
+  <div class="col-sm-6 col-xl-3"><a class="card kpi arancione" href="{% url 'contratti:cruscotto' %}#arancione"><div class="card-body"><div class="kpi-etichetta">Oltre la data limite</div><div class="kpi-valore">{{ conteggi.arancione }}</div><div class="kpi-nota">pratica di rinnovo non avviata</div></div></a></div>
+  <div class="col-sm-6 col-xl-3"><a class="card kpi giallo" href="{% url 'contratti:cruscotto' %}#giallo"><div class="card-body"><div class="kpi-etichetta">In avvicinamento</div><div class="kpi-valore">{{ conteggi.giallo }}</div><div class="kpi-nota">entro la finestra di preavviso</div></div></a></div>
+  <div class="col-sm-6 col-xl-3"><a class="card kpi blu" href="{% url 'contratti:proposte' %}"><div class="card-body"><div class="kpi-etichetta">Proposte d'import</div><div class="kpi-valore">{{ proposte_aperte|default:0 }}</div><div class="kpi-nota">raggruppamenti e catene da valutare</div></div></a></div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-7">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-list-check" aria-hidden="true"></i> Da fare</span>{% if da_fare_totale > da_fare|length %}<a class="small" href="{% url 'contratti:cruscotto' %}">tutti ({{ da_fare_totale }})</a>{% endif %}</div>
+      {% if da_fare %}
+      <div class="table-responsive"><table class="table table-hover align-middle">
+        <thead><tr><th>Fabbisogno</th><th>Data limite</th><th>Stato</th></tr></thead>
+        <tbody>
+        {% for r in da_fare %}
+          {% if r.contratto %}{% url 'contratti:contratto' r.contratto.pk as link %}{% else %}{% url 'contratti:fabbisogno' r.previsto_manuale.pk as link %}{% endif %}
+          <tr data-href="{{ link }}">
+            <td><a href="{{ link }}">{% if r.contratto %}{{ r.contratto.fabbisogno.descrizione }}{% else %}{{ r.previsto_manuale.descrizione }}{% endif %}</a>
+              <div class="small text-body-secondary">{% if r.contratto %}{{ r.contratto.fornitore }} · {{ r.contratto.fabbisogno.area }}{% else %}nuovo fabbisogno{% endif %} · pratica: {{ r.stato_pratica_label|lower }}</div></td>
+            <td class="text-nowrap">{{ r.data_limite|date:"d/m/Y" }}</td>
+            <td>{{ r.alert|alert_badge }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+      {% else %}<div class="vuoto"><i class="bi bi-check2-circle" aria-hidden="true"></i>Nessuna scadenza da gestire.</div>{% endif %}
+    </div>
+  </div>
+  <div class="col-xl-5 d-flex flex-column gap-4">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-calendar-event" aria-hidden="true"></i> Scadenze dei prossimi 90 giorni{% if prossime_totale %} <span class="badge rounded-pill text-bg-light">{{ prossime_totale }}</span>{% endif %}</div>
+      {% if prossime %}
+      <ul class="list-group list-group-flush">
+        {% for r in prossime %}
+        <li class="list-group-item d-flex justify-content-between gap-3">
+          <a href="{% url 'contratti:contratto' r.contratto.pk %}" class="text-truncate">{{ r.contratto.fabbisogno.descrizione }}</a>
+          <span class="text-nowrap text-body-secondary">{{ r.fine|date:"d/m/Y" }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<div class="vuoto py-4">Nessun contratto in scadenza nei prossimi 90 giorni.</div>{% endif %}
+    </div>
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-cash-stack" aria-hidden="true"></i> Budget {{ oggi|date:"Y" }} <span class="fw-normal text-body-secondary small">livello probabile, con i previsti</span></span><a class="small" href="{% url 'reports:budget' %}">dettaglio</a></div>
+      {% if budget %}
+      <div class="card-body"><dl class="dati">
+        <dt>Impegno (ordini)</dt><dd class="text-end fw-semibold">{{ budget.impegno|euro }}</dd>
+        <dt>Cassa (data fattura)</dt><dd class="text-end fw-semibold">{{ budget.cassa|euro }}</dd>
+        <dt>Competenza</dt><dd class="text-end fw-semibold">{{ budget.competenza|euro }}</dd>
+      </dl></div>
+      {% else %}<div class="vuoto py-4">Budget non calcolabile: parametri di configurazione mancanti.</div>{% endif %}
+    </div>
+  </div>
 </div>
 {% endblock %}

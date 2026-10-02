@@ -89,18 +89,20 @@ Ogni fase è una PR (o poche PR) verso `main`. Una fase è chiusa solo quando tu
 
 ## F7 — Interfaccia grafica e identità aziendale
 
-Bozza (Rev00): le scelte indicate con *[da confermare]* attendono la decisione di Pietro.
+Rev01: scelte confermate da Pietro (logo e linee guida tipografiche in `docs/design/`).
 
 Obiettivo: rendere l'applicazione usabile ogni giorno da chi non l'ha sviluppata. Le funzioni
 restano quelle di F4–F5; cambiano struttura delle pagine, gerarchia visiva e flussi.
 
 **Identità**
 - Logo aziendale nell'intestazione, nella pagina di login, nei PDF stampati e come favicon.
-  Il file viene fornito da Pietro (SVG, o PNG ad alta risoluzione) e sta in `static/img/`.
+  File forniti da Pietro in `static/img/logo/` (colore, bianco, nero).
 - Colori aziendali come variabili CSS che personalizzano Bootstrap (`static/css/app.css`),
-  senza compilazione Sass. *[da confermare: codici colore del manuale d'identità]*
-- Font servito in locale da `static/vendor/`, nessun CDN. *[da confermare: font aziendale o
-  Titillium Web]*
+  senza compilazione Sass: blu istituzionale `#003F6B`, azzurro `#5CBBFF` solo su fondo blu
+  (su bianco ha contrasto 2,1:1, sotto WCAG AA), verde del logo `#177F42` per gli stati positivi.
+  Scala tipografica da applicazione gestionale (titolo di pagina ~28 px, testo 15–16 px): le
+  dimensioni delle linee guida sono pensate per il sito web.
+- Font Maven Pro (linee guida), servito in locale da `static/vendor/`, nessun CDN.
 
 **Struttura**
 - Barra laterale con le sezioni:
@@ -117,6 +119,7 @@ restano quelle di F4–F5; cambiano struttura delle pagine, gerarchia visiva e f
     valutare, budget dell'anno corrente);
   - prossime scadenze a 90 giorni;
   - azioni rapide.
+  - nessun grafico: la dashboard grafica resta nella Fase 2 della SPEC.
 - **Elenchi**:
   - colonne ordinabili e intestazione fissa;
   - filtri in un pannello richiudibile, con i filtri attivi mostrati come etichette rimovibili;
@@ -129,8 +132,8 @@ restano quelle di F4–F5; cambiano struttura delle pagine, gerarchia visiva e f
   - linea temporale della catena dei rinnovi.
 - **Form**:
   - campi raggruppati in sezioni su più colonne, con aiuti in linea;
-  - date in formato gg/mm/aaaa in tutti i browser *[da confermare: calendario a comparsa]*;
-  - ricerca nelle tendine lunghe (fornitori, fabbisogni) *[da confermare: libreria locale]*.
+  - date in formato gg/mm/aaaa in tutti i browser, con calendario a comparsa (flatpickr);
+  - ricerca nelle tendine lunghe (fornitori, fabbisogni) con Tom Select.
 - **Budget e piano ordini**: schede di riepilogo in alto, tabella più leggibile (prima colonna
   fissa, livelli selezionabili), avvisi richiudibili, export nell'intestazione.
 - **Login**: pagina con logo e messaggi chiari (credenziali di dominio, account di emergenza).
