@@ -378,6 +378,52 @@ def contratto_dettaglio(request, pk):
     )
 
 
+# Procedura guidata del nuovo contratto: dati del contratto, voci con il piano di
+# fatturazione, scadenzario generato. Le rate si creano al salvataggio di ogni voce.
+PASSI = [(1, "Contratto"), (2, "Voci e fatturazione"), (3, "Scadenzario")]
+
+
+def _passo(numero: int) -> dict:
+    return {"passo": numero, "passi_titoli": PASSI}
+
+
+def _genera_rate(request, voce: m.VoceContratto) -> None:
+    """Rate generate dal piano appena salvato; quelle modificate a mano non si toccano."""
+    try:
+        rate = servizi.genera_scadenzario(voce)
+    except servizi.ScadenzarioBloccato as exc:
+        messages.warning(request, f"Voce salvata, rate non rigenerate: {exc}")
+        return
+    if rate:
+        messages.success(request, f"Voce salvata: {len(rate)} rate generate.")
+    elif voce.piano_fatturazione.modalita == m.ModalitaFatturazione.SAL:
+        messages.info(request, "Voce salvata. Fatturazione a SAL: le rate si inseriscono a mano.")
+    else:
+        messages.info(request, "Voce salvata. Nessuna rata generata dal piano.")
+
+
+@editor_required
+def contratto_guidata(request, pk):
+    """Ultimo passo del nuovo contratto: le rate generate, voce per voce."""
+    contratto = get_object_or_404(m.Contratto, pk=pk)
+    voci = (
+        contratto.voci.filter(archiviato=False)
+        .select_related("piano_fatturazione")
+        .prefetch_related("piano_fatturazione__rate")
+        .order_by("pk")
+    )
+    righe = []
+    for v in voci:
+        piano = getattr(v, "piano_fatturazione", None)
+        rate = sorted(piano.rate.all(), key=lambda r: r.numero) if piano else []
+        righe.append((v, rate, sum((r.importo for r in rate), Decimal("0.00"))))
+    return render(
+        request,
+        "contratti/guidata_riepilogo.html",
+        {"c": contratto, "voci": righe} | _passo(3),
+    )
+
+
 @editor_required
 def contratto_nuovo(request):
     iniziali = {}
@@ -389,9 +435,17 @@ def contratto_nuovo(request):
     form = forms.ContrattoForm(request.POST or None, initial=iniziali)
     if request.method == "POST" and form.is_valid():
         contratto = form.save()
-        messages.success(request, "Contratto creato. Aggiungi le voci economiche.")
-        return redirect("contratti:contratto", pk=contratto.pk)
-    return render(request, "contratti/form.html", {"form": form, "titolo": "Nuovo contratto"})
+        messages.success(
+            request, "Contratto creato. Ora la prima voce, con il suo piano di fatturazione."
+        )
+        url = reverse("contratti:voce_nuova", args=[contratto.pk])
+        return redirect(f"{url}?guidata=1")
+    return render(
+        request,
+        "contratti/form.html",
+        {"form": form, "titolo": "Nuovo contratto", "avanti": "Avanti: voci e fatturazione"}
+        | _passo(1),
+    )
 
 
 @editor_required
@@ -639,6 +693,7 @@ def voce_modifica(request, contratto_pk, pk=None):
     contratto = get_object_or_404(m.Contratto, pk=contratto_pk)
     voce = get_object_or_404(m.VoceContratto, pk=pk, contratto=contratto) if pk else None
     form, piano_form, quote = _voce_form(request, contratto, voce)
+    guidata = request.GET.get("guidata") == "1"
     if request.method == "POST" and form.is_valid() and piano_form.is_valid() and quote.is_valid():
         with transaction.atomic():
             voce_salvata = form.save(commit=False)
@@ -649,15 +704,15 @@ def voce_modifica(request, contratto_pk, pk=None):
             piano.save()
             quote.instance = voce_salvata
             quote.save()
-        messages.success(request, "Voce salvata. Genera lo scadenzario per salvare le rate.")
+        _genera_rate(request, voce_salvata)
+        if guidata:
+            return redirect("contratti:contratto_guidata", pk=contratto.pk)
         if request.GET.get("ritorno") == "piani":
             return redirect("contratti:piani_da_verificare")
         return redirect("contratti:contratto", pk=contratto.pk)
-    return render(
-        request,
-        "contratti/voce_form.html",
-        {"form": form, "piano_form": piano_form, "quote": quote, "c": contratto, "voce": voce},
-    )
+    contesto = {"form": form, "piano_form": piano_form, "quote": quote, "c": contratto}
+    contesto |= {"voce": voce, "guidata": guidata} | (_passo(2) if guidata else {})
+    return render(request, "contratti/voce_form.html", contesto)
 
 
 @editor_required

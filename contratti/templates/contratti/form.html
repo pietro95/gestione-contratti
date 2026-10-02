@@ -4,11 +4,12 @@
 {% block titolo_pagina %}{{ titolo }}{% endblock %}
 {% block sottotitolo %}{% if nota %}<div class="sottotitolo">{{ nota }}</div>{% endif %}<div class="sottotitolo small">I campi con <span class="text-danger">*</span> sono obbligatori.</div>{% endblock %}
 {% block content %}
+{% if passo %}{% include "contratti/_passi.html" %}{% endif %}
 <form method="post" novalidate>
   {% csrf_token %}
   {% include "contratti/_campi.html" with form=form %}
   <div class="form-azioni">
-    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Salva</button>
+    <button type="submit" class="btn btn-primary">{% if avanti %}{{ avanti }} <i class="bi bi-arrow-right" aria-hidden="true"></i>{% else %}<i class="bi bi-check-lg" aria-hidden="true"></i> Salva{% endif %}</button>
     {% if annulla %}<a class="btn btn-outline-secondary" href="{{ annulla.get_absolute_url }}">Annulla</a>{% else %}<a class="btn btn-outline-secondary" href="javascript:history.back()">Annulla</a>{% endif %}
   </div>
 </form>

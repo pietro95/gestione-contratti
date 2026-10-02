@@ -4,6 +4,7 @@
 {% block titolo_pagina %}{% if voce %}Modifica voce{% else %}Nuova voce{% endif %}{% endblock %}
 {% block sottotitolo %}<div class="sottotitolo">{{ c }}</div>{% endblock %}
 {% block content %}
+{% if passo %}{% include "contratti/_passi.html" %}<p class="text-body-secondary" style="max-width: 48rem">Importi e piano di fatturazione della voce. Con «Calcola» vedi le rate prima di salvare; salvando, le rate vengono generate. Se il contratto ha più voci (es. canone e una tantum) le aggiungi al passo successivo.</p>{% endif %}
 <form method="post" novalidate id="voce-form">
   {% csrf_token %}
   <div class="row g-4">
@@ -34,7 +35,7 @@
     </div>
   </div>
   <div class="form-azioni">
-    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Salva</button>
+    <button type="submit" class="btn btn-primary">{% if guidata %}Salva e genera le rate <i class="bi bi-arrow-right" aria-hidden="true"></i>{% else %}<i class="bi bi-check-lg" aria-hidden="true"></i> Salva e genera le rate{% endif %}</button>
     <a class="btn btn-outline-secondary" href="{% url 'contratti:contratto' c.pk %}">Annulla</a>
   </div>
 </form>

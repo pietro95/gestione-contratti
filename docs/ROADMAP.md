@@ -208,6 +208,21 @@ Rev00: richiesta di Pietro del 02/10/2026, proposte approvate.
 **Accettazione:** test verdi (anteprima senza scritture, conferma, scadenza, permessi, modelli
 reimportabili, flusso nel browser); Pietro carica dal web le date di emissione estratte da SAP.
 
+## F9.1.1 — Correzioni dopo il primo uso dell'import web
+
+Rev00: segnalazioni di Pietro del 02/10/2026.
+
+- **Import Excel incrementale**: un contratto già registrato si riconosce anche quando il file
+  è cambiato (righe inserite o spostate, foglio rinominato, altro cluster, dati corretti) o è
+  stato inserito a mano: numero di contratto (o CIG) e data di inizio; senza codici,
+  fornitore, descrizione, data di inizio e durata. La riga si scarta e va nel report.
+- **Accorpa**: lo stesso contratto registrato due volte si unisce (si tiene quello con più
+  dati, l'altro si archivia e la catena passa a quello tenuto). I doppioni già presenti in un
+  fabbisogno si uniscono dal dettaglio del fabbisogno.
+- **Nuovo contratto guidato**: 1 contratto, 2 voce con piano di fatturazione (anteprima delle
+  rate), 3 scadenzario generato, con «Aggiungi un'altra voce» o «Concludi». Salvando una voce
+  le rate si generano sempre; quelle modificate a mano o consuntivate non si toccano.
+
 ## F9.2 — Estensione all'ufficio ICTDINN (bozza)
 
 Rev01: risposte di Pietro del 02/10/2026. Da confermare prima di iniziare.

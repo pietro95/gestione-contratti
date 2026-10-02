@@ -28,6 +28,7 @@ def viste_di_modifica(d):
         ("get", reverse("contratti:archivia", args=["contratto", c.pk])),
         ("post", reverse("contratti:archivia", args=["contratto", c.pk])),
         ("post", reverse("contratti:archivia", args=["voce", v.pk])),
+        ("get", reverse("contratti:contratto_guidata", args=[c.pk])),
         ("get", reverse("contratti:contratto_sposta", args=[c.pk])),
         ("post", reverse("contratti:contratto_sposta", args=[c.pk])),
         ("get", reverse("contratti:fabbisogno_accorpa", args=[f.pk])),
