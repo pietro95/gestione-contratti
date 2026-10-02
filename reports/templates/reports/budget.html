@@ -55,11 +55,11 @@
   </tbody>
 </table></div></div>
 
-<h3 class="sezione-titolo">{{ s.natura }} per {{ criterio|lower }} <span class="fw-normal small text-body-secondary">livello {{ livello.value }} · clic su una riga per le voci</span></h3>
+<h3 class="sezione-titolo">{{ s.natura }} per {{ s.criterio|lower }} <span class="fw-normal small text-body-secondary">livello {{ livello.value }} · clic su una riga per le voci</span></h3>
 <div class="tabella-card mb-4"><div class="table-responsive">
 <table class="table table-hover align-middle text-end table-prima-fissa" id="gruppi-{{ s.natura }}">
   <thead>
-    <tr><th class="text-start" rowspan="2">{{ criterio }}</th>{% for v in viste %}<th colspan="3" class="text-center">{{ v }}</th>{% endfor %}</tr>
+    <tr><th class="text-start" rowspan="2">{{ s.criterio }}</th>{% for v in viste %}<th colspan="3" class="text-center">{{ v }}</th>{% endfor %}</tr>
     <tr>{% for v in viste %}<th>Consolidato</th><th>Previsionale</th><th>Totale</th>{% endfor %}</tr>
   </thead>
   <tbody>

@@ -1,6 +1,7 @@
 """Form dell'interfaccia operativa. Importi localizzati (1.234,56), date in formato ISO."""
 
 from django import forms
+from django.db.models import Q
 from django.forms import inlineformset_factory
 
 from contratti import models as m
@@ -152,10 +153,6 @@ class FabbisognoForm(ModelFormBootstrap):
         ("Fabbisogno", ["descrizione", "cluster", "categoria", "impianto", "referente"]),
         ("Decisione sul rinnovo", ["decisione", "stima_prossimo_importo", "note"]),
         (
-            "Classificazione dei rinnovi previsti (se diversa dall'ultimo contratto)",
-            ["natura_previsti", "conto_previsti"],
-        ),
-        (
             "Previsto manuale (solo per fabbisogni nuovi, senza contratti)",
             [
                 "previsto_data_avvio",
@@ -163,6 +160,9 @@ class FabbisognoForm(ModelFormBootstrap):
                 "previsto_procedura",
                 "previsto_modalita",
                 "previsto_periodicita",
+                "natura_previsti",
+                "conto_previsti",
+                "wbs_previsti",
             ],
         ),
     ]
@@ -178,13 +178,14 @@ class FabbisognoForm(ModelFormBootstrap):
             "decisione",
             "stima_prossimo_importo",
             "note",
-            "natura_previsti",
-            "conto_previsti",
             "previsto_data_avvio",
             "previsto_durata_mesi",
             "previsto_procedura",
             "previsto_modalita",
             "previsto_periodicita",
+            "natura_previsti",
+            "conto_previsti",
+            "wbs_previsti",
         ]
 
     def __init__(self, *args, **kwargs):
@@ -193,11 +194,7 @@ class FabbisognoForm(ModelFormBootstrap):
         _solo_attivi(self, "categoria", m.Categoria.objects.filter(attiva=True))
         _solo_attivi(self, "impianto", m.Impianto.objects.filter(archiviato=False))
         _solo_attivi(self, "previsto_procedura", m.Procedura.objects.filter(attiva=True))
-        self.fields["natura_previsti"].choices = [
-            ("", "Come l'ultimo contratto"),
-            *m.Natura.choices,
-        ]
-        self.fields["conto_previsti"].empty_label = "Come le voci dell'ultimo contratto"
+        _solo_attivi(self, "wbs_previsti", m.WBS.objects.filter(archiviato=False))
 
     def clean(self):
         dati = super().clean()
@@ -206,6 +203,9 @@ class FabbisognoForm(ModelFormBootstrap):
             raise forms.ValidationError(
                 "Per il previsto manuale servono insieme avvio e durata, oppure nessuno dei due."
             )
+        verifica_natura_wbs(
+            self, dati.get("natura_previsti") or m.Natura.OPEX, "wbs_previsti", dati.get("cluster")
+        )
         return dati
 
 
@@ -224,9 +224,6 @@ CAMPI_CONTRATTO = [
     "data_fine_override",
     "tacito_rinnovo",
     "preavviso_disdetta_giorni",
-    "finanziamento",
-    "progetto",
-    "natura",
     "link_documenti",
     "note",
 ]
@@ -257,7 +254,6 @@ class ContrattoForm(ModelFormBootstrap):
                 "preavviso_disdetta_giorni",
             ],
         ),
-        ("Classificazione", ["finanziamento", "progetto", "natura"]),
         ("Documenti e note", ["link_documenti", "note"]),
     ]
 
@@ -270,7 +266,6 @@ class ContrattoForm(ModelFormBootstrap):
         _solo_attivi(self, "fabbisogno", m.Fabbisogno.objects.filter(archiviato=False))
         _solo_attivi(self, "fornitore", m.Fornitore.objects.filter(archiviato=False))
         _solo_attivi(self, "procedura", m.Procedura.objects.filter(attiva=True))
-        _solo_attivi(self, "progetto", m.Progetto.objects.filter(archiviato=False))
 
 
 class ContrattoModificaForm(ContrattoForm):
@@ -330,13 +325,41 @@ class VoceRinnovoForm(FormBase):
 VociRinnovoFormSet = forms.formset_factory(VoceRinnovoForm, extra=0)
 
 
+def wbs_ammesse(cluster: m.Cluster | None):
+    """WBS selezionabili: quelle del cluster e quelle a progetto (attive)."""
+    qs = m.WBS.objects.filter(archiviato=False).select_related("cluster")
+    if cluster is None:
+        return qs
+    return qs.filter(Q(tipo=m.WBS.Tipo.PROGETTO) | Q(cluster=cluster))
+
+
+def verifica_natura_wbs(form, natura: str, campo_wbs: str, cluster=None) -> None:
+    """CAPEX ⇔ WBS; una WBS di cluster deve essere del cluster del fabbisogno (F9.2)."""
+    wbs = form.cleaned_data.get(campo_wbs)
+    if natura == m.Natura.CAPEX and wbs is None:
+        form.add_error(campo_wbs, "Una spesa CAPEX sta sempre su una WBS.")
+    elif natura == m.Natura.OPEX and wbs is not None:
+        form.add_error(campo_wbs, "Una spesa OPEX non ha WBS: lascia vuoto o scegli CAPEX.")
+    elif (
+        wbs is not None
+        and cluster is not None
+        and wbs.tipo == m.WBS.Tipo.CLUSTER
+        and wbs.cluster_id != cluster.pk
+    ):
+        form.add_error(campo_wbs, f"La WBS {wbs.codice_wbs} è di un altro cluster.")
+
+
 class VoceForm(ModelFormBootstrap):
     sezioni = [
         ("Voce", ["descrizione", "proroga"]),
-        ("Contabilità", ["conto", "centro_costo", "wbs"]),
+        ("Contabilità", ["natura", "conto", "centro_costo", "wbs"]),
         (
             "Importi",
             ["importo_fisso", "massimale_variabile", "stima_consumo_pct", "stima_consumo_importo"],
+        ),
+        (
+            "Nei rinnovi previsti (solo se cambia, es. nata CAPEX e rinnovata in OPEX)",
+            ["natura_rinnovi", "conto_rinnovi", "wbs_rinnovi"],
         ),
     ]
 
@@ -345,6 +368,7 @@ class VoceForm(ModelFormBootstrap):
         fields = [
             "descrizione",
             "proroga",
+            "natura",
             "conto",
             "centro_costo",
             "wbs",
@@ -352,15 +376,31 @@ class VoceForm(ModelFormBootstrap):
             "massimale_variabile",
             "stima_consumo_pct",
             "stima_consumo_importo",
+            "natura_rinnovi",
+            "conto_rinnovi",
+            "wbs_rinnovi",
         ]
 
     def __init__(self, *args, contratto, **kwargs):
         super().__init__(*args, **kwargs)
+        self.cluster = contratto.fabbisogno.cluster
         self.fields["proroga"].queryset = contratto.proroghe.all()
         self.fields["conto"].queryset = m.ContoCoge.objects.all()
+        self.fields["conto_rinnovi"].queryset = m.ContoCoge.objects.all()
+        for campo in ("wbs", "wbs_rinnovi"):
+            self.fields[campo].queryset = wbs_ammesse(self.cluster)
+        self.fields["natura_rinnovi"].choices = [("", "Come questa voce"), *m.Natura.choices]
 
     def clean(self):
         dati = super().clean()
+        natura = dati.get("natura") or m.Natura.OPEX
+        verifica_natura_wbs(self, natura, "wbs", self.cluster)
+        rinnovi = dati.get("natura_rinnovi") or natura
+        wbs_rinnovi = dati.get("wbs_rinnovi")
+        if rinnovi == m.Natura.OPEX and wbs_rinnovi is not None:
+            self.add_error("wbs_rinnovi", "Rinnovi in OPEX: nessuna WBS.")
+        elif rinnovi == m.Natura.CAPEX and natura == m.Natura.OPEX and wbs_rinnovi is None:
+            self.add_error("wbs_rinnovi", "Rinnovi in CAPEX: indica la WBS su cui andranno.")
         if (
             dati.get("stima_consumo_pct") is not None
             and dati.get("stima_consumo_importo") is not None

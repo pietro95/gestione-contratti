@@ -31,9 +31,6 @@ def campi_contratto(**kw):
         "durata_mesi": "12",
         "data_fine_override": "",
         "preavviso_disdetta_giorni": "",
-        "finanziamento": "ordinario",
-        "progetto": "",
-        "natura": "OPEX",
         "link_documenti": "",
         "note": "",
     }
@@ -118,6 +115,7 @@ def test_nuovo_contratto_e_voce_con_anteprima(editor, dati):
         "voce-proroga": "",
         "voce-conto": "",
         "voce-centro_costo": "",
+        "voce-natura": "OPEX",
         "voce-wbs": "",
         "voce-importo_fisso": "24.000,00",
         "voce-massimale_variabile": "0",

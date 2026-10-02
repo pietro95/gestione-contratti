@@ -100,6 +100,7 @@ class _Caricamento:
         self.conti = {c.codice: c for c in m.ContoCoge.objects.order_by("valido_dal")}
         self.fornitori = {chiave_nome(f.ragione_sociale): f for f in m.Fornitore.objects.all()}
         self.creati_ora: set[str] = set()
+        self._wbs: m.WBS | None = None  # WBS del contratto in corso di creazione
 
     # --- Fornitori ---------------------------------------------------------------
 
@@ -226,13 +227,18 @@ class _Caricamento:
             decisione=primo.decisione,
             note="Fabbisogno provvisorio creato dall'import Excel.",
         )
+        # Fogli dei finanziati e dissalatori: spese CAPEX su una WBS a progetto (F9.2).
         progetto = None
         if primo.finanziato:
             codice = primo.wbs or WBS_DA_DEFINIRE
-            progetto, _ = m.Progetto.objects.get_or_create(
+            progetto, _ = m.WBS.objects.get_or_create(
                 codice_wbs=codice,
-                defaults={"descrizione": "Da definire" if not primo.wbs else codice},
+                defaults={
+                    "descrizione": "Da definire" if not primo.wbs else codice,
+                    "tipo": m.WBS.Tipo.PROGETTO,
+                },
             )
+        self._wbs = progetto
         note = [f"Import Excel: {primo.foglio}, riga {', '.join(str(r.numero) for r in gruppo)}."]
         note += [r.note for r in gruppo if r.note]
         contratto = m.Contratto.objects.create(
@@ -245,8 +251,6 @@ class _Caricamento:
             procedura=self.procedura,
             data_inizio=primo.data_inizio,
             durata_mesi=primo.mesi,
-            finanziamento="finanziato" if progetto else "ordinario",
-            progetto=progetto,
             note="\n".join(note),
             chiave_import=chiave,
         )
@@ -268,6 +272,9 @@ class _Caricamento:
             descrizione=r.descrizione or DESCRIZIONE_ASSENTE,
             conto=conto,
             codice_conto_importato=r.conto or "",
+            natura=m.Natura.CAPEX if self._wbs else m.Natura.OPEX,
+            wbs=self._wbs,
+            codice_wbs_importato=r.wbs or "",
             importo_fisso=r.minimo or Decimal("0.00"),
             massimale_variabile=r.extra or Decimal("0.00"),
             chiave_import=chiave,

@@ -34,7 +34,7 @@
   {% for r in piano.righe %}{% url 'contratti:fabbisogno' r.fabbisogno.pk as link %}
     <tr data-href="{{ link }}">
       <td style="min-width: 16rem"><a href="{{ link }}" class="fw-semibold">{{ r.fabbisogno.descrizione }}</a>
-        <div class="small text-body-secondary"><span class="stato {% if r.natura == 'CAPEX' %}stato-blu{% else %}stato-grigio{% endif %}">{{ r.natura }}</span> {{ r.fabbisogno.area }} · {{ r.categoria }}{% if not r.contratto_uscente %} · <span class="stato stato-blu">nuovo</span>{% endif %}{% for s in r.sopra_soglia %} <span class="stato stato-rosso" title="{{ s }}">oltre soglia</span>{% endfor %}</div></td>
+        <div class="small text-body-secondary"><span class="stato {% if r.natura == 'CAPEX' %}stato-blu{% else %}stato-grigio{% endif %}">{{ r.natura }}</span>{% if r.a_progetto %} <span class="stato stato-grigio">WBS a progetto</span>{% endif %} {{ r.fabbisogno.area }} · {{ r.categoria }}{% if not r.contratto_uscente %} · <span class="stato stato-blu">nuovo</span>{% endif %}{% for s in r.sopra_soglia %} <span class="stato stato-rosso" title="{{ s }}">oltre soglia</span>{% endfor %}</div></td>
       <td>{{ r.fornitore_uscente|default:"—" }}</td>
       <td class="text-nowrap">{{ r.procedura|default:"—" }}<div class="small text-body-secondary">{{ r.lead_time_mesi }} mesi di lead time</div></td>
       <td class="text-nowrap">{{ r.data_limite|date:"d/m/Y" }}</td>

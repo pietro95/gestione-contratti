@@ -13,7 +13,7 @@
     <tr data-href="{{ link }}">
       <td style="min-width: 16rem"><a href="{{ link }}" class="fw-semibold">{{ v.contratto.fabbisogno.descrizione }}</a><div class="small text-body-secondary">{{ v.contratto.numero_contratto|default:v.contratto.cig|default:"senza numero" }} · {{ v.contratto.fornitore }}</div></td>
       <td>{{ v.descrizione }}</td>
-      <td>{{ v.contratto.natura }}</td>
+      <td>{{ v.natura }}{% if v.wbs %}<div class="small text-body-secondary">{{ v.wbs.codice_wbs }}</div>{% endif %}</td>
       <td class="text-nowrap">{% if v.contratto.data_inizio %}dal {{ v.contratto.data_inizio|date:"d/m/Y" }}, {{ v.contratto.durata_mesi }} mesi{% else %}senza data di inizio{% endif %}</td>
       <td class="text-end">{{ v.importo_fisso|euro }}</td>
       <td class="text-end">{{ v.massimale_variabile|euro }}</td>

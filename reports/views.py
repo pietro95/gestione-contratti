@@ -5,7 +5,15 @@ from django.shortcuts import render
 
 from contratti.views import oggi_richiesta
 from reports import xlsx
-from reports.budget import ETICHETTE_VISTE, LIVELLI, PARTI, RAGGRUPPAMENTI, VISTE, calcola_budget
+from reports.budget import (
+    ETICHETTE_VISTE,
+    LIVELLI,
+    NATURE,
+    PARTI,
+    RAGGRUPPAMENTI,
+    VISTE,
+    calcola_budget,
+)
 from reports.export import budget_xlsx, piano_xlsx
 from reports.forms import FiltriBudgetForm, FiltriPianoForm
 from reports.piano_ordini import calcola_piano
@@ -22,6 +30,7 @@ def _sezione(b, criterio, livello) -> dict:
     return {
         "natura": b.filtri.natura,
         "budget": b,
+        "criterio": RAGGRUPPAMENTI[criterio],
         "riepilogo": [
             (ETICHETTE_VISTE[vista], [[totali[p][vista][liv] for p in PARTI] for liv in LIVELLI])
             for vista in VISTE
@@ -47,17 +56,17 @@ def budget(request):
     if not form.is_valid():
         return render(request, "reports/budget.html", contesto)
     b = calcola_budget(form.filtri(), oggi)
-    criterio, livello = form.criterio, form.livello_scelto
+    livello = form.livello_scelto
+    criteri = {n: form.criterio(n) for n in NATURE}
     if request.GET.get("formato") == "xlsx":
         natura = b.filtri.natura or "OPEX_CAPEX"
         nome = f"{oggi:%Y.%m.%d}_Budget_{b.filtri.anno}_{natura}.xlsx"
-        return xlsx.risposta(budget_xlsx(b, criterio), nome)
+        return xlsx.risposta(budget_xlsx(b, criteri), nome)
     contesto |= {
         "budget": b,
-        "sezioni": [_sezione(s, criterio, livello) for s in b.sezioni()],
+        "sezioni": [_sezione(s, criteri[s.filtri.natura], livello) for s in b.sezioni()],
         "livelli": LIVELLI,
         "n_avvisi": len(b.rinnovi_mancanti) + len(b.avvisi) + (1 if b.senza_data else 0),
-        "criterio": RAGGRUPPAMENTI[criterio],
         "livello": livello,
     }
     return render(request, "reports/budget.html", contesto)

@@ -202,8 +202,12 @@ def _filtra_contratti(request, oggi):
         )
     if g.get("area"):
         qs = qs.filter(fabbisogno__cluster__codice=g["area"])
-    if g.get("finanziamento"):
-        qs = qs.filter(finanziamento=g["finanziamento"])
+    # Finanziato: almeno una voce su WBS a progetto (F9.2).
+    su_progetto = Q(voci__archiviato=False, voci__wbs__tipo=m.WBS.Tipo.PROGETTO)
+    if g.get("finanziamento") == m.Contratto.Finanziamento.FINANZIATO:
+        qs = qs.filter(su_progetto).distinct()
+    elif g.get("finanziamento") == m.Contratto.Finanziamento.ORDINARIO:
+        qs = qs.exclude(su_progetto)
     if g.get("fornitore"):
         qs = qs.filter(fornitore_id=g["fornitore"])
     righe = selettori.righe_contratti(qs.order_by("-data_inizio", "pk"), oggi)
@@ -349,7 +353,9 @@ def contratto_dettaglio(request, pk):
     s = adapters.scadenza(contratto)
     voci = (
         contratto.voci.filter(archiviato=False)
-        .select_related("conto", "proroga", "piano_fatturazione")
+        .select_related(
+            "conto", "proroga", "piano_fatturazione", "wbs", "conto_rinnovi", "wbs_rinnovi"
+        )
         .prefetch_related("quote", "piano_fatturazione__rate")
     )
     voci_engine, esiti = adapters.voci_contratto(contratto)
@@ -649,9 +655,6 @@ def contratto_rinnovo(request, pk):
             "durata_mesi",
             "tacito_rinnovo",
             "preavviso_disdetta_giorni",
-            "finanziamento",
-            "progetto",
-            "natura",
         )
     }
     if fine:

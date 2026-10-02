@@ -40,11 +40,12 @@ def archivio(conti):
         data_inizio=D(2026, 1, 1),
         durata_mesi=24,
         data_emissione=D(2025, 12, 15),
-        finanziamento=m.Contratto.Finanziamento.FINANZIATO,
-        progetto=m.Progetto.objects.create(codice_wbs="WBS-PROVA", descrizione="Prova"),
     )
+    # Finanziato: CAPEX su una WBS a progetto (F9.2).
     v = f.voce(
         c,
+        natura=m.Natura.CAPEX,
+        wbs=m.WBS.objects.create(codice_wbs="WBS-PROVA", descrizione="Prova"),
         importo_fisso=Decimal("12000.00"),
         massimale_variabile=Decimal("3000.00"),
         stima_consumo_pct=Decimal("50"),

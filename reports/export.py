@@ -34,13 +34,22 @@ def descrivi_filtri(budget: Budget) -> str:
         parti.append(f"conto {m.ContoCoge.objects.filter(pk=f.conto).first()}")
     if f.fornitore:
         parti.append(f"fornitore {m.Fornitore.objects.filter(pk=f.fornitore).first()}")
-    if f.finanziamento:
-        parti.append(f"finanziamento {m.Contratto.Finanziamento(f.finanziamento).label}")
+    if f.progetti == "includi":
+        parti.append("WBS a progetto incluse")
+    elif f.progetti == "solo":
+        parti.append("solo WBS a progetto")
+    else:
+        parti.append("WBS a progetto escluse")
+    if f.wbs:
+        parti.append(f"WBS {m.WBS.objects.filter(pk=f.wbs).first()}")
     parti.append("previsti inclusi" if f.previsionali else "solo consolidato")
     return "; ".join(parti)
 
 
-def budget_xlsx(budget: Budget, criterio: str):
+def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):
+    """``criteri``: raggruppamento per natura (es. OPEX per conto, CAPEX per WBS)."""
+    if isinstance(criteri, str):
+        criteri = dict.fromkeys(m.Natura.values, criteri)
     wb = xlsx.nuovo_libro()
     intestazione = [
         f"Budget {budget.filtri.anno}",
@@ -62,24 +71,26 @@ def budget_xlsx(budget: Budget, criterio: str):
     colonne = ["Natura", "Vista", "Livello", "Consolidato", "Previsionale", "Totale"]
     xlsx.foglio(wb, "Riepilogo", intestazione, colonne, righe)
 
-    colonne = ["Natura", RAGGRUPPAMENTI[criterio]]
+    usati = list(dict.fromkeys(criteri[s.filtri.natura] for s in sezioni))
+    criterio = usati[0] if len(usati) == 1 else ""
+    colonne = ["Natura", RAGGRUPPAMENTI[criterio] if criterio else "Gruppo"]
     for vista in VISTE:
         for livello in LIVELLI:
             for parte in PARTI:
                 colonne.append(f"{SIGLE_VISTE[vista]} {livello.value} {parte}")
     righe = []
     for s in sezioni:
-        for g in s.gruppi(criterio):
+        for g in s.gruppi(criteri[s.filtri.natura]):
             riga = [s.filtri.natura, g.etichetta]
             for vista in VISTE:
                 for livello in LIVELLI:
                     riga += [g.totali[parte][vista][livello] for parte in PARTI]
             righe.append(riga)
-    xlsx.foglio(wb, f"Per {criterio}", intestazione, colonne, righe)
+    xlsx.foglio(wb, f"Per {criterio}" if criterio else "Per gruppo", intestazione, colonne, righe)
 
     colonne = [
         "Tipo", "Natura", "Previsto n.", "Cluster", "Fabbisogno", "Contratto", "Voce",
-        "Fornitore", "Conto", "Finanziamento", "Inizio servizio", "Fine servizio",
+        "Fornitore", "Conto", "WBS", "Finanziamento", "Inizio servizio", "Fine servizio",
     ]  # fmt: skip
     colonne += [f"{SIGLE_VISTE[vista]} {liv.value}" for vista in VISTE for liv in LIVELLI]
     righe = []
@@ -95,6 +106,7 @@ def budget_xlsx(budget: Budget, criterio: str):
                 v.descrizione,
                 str(v.fornitore or ""),
                 str(v.conto or ""),
+                str(v.wbs or ""),
                 m.Contratto.Finanziamento(v.finanziamento).label,
                 v.inizio,
                 v.fine,

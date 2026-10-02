@@ -18,7 +18,7 @@ ZERO = Decimal("0.00")
 def test_budget_coincide_con_il_motore(archivio):
     """Per ogni anno, parte, vista e livello: report = motore sulle stesse voci, al centesimo."""
     for anno in ANNI:
-        totali = calcola_budget(Filtri(anno=anno), OGGI).totali()
+        totali = calcola_budget(Filtri(anno=anno, progetti="includi"), OGGI).totali()
         consolidate, previste = voci_motore(anno)
         attesi = {
             "consolidato": totali_motore(consolidate, anno),
@@ -33,7 +33,7 @@ def test_budget_coincide_con_il_motore(archivio):
 
 
 def test_ci_sono_importi_in_tutte_le_parti(archivio):
-    totali = calcola_budget(Filtri(anno=2027), OGGI).totali()
+    totali = calcola_budget(Filtri(anno=2027, progetti="includi"), OGGI).totali()
     for parte in ("consolidato", "previsionale"):
         for vista in VISTE:
             assert totali[parte][vista][Livello.FISSO] > 0, (parte, vista)
@@ -43,9 +43,9 @@ def test_ci_sono_importi_in_tutte_le_parti(archivio):
 
 
 def test_i_gruppi_sommano_al_totale(archivio):
-    b = calcola_budget(Filtri(anno=2026), OGGI)
+    b = calcola_budget(Filtri(anno=2026, progetti="includi"), OGGI)
     totali = b.totali()
-    for criterio in ("conto", "area", "fornitore", "finanziamento", "fabbisogno"):
+    for criterio in ("conto", "area", "fornitore", "wbs", "fabbisogno"):
         gruppi = b.gruppi(criterio)
         for vista in VISTE:
             for livello in LIVELLI:
@@ -54,13 +54,17 @@ def test_i_gruppi_sommano_al_totale(archivio):
 
 
 def test_filtri_partizionano_il_totale(archivio):
-    tutto = calcola_budget(Filtri(anno=2026), OGGI).totali()["totale"]
+    tutto = calcola_budget(Filtri(anno=2026, progetti="includi"), OGGI).totali()["totale"]
     for campo, valori in (
         ("area", ["IT", "TLC"]),
-        ("finanziamento", ["ordinario", "finanziato"]),
+        ("progetti", ["", "solo"]),  # senza WBS a progetto + solo WBS a progetto
+        ("natura", ["OPEX", "CAPEX"]),
     ):
         parti = [
-            calcola_budget(Filtri(anno=2026, **{campo: v}), OGGI).totali()["totale"] for v in valori
+            calcola_budget(
+                Filtri(anno=2026, **({"progetti": "includi"} | {campo: v})), OGGI
+            ).totali()["totale"]
+            for v in valori
         ]
         for vista in VISTE:
             assert sum(p[vista][Livello.MASSIMO] for p in parti) == tutto[vista][Livello.MASSIMO]
@@ -75,14 +79,14 @@ def test_filtro_conto_e_fornitore(archivio, conti):
 
 
 def test_solo_consolidato_esclude_i_previsti(archivio):
-    b = calcola_budget(Filtri(anno=2027, previsionali=False), OGGI)
+    b = calcola_budget(Filtri(anno=2027, previsionali=False, progetti="includi"), OGGI)
     assert b.voci and not any(v.previsionale for v in b.voci)
     assert b.totali()["previsionale"]["impegno"][Livello.MASSIMO] == ZERO
 
 
 def test_cassa_usa_lo_scadenzario_salvato(archivio):
     """Posticipato trimestrale 12.000 € su 24 mesi: 4 rate nel 2026 (l'ultima il 31/12)."""
-    b = calcola_budget(Filtri(anno=2026, previsionali=False), OGGI)
+    b = calcola_budget(Filtri(anno=2026, previsionali=False, progetti="includi"), OGGI)
     (voce,) = [v for v in b.voci if v.contratto == archivio and v.voce.proroga is None]
     assert voce.importi["cassa"][Livello.FISSO] == Decimal("6000.00")
     assert voce.importi["impegno"][Livello.FISSO] == ZERO  # OdA del 2025
@@ -91,7 +95,7 @@ def test_cassa_usa_lo_scadenzario_salvato(archivio):
 
 
 def test_proroga_nell_anno_dell_atto(archivio):
-    b = calcola_budget(Filtri(anno=2027, previsionali=False), OGGI)
+    b = calcola_budget(Filtri(anno=2027, previsionali=False, progetti="includi"), OGGI)
     (proroga,) = [v for v in b.voci if v.voce and v.voce.proroga_id]
     assert proroga.importi["impegno"][Livello.FISSO] == Decimal("3000.00")
     assert proroga.inizio == datetime.date(2028, 1, 1)
@@ -121,7 +125,9 @@ def test_rinnovi_mancanti(db):
 def test_piano_ordini_coincide_con_l_impegno_previsionale(archivio):
     for anno in (2026, 2027, 2028):
         piano = calcola_piano(anno, OGGI)
-        impegno = calcola_budget(Filtri(anno=anno), OGGI).totali()["previsionale"]["impegno"]
+        impegno = calcola_budget(Filtri(anno=anno, progetti="includi"), OGGI).totali()[
+            "previsionale"
+        ]["impegno"]
         assert piano.righe
         for livello in LIVELLI:
             assert piano.totali()[livello] == impegno[livello], (anno, livello)

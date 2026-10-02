@@ -114,14 +114,9 @@ def test_una_sola_stima_di_consumo():
 # --- Coerenza del contratto ---------------------------------------------------
 
 
-def test_finanziato_richiede_progetto():
-    violates(lambda: f.contratto(finanziamento="finanziato"))
-
-
-def test_ordinario_senza_progetto():
-    progetto = m.Progetto.objects.create(codice_wbs="WBS-PROVA-01", descrizione="Progetto prova")
-    violates(lambda: f.contratto(finanziamento="ordinario", progetto=progetto))
-    assert f.contratto(finanziamento="finanziato", progetto=progetto).pk
+def test_wbs_di_cluster_richiede_il_cluster():
+    violates(lambda: m.WBS.objects.create(codice_wbs="X", descrizione="x", tipo="cluster"))
+    assert m.WBS.objects.create(codice_wbs="Y", descrizione="y", tipo="progetto").pk
 
 
 def test_tacito_rinnovo_richiede_preavviso():

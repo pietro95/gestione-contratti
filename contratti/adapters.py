@@ -6,7 +6,7 @@ Qui si leggono il database e i parametri di configurazione; il motore non li ved
 import contextlib
 import contextvars
 import datetime
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from decimal import Decimal
 
 from django.db.models import Prefetch
@@ -35,7 +35,9 @@ PREFETCH_CALCOLO = (
     "proroghe",
     Prefetch(
         "voci",
-        queryset=m.VoceContratto.objects.select_related("piano_fatturazione", "conto"),
+        queryset=m.VoceContratto.objects.select_related(
+            "piano_fatturazione", "conto", "wbs", "conto_rinnovi", "wbs_rinnovi"
+        ),
     ),
     "voci__quote",
     "voci__piano_fatturazione__rate",
@@ -360,22 +362,64 @@ def data_limite_avvio(contratto: m.Contratto) -> datetime.date | None:
     return scadenze.data_limite_avvio(s) if s else None
 
 
-def natura_previsti(fabbisogno: m.Fabbisogno, base: m.Contratto | None) -> str:
-    """Natura dei rinnovi previsti: quella decisa sul fabbisogno, se no dell'ultimo contratto."""
-    if fabbisogno.natura_previsti:
-        return fabbisogno.natura_previsti
-    return base.natura if base is not None else m.Natura.OPEX
+@dataclass(frozen=True)
+class Classificazione:
+    """Natura, conto e WBS di una voce (reale o prevista): dicono in quale budget va."""
 
+    natura: str
+    conto: m.ContoCoge | None
+    wbs: m.WBS | None
 
-def finanziamento_previsti(fabbisogno: m.Fabbisogno, base: m.Contratto | None) -> str:
-    """Il previsto resta finanziato solo se conserva la natura del contratto di partenza."""
-    if base is None or natura_previsti(fabbisogno, base) != base.natura:
+    @property
+    def a_progetto(self) -> bool:
+        """Su WBS a progetto: fuori dai budget dei cluster (F9.2)."""
+        return self.wbs is not None and self.wbs.tipo == m.WBS.Tipo.PROGETTO
+
+    @property
+    def finanziamento(self) -> str:
+        if self.a_progetto:
+            return m.Contratto.Finanziamento.FINANZIATO
         return m.Contratto.Finanziamento.ORDINARIO
-    return base.finanziamento
 
 
-def conto_previsto(fabbisogno: m.Fabbisogno, voce: m.VoceContratto | None) -> m.ContoCoge | None:
-    """Conto della voce prevista: quello deciso sul fabbisogno, se no della voce d'origine."""
-    if fabbisogno.conto_previsti_id:
-        return fabbisogno.conto_previsti
-    return voce.conto if voce is not None else None
+def classificazione(voce: m.VoceContratto) -> Classificazione:
+    """La voce reale come è registrata."""
+    return Classificazione(voce.natura, voce.conto, voce.wbs if voce.wbs_id else None)
+
+
+def classificazione_prevista(
+    fabbisogno: m.Fabbisogno, voce: m.VoceContratto | None
+) -> Classificazione:
+    """Come andrà in budget il rinnovo previsto della voce (F9.2).
+
+    La voce può decidere natura, conto e WBS dei rinnovi; altrimenti valgono i suoi. Un rinnovo
+    in OPEX non ha WBS. Per il previsto manuale (fabbisogno nuovo, senza voci) valgono i dati
+    del fabbisogno.
+    """
+    if voce is None:
+        natura = fabbisogno.natura_previsti or m.Natura.OPEX
+        wbs = fabbisogno.wbs_previsti if natura == m.Natura.CAPEX else None
+        return Classificazione(natura, fabbisogno.conto_previsti, wbs)
+    natura = voce.natura_rinnovi or voce.natura
+    conto = voce.conto_rinnovi if voce.conto_rinnovi_id else voce.conto
+    if natura == m.Natura.OPEX:
+        wbs = None
+    elif voce.wbs_rinnovi_id:
+        wbs = voce.wbs_rinnovi
+    else:
+        wbs = voce.wbs if voce.wbs_id else None
+    return Classificazione(natura, conto, wbs)
+
+
+def natura_previsti(fabbisogno: m.Fabbisogno, base: m.Contratto | None) -> str:
+    """Natura complessiva dei rinnovi previsti: OPEX, CAPEX o "OPEX e CAPEX"."""
+    if base is None:
+        return classificazione_prevista(fabbisogno, None).natura
+    nature = {
+        classificazione_prevista(fabbisogno, v).natura
+        for v in base.voci.all()
+        if not v.archiviato and not v.proroga_id
+    }
+    if len(nature) > 1:
+        return m.Contratto.MISTA
+    return nature.pop() if nature else m.Natura.OPEX

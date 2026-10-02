@@ -90,11 +90,19 @@ class ImpiantoAdmin(ArchiviabileAdmin):
     search_fields = ("nome",)
 
 
-@admin.register(m.Progetto)
-class ProgettoAdmin(ArchiviabileAdmin):
-    list_display = ("codice_wbs", "descrizione", "archiviato")
+@admin.register(m.Cluster)
+class ClusterAdmin(ArchiviabileAdmin):
+    list_display = ("codice", "nome", "archiviato")
     list_filter = ("archiviato",)
+    search_fields = ("codice", "nome")
+
+
+@admin.register(m.WBS)
+class WBSAdmin(ArchiviabileAdmin):
+    list_display = ("codice_wbs", "descrizione", "tipo", "cluster", "archiviato")
+    list_filter = ("tipo", "cluster", "archiviato")
     search_fields = ("codice_wbs", "descrizione")
+    autocomplete_fields = ("cluster",)
 
 
 @admin.register(m.ContoCoge)
@@ -174,14 +182,16 @@ class VoceInline(InlineSenzaCancellazione):
     fields = (
         "descrizione",
         "proroga",
+        "natura",
         "conto",
+        "wbs",
         "importo_fisso",
         "massimale_variabile",
         "stima_consumo_pct",
         "stima_consumo_importo",
         "archiviato",
     )
-    autocomplete_fields = ("conto",)
+    autocomplete_fields = ("conto", "wbs")
 
 
 class OpzioneInline(InlineSenzaCancellazione):
@@ -210,11 +220,10 @@ class ContrattoAdmin(ArchiviabileAdmin):
         "procedura",
         "data_inizio",
         "durata_mesi",
-        "finanziamento",
         "natura",
         "archiviato",
     )
-    list_filter = ("fabbisogno__cluster", "procedura", "finanziamento", "natura", "archiviato")
+    list_filter = ("fabbisogno__cluster", "procedura", "voci__natura", "archiviato")
     search_fields = (
         "fabbisogno__descrizione",
         "descrizione",
@@ -223,7 +232,7 @@ class ContrattoAdmin(ArchiviabileAdmin):
         "cig",
         "fornitore__ragione_sociale",
     )
-    autocomplete_fields = ("fabbisogno", "predecessore", "fornitore", "procedura", "progetto")
+    autocomplete_fields = ("fabbisogno", "predecessore", "fornitore", "procedura")
     date_hierarchy = "data_inizio"
     inlines = [VoceInline, OpzioneInline, ProrogaInline, StatoPraticaContrattoInline]
     fieldsets = (
@@ -235,7 +244,6 @@ class ContrattoAdmin(ArchiviabileAdmin):
             {"fields": ("data_stipula", "data_inizio", "durata_mesi", "data_fine_override")},
         ),
         ("Rinnovo", {"fields": ("tacito_rinnovo", "preavviso_disdetta_giorni")}),
-        ("Classificazione", {"fields": ("finanziamento", "progetto", "natura")}),
         ("Documenti e note", {"fields": ("link_documenti", "note", "archiviato")}),
     )
 
@@ -261,10 +269,15 @@ class PianoInline(admin.StackedInline):
 
 @admin.register(m.VoceContratto)
 class VoceContrattoAdmin(ArchiviabileAdmin):
-    list_display = ("descrizione", "contratto", "conto", "importo_fisso", "massimale_variabile")
-    list_filter = ("archiviato", "piano_fatturazione__modalita")
+    list_display = (
+        "descrizione", "contratto", "natura", "conto", "wbs", "importo_fisso",
+        "massimale_variabile",
+    )  # fmt: skip
+    list_filter = ("archiviato", "natura", "piano_fatturazione__modalita")
     search_fields = ("descrizione", "contratto__numero_contratto", "contratto__cig")
-    autocomplete_fields = ("contratto", "proroga", "conto")
+    autocomplete_fields = (
+        "contratto", "proroga", "conto", "wbs", "conto_rinnovi", "wbs_rinnovi",
+    )  # fmt: skip
     inlines = [QuotaInline, PianoInline]
 
 

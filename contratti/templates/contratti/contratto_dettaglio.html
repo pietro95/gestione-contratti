@@ -61,7 +61,7 @@
           <dt>RDA</dt><dd>{{ c.numero_rda|default:"—" }}</dd>
           <dt>CIG</dt><dd>{{ c.cig|default:"—" }}</dd>
           <dt>Procedura</dt><dd>{{ c.procedura }} · lead time {% if c.lead_time_mesi_override is not None %}{{ c.lead_time_mesi_override }}{% else %}{{ c.procedura.lead_time_mesi }}{% endif %} mesi</dd>
-          <dt>Finanziamento</dt><dd>{{ c.get_finanziamento_display }}{% if c.progetto %} · {{ c.progetto }}{% endif %} · {{ c.natura }}</dd>
+          <dt>Natura</dt><dd>{{ c.natura }}{% if c.finanziamento == "finanziato" %} · finanziato (WBS a progetto){% endif %}</dd>
           {% if c.link_documenti %}<dt>Documenti</dt><dd><a href="{{ c.link_documenti }}" rel="noopener" target="_blank">Apri la cartella <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></dd>{% endif %}
         </dl>
       </div>
@@ -85,7 +85,7 @@
       <div class="card mb-3">
         <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
           <div><span>{{ voce.descrizione }}</span>{% if voce.proroga %} <span class="stato stato-blu">{{ voce.proroga }}</span>{% endif %}
-            <div class="small fw-normal text-body-secondary">conto {{ voce.conto.codice|default:voce.codice_conto_importato|default:"—" }} · {{ voce.piano_fatturazione|default:"piano mancante" }}</div></div>
+            <div class="small fw-normal text-body-secondary"><span class="stato {% if voce.natura == 'CAPEX' %}stato-blu{% else %}stato-grigio{% endif %}">{{ voce.natura }}</span> conto {{ voce.conto.codice|default:voce.codice_conto_importato|default:"—" }}{% if voce.wbs %} · WBS {{ voce.wbs.codice_wbs }}{% elif voce.codice_wbs_importato %} · WBS {{ voce.codice_wbs_importato }} (da collegare){% endif %} · {{ voce.piano_fatturazione|default:"piano mancante" }}{% if voce.natura_rinnovi or voce.conto_rinnovi or voce.wbs_rinnovi %} · nei rinnovi: {{ voce.natura_rinnovi|default:voce.natura }}{% if voce.conto_rinnovi %}, conto {{ voce.conto_rinnovi.codice }}{% endif %}{% if voce.wbs_rinnovi %}, WBS {{ voce.wbs_rinnovi.codice_wbs }}{% endif %}{% endif %}</div></div>
           {% if puo_modificare %}
           <div class="d-flex gap-2">
             <a class="btn btn-sm btn-outline-primary" href="{% url 'contratti:voce_modifica' c.pk voce.pk %}"><i class="bi bi-pencil" aria-hidden="true"></i> Modifica</a>

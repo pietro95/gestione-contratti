@@ -172,21 +172,44 @@ class Impianto(Archiviabile):
         return self.nome
 
 
-class Progetto(Archiviabile):
-    """Progetto di finanziamento con la sua WBS SAP."""
+class WBS(Archiviabile):
+    """Elemento WBS di SAP, su cui si imputano le spese CAPEX (F9.2).
+
+    - Di cluster: CAPEX "generico" del cluster, entra nel suo budget CAPEX.
+    - A progetto (es. nuovi dissalatori): fuori dai budget dei cluster; i contratti restano
+      registrati e consultabili per WBS. I contratti finanziati stanno su WBS a progetto.
+    """
+
+    class Tipo(models.TextChoices):
+        CLUSTER = "cluster", "Di cluster"
+        PROGETTO = "progetto", "A progetto"
 
     codice_wbs = models.CharField("codice WBS", max_length=40, unique=True)
     descrizione = models.CharField(max_length=200)
+    tipo = models.CharField(max_length=10, choices=Tipo.choices, default=Tipo.PROGETTO)
+    cluster = models.ForeignKey(
+        "Cluster", on_delete=models.PROTECT, null=True, blank=True, related_name="wbs"
+    )
     note = models.TextField(blank=True)
     history = HistoricalRecords()
 
     class Meta:
-        verbose_name = "progetto finanziato"
-        verbose_name_plural = "progetti finanziati"
+        verbose_name = "WBS"
+        verbose_name_plural = "WBS"
         ordering = ["codice_wbs"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(tipo="progetto") | Q(cluster__isnull=False),
+                name="contratti_wbs_cluster_se_di_cluster",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.codice_wbs} — {self.descrizione}"
+
+    @property
+    def a_progetto(self) -> bool:
+        return self.tipo == self.Tipo.PROGETTO
 
 
 class ContoCoge(models.Model):
@@ -382,12 +405,14 @@ class Fabbisogno(Archiviabile):
 
     # Rinnovi previsti con classificazione diversa dall'ultimo contratto (es. nato CAPEX
     # su WBS, rinnovi in OPEX): dati decisi, il previsto li usa al posto di quelli copiati.
+    # Classificazione del previsto manuale (fabbisogno nuovo, senza contratti). Per i rinnovi
+    # di un contratto la classificazione è sulle voci (F9.2).
     natura_previsti = models.CharField(
-        "natura dei rinnovi previsti",
+        "natura del previsto",
         max_length=5,
         choices=Natura.choices,
         blank=True,
-        help_text="Vuoto: come l'ultimo contratto (per un fabbisogno nuovo: OPEX).",
+        help_text="Vuoto: OPEX.",
     )
     conto_previsti = models.ForeignKey(
         ContoCoge,
@@ -395,8 +420,16 @@ class Fabbisogno(Archiviabile):
         null=True,
         blank=True,
         related_name="+",
-        verbose_name="conto dei rinnovi previsti",
-        help_text="Vuoto: il conto di ogni voce dell'ultimo contratto.",
+        verbose_name="conto del previsto",
+    )
+    wbs_previsti = models.ForeignKey(
+        WBS,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="WBS del previsto",
+        help_text="Obbligatoria se il previsto è CAPEX.",
     )
     history = HistoricalRecords()
 
@@ -484,14 +517,6 @@ class Contratto(Archiviabile):
         "preavviso di disdetta (giorni)", null=True, blank=True
     )
 
-    finanziamento = models.CharField(
-        max_length=20, choices=Finanziamento.choices, default=Finanziamento.ORDINARIO
-    )
-    progetto = models.ForeignKey(
-        Progetto, on_delete=models.PROTECT, null=True, blank=True, related_name="contratti"
-    )
-    natura = models.CharField(max_length=5, choices=Natura.choices, default=Natura.OPEX)
-
     link_documenti = HttpsURLField("link ai documenti", max_length=500, blank=True)
     note = models.TextField(blank=True)
     # Chiave stabile della riga Excel di provenienza: rende l'import idempotente.
@@ -510,11 +535,6 @@ class Contratto(Archiviabile):
             ),
             models.CheckConstraint(
                 condition=~Q(predecessore=F("id")), name="contratti_contratto_non_precede_se"
-            ),
-            models.CheckConstraint(
-                condition=Q(finanziamento="ordinario", progetto__isnull=True)
-                | Q(finanziamento="finanziato", progetto__isnull=False),
-                name="contratti_contratto_progetto_se_finanziato",
             ),
             models.CheckConstraint(
                 condition=Q(tacito_rinnovo=False) | Q(preavviso_disdetta_giorni__isnull=False),
@@ -536,6 +556,28 @@ class Contratto(Archiviabile):
         from django.urls import reverse
 
         return reverse("contratti:contratto", args=[self.pk])
+
+    MISTA = "OPEX e CAPEX"
+
+    def _voci_attive(self):
+        # .all() e filtro in Python: con le voci già caricate (prefetch) nessuna query.
+        return [v for v in self.voci.all() if not v.archiviato]
+
+    @property
+    def natura(self) -> str:
+        """Si ricava dalle voci (F9.2): OPEX, CAPEX, oppure "OPEX e CAPEX" se miste."""
+        nature = {v.natura for v in self._voci_attive()}
+        if len(nature) > 1:
+            return self.MISTA
+        return nature.pop() if nature else Natura.OPEX
+
+    @property
+    def finanziamento(self) -> str:
+        """Finanziato se almeno una voce è su una WBS a progetto."""
+        for v in self._voci_attive():
+            if v.wbs_id and v.wbs.tipo == WBS.Tipo.PROGETTO:
+                return self.Finanziamento.FINANZIATO
+        return self.Finanziamento.ORDINARIO
 
     def clean(self):
         super().clean()
@@ -627,7 +669,32 @@ class VoceContratto(Archiviabile):
     # Codice come arrivato dall'import, anche se non è nel piano dei conti (TC-08).
     codice_conto_importato = models.CharField(max_length=20, blank=True)
     centro_costo = models.CharField("centro di costo", max_length=20, blank=True)
-    wbs = models.CharField("WBS", max_length=40, blank=True)
+    # F9.2: natura e WBS sono della voce (in SAP ogni posizione ha la sua imputazione):
+    # un contratto può avere quote OPEX e quote CAPEX. CAPEX ⇔ WBS.
+    natura = models.CharField(max_length=5, choices=Natura.choices, default=Natura.OPEX)
+    wbs = models.ForeignKey(
+        WBS, on_delete=models.PROTECT, null=True, blank=True, related_name="voci",
+        verbose_name="WBS",
+    )  # fmt: skip
+    # Codice WBS come arrivato dall'import o scritto a mano prima di F9.2.
+    codice_wbs_importato = models.CharField("WBS (testo importato)", max_length=40, blank=True)
+    # Classificazione dei rinnovi previsti, se diversa da questa voce (es. nata CAPEX su WBS,
+    # rinnovi in OPEX). Dati decisi: il previsto li usa al posto di quelli della voce.
+    natura_rinnovi = models.CharField(
+        "natura nei rinnovi",
+        max_length=5,
+        choices=Natura.choices,
+        blank=True,
+        help_text="Vuoto: come questa voce.",
+    )
+    conto_rinnovi = models.ForeignKey(
+        ContoCoge, on_delete=models.PROTECT, null=True, blank=True, related_name="+",
+        verbose_name="conto nei rinnovi", help_text="Vuoto: il conto di questa voce.",
+    )  # fmt: skip
+    wbs_rinnovi = models.ForeignKey(
+        WBS, on_delete=models.PROTECT, null=True, blank=True, related_name="+",
+        verbose_name="WBS nei rinnovi", help_text="Vuoto: la WBS di questa voce.",
+    )  # fmt: skip
     importo_fisso = importo("importo fisso (imponibile)", default=0)
     massimale_variabile = importo("massimale variabile", default=0)
     stima_consumo_pct = percentuale("stima di consumo (%)", null=True, blank=True)

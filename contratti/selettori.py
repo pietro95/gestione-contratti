@@ -45,10 +45,12 @@ def _stato_temporale(contratto, fine, oggi) -> str:
 def contratti_base():
     return (
         m.Contratto.objects.select_related(
-            "fabbisogno", "fabbisogno__categoria", "fornitore", "procedura", "progetto"
+            "fabbisogno", "fabbisogno__categoria", "fabbisogno__cluster", "fornitore", "procedura"
         )
         .prefetch_related(
             "proroghe",
+            # Natura e finanziamento del contratto si ricavano dalle voci.
+            Prefetch("voci", queryset=m.VoceContratto.objects.select_related("wbs")),
             Prefetch("stati_pratica", queryset=m.StatoPratica.objects.order_by("-data", "-id")),
         )
         .annotate(
