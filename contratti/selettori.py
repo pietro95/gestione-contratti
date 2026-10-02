@@ -3,7 +3,7 @@
 import datetime
 from dataclasses import dataclass
 
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, F, Prefetch, Q
 
 from contratti import adapters
 from contratti import models as m
@@ -166,3 +166,22 @@ def cruscotto(oggi: datetime.date, filtri: dict) -> dict[Alert, list[RigaContrat
     for righe in gruppi.values():
         righe.sort(key=lambda r: (r.data_limite or datetime.date.max))
     return gruppi
+
+
+def voci_piano_da_verificare():
+    """Voci attive senza piano di fatturazione reale: il loro fatturato è un pro-rata.
+
+    Le più pesanti prima (fisso + massimale): sono quelle che spostano di più il budget.
+    """
+    return (
+        m.VoceContratto.objects.filter(
+            archiviato=False, contratto__archiviato=False, contratto__fabbisogno__archiviato=False
+        )
+        .filter(
+            Q(piano_fatturazione__isnull=True)
+            | Q(piano_fatturazione__modalita=m.ModalitaFatturazione.DA_VERIFICARE)
+        )
+        .select_related("contratto__fabbisogno", "contratto__fornitore", "piano_fatturazione")
+        .annotate(peso=F("importo_fisso") + F("massimale_variabile"))
+        .order_by("-peso", "contratto__fabbisogno__descrizione", "pk")
+    )

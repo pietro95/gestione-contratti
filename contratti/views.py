@@ -622,6 +622,8 @@ def voce_modifica(request, contratto_pk, pk=None):
             quote.instance = voce_salvata
             quote.save()
         messages.success(request, "Voce salvata. Genera lo scadenzario per salvare le rate.")
+        if request.GET.get("ritorno") == "piani":
+            return redirect("contratti:piani_da_verificare")
         return redirect("contratti:contratto", pk=contratto.pk)
     return render(
         request,
@@ -917,6 +919,21 @@ def fornitore_modifica(request, pk=None):
 
 
 # --- Proposte dell'import ------------------------------------------------------------
+
+
+@login_required
+def piani_da_verificare(request):
+    """Elenco di lavoro: voci con piano `Da verificare`, il cui fatturato è un pro-rata."""
+    voci = list(selettori.voci_piano_da_verificare())
+    return render(
+        request,
+        "contratti/piani_da_verificare.html",
+        {
+            "voci": voci,
+            "totale": sum((v.peso for v in voci), Decimal("0.00")),
+            "puo_modificare": role_of(request.user) in ("Admin", "Editor"),
+        },
+    )
 
 
 @login_required

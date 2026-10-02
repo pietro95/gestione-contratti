@@ -115,3 +115,26 @@ def test_id_oltre_mille_non_formattati_con_il_separatore(editor, dati):
     assert f'value="{fornitore.pk}"' in html
     html = editor.get(reverse("contratti:fabbisogno", args=[fab.pk])).content.decode()
     assert "?fabbisogno=23456" in html
+
+
+def test_piani_da_verificare_elenca_le_voci_senza_piano_reale(editor, dati):
+    from decimal import Decimal
+
+    from contratti import models as m
+    from tests import factories as f
+
+    c = dati["contratto"]
+    pesante = f.voce(c, descrizione="Voce pesante", importo_fisso=Decimal("90000.00"))
+    f.piano(pesante, modalita="da_verificare", periodicita="")
+    f.voce(c, descrizione="Voce senza piano", importo_fisso=Decimal("10.00"))
+    url = reverse("contratti:piani_da_verificare")
+    html = editor.get(url).content.decode()
+    assert "Voce pesante" in html and "Voce senza piano" in html
+    assert html.index("Voce pesante") < html.index("Voce senza piano")
+    assert "Canone" not in html.split('id="piani"')[1]  # la voce con piano reale non c'è
+    # Salvando il piano dall'elenco si torna all'elenco.
+    modifica = reverse("contratti:voce_modifica", args=[c.pk, pesante.pk]) + "?ritorno=piani"
+    assert modifica.replace("&", "&amp;") in html or modifica in html
+    risposta = editor.get(url)
+    assert risposta.context["piani_da_verificare"] == 2
+    assert m.VoceContratto.objects.count() == 3

@@ -39,6 +39,7 @@ urlpatterns = [
     path("fornitori/nuovo/", views.fornitore_modifica, name="fornitore_nuovo"),
     path("fornitori/<int:pk>/", views.fornitore_dettaglio, name="fornitore"),
     path("fornitori/<int:pk>/modifica/", views.fornitore_modifica, name="fornitore_modifica"),
+    path("piani-da-verificare/", views.piani_da_verificare, name="piani_da_verificare"),
     path("proposte/", views.proposte_elenco, name="proposte"),
     path(
         "proposte/<str:tipo>/<int:pk>/<str:azione>/",
