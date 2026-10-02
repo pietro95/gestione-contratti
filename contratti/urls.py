@@ -1,6 +1,6 @@
 from django.urls import path
 
-from contratti import views
+from contratti import views, views_import
 
 app_name = "contratti"
 
@@ -40,6 +40,23 @@ urlpatterns = [
     path("fornitori/<int:pk>/", views.fornitore_dettaglio, name="fornitore"),
     path("fornitori/<int:pk>/modifica/", views.fornitore_modifica, name="fornitore_modifica"),
     path("piani-da-verificare/", views.piani_da_verificare, name="piani_da_verificare"),
+    path("import/", views_import.importazioni, name="importazioni"),
+    path("import/carica/<str:tipo>/", views_import.importazione_carica, name="importazione_carica"),
+    path(
+        "import/modello/<str:tipo>/",
+        views_import.importazione_modello,
+        name="importazione_modello",
+    ),
+    path("import/<int:pk>/", views_import.importazione, name="importazione"),
+    path(
+        "import/<int:pk>/conferma/",
+        views_import.importazione_conferma,
+        name="importazione_conferma",
+    ),
+    path(
+        "import/<int:pk>/annulla/", views_import.importazione_annulla, name="importazione_annulla"
+    ),
+    path("import/<int:pk>/report/", views_import.importazione_report, name="importazione_report"),
     path("proposte/", views.proposte_elenco, name="proposte"),
     path(
         "proposte/<str:tipo>/<int:pk>/<str:azione>/",

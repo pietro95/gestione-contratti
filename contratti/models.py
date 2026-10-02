@@ -870,3 +870,58 @@ class PropostaPredecessore(models.Model):
 
     def __str__(self):
         return self.motivazione
+
+
+# ---------------------------------------------------------------------------
+# Import da interfaccia (F9.1): ogni caricamento resta registrato
+# ---------------------------------------------------------------------------
+
+
+class Importazione(models.Model):
+    """File caricato dall'interfaccia: anteprima (nessuna scrittura), poi conferma.
+
+    Il file resta nel database con l'esito: chi ha importato cosa, quando e con che
+    risultato. Nessuna cancellazione.
+    """
+
+    class Stato(models.TextChoices):
+        ANTEPRIMA = "anteprima", "In anteprima"
+        CONFERMATA = "confermata", "Importato"
+        ANNULLATA = "annullata", "Annullato"
+        SCADUTA = "scaduta", "Anteprima scaduta"
+        ERRORE = "errore", "File non importabile"
+        COMPLETATA = "completata", "Report pronto"  # tipi senza conferma (quadratura)
+
+    tipo = models.CharField(max_length=30)
+    nome_file = models.CharField(max_length=255)
+    contenuto = models.BinaryField()
+    sha256 = models.CharField(max_length=64)
+    dimensione = models.PositiveIntegerField()
+    opzioni = models.JSONField(default=dict, blank=True)
+    stato = models.CharField(max_length=12, choices=Stato.choices, default=Stato.ANTEPRIMA)
+    # Report serializzato: {"conteggi": {...}, "anomalie": [...], ...}
+    anteprima = models.JSONField(default=dict, blank=True)
+    esito = models.JSONField(default=dict, blank=True)
+    messaggio = models.TextField(blank=True)
+    # Report in XLSX prodotto dall'operazione (es. quadratura).
+    risultato = models.BinaryField(null=True, blank=True)
+    utente = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="importazioni"
+    )
+    caricata_il = models.DateTimeField(auto_now_add=True)
+    confermata_il = models.DateTimeField(null=True, blank=True)
+    confermata_da = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    class Meta:
+        verbose_name = "import"
+        verbose_name_plural = "registro degli import"
+        ordering = ["-caricata_il", "-id"]
+
+    def __str__(self):
+        return f"{self.nome_file} ({self.caricata_il:%d/%m/%Y %H:%M})"

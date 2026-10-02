@@ -35,6 +35,7 @@ def _pagine(dati):
         f"/contratti/{c.pk}/sposta/",
         f"/fabbisogni/{fab.pk}/accorpa/",
         "/piani-da-verificare/",
+        "/import/",
         "/report/budget/?anno=2026",
         "/report/budget/?anno=2026&natura=separate",
         "/report/piano-ordini/?anno=2027",
@@ -204,4 +205,26 @@ def test_sposta_contratto_con_anteprima_accessibile(pagina, dati):
     pagina.wait_for_url(f"{pagina.base}/contratti/{c.pk}/")
     c.refresh_from_db()
     assert c.fabbisogno.descrizione == "Nuovo servizio di prova"
+    assert not pagina.errori, pagina.errori
+
+
+def test_import_date_da_interfaccia(pagina, dati, tmp_path):
+    """F9.1: carico il file, vedo l'anteprima (accessibile), confermo nella finestra modale."""
+    c = dati["contratto"]
+    file = tmp_path / "date.csv"
+    file.write_text("numero_contratto;data_emissione\n5800000001;15/12/2025\n", encoding="utf-8")
+    pagina.goto(f"{pagina.base}/import/")
+    pagina.set_input_files("#id_date_emissione-file", str(file))
+    pagina.click("form[action$='/date_emissione/'] button[type=submit]")
+    expect(pagina.locator("text=Anteprima: nessun dato è stato ancora scritto")).to_be_visible()
+    assert violazioni_axe(pagina) == []
+    c.refresh_from_db()
+    assert c.data_emissione is None
+    pagina.click("button:has-text('Conferma l')")
+    modale = pagina.locator("#modale-conferma")
+    expect(modale).to_be_visible()
+    modale.locator("[data-conferma-ok]").click()
+    expect(pagina.locator(".sottotitolo .stato-verde")).to_have_text("Importato")
+    c.refresh_from_db()
+    assert c.data_emissione == datetime.date(2025, 12, 15)
     assert not pagina.errori, pagina.errori
