@@ -51,7 +51,7 @@ def _sezione(b, criterio, livello) -> dict:
 @login_required
 def budget(request):
     oggi = oggi_richiesta(request)
-    form = FiltriBudgetForm(request.GET, anno_default=oggi.year)
+    form = FiltriBudgetForm(request.GET, anno_default=oggi.year, utente=request.user)
     contesto = {"form": form, "oggi": oggi, "viste": [ETICHETTE_VISTE[v] for v in VISTE]}
     if not form.is_valid():
         return render(request, "reports/budget.html", contesto)
@@ -75,7 +75,7 @@ def budget(request):
 @login_required
 def piano_ordini(request):
     oggi = oggi_richiesta(request)
-    form = FiltriPianoForm(request.GET, anno_default=oggi.year)
+    form = FiltriPianoForm(request.GET, anno_default=oggi.year, utente=request.user)
     contesto = {"form": form, "oggi": oggi}
     if not form.is_valid():
         return render(request, "reports/piano_ordini.html", contesto)
@@ -84,7 +84,7 @@ def piano_ordini(request):
     piano = calcola_piano(
         d["anno"],
         oggi,
-        area=d.get("area") or "",
+        area=form.codici_cluster(),
         categoria=categoria,
         natura=d.get("natura") or "",
     )

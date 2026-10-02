@@ -5,6 +5,7 @@ import datetime
 from contratti import models as m
 from contratti.engine.importi import arrotonda
 from contratti.engine.tipi import Livello
+from contratti.selettori import codici_cluster
 from reports import xlsx
 from reports.budget import (
     ETICHETTE_VISTE,
@@ -28,8 +29,8 @@ def _generato(oggi: datetime.date) -> str:
 def descrivi_filtri(budget: Budget) -> str:
     f = budget.filtri
     parti = [f"Anno {f.anno}", f"natura {f.natura}" if f.natura else "OPEX e CAPEX separati"]
-    if f.area:
-        parti.append(f"cluster {f.area}")
+    if codici := codici_cluster(f.area):
+        parti.append("cluster " + ", ".join(codici))
     if f.conto:
         parti.append(f"conto {m.ContoCoge.objects.filter(pk=f.conto).first()}")
     if f.fornitore:

@@ -19,7 +19,7 @@ from django.views.decorators.http import require_POST
 
 from accounts.permissions import editor_required
 from accounts.roles import ADMIN, role_of
-from contratti import adapters, forms, selettori, servizi
+from contratti import adapters, forms, permessi, selettori, servizi
 from contratti import models as m
 from contratti.engine.budget import valore
 from contratti.engine.scadenzario import genera_rate
@@ -65,6 +65,29 @@ def storico(oggetto) -> list[dict]:
     return list(reversed(voci))
 
 
+# --- Cluster visibili -----------------------------------------------------------------
+
+
+def _cluster_richiesti(request) -> list[str]:
+    """Codici dei cluster da mostrare: di default i propri (F9.2), «tutti» a richiesta."""
+    return permessi.codici_filtro(request.user, request.GET.getlist("area"))
+
+
+def _contesto_cluster(request) -> dict:
+    return {
+        "aree": permessi.scelte_filtro(request.user),
+        "area_scelta": permessi.scelta_filtro(request.user, request.GET.getlist("area")),
+    }
+
+
+def _etichetta_cluster(valore: str) -> str:
+    if valore == permessi.TUTTI:
+        return "Tutti i cluster"
+    if valore == permessi.MIEI:
+        return "I miei cluster"
+    return f"Cluster: {valore}"
+
+
 # --- Cruscotto -------------------------------------------------------------------------
 
 
@@ -74,8 +97,12 @@ def home(request):
     from reports.budget import ETICHETTE_VISTE, NATURE, VISTE, Filtri, calcola_budget
 
     oggi = oggi_richiesta(request)
-    gruppi = selettori.cruscotto(oggi, {})
-    righe = selettori.righe_contratti(selettori.contratti_base().filter(archiviato=False), oggi)
+    codici = permessi.codici_filtro(request.user, [])
+    gruppi = selettori.cruscotto(oggi, {"area": codici})
+    contratti = selettori.contratti_base().filter(archiviato=False)
+    if codici:
+        contratti = contratti.filter(fabbisogno__cluster__codice__in=codici)
+    righe = selettori.righe_contratti(contratti, oggi)
     entro = oggi + datetime.timedelta(days=90)
     prossime = sorted(
         (r for r in righe if r.stato == "attivo" and r.fine and oggi <= r.fine <= entro),
@@ -91,7 +118,7 @@ def home(request):
         # OPEX e CAPEX affiancati, mai sommati.
         per_natura = {
             s.filtri.natura: s.totali()["totale"]
-            for s in calcola_budget(Filtri(anno=oggi.year), oggi).sezioni()
+            for s in calcola_budget(Filtri(anno=oggi.year, area=tuple(codici)), oggi).sezioni()
         }
         budget = {
             "nature": NATURE,
@@ -114,6 +141,7 @@ def home(request):
             "prossime": prossime[:8],
             "prossime_totale": len(prossime),
             "budget": budget,
+            "cluster_propri": permessi.cluster_propri(request.user),
         },
     )
 
@@ -158,7 +186,7 @@ def cerca(request):
 @login_required
 def cruscotto(request):
     oggi = oggi_richiesta(request)
-    filtri = {"area": request.GET.get("area", ""), "categoria": request.GET.get("categoria", "")}
+    filtri = {"area": _cluster_richiesti(request), "categoria": request.GET.get("categoria", "")}
     gruppi = selettori.cruscotto(oggi, filtri)
     return render(
         request,
@@ -175,7 +203,7 @@ def cruscotto(request):
                 (Alert.GIALLO, "In avvicinamento o pratica in corso", gruppi[Alert.GIALLO]),
             ],
             "filtri": filtri,
-            "aree": m.scelte_cluster(),
+            **_contesto_cluster(request),
             "categorie": m.Categoria.objects.all(),
             "proposte_aperte": m.PropostaRaggruppamento.objects.filter(stato="proposta").count()
             + m.PropostaPredecessore.objects.filter(stato="proposta").count(),
@@ -200,8 +228,8 @@ def _filtra_contratti(request, oggi):
             | Q(numero_rda__icontains=q)
             | Q(fornitore__ragione_sociale__icontains=q)
         )
-    if g.get("area"):
-        qs = qs.filter(fabbisogno__cluster__codice=g["area"])
+    if codici := _cluster_richiesti(request):
+        qs = qs.filter(fabbisogno__cluster__codice__in=codici)
     # Finanziato: almeno una voce su WBS a progetto (F9.2).
     su_progetto = Q(voci__archiviato=False, voci__wbs__tipo=m.WBS.Tipo.PROGETTO)
     if g.get("finanziamento") == m.Contratto.Finanziamento.FINANZIATO:
@@ -293,7 +321,7 @@ def contratti_elenco(request):
             g,
             {
                 "q": "Testo",
-                "area": "Cluster",
+                "area": _etichetta_cluster,
                 "stato": lambda v: "Stato: " + dict(STATI_TEMPORALI).get(v, v),
                 "alert": lambda v: "Alert: " + v,
                 "anno": "Attivi nell'anno",
@@ -305,7 +333,7 @@ def contratti_elenco(request):
             },
         ),
         "filtri": request.GET,
-        "aree": m.scelte_cluster(),
+        **_contesto_cluster(request),
         "fornitori": m.Fornitore.objects.filter(archiviato=False),
         "stati": STATI_TEMPORALI,
         "alert": [(a.value, a.value.capitalize()) for a in Alert],
@@ -386,7 +414,9 @@ def contratto_dettaglio(request, pk):
             "storico": storico(contratto),
             "catena": _catena(contratto),
             "previsti": _previsti_dopo(contratto, oggi),
-            "puo_modificare": role_of(request.user) in ("Admin", "Editor"),
+            "puo_modificare": permessi.puo_modificare(
+                request.user, contratto.fabbisogno.cluster_id
+            ),
         },
     )
 
@@ -419,6 +449,7 @@ def _genera_rate(request, voce: m.VoceContratto) -> None:
 def contratto_guidata(request, pk):
     """Ultimo passo del nuovo contratto: le rate generate, voce per voce."""
     contratto = get_object_or_404(m.Contratto, pk=pk)
+    permessi.verifica_oggetto(request.user, contratto)
     voci = (
         contratto.voci.filter(archiviato=False)
         .select_related("piano_fatturazione")
@@ -445,7 +476,7 @@ def contratto_nuovo(request):
     iniziali.setdefault(
         "procedura", m.Procedura.objects.filter(codice="affidamento_diretto").first()
     )
-    form = forms.ContrattoForm(request.POST or None, initial=iniziali)
+    form = forms.ContrattoForm(request.POST or None, initial=iniziali, utente=request.user)
     if request.method == "POST" and form.is_valid():
         contratto = form.save()
         messages.success(
@@ -464,6 +495,7 @@ def contratto_nuovo(request):
 @editor_required
 def contratto_modifica(request, pk):
     contratto = get_object_or_404(m.Contratto, pk=pk)
+    permessi.verifica_oggetto(request.user, contratto)
     form = forms.ContrattoModificaForm(request.POST or None, instance=contratto)
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -491,6 +523,7 @@ def _coppie(valori) -> list[tuple[int, int]]:
 def fabbisogno_doppioni(request, pk):
     """Archivia i contratti registrati due volte nel fabbisogno (si tiene quello con più dati)."""
     f = get_object_or_404(m.Fabbisogno, pk=pk)
+    permessi.verifica_oggetto(request.user, f)
     try:
         n = servizi.unisci_doppioni(f, _coppie(request.POST.getlist("doppioni")))
     except servizi.OperazioneNonAmmessa as exc:
@@ -505,6 +538,7 @@ def fabbisogno_doppioni(request, pk):
 def fabbisogno_collega(request, pk):
     """Ricuce le catene dei rinnovi interrotte (es. dopo un accorpamento)."""
     f = get_object_or_404(m.Fabbisogno, pk=pk)
+    permessi.verifica_oggetto(request.user, f)
     try:
         n = servizi.collega_contratti(f, _coppie(request.POST.getlist("collegamenti")))
     except servizi.OperazioneNonAmmessa as exc:
@@ -518,6 +552,7 @@ def fabbisogno_collega(request, pk):
 def contratto_collega(request, pk):
     """Collega a mano come rinnovo un contratto già registrato nello stesso fabbisogno."""
     contratto = get_object_or_404(m.Contratto.objects.select_related("fabbisogno"), pk=pk)
+    permessi.verifica_oggetto(request.user, contratto)
     candidati = servizi.candidati_rinnovo(contratto)
     if request.method == "POST":
         scelto = next(
@@ -546,6 +581,7 @@ def contratto_collega(request, pk):
 def contratto_scollega(request, pk):
     """Toglie il collegamento al predecessore: il contratto torna inizio di una catena."""
     contratto = get_object_or_404(m.Contratto, pk=pk)
+    permessi.verifica_oggetto(request.user, contratto)
     try:
         predecessore = servizi.scollega_predecessore(contratto)
     except servizi.OperazioneNonAmmessa as exc:
@@ -566,9 +602,13 @@ def _pk_o_none(valore):
 def contratto_sposta(request, pk):
     """Sposta il contratto in un altro fabbisogno: anteprima della catena, poi conferma."""
     contratto = get_object_or_404(m.Contratto.objects.select_related("fabbisogno"), pk=pk)
+    permessi.verifica_oggetto(request.user, contratto)
     successivi = servizi.contratto_e_successivi(contratto)[1:]
     form = forms.SpostaContrattoForm(
-        request.POST or None, contratto=contratto, n_successivi=len(successivi)
+        request.POST or None,
+        contratto=contratto,
+        n_successivi=len(successivi),
+        utente=request.user,
     )
     contesto = {"c": contratto, "form": form, "successivi": successivi}
     if request.method != "POST" or not form.is_valid():
@@ -604,7 +644,8 @@ def contratto_sposta(request, pk):
 def fabbisogno_accorpa(request, pk):
     """Accorpa questo fabbisogno in un altro: anteprima dei collegamenti, poi conferma."""
     origine = get_object_or_404(m.Fabbisogno, pk=pk)
-    form = forms.SceltaFabbisognoForm(request.POST or None, escludi=origine)
+    permessi.verifica_oggetto(request.user, origine)
+    form = forms.SceltaFabbisognoForm(request.POST or None, escludi=origine, utente=request.user)
     contesto = {"f": origine, "form": form}
     if request.method != "POST" or not form.is_valid():
         return render(request, "contratti/accorpa.html", contesto)
@@ -642,6 +683,7 @@ def fabbisogno_accorpa(request, pk):
 def contratto_rinnovo(request, pk):
     """Registra il rinnovo: nuovo contratto precompilato dal predecessore (SPEC §5.3)."""
     predecessore = get_object_or_404(m.Contratto, pk=pk)
+    permessi.verifica_oggetto(request.user, predecessore)
     if m.Contratto.objects.filter(predecessore=predecessore, archiviato=False).exists():
         messages.error(request, "Il contratto ha già un successore registrato.")
         return redirect("contratti:contratto", pk=pk)
@@ -701,6 +743,7 @@ def contratto_rinnovo(request, pk):
 @editor_required
 def proroga_nuova(request, pk):
     contratto = get_object_or_404(m.Contratto, pk=pk)
+    permessi.verifica_oggetto(request.user, contratto)
     form = forms.ProrogaForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         d = form.cleaned_data
@@ -756,6 +799,7 @@ def _voce_form(request, contratto, voce=None):
 @editor_required
 def voce_modifica(request, contratto_pk, pk=None):
     contratto = get_object_or_404(m.Contratto, pk=contratto_pk)
+    permessi.verifica_oggetto(request.user, contratto)
     voce = get_object_or_404(m.VoceContratto, pk=pk, contratto=contratto) if pk else None
     form, piano_form, quote = _voce_form(request, contratto, voce)
     guidata = request.GET.get("guidata") == "1"
@@ -785,6 +829,7 @@ def voce_modifica(request, contratto_pk, pk=None):
 def voce_anteprima(request, contratto_pk, pk=None):
     """Anteprima delle rate dai dati del form, senza salvare (htmx)."""
     contratto = get_object_or_404(m.Contratto, pk=contratto_pk)
+    permessi.verifica_oggetto(request.user, contratto)
     voce = get_object_or_404(m.VoceContratto, pk=pk, contratto=contratto) if pk else None
     form, piano_form, quote = _voce_form(request, contratto, voce)
     contesto = {"rate": None, "errore": None}
@@ -820,6 +865,7 @@ def voce_anteprima(request, contratto_pk, pk=None):
 @require_POST
 def scadenzario_genera(request, pk):
     voce = get_object_or_404(m.VoceContratto, pk=pk)
+    permessi.verifica_oggetto(request.user, voce)
     try:
         rate = servizi.genera_scadenzario(voce)
     except servizi.ScadenzarioBloccato as exc:
@@ -832,6 +878,7 @@ def scadenzario_genera(request, pk):
 @editor_required
 def rata_modifica(request, pk):
     rata = get_object_or_404(m.Rata.objects.select_related("piano__voce__contratto"), pk=pk)
+    permessi.verifica_oggetto(request.user, rata)
     form = forms.RataForm(request.POST or None, instance=rata)
     if request.method == "POST" and form.is_valid():
         try:
@@ -858,6 +905,7 @@ def pratica_avanza(request, tipo, pk):
     if modello is None:
         raise Http404
     oggetto = get_object_or_404(modello, pk=pk)
+    permessi.verifica_oggetto(request.user, oggetto)
     form = forms.PassaggioPraticaForm(request.POST)
     if form.is_valid():
         d = form.cleaned_data
@@ -885,6 +933,8 @@ def archivia(request, tipo, pk):
         raise Http404
     modello, url_dettaglio = ARCHIVIABILI[tipo]
     oggetto = get_object_or_404(modello, pk=pk)
+    if tipo != "fornitore":  # i fornitori sono in comune
+        permessi.verifica_oggetto(request.user, oggetto)
     ritorno = (
         reverse(url_dettaglio, args=[pk])
         if url_dettaglio
@@ -913,8 +963,8 @@ def fabbisogni_elenco(request):
         qs = qs.filter(
             Q(descrizione__icontains=q) | Q(referente__icontains=q) | Q(note__icontains=q)
         )
-    if g.get("area"):
-        qs = qs.filter(cluster__codice=g["area"])
+    if codici := _cluster_richiesti(request):
+        qs = qs.filter(cluster__codice__in=codici)
     if g.get("decisione"):
         qs = qs.filter(decisione=g["decisione"])
     if g.get("categoria"):
@@ -941,14 +991,14 @@ def fabbisogni_elenco(request):
                 g,
                 {
                     "q": "Testo",
-                    "area": "Cluster",
+                    "area": _etichetta_cluster,
                     "decisione": lambda v: "Decisione: "
                     + dict(m.Fabbisogno.Decisione.choices).get(v, v),
                     "categoria": lambda v: _nome(m.Categoria, v),
                     "archiviati": lambda v: "Con gli archiviati",
                 },
             ),
-            "aree": m.scelte_cluster(),
+            **_contesto_cluster(request),
             "decisioni": m.Fabbisogno.Decisione.choices,
             "categorie": m.Categoria.objects.all(),
         },
@@ -979,7 +1029,7 @@ def fabbisogno_dettaglio(request, pk):
             "pratica": f.stati_pratica.order_by("-data", "-id"),
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
             "storico": storico(f),
-            "puo_modificare": role_of(request.user) in ("Admin", "Editor"),
+            "puo_modificare": permessi.puo_modificare(request.user, f.cluster_id),
         },
     )
 
@@ -987,10 +1037,14 @@ def fabbisogno_dettaglio(request, pk):
 @editor_required
 def fabbisogno_modifica(request, pk=None):
     f = get_object_or_404(m.Fabbisogno, pk=pk) if pk else None
+    if f is not None:
+        permessi.verifica_oggetto(request.user, f)
     iniziali = (
         {} if f else {"categoria": m.Categoria.objects.filter(nome="Da classificare").first()}
     )
-    form = forms.FabbisognoForm(request.POST or None, instance=f, initial=iniziali)
+    form = forms.FabbisognoForm(
+        request.POST or None, instance=f, initial=iniziali, utente=request.user
+    )
     if request.method == "POST" and form.is_valid():
         f = form.save()
         messages.success(request, "Fabbisogno salvato.")
@@ -1114,6 +1168,11 @@ def proposta_azione(request, tipo, pk, azione):
     if tipo not in modelli or azione not in ("conferma", "scarta"):
         raise Http404
     proposta = get_object_or_404(modelli[tipo], pk=pk)
+    if tipo == "raggruppamento":
+        coinvolti = proposta.contratti.select_related("fabbisogno")
+    else:
+        coinvolti = [proposta.predecessore, proposta.successore]
+    permessi.verifica(request.user, *{c.fabbisogno.cluster_id for c in coinvolti})
     funzione = {
         ("raggruppamento", "conferma"): proposte_import.conferma_raggruppamento,
         ("predecessore", "conferma"): proposte_import.conferma_predecessore,

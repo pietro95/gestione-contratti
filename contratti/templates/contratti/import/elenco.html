@@ -9,6 +9,7 @@
     <div class="card-header d-flex justify-content-between align-items-center"><span>{{ tipo.titolo }}</span>{% if tipo.modello %}<a class="small" href="{% url 'contratti:importazione_modello' tipo.codice %}"><i class="bi bi-download" aria-hidden="true"></i> Scarica il modello</a>{% endif %}</div>
     <div class="card-body">
       <p class="small text-body-secondary">{{ tipo.descrizione }}</p>
+      {% for n in tipo.note %}<p class="small text-body-secondary">{{ n }}</p>{% endfor %}
       <form method="post" enctype="multipart/form-data" action="{% url 'contratti:importazione_carica' tipo.codice %}">
         {% csrf_token %}
         <div class="row g-2 align-items-end">

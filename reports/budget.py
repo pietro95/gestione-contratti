@@ -16,6 +16,7 @@ from contratti import models as m
 from contratti.engine import budget
 from contratti.engine.importi import ZERO
 from contratti.engine.tipi import Esito, Livello, Voce
+from contratti.selettori import codici_cluster
 
 # Il fatturato (rate per data fattura) è il budget di riferimento: prima colonna.
 # "impegno" resta il nome interno della vista (SPEC §5.2, TEST_CASES); in pagina è "Ordinato".
@@ -57,7 +58,7 @@ def _somma(a: Somme, b: Somme) -> None:
 @dataclass(frozen=True)
 class Filtri:
     anno: int
-    area: str = ""
+    area: str | tuple[str, ...] = ""  # codice di cluster o tupla di codici; vuoto = tutti
     conto: int | None = None
     fornitore: int | None = None
     progetti: str = ""  # voci su WBS a progetto: "" escluse, "includi", "solo"
@@ -230,8 +231,8 @@ def orizzonte_report(anno: int, oggi: datetime.date) -> datetime.date:
 
 def _contratti(filtri: Filtri):
     qs = m.Contratto.objects.filter(archiviato=False, fabbisogno__archiviato=False)
-    if filtri.area:
-        qs = qs.filter(fabbisogno__cluster__codice=filtri.area)
+    if codici := codici_cluster(filtri.area):
+        qs = qs.filter(fabbisogno__cluster__codice__in=codici)
     if filtri.fornitore:
         qs = qs.filter(fornitore_id=filtri.fornitore)
     return qs.select_related("fabbisogno__cluster", "fornitore", "procedura").prefetch_related(
@@ -296,8 +297,8 @@ def _voci_previste(filtri: Filtri, oggi: datetime.date):
         )
         .prefetch_related(*adapters.PREFETCH_FABBISOGNO)
     )
-    if filtri.area:
-        fabbisogni = fabbisogni.filter(cluster__codice=filtri.area)
+    if codici := codici_cluster(filtri.area):
+        fabbisogni = fabbisogni.filter(cluster__codice__in=codici)
     voci: list[VoceBudget] = []
     mancanti: list[RinnovoMancante] = []
     for f in fabbisogni.order_by("pk"):

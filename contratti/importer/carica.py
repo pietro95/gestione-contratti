@@ -97,7 +97,8 @@ class _Caricamento:
         self.oggi = oggi
         self.procedura = m.Procedura.objects.get(codice="da_verificare")
         self.categoria = m.Categoria.objects.get(nome="Da classificare")
-        self.conti = {c.codice: c for c in m.ContoCoge.objects.order_by("valido_dal")}
+        conti = m.ContoCoge.objects.select_related("cluster").order_by("valido_dal")
+        self.conti = {c.codice: c for c in conti}
         self.fornitori = {chiave_nome(f.ragione_sociale): f for f in m.Fornitore.objects.all()}
         self.creati_ora: set[str] = set()
         self._wbs: m.WBS | None = None  # WBS del contratto in corso di creazione
@@ -267,6 +268,12 @@ class _Caricamento:
 
     def _voce(self, contratto: m.Contratto, r: Riga, chiave: str):
         conto = self.conti.get(r.conto) if r.conto else None
+        if conto is not None and conto.cluster_id and conto.cluster_id != self.cluster.pk:
+            self.report.anomalia(
+                r.foglio, r.numero, "CONTO_ALTRO_CLUSTER", "conto", r.conto,
+                f"Il conto è del cluster {conto.cluster.codice}, non di {self.cluster.codice}: "
+                "verifica il cluster del contratto o il conto.",
+            )  # fmt: skip
         voce = m.VoceContratto.objects.create(
             contratto=contratto,
             descrizione=r.descrizione or DESCRIZIONE_ASSENTE,

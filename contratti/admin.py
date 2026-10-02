@@ -107,9 +107,23 @@ class WBSAdmin(ArchiviabileAdmin):
 
 @admin.register(m.ContoCoge)
 class ContoCogeAdmin(BaseAdmin):
-    list_display = ("codice", "descrizione", "valido_dal", "valido_al", "sostituito_da")
+    list_display = ("codice", "descrizione", "cluster", "valido_dal", "valido_al", "sostituito_da")
+    list_filter = ("cluster",)
     search_fields = ("codice", "descrizione")
-    autocomplete_fields = ("sostituito_da",)
+    autocomplete_fields = ("sostituito_da", "cluster")
+
+
+@admin.register(m.AssegnazioneCluster)
+class AssegnazioneClusterAdmin(ArchiviabileAdmin):
+    """Responsabili: l'Editor modifica solo i cluster assegnati (cluster vuoto = TUTTI).
+
+    Per togliere un'assegnazione si archivia.
+    """
+
+    list_display = ("username", "cluster", "note", "archiviato")
+    list_filter = ("cluster", "archiviato")
+    search_fields = ("username", "note")
+    autocomplete_fields = ("cluster",)
 
 
 # --- Dominio ---------------------------------------------------------------

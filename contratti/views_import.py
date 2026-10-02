@@ -21,7 +21,7 @@ class CaricaForm(FormBase):
     file = dj_forms.FileField(label="File")
     area = dj_forms.ChoiceField(choices=[], required=False, label="Cluster")
 
-    def __init__(self, *args, tipo: imp_svc.Tipo, **kwargs):
+    def __init__(self, *args, tipo: imp_svc.Tipo, utente=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.tipo = tipo
         self.fields["file"].widget.attrs["accept"] = ",".join(tipo.estensioni)
@@ -32,7 +32,7 @@ class CaricaForm(FormBase):
         )
         if tipo.chiede_area:
             self.fields["area"].required = True
-            self.fields["area"].choices = m.scelte_cluster()
+            self.fields["area"].choices = imp_svc.cluster_importabili(tipo, utente)
         else:
             del self.fields["area"]
 
@@ -52,7 +52,7 @@ def importazioni(request):
         request,
         "contratti/import/elenco.html",
         {
-            "schede": [(t, CaricaForm(tipo=t, prefix=t.codice)) for t in tipi],
+            "schede": [(t, CaricaForm(tipo=t, prefix=t.codice, utente=request.user)) for t in tipi],
             "registro": [
                 (imp, imp_svc.TIPI[imp.tipo].titolo if imp.tipo in imp_svc.TIPI else imp.tipo)
                 for imp in registro[:PER_PAGINA]
@@ -67,7 +67,9 @@ def importazione_carica(request, tipo):
     tipo = _tipo(tipo)
     if not imp_svc.puo_usare(request.user, tipo):
         raise PermissionDenied
-    form = CaricaForm(request.POST, request.FILES, tipo=tipo, prefix=tipo.codice)
+    form = CaricaForm(
+        request.POST, request.FILES, tipo=tipo, prefix=tipo.codice, utente=request.user
+    )
     if not form.is_valid():
         for errori in form.errors.values():
             for e in errori:
@@ -168,4 +170,5 @@ def importazione_modello(request, tipo):
     tipo = _tipo(tipo)
     if tipo.modello is None or not imp_svc.puo_usare(request.user, tipo):
         raise Http404
-    return xlsx.risposta(tipo.modello(), f"Modello_import_{tipo.codice}.xlsx")
+    nome = tipo.nome_modello or f"Modello_import_{tipo.codice}.xlsx"
+    return xlsx.risposta(tipo.modello(), nome)

@@ -5,6 +5,7 @@ from django.db.models import Q
 from django.forms import inlineformset_factory
 
 from contratti import models as m
+from contratti import permessi
 
 # Date scritte gg/mm/aaaa (calendario flatpickr nel browser); si accetta anche aaaa-mm-gg.
 FORMATI_DATA = ["%d/%m/%Y", "%Y-%m-%d", "%d/%m/%y"]
@@ -188,9 +189,12 @@ class FabbisognoForm(ModelFormBootstrap):
             "wbs_previsti",
         ]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, utente=None, **kwargs):
         super().__init__(*args, **kwargs)
-        _solo_attivi(self, "cluster", m.Cluster.objects.filter(archiviato=False))
+        cluster = m.Cluster.objects.filter(archiviato=False)
+        if utente is not None and (ammessi := permessi.cluster_modificabili(utente)) is not None:
+            cluster = cluster.filter(pk__in=ammessi)  # solo i propri cluster (F9.2)
+        _solo_attivi(self, "cluster", cluster)
         _solo_attivi(self, "categoria", m.Categoria.objects.filter(attiva=True))
         _solo_attivi(self, "impianto", m.Impianto.objects.filter(archiviato=False))
         _solo_attivi(self, "previsto_procedura", m.Procedura.objects.filter(attiva=True))
@@ -261,9 +265,12 @@ class ContrattoForm(ModelFormBootstrap):
         model = m.Contratto
         fields = ["fabbisogno", *CAMPI_CONTRATTO]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, utente=None, **kwargs):
         super().__init__(*args, **kwargs)
-        _solo_attivi(self, "fabbisogno", m.Fabbisogno.objects.filter(archiviato=False))
+        fabbisogni = m.Fabbisogno.objects.filter(archiviato=False)
+        if utente is not None:
+            fabbisogni = permessi.fabbisogni_modificabili(utente, fabbisogni)
+        _solo_attivi(self, "fabbisogno", fabbisogni)
         _solo_attivi(self, "fornitore", m.Fornitore.objects.filter(archiviato=False))
         _solo_attivi(self, "procedura", m.Procedura.objects.filter(attiva=True))
 
@@ -282,12 +289,14 @@ class SceltaFabbisognoForm(FormBase):
         queryset=m.Fabbisogno.objects.none(), label="Fabbisogno di destinazione"
     )
 
-    def __init__(self, *args, escludi: m.Fabbisogno, **kwargs):
+    def __init__(self, *args, escludi: m.Fabbisogno, utente=None, **kwargs):
         super().__init__(*args, **kwargs)
         campo = self.fields["destinazione"]
+        destinazioni = m.Fabbisogno.objects.filter(archiviato=False)
+        if utente is not None:  # tra cluster diversi serve il permesso su entrambi
+            destinazioni = permessi.fabbisogni_modificabili(utente, destinazioni)
         campo.queryset = (
-            m.Fabbisogno.objects.filter(archiviato=False)
-            .exclude(pk=escludi.pk)
+            destinazioni.exclude(pk=escludi.pk)
             .select_related("categoria")
             .order_by("cluster__codice", "descrizione")
         )
@@ -297,8 +306,8 @@ class SceltaFabbisognoForm(FormBase):
 class SpostaContrattoForm(SceltaFabbisognoForm):
     con_successivi = forms.BooleanField(required=False)
 
-    def __init__(self, *args, contratto: m.Contratto, n_successivi: int, **kwargs):
-        super().__init__(*args, escludi=contratto.fabbisogno, **kwargs)
+    def __init__(self, *args, contratto: m.Contratto, n_successivi: int, utente=None, **kwargs):
+        super().__init__(*args, escludi=contratto.fabbisogno, utente=utente, **kwargs)
         if n_successivi:
             self.fields[
                 "con_successivi"
@@ -395,6 +404,12 @@ class VoceForm(ModelFormBootstrap):
         dati = super().clean()
         natura = dati.get("natura") or m.Natura.OPEX
         verifica_natura_wbs(self, natura, "wbs", self.cluster)
+        for campo in ("conto", "conto_rinnovi"):
+            conto = dati.get(campo)
+            if conto and conto.cluster_id and self.cluster and conto.cluster_id != self.cluster.pk:
+                self.add_error(
+                    campo, f"Il conto {conto.codice} è del cluster {conto.cluster.codice}."
+                )
         rinnovi = dati.get("natura_rinnovi") or natura
         wbs_rinnovi = dati.get("wbs_rinnovi")
         if rinnovi == m.Natura.OPEX and wbs_rinnovi is not None:

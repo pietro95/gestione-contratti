@@ -18,15 +18,17 @@ from pathlib import Path
 
 from django.db import transaction
 from django.utils import timezone
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill
 
 from accounts.roles import ADMIN, WRITE_ROLES, role_of
 from contratti import models as m
+from contratti import permessi
 from contratti.importer.carica import importa as importa_excel
 from contratti.importer.conti import importa_conti
 from contratti.importer.date_emissione import importa_date
 from contratti.importer.report import Report
+from contratti.importer.struttura import importa_struttura
 from contratti.importer.tabelle import FileNonValido
 
 log = logging.getLogger(__name__)
@@ -57,6 +59,7 @@ class Tipo:
     chiede_area: bool = False
     modello: Callable[[], Workbook] | None = None
     note: list[str] = field(default_factory=list)
+    nome_modello: str = ""
 
 
 def serializza(report: Report) -> dict:
@@ -77,11 +80,19 @@ def _contratti(percorso, dry_run, opzioni):
 
 
 def _date(percorso, dry_run, opzioni):
-    return serializza(importa_date(percorso, dry_run=dry_run)), None
+    ammessi = opzioni.get("cluster_ammessi")  # None: tutti i cluster
+    contratti = None
+    if ammessi is not None:
+        contratti = m.Contratto.objects.filter(fabbisogno__cluster_id__in=ammessi)
+    return serializza(importa_date(percorso, dry_run=dry_run, contratti=contratti)), None
 
 
 def _conti(percorso, dry_run, opzioni):
     return serializza(importa_conti(percorso, dry_run=dry_run)), None
+
+
+def _struttura(percorso, dry_run, opzioni):
+    return serializza(importa_struttura(percorso, dry_run=dry_run)), None
 
 
 def _quadratura(percorso, dry_run, opzioni):
@@ -124,6 +135,19 @@ def _modello(fogli: list[tuple[str, list[str], set[str]]], istruzioni: list[str]
     for i, testo in enumerate(istruzioni, start=1):
         ws.cell(i, 1, testo).font = Font(name="Arial", bold=i == 1)
     return wb
+
+
+MODELLO_STRUTTURA = (
+    Path(__file__).parent
+    / "importer"
+    / "modelli"
+    / "2026.10.02_PFE_Modello_import_struttura_ICTDINN_Rev00.xlsx"
+)
+
+
+def modello_struttura() -> Workbook:
+    """Il modello approvato da Pietro (Rev00), con istruzioni e colonna di controllo."""
+    return load_workbook(MODELLO_STRUTTURA)
 
 
 def modello_date() -> Workbook:
@@ -227,6 +251,7 @@ TIPI: dict[str, Tipo] = {
                 "invariati": "Già uguali",
                 "discordanti": "Discordanti (non modificate)",
                 "non_trovati": "Numeri non trovati",
+                "fuori_cluster": "Di altri cluster (non modificati)",
             },
             modello=modello_date,
         ),
@@ -239,6 +264,31 @@ TIPI: dict[str, Tipo] = {
             {"creati": "Conti creati", "aggiornati": "Aggiornati", "invariati": "Invariati"},
             solo_admin=True,
             modello=modello_conti,
+        ),
+        Tipo(
+            "struttura",
+            "Struttura ICTDINN",
+            "Cluster, responsabili, piano dei conti e WBS. Configurazione: solo Admin.",
+            (".xlsx",),
+            _struttura,
+            {
+                "cluster_creati": "Cluster creati",
+                "cluster_aggiornati": "Cluster aggiornati",
+                "assegnazioni_create": "Responsabili aggiunti",
+                "assegnazioni_tolte": "Responsabili tolti",
+                "conti_creati": "Conti creati",
+                "conti_aggiornati": "Conti aggiornati",
+                "wbs_create": "WBS create",
+                "wbs_aggiornate": "WBS aggiornate",
+                "voci_collegate": "Voci collegate alla WBS",
+            },
+            solo_admin=True,
+            modello=modello_struttura,
+            nome_modello=MODELLO_STRUTTURA.name,
+            note=[
+                "Il foglio Responsabili, se compilato, è l'elenco completo: chi non c'è perde "
+                "le assegnazioni. Conti e WBS non si cancellano mai.",
+            ],
         ),
         Tipo(
             "quadratura",
@@ -262,6 +312,18 @@ def tipi_per(utente) -> list[Tipo]:
     if ruolo not in WRITE_ROLES:
         return []
     return [t for t in TIPI.values() if ruolo == ADMIN or not t.solo_admin]
+
+
+def cluster_importabili(tipo: Tipo, utente) -> list[tuple[str, str]]:
+    """Cluster scelti all'import: per i contratti solo quelli dove l'utente modifica (F9.2)."""
+    scelte = m.scelte_cluster()
+    if tipo.codice != "contratti" or utente is None:
+        return scelte
+    ammessi = permessi.cluster_modificabili(utente)
+    if ammessi is None:
+        return scelte
+    codici = set(m.Cluster.objects.filter(pk__in=ammessi).values_list("codice", flat=True))
+    return [(c, n) for c, n in scelte if c in codici]
 
 
 def puo_usare(utente, tipo: Tipo) -> bool:
@@ -304,6 +366,13 @@ def carica(tipo: Tipo, file, opzioni: dict, utente) -> m.Importazione:
     """Registra il file e ne calcola l'anteprima (o il report, per i tipi senza conferma)."""
     if not puo_usare(utente, tipo):
         raise ImportNonAmmesso("Questo import non è disponibile per il tuo ruolo.")
+    if tipo.codice == "contratti" and opzioni.get("area") not in dict(
+        cluster_importabili(tipo, utente)
+    ):
+        raise ImportNonAmmesso("Puoi importare contratti solo nei tuoi cluster.")
+    if tipo.codice == "date_emissione":
+        ammessi = permessi.cluster_modificabili(utente)
+        opzioni = {**opzioni, "cluster_ammessi": None if ammessi is None else sorted(ammessi)}
     nome = file.name or "file"
     if Path(nome).suffix.lower() not in tipo.estensioni:
         raise ImportNonAmmesso(f"Formato non ammesso: servono file {', '.join(tipo.estensioni)}.")

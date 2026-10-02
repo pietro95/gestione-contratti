@@ -36,7 +36,7 @@ def importa_date(percorso: str | Path, *, dry_run: bool = False, contratti=None)
         raise tabelle.FileNonValido("Il file non contiene righe.")
     col_numero = tabelle.colonna(tabella, "numero_contratto", ALIAS_NUMERO)
     col_data = tabelle.colonna(tabella, "data_emissione", ALIAS_DATA)
-    for chiave in ("compilati", "invariati", "discordanti", "non_trovati"):
+    for chiave in ("compilati", "invariati", "discordanti", "non_trovati", "fuori_cluster"):
         report.conteggi[chiave] = 0
 
     # Prima si legge tutto il file: righe illeggibili e date contrastanti per lo stesso
@@ -80,6 +80,11 @@ def importa_date(percorso: str | Path, *, dry_run: bool = False, contratti=None)
 
 def _applica(report: Report, numero: str, data: datetime.date, ammessi) -> None:
     trovati = list(ammessi.filter(numero_contratto=numero))
+    if not trovati and Contratto.objects.filter(numero_contratto=numero).exists():
+        report.conteggi["fuori_cluster"] += 1
+        report.anomalia(FOGLIO, None, "FUORI_CLUSTER", "numero_contratto", numero,
+                        f"{numero}: contratto di un cluster non tuo, non modificato.")  # fmt: skip
+        return
     if not trovati:
         report.conteggi["non_trovati"] += 1
         report.anomalia(FOGLIO, None, "NUMERO_NON_TROVATO", "numero_contratto", numero,

@@ -19,6 +19,7 @@ from contratti.engine.budget import valore
 from contratti.engine.date import UN_GIORNO, aggiungi_mesi
 from contratti.engine.importi import ZERO
 from contratti.engine.tipi import ContrattoPrevisto, Livello
+from contratti.selettori import codici_cluster
 from reports.budget import LIVELLI, NATURE, orizzonte_report
 
 CATEGORIA_NON_CLASSIFICATA = "Da classificare"
@@ -161,7 +162,7 @@ def calcola_piano(
     anno: int,
     oggi: datetime.date,
     *,
-    area: str = "",
+    area: str | tuple[str, ...] = "",
     categoria: int | None = None,
     natura: str = "",
 ) -> PianoOrdini:
@@ -169,7 +170,7 @@ def calcola_piano(
         return _calcola_piano(anno, oggi, area, categoria, natura)
 
 
-def _calcola_piano(anno: int, oggi: datetime.date, area: str, categoria: int | None, natura: str):
+def _calcola_piano(anno: int, oggi: datetime.date, area, categoria: int | None, natura: str):
     orizzonte = orizzonte_report(anno, oggi)
     procedura_default = m.Procedura.objects.filter(codice="da_verificare").first()
     fabbisogni = (
@@ -177,8 +178,8 @@ def _calcola_piano(anno: int, oggi: datetime.date, area: str, categoria: int | N
         .select_related("cluster", "categoria", "previsto_procedura")
         .prefetch_related(*adapters.PREFETCH_FABBISOGNO)
     )
-    if area:
-        fabbisogni = fabbisogni.filter(cluster__codice=area)
+    if codici := codici_cluster(area):
+        fabbisogni = fabbisogni.filter(cluster__codice__in=codici)
     if categoria:
         fabbisogni = fabbisogni.filter(categoria_id=categoria)
     righe: list[RigaPiano] = []

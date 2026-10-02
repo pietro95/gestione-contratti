@@ -230,6 +230,11 @@ class ContoCoge(models.Model):
         related_name="sostituisce",
         help_text="Conto che lo sostituisce dalla fine della validità.",
     )
+    # F9.2: ogni conto appartiene a un solo cluster. Vuoto finché non si carica la struttura
+    # (import «Struttura ICTDINN»): i conti senza cluster sono segnalati.
+    cluster = models.ForeignKey(
+        "Cluster", on_delete=models.PROTECT, null=True, blank=True, related_name="conti"
+    )
     history = HistoricalRecords()
 
     class Meta:
@@ -276,6 +281,49 @@ class Cluster(Archiviabile):
 
     def __str__(self):
         return self.nome if self.nome == self.codice else f"{self.codice} — {self.nome}"
+
+
+class AssegnazioneCluster(Archiviabile):
+    """Cluster di cui un utente è responsabile (F9.2): l'Editor modifica solo questi.
+
+    Per nome utente di dominio, anche prima del primo accesso. Cluster vuoto = TUTTI (es.
+    addetto amministrativo). Il ruolo (Admin, Editor, Reader) resta quello dei gruppi AD.
+    Un'assegnazione tolta si archivia (non vale più) e torna attiva se riassegnata.
+    """
+
+    username = models.CharField("utente", max_length=150, db_index=True)
+    cluster = models.ForeignKey(
+        Cluster,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="assegnazioni",
+        help_text="Vuoto: tutti i cluster.",
+    )
+    note = models.CharField(max_length=200, blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "assegnazione di cluster"
+        verbose_name_plural = "assegnazioni di cluster"
+        ordering = ["username", "cluster__codice"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["username", "cluster"], name="contratti_assegnazione_unica"
+            ),
+            models.UniqueConstraint(
+                fields=["username"],
+                condition=Q(cluster__isnull=True),
+                name="contratti_assegnazione_tutti_unica",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.username} → {self.cluster.codice if self.cluster else 'TUTTI'}"
+
+    def save(self, *args, **kwargs):
+        self.username = self.username.strip().lower()
+        super().save(*args, **kwargs)
 
 
 def scelte_cluster() -> list[tuple[str, str]]:

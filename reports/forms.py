@@ -1,12 +1,31 @@
 from django import forms
 
 from contratti import models as m
+from contratti import permessi
 from contratti.engine.tipi import Livello
 from contratti.forms import FormBase
 from reports.budget import PROGETTI, RAGGRUPPAMENTI, Filtri
 
 ENTRAMBE = "separate"
 AUTOMATICO = "auto"
+
+
+def _scelte_cluster(utente) -> list[tuple[str, str]]:
+    if utente is None:
+        return [("", "Tutti i cluster"), *m.scelte_cluster()]
+    return permessi.scelte_filtro(utente)
+
+
+def _cluster_default(dati, utente) -> None:
+    """Di default ognuno vede i propri cluster (F9.2); la tendina lo mostra."""
+    if utente is not None and not dati.get("area"):
+        dati["area"] = permessi.scelta_filtro(utente, [])
+
+
+def _codici(utente, valore) -> tuple[str, ...]:
+    if utente is None:
+        return (valore,) if valore else ()
+    return tuple(permessi.codici_filtro(utente, [valore or ""]))
 
 
 class FiltriBudgetForm(FormBase):
@@ -38,9 +57,11 @@ class FiltriBudgetForm(FormBase):
         choices=[(liv.value, liv.value.capitalize()) for liv in Livello], required=False
     )
 
-    def __init__(self, dati, *, anno_default: int):
+    def __init__(self, dati, *, anno_default: int, utente=None):
         dati = dati.copy()
         dati.setdefault("anno", str(anno_default))
+        self.utente = utente
+        _cluster_default(dati, utente)
         # I default si vedono anche nelle tendine: livello probabile, OPEX per conto e CAPEX per
         # WBS (come lo legge il Controllo di gestione), con i previsti.
         dati.setdefault("livello", Livello.PROBABILE.value)
@@ -49,13 +70,13 @@ class FiltriBudgetForm(FormBase):
         # OPEX e CAPEX sono budget distinti: di default si vede l'OPEX, mai la somma.
         dati.setdefault("natura", m.Natura.OPEX)
         super().__init__(dati)
-        self.fields["area"].choices = [("", "Tutti i cluster"), *m.scelte_cluster()]
+        self.fields["area"].choices = _scelte_cluster(utente)
 
     def filtri(self) -> Filtri:
         d = self.cleaned_data
         return Filtri(
             anno=d["anno"],
-            area=d.get("area") or "",
+            area=_codici(self.utente, d.get("area")),
             conto=d["conto"].pk if d.get("conto") else None,
             fornitore=d["fornitore"].pk if d.get("fornitore") else None,
             progetti=d.get("progetti") or "",
@@ -83,15 +104,21 @@ class FiltriPianoForm(FormBase):
     )
     natura = forms.ChoiceField(choices=[("", "OPEX e CAPEX"), *m.Natura.choices], required=False)
 
-    def __init__(self, dati, *, anno_default: int):
+    def __init__(self, dati, *, anno_default: int, utente=None):
         dati = dati.copy()
         dati.setdefault("anno", str(anno_default))
+        self.utente = utente
+        _cluster_default(dati, utente)
         super().__init__(dati)
-        self.fields["area"].choices = [("", "Tutti i cluster"), *m.scelte_cluster()]
+        self.fields["area"].choices = _scelte_cluster(utente)
+
+    def codici_cluster(self) -> tuple[str, ...]:
+        return _codici(self.utente, self.cleaned_data.get("area"))
 
     def descrizione(self) -> str:
         d = self.cleaned_data
-        parti = [f"Cluster {d['area']}" if d.get("area") else "Tutti i cluster"]
+        codici = self.codici_cluster()
+        parti = ["Cluster " + ", ".join(codici) if codici else "Tutti i cluster"]
         parti.append(f"categoria {d['categoria']}" if d.get("categoria") else "tutte le categorie")
         parti.append(d["natura"] if d.get("natura") else "OPEX e CAPEX")
         return "; ".join(parti)
