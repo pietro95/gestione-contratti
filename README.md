@@ -1,6 +1,6 @@
-# Registro contratti IT/TLC
+# Registro contratti ICTDINN
 
-Web app interna di Siciliacque S.p.A. per gestire i contratti dell'ufficio IT/TLC. Copre:
+Web app interna di Siciliacque S.p.A. per gestire i contratti dell'ufficio ICTDINN (IT, TLC, OT, Sicurezza fisica, Innovazione). Copre:
 - scadenze e rinnovi;
 - budget su tre viste: impegno, cassa, competenza;
 - piano ordini per il Procurement.

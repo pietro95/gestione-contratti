@@ -177,12 +177,13 @@ def cruscotto(oggi: datetime.date, filtri: dict) -> dict[Alert, list[RigaContrat
     return gruppi
 
 
-def voci_piano_da_verificare():
+def voci_piano_da_verificare(codici: list[str] | None = None):
     """Voci attive senza piano di fatturazione reale: il loro fatturato è un pro-rata.
 
     Le più pesanti prima (fisso + massimale): sono quelle che spostano di più il budget.
+    ``codici``: cluster da mostrare; vuoto = tutti.
     """
-    return (
+    qs = (
         m.VoceContratto.objects.filter(
             archiviato=False, contratto__archiviato=False, contratto__fabbisogno__archiviato=False
         )
@@ -194,3 +195,6 @@ def voci_piano_da_verificare():
         .annotate(peso=F("importo_fisso") + F("massimale_variabile"))
         .order_by("-peso", "contratto__fabbisogno__descrizione", "pk")
     )
+    if codici:
+        qs = qs.filter(contratto__fabbisogno__cluster__codice__in=codici)
+    return qs

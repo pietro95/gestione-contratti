@@ -243,9 +243,33 @@ Rev00: segnalazione di Pietro del 02/10/2026 (contratto 01/03/2025–28/02/2026 
   dello stesso fabbisogno, senza predecessore, che iniziano dopo. **Scollega dal
   predecessore** per correggere un collegamento sbagliato. Entrambi nello storico.
 
-## F9.2 — Estensione all'ufficio ICTDINN (bozza)
+## F9.2 — Estensione all'ufficio ICTDINN
 
-Rev01: risposte di Pietro del 02/10/2026. Da confermare prima di iniziare.
+Rev02: realizzata (v1.3.0). Rev01: risposte di Pietro del 02/10/2026.
+
+**Realizzato, con le scelte da confermare**
+- Cluster al posto dell'area; conto con il suo cluster (vuoto finché non si carica la
+  struttura, segnalato `CONTO_SENZA_CLUSTER`); voce con conto di un altro cluster bloccata
+  nel form e segnalata nell'import (`CONTO_ALTRO_CLUSTER`).
+- Natura e WBS per voce (posizioni separate, mai percentuali); CAPEX ⇔ WBS; finanziato =
+  WBS a progetto; natura, conto e WBS dei rinnovi sulla voce.
+- Permessi per cluster: Admin tutto; Editor solo i fabbisogni dei cluster assegnati (o TUTTI);
+  Reader in lettura. **Transizione**: finché non c'è alcuna assegnazione, gli Editor
+  modificano tutto. Spostare o accorpare: le destinazioni sono solo nei propri cluster.
+- Assegnazioni per nome utente di dominio, anche prima del primo accesso; tolte = archiviate
+  (nessuna cancellazione fisica).
+- Visibilità: cruscotto, elenchi, budget, piano ordini e Spese per WBS partono dai propri
+  cluster; «Tutti i cluster» o un cluster a scelta dalla tendina (`?area=miei|tutti|IT`). Chi
+  non ha cluster assegnati vede tutto.
+- Import: contratti solo nei propri cluster; date di emissione solo sui contratti dei propri
+  cluster (`FUORI_CLUSTER`); struttura solo Admin, dal modello approvato. Il foglio
+  Responsabili, se compilato, è l'elenco completo.
+- Budget CAPEX per WBS con il dettaglio per conto (pagina ed export, foglio «CAPEX per WBS e
+  conto»); WBS a progetto fuori dai budget dei cluster salvo filtro.
+- «Spese per WBS»: elenco (WBS dei propri cluster e tutte quelle a progetto) e dettaglio con
+  contratti e importi anno per anno, solo contratti registrati, nella vista e al livello
+  scelti; export Excel.
+- Nome: "Registro contratti ICTDINN" (interfaccia, README, RUNBOOK).
 
 **Nome e aree**
 - L'applicazione diventa "Registro contratti ICTDINN". Repository, cartella sul server e gruppi

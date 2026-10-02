@@ -1132,11 +1132,12 @@ def fornitore_modifica(request, pk=None):
 @login_required
 def piani_da_verificare(request):
     """Elenco di lavoro: voci con piano `Da verificare`, il cui fatturato è un pro-rata."""
-    voci = list(selettori.voci_piano_da_verificare())
+    voci = list(selettori.voci_piano_da_verificare(_cluster_richiesti(request)))
     return render(
         request,
         "contratti/piani_da_verificare.html",
         {
+            **_contesto_cluster(request),
             "voci": voci,
             "totale": sum((v.peso for v in voci), Decimal("0.00")),
             "puo_modificare": role_of(request.user) in ("Admin", "Editor"),

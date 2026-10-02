@@ -1,4 +1,4 @@
-# Runbook — Registro contratti IT/TLC in produzione
+# Runbook — Registro contratti ICTDINN in produzione
 
 Installazione, aggiornamento ed esercizio sul **server Docker aziendale già in uso** (Ubuntu),
 condiviso con altri applicativi di produzione. Ogni comando si può copiare così com'è; le parti
@@ -329,6 +329,28 @@ qui sotto restano per l'emergenza: fanno la stessa cosa con lo stesso codice.
 8. **Piani di fatturazione**: dall'app, menu "Piani da verificare". Le voci importate hanno il
    piano `Da verificare` e il loro fatturato è stimato a pro-rata: imposta modalità e
    periodicità reali partendo dalle voci più pesanti, poi genera lo scadenzario.
+
+### 6.1 Struttura ICTDINN: cluster, responsabili, conti e WBS (dalla v1.3)
+
+Si carica dall'app, solo come Admin: menu "Import" → "Struttura ICTDINN".
+
+1. Scarica il modello dalla scheda ("Scarica il modello":
+   `2026.10.02_PFE_Modello_import_struttura_ICTDINN_Rev00.xlsx`) e compila i fogli Cluster,
+   Responsabili, Conti e WBS. La colonna «Controllo» deve essere vuota su tutte le righe.
+2. Carica il file e leggi l'anteprima: conteggi e anomalie, nessuna scrittura. Poi conferma.
+3. Verifica nel report:
+   - `CONTO_SENZA_CLUSTER`: conti del registro che non sono nel foglio Conti;
+   - `WBS_NON_IN_STRUTTURA`: WBS scritte a testo nelle voci, assenti dal foglio WBS;
+   - `WBS_SU_OPEX`: voci OPEX con una WBS a testo, da correggere a mano.
+4. Effetti:
+   - dal primo responsabile caricato, ogni Editor modifica solo i fabbisogni dei suoi
+     cluster (o di tutti con `TUTTI`). Prima del caricamento gli Editor modificano tutto;
+   - un responsabile tolto dal foglio perde le assegnazioni, che restano archiviate. Se il
+     foglio Responsabili è vuoto, le assegnazioni non cambiano;
+   - le assegnazioni si correggono anche in "Amministrazione" → "Assegnazioni di cluster".
+
+Rieseguire l'import con lo stesso file non cambia nulla. Conti e WBS non si cancellano:
+per dismetterli compila `valido_al` (conti) o metti `No` in `attiva` (WBS).
 
 ## 7. Aggiornamento e rollback
 

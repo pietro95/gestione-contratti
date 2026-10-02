@@ -1,6 +1,6 @@
 from accounts.roles import can_write
 from contratti import models as m
-from contratti import selettori
+from contratti import permessi, selettori
 
 
 def navigazione(request):
@@ -15,5 +15,7 @@ def navigazione(request):
     return {
         "puo_importare": can_write(user),
         "proposte_aperte": aperte,
-        "piani_da_verificare": selettori.voci_piano_da_verificare().count(),
+        "piani_da_verificare": selettori.voci_piano_da_verificare(
+            permessi.codici_filtro(user, [])
+        ).count(),
     }

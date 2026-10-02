@@ -19,7 +19,7 @@
 
   <nav class="app-sidebar offcanvas-lg offcanvas-start" tabindex="-1" id="menu" aria-label="Menu principale">
     <a class="app-brand" href="{% url 'home' %}"><img src="{% static 'img/logo/siciliacque_bianco.svg' %}" alt="Siciliacque — home"></a>
-    <div class="app-nome">Registro contratti IT/TLC</div>
+    <div class="app-nome">Registro contratti ICTDINN</div>
     <div class="app-nav">
       <div class="app-sezione">Operatività</div>
       {% nav_voce 'home' 'Cruscotto' 'bi-speedometer2' '/cruscotto/' %}
@@ -62,7 +62,7 @@
     </header>
 
     <main class="app-content" id="contenuto" tabindex="-1">
-      <div class="solo-stampa"><img src="{% static 'img/logo/siciliacque.svg' %}" alt="Siciliacque"><span>Registro contratti IT/TLC · stampato il {% now "d/m/Y H:i" %}</span></div>
+      <div class="solo-stampa"><img src="{% static 'img/logo/siciliacque.svg' %}" alt="Siciliacque"><span>Registro contratti ICTDINN · stampato il {% now "d/m/Y H:i" %}</span></div>
       {% block breadcrumb %}{% endblock %}
       {% block intestazione %}
       <div class="page-header">
@@ -76,7 +76,7 @@
       {% block content %}{% endblock %}
     </main>
 
-    <footer class="app-footer d-print-none">Siciliacque S.p.A. · Registro contratti IT/TLC · versione {{ versione_app }}</footer>
+    <footer class="app-footer d-print-none">Siciliacque S.p.A. · Registro contratti ICTDINN · versione {{ versione_app }}</footer>
   </div>
 {% endblock %}
 
