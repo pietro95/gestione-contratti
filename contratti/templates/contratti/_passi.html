@@ -1,0 +1,8 @@
+{# Procedura guidata del nuovo contratto: 1 contratto, 2 voci e fatturazione, 3 scadenzario. #}
+<nav aria-label="Passi del nuovo contratto" class="mb-4">
+  <ol class="passi">
+    {% for numero, titolo in passi_titoli %}
+    <li class="{% if numero < passo %}fatto{% elif numero == passo %}corrente{% endif %}"{% if numero == passo %} aria-current="step"{% endif %}><span class="passo-numero">{% if numero < passo %}<i class="bi bi-check-lg" aria-hidden="true"></i><span class="visually-hidden">completato:</span>{% else %}{{ numero }}{% endif %}</span> {{ titolo }}</li>
+    {% endfor %}
+  </ol>
+</nav>

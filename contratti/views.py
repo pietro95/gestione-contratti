@@ -354,6 +354,17 @@ def contratto_dettaglio(request, pk):
     )
     voci_engine, esiti = adapters.voci_contratto(contratto)
     valori = {v.riferimento: {liv: valore(v, liv) for liv in Livello} for v in voci_engine}
+    successore = m.Contratto.objects.filter(predecessore=contratto).first()
+    rinnovo_scollegato = None
+    if successore is None and not contratto.archiviato:
+        rinnovo_scollegato = next(
+            (
+                rinnovo
+                for prima, rinnovo in servizi.collegamenti_del_fabbisogno(contratto.fabbisogno)
+                if prima.pk == contratto.pk
+            ),
+            None,
+        )
     return render(
         request,
         "contratti/contratto_dettaglio.html",
@@ -367,7 +378,8 @@ def contratto_dettaglio(request, pk):
                 liv: sum((x[liv] for x in valori.values()), Decimal("0.00")) for liv in Livello
             },
             "esiti": esiti,
-            "successore": m.Contratto.objects.filter(predecessore=contratto).first(),
+            "successore": successore,
+            "rinnovo_scollegato": rinnovo_scollegato,
             "pratica": contratto.stati_pratica.select_related("utente").order_by("-data", "-id"),
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
             "storico": storico(contratto),
@@ -375,6 +387,52 @@ def contratto_dettaglio(request, pk):
             "previsti": _previsti_dopo(contratto, oggi),
             "puo_modificare": role_of(request.user) in ("Admin", "Editor"),
         },
+    )
+
+
+# Procedura guidata del nuovo contratto: dati del contratto, voci con il piano di
+# fatturazione, scadenzario generato. Le rate si creano al salvataggio di ogni voce.
+PASSI = [(1, "Contratto"), (2, "Voci e fatturazione"), (3, "Scadenzario")]
+
+
+def _passo(numero: int) -> dict:
+    return {"passo": numero, "passi_titoli": PASSI}
+
+
+def _genera_rate(request, voce: m.VoceContratto) -> None:
+    """Rate generate dal piano appena salvato; quelle modificate a mano non si toccano."""
+    try:
+        rate = servizi.genera_scadenzario(voce)
+    except servizi.ScadenzarioBloccato as exc:
+        messages.warning(request, f"Voce salvata, rate non rigenerate: {exc}")
+        return
+    if rate:
+        messages.success(request, f"Voce salvata: {len(rate)} rate generate.")
+    elif voce.piano_fatturazione.modalita == m.ModalitaFatturazione.SAL:
+        messages.info(request, "Voce salvata. Fatturazione a SAL: le rate si inseriscono a mano.")
+    else:
+        messages.info(request, "Voce salvata. Nessuna rata generata dal piano.")
+
+
+@editor_required
+def contratto_guidata(request, pk):
+    """Ultimo passo del nuovo contratto: le rate generate, voce per voce."""
+    contratto = get_object_or_404(m.Contratto, pk=pk)
+    voci = (
+        contratto.voci.filter(archiviato=False)
+        .select_related("piano_fatturazione")
+        .prefetch_related("piano_fatturazione__rate")
+        .order_by("pk")
+    )
+    righe = []
+    for v in voci:
+        piano = getattr(v, "piano_fatturazione", None)
+        rate = sorted(piano.rate.all(), key=lambda r: r.numero) if piano else []
+        righe.append((v, rate, sum((r.importo for r in rate), Decimal("0.00"))))
+    return render(
+        request,
+        "contratti/guidata_riepilogo.html",
+        {"c": contratto, "voci": righe} | _passo(3),
     )
 
 
@@ -389,9 +447,17 @@ def contratto_nuovo(request):
     form = forms.ContrattoForm(request.POST or None, initial=iniziali)
     if request.method == "POST" and form.is_valid():
         contratto = form.save()
-        messages.success(request, "Contratto creato. Aggiungi le voci economiche.")
-        return redirect("contratti:contratto", pk=contratto.pk)
-    return render(request, "contratti/form.html", {"form": form, "titolo": "Nuovo contratto"})
+        messages.success(
+            request, "Contratto creato. Ora la prima voce, con il suo piano di fatturazione."
+        )
+        url = reverse("contratti:voce_nuova", args=[contratto.pk])
+        return redirect(f"{url}?guidata=1")
+    return render(
+        request,
+        "contratti/form.html",
+        {"form": form, "titolo": "Nuovo contratto", "avanti": "Avanti: voci e fatturazione"}
+        | _passo(1),
+    )
 
 
 @editor_required
@@ -407,6 +473,44 @@ def contratto_modifica(request, pk):
         "contratti/form.html",
         {"form": form, "titolo": f"Modifica contratto — {contratto}", "annulla": contratto},
     )
+
+
+def _coppie(valori) -> list[tuple[int, int]]:
+    """Valori "12-34" dei checkbox → coppie di pk; quelli non validi si ignorano."""
+    coppie = []
+    for testo in valori:
+        a, _, b = testo.partition("-")
+        if _pk_o_none(a) and _pk_o_none(b):
+            coppie.append((int(a), int(b)))
+    return coppie
+
+
+@editor_required
+@require_POST
+def fabbisogno_doppioni(request, pk):
+    """Archivia i contratti registrati due volte nel fabbisogno (si tiene quello con più dati)."""
+    f = get_object_or_404(m.Fabbisogno, pk=pk)
+    try:
+        n = servizi.unisci_doppioni(f, _coppie(request.POST.getlist("doppioni")))
+    except servizi.OperazioneNonAmmessa as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, f"{n} contratti doppi archiviati." if n else "Nessuna modifica.")
+    return redirect("contratti:fabbisogno", pk=pk)
+
+
+@editor_required
+@require_POST
+def fabbisogno_collega(request, pk):
+    """Ricuce le catene dei rinnovi interrotte (es. dopo un accorpamento)."""
+    f = get_object_or_404(m.Fabbisogno, pk=pk)
+    try:
+        n = servizi.collega_contratti(f, _coppie(request.POST.getlist("collegamenti")))
+    except servizi.OperazioneNonAmmessa as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, f"{n} contratti collegati al loro rinnovo.")
+    return redirect("contratti:fabbisogno", pk=pk)
 
 
 def _pk_o_none(valore):
@@ -470,10 +574,14 @@ def fabbisogno_accorpa(request, pk):
                 p, _, s = valore.partition("-")
                 if _pk_o_none(p) and _pk_o_none(s):
                     collegamenti.append((int(p), int(s)))
+            doppioni = None
+            if request.POST.get("doppioni_presenti"):
+                doppioni = _coppie(request.POST.getlist("doppioni"))
             servizi.accorpa_fabbisogni(
                 origine,
                 destinazione,
                 collegamenti=collegamenti,
+                doppioni_confermati=doppioni,
                 previsto_da_origine=request.POST.get("previsto_da") == "origine",
                 pratica_da_origine=request.POST.get("pratica_da") == "origine",
             )
@@ -611,6 +719,7 @@ def voce_modifica(request, contratto_pk, pk=None):
     contratto = get_object_or_404(m.Contratto, pk=contratto_pk)
     voce = get_object_or_404(m.VoceContratto, pk=pk, contratto=contratto) if pk else None
     form, piano_form, quote = _voce_form(request, contratto, voce)
+    guidata = request.GET.get("guidata") == "1"
     if request.method == "POST" and form.is_valid() and piano_form.is_valid() and quote.is_valid():
         with transaction.atomic():
             voce_salvata = form.save(commit=False)
@@ -621,15 +730,15 @@ def voce_modifica(request, contratto_pk, pk=None):
             piano.save()
             quote.instance = voce_salvata
             quote.save()
-        messages.success(request, "Voce salvata. Genera lo scadenzario per salvare le rate.")
+        _genera_rate(request, voce_salvata)
+        if guidata:
+            return redirect("contratti:contratto_guidata", pk=contratto.pk)
         if request.GET.get("ritorno") == "piani":
             return redirect("contratti:piani_da_verificare")
         return redirect("contratti:contratto", pk=contratto.pk)
-    return render(
-        request,
-        "contratti/voce_form.html",
-        {"form": form, "piano_form": piano_form, "quote": quote, "c": contratto, "voce": voce},
-    )
+    contesto = {"form": form, "piano_form": piano_form, "quote": quote, "c": contratto}
+    contesto |= {"voce": voce, "guidata": guidata} | (_passo(2) if guidata else {})
+    return render(request, "contratti/voce_form.html", contesto)
 
 
 @editor_required
@@ -822,6 +931,8 @@ def fabbisogno_dettaglio(request, pk):
             "contratti": contratti,
             "previsti": [(p, sum((valore(v) for v in p.voci), Decimal("0.00"))) for p in previsti],
             "natura_previsti": adapters.natura_previsti(f, adapters.contratto_base_previsti(f)),
+            "doppioni": servizi.doppioni_del_fabbisogno(f),
+            "collegamenti": servizi.collegamenti_del_fabbisogno(f),
             "pratica": f.stati_pratica.order_by("-data", "-id"),
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
             "storico": storico(f),

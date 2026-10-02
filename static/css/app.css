@@ -281,3 +281,12 @@ th a.ordina .bi { font-size: .75rem; opacity: .7; }
   .collapse:not(.show) { display: none !important; }
   a { color: inherit; text-decoration: none; }
 }
+
+/* Procedura guidata a passi (nuovo contratto) */
+.passi { list-style: none; display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; padding: 0; margin: 0; }
+.passi li { display: flex; align-items: center; gap: .5rem; color: #5a6878; font-weight: 500; }
+.passi li.corrente { color: var(--sa-blu); font-weight: 700; }
+.passi li.fatto { color: var(--sa-verde); }
+.passo-numero { display: inline-flex; align-items: center; justify-content: center; width: 1.75rem; height: 1.75rem; border-radius: 50%; border: 2px solid currentColor; font-size: .875rem; }
+.passi li.corrente .passo-numero { background: var(--sa-blu); color: #fff; border-color: var(--sa-blu); }
+.passi li.fatto .passo-numero { background: var(--sa-verde); color: #fff; border-color: var(--sa-verde); }

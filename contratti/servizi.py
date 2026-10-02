@@ -1,6 +1,7 @@
 """Operazioni che scrivono sul database usando il motore."""
 
-from dataclasses import dataclass
+import datetime
+from dataclasses import dataclass, field
 
 from django.db import transaction
 from django.db.models import Q
@@ -297,6 +298,112 @@ def sposta_contratto(
     return a
 
 
+# --- Contratti doppi -------------------------------------------------------------------
+#
+# Lo stesso contratto registrato due volte (import ripetuto, inserimento a mano e import):
+# si tiene quello con più dati e l'altro si archivia, con la sua storia.
+
+
+def _chiave_doppione(c: m.Contratto) -> tuple | None:
+    from contratti.importer.normalizza import chiave_nome
+
+    if c.data_inizio is None:
+        return None
+    if c.numero_contratto:
+        return ("n", c.numero_contratto, c.data_inizio)
+    if c.cig:
+        return ("c", c.cig, c.data_inizio)
+    return (
+        "d",
+        chiave_nome(c.fornitore.ragione_sociale),
+        chiave_nome(c.descrizione),
+        c.data_inizio,
+        c.durata_mesi,
+    )
+
+
+def _peso(c: m.Contratto) -> tuple:
+    """Quanto lavoro c'è su un contratto: si tiene quello con più dati inseriti."""
+    voci = [v for v in c.voci.all() if not v.archiviato]
+    piani = sum(
+        1
+        for v in voci
+        if getattr(v, "piano_fatturazione", None) is not None
+        and v.piano_fatturazione.modalita != m.ModalitaFatturazione.DA_VERIFICARE
+    )
+    rate = sum(
+        v.piano_fatturazione.rate.count()
+        for v in voci
+        if getattr(v, "piano_fatturazione", None) is not None
+    )
+    return (piani, rate, c.stati_pratica.count(), bool(c.data_emissione), -c.pk)
+
+
+def doppioni(contratti) -> list[tuple[m.Contratto, m.Contratto]]:
+    """Coppie (da tenere, doppione) tra i contratti attivi dati."""
+    gruppi: dict[tuple, list[m.Contratto]] = {}
+    for c in contratti:
+        if c.archiviato:
+            continue
+        chiave = _chiave_doppione(c)
+        if chiave is not None:
+            gruppi.setdefault(chiave, []).append(c)
+    coppie = []
+    for gruppo in gruppi.values():
+        if len(gruppo) < 2:
+            continue
+        gruppo.sort(key=_peso, reverse=True)
+        coppie += [(gruppo[0], altro) for altro in gruppo[1:]]
+    return coppie
+
+
+def _qs_doppioni(fabbisogni):
+    return (
+        m.Contratto.objects.filter(fabbisogno__in=fabbisogni, archiviato=False)
+        .select_related("fornitore", "procedura", "fabbisogno")
+        .prefetch_related("voci__piano_fatturazione__rate", "stati_pratica", "proroghe")
+        .order_by("pk")
+    )
+
+
+def doppioni_del_fabbisogno(f: m.Fabbisogno) -> list[tuple[m.Contratto, m.Contratto]]:
+    return doppioni(_qs_doppioni([f]))
+
+
+def _archivia_doppione(tenuto: m.Contratto, doppione: m.Contratto, motivo: str) -> None:
+    """Archivia il doppione; la catena dei rinnovi passa al contratto tenuto."""
+    tenuto.refresh_from_db()
+    doppione.refresh_from_db()
+    successore = successore_di(doppione)
+    if successore is not None and successore_di(tenuto) is None and successore != tenuto:
+        successore.predecessore = None
+        _salva(successore, motivo, update_fields=["predecessore"])
+    predecessore = doppione.predecessore
+    doppione.predecessore = None
+    doppione.archiviato = True
+    _salva(doppione, motivo, update_fields=["predecessore", "archiviato"])
+    if predecessore is not None and tenuto.predecessore_id is None and predecessore != tenuto:
+        tenuto.predecessore = predecessore
+        tenuto.clean()
+        _salva(tenuto, motivo, update_fields=["predecessore"])
+    if successore is not None and successore.predecessore_id is None and successore != tenuto:
+        successore.predecessore = tenuto
+        successore.clean()
+        _salva(successore, motivo, update_fields=["predecessore"])
+
+
+@transaction.atomic
+def unisci_doppioni(f: m.Fabbisogno, coppie: list[tuple[int, int]]) -> int:
+    """Archivia i doppioni confermati (tra quelli rilevati) del fabbisogno."""
+    rilevate = {(t.pk, d.pk): (t, d) for t, d in doppioni_del_fabbisogno(f)}
+    if any(tuple(c) not in rilevate for c in coppie):
+        raise OperazioneNonAmmessa("Coppia non tra i doppioni rilevati.")
+    for coppia in coppie:
+        tenuto, doppione = rilevate[tuple(coppia)]
+        _archivia_doppione(tenuto, doppione, f"Doppione di #{tenuto.pk}, archiviato")
+    return len(coppie)
+
+
 @dataclass
 class AnteprimaAccorpamento:
     origine: m.Fabbisogno
@@ -306,25 +413,100 @@ class AnteprimaAccorpamento:
     conflitto_previsto: bool
     conflitto_pratica: bool
     avvisi: list[str]
+    # Stesso contratto registrato due volte: (da tenere, doppione da archiviare).
+    doppioni: list[tuple[m.Contratto, m.Contratto]] = field(default_factory=list)
 
 
 def _ha_previsto(f: m.Fabbisogno) -> bool:
     return bool(f.previsto_data_avvio or f.stima_prossimo_importo is not None)
 
 
-def _catene(contratti) -> list[list[m.Contratto]]:
-    """Catene dei rinnovi tra i contratti dati, ciascuna dal più vecchio al più recente."""
-    per_pk = {c.pk: c for c in contratti}
-    successori = {c.predecessore_id: c for c in contratti if c.predecessore_id in per_pk}
-    radici = [c for c in contratti if c.predecessore_id not in per_pk]
-    catene = []
-    for r in radici:
-        catena, c = [], r
-        while c is not None and c not in catena:
-            catena.append(c)
-            c = successori.get(c.pk)
-        catene.append(catena)
-    return catene
+UN_GIORNO = datetime.timedelta(days=1)
+
+
+def proponi_collegamenti(contratti) -> tuple[list[tuple[m.Contratto, m.Contratto]], list[str]]:
+    """Catene dei rinnovi interrotte da ricucire: coppie (predecessore, successore) e avvisi.
+
+    Per ogni contratto senza successore si propone il contratto senza predecessore che
+    inizia dopo la sua fine; ogni contratto si usa una volta sola, prima le coppie più
+    vicine nel tempo. Così le catene di due fabbisogni accorpati si ricuciono anche quando
+    i periodi si alternano.
+    """
+    attivi = [c for c in contratti if not c.archiviato and c.data_inizio is not None]
+    ultimi = [c for c in attivi if not hasattr(c, "successore")]
+    primi = [c for c in attivi if c.predecessore_id is None]
+    fini = {u.pk: adapters.data_fine_effettiva(u) for u in ultimi}
+    candidate = [
+        ((p.data_inizio - fini[u.pk]).days, u.pk, p.pk, u, p)
+        for u in ultimi
+        for p in primi
+        if p.pk != u.pk and fini[u.pk] < p.data_inizio
+    ]
+    coppie, usati_u, usati_p = [], set(), set()
+    for *_, u, p in sorted(candidate, key=lambda x: x[:3]):
+        if u.pk in usati_u or p.pk in usati_p:
+            continue
+        coppie.append((u, p))
+        usati_u.add(u.pk)
+        usati_p.add(p.pk)
+    # Contratto finito senza successore mentre un altro copre già il periodo seguente.
+    avvisi = []
+    for u in ultimi:
+        fine = fini[u.pk]
+        if u.pk in usati_u or fine is None:
+            continue
+        for c in attivi:
+            if c.pk == u.pk or not (u.data_inizio < c.data_inizio <= fine + UN_GIORNO):
+                continue
+            perche = (
+                "è già il rinnovo di un altro contratto"
+                if c.predecessore_id is not None
+                else "ha il periodo sovrapposto (periodi sovrapposti)"
+            )
+            avvisi.append(
+                f"{u} finisce il {fine:%d/%m/%Y} senza successore; {c}, che inizia il "
+                f"{c.data_inizio:%d/%m/%Y}, {perche}. Nessun collegamento proposto: verifica."
+            )
+            break
+    return sorted(coppie, key=lambda x: (x[1].data_inizio, x[1].pk)), avvisi
+
+
+def collegamenti_del_fabbisogno(f: m.Fabbisogno) -> list[tuple[m.Contratto, m.Contratto]]:
+    """Catene interrotte nel fabbisogno, escluse quelle già segnalate come doppioni."""
+    da_archiviare = {d.pk for _, d in doppioni_del_fabbisogno(f)}
+    coppie, _ = proponi_collegamenti(_qs_collegamenti([f]).exclude(pk__in=da_archiviare))
+    return coppie
+
+
+def _qs_collegamenti(fabbisogni):
+    return (
+        m.Contratto.objects.filter(fabbisogno__in=fabbisogni, archiviato=False)
+        .exclude(data_inizio__isnull=True)
+        .select_related("procedura", "fornitore", "fabbisogno", "successore")
+        .prefetch_related("proroghe")
+        .order_by("data_inizio", "pk")
+    )
+
+
+def _collega(predecessore: m.Contratto, successore: m.Contratto, motivo: str) -> None:
+    # Ricaricati: in memoria possono avere il fabbisogno di prima di un accorpamento.
+    predecessore.refresh_from_db()
+    successore.refresh_from_db()
+    successore.predecessore = predecessore
+    successore.clean()
+    _salva(successore, motivo, update_fields=["predecessore"])
+
+
+@transaction.atomic
+def collega_contratti(f: m.Fabbisogno, coppie: list[tuple[int, int]]) -> int:
+    """Ricuce le catene interrotte confermate (tra quelle proposte) del fabbisogno."""
+    proposte = {(p.pk, s.pk): (p, s) for p, s in collegamenti_del_fabbisogno(f)}
+    if not coppie or any(tuple(c) not in proposte for c in coppie):
+        raise OperazioneNonAmmessa("Collegamento non tra quelli proposti.")
+    for coppia in coppie:
+        predecessore, successore = proposte[tuple(coppia)]
+        _collega(predecessore, successore, "Catena dei rinnovi ricucita")
+    return len(coppie)
 
 
 def anteprima_accorpamento(
@@ -334,26 +516,11 @@ def anteprima_accorpamento(
         raise OperazioneNonAmmessa("Scegli un fabbisogno diverso.")
     if destinazione.archiviato or origine.archiviato:
         raise OperazioneNonAmmessa("Non si accorpa un fabbisogno archiviato.")
-    tutti = list(
-        m.Contratto.objects.filter(fabbisogno__in=[origine, destinazione], archiviato=False)
-        .exclude(data_inizio__isnull=True)
-        .select_related("procedura", "fornitore")
-        .prefetch_related("proroghe")
+    coppie = doppioni(_qs_doppioni([origine, destinazione]))
+    da_archiviare = {d.pk for _, d in coppie}
+    collegamenti, avvisi = proponi_collegamenti(
+        _qs_collegamenti([origine, destinazione]).exclude(pk__in=da_archiviare)
     )
-    catene = sorted(_catene(tutti), key=lambda k: (k[0].data_inizio, k[0].pk))
-    collegamenti, avvisi = [], []
-    for prima, dopo in zip(catene, catene[1:], strict=False):
-        ultimo, primo = prima[-1], dopo[0]
-        if ultimo.fabbisogno_id == primo.fabbisogno_id:
-            continue  # interruzione già presente, non creata dall'accorpamento
-        fine = adapters.data_fine_effettiva(ultimo)
-        if fine < primo.data_inizio:
-            collegamenti.append((ultimo, primo))
-        else:
-            avvisi.append(
-                f"Periodi sovrapposti: {ultimo} finisce il {fine:%d/%m/%Y}, {primo} inizia il "
-                f"{primo.data_inizio:%d/%m/%Y}. Nessun collegamento proposto: verifica."
-            )
     for campo, etichetta in (
         ("area", "Area diversa"),
         ("categoria_id", "Categoria diversa"),
@@ -371,6 +538,7 @@ def anteprima_accorpamento(
         conflitto_previsto=_ha_previsto(origine) and _ha_previsto(destinazione),
         conflitto_pratica=origine.stati_pratica.exists() and destinazione.stati_pratica.exists(),
         avvisi=avvisi,
+        doppioni=coppie,
     )
 
 
@@ -390,12 +558,15 @@ def accorpa_fabbisogni(
     destinazione: m.Fabbisogno,
     *,
     collegamenti: list[tuple[int, int]] = (),
+    doppioni_confermati: list[tuple[int, int]] | None = None,
     previsto_da_origine: bool = False,
     pratica_da_origine: bool = False,
 ) -> AnteprimaAccorpamento:
     """Tutti i contratti dell'origine passano alla destinazione; l'origine si archivia.
 
     ``collegamenti``: coppie (predecessore, successore) confermate tra quelle proposte.
+    ``doppioni_confermati``: coppie (da tenere, doppione) da unire; ``None`` = tutte quelle
+    rilevate. Il doppione si archivia e la sua catena passa al contratto tenuto.
     Previsto manuale e pratica da fabbisogno nuovo: vale quello della destinazione, salvo
     scelta contraria; se la destinazione non li ha, si prendono dall'origine.
     """
@@ -403,18 +574,20 @@ def accorpa_fabbisogni(
     proposti = {(p.pk, s.pk): (p, s) for p, s in a.collegamenti}
     if any(tuple(c) not in proposti for c in collegamenti):
         raise OperazioneNonAmmessa("Collegamento non tra quelli proposti.")
+    rilevati = {(t.pk, d.pk): (t, d) for t, d in a.doppioni}
+    if doppioni_confermati is None:
+        doppioni_confermati = list(rilevati)
+    if any(tuple(c) not in rilevati for c in doppioni_confermati):
+        raise OperazioneNonAmmessa("Coppia non tra i doppioni rilevati.")
     motivo = f"Accorpato «{origine.descrizione}» in «{destinazione.descrizione}»"
     for c in a.contratti:
         c.fabbisogno = destinazione
         _salva(c, motivo, update_fields=["fabbisogno"])
+    for coppia in doppioni_confermati:
+        tenuto, doppione = rilevati[tuple(coppia)]
+        _archivia_doppione(tenuto, doppione, f"Doppione di #{tenuto.pk}, archiviato ({motivo})")
     for coppia in collegamenti:
-        predecessore, successore = proposti[tuple(coppia)]
-        # Ricaricati: in memoria hanno ancora il fabbisogno di prima dell'accorpamento.
-        predecessore.refresh_from_db()
-        successore.refresh_from_db()
-        successore.predecessore = predecessore
-        successore.clean()
-        _salva(successore, motivo, update_fields=["predecessore"])
+        _collega(*proposti[tuple(coppia)], motivo)
 
     if _ha_previsto(origine) and (previsto_da_origine or not _ha_previsto(destinazione)):
         for campo in CAMPI_PREVISTO:

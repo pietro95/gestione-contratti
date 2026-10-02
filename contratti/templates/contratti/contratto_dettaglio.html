@@ -29,6 +29,9 @@
 {% endblock %}
 {% block content %}
 {% for e in esiti %}<div class="alert alert-warning small">{{ e.messaggio }}</div>{% endfor %}
+{% if rinnovo_scollegato and puo_modificare %}
+<div class="alert alert-danger small"><i class="bi bi-link-45deg" aria-hidden="true"></i> Nel fabbisogno c'è un contratto che inizia dopo la fine di questo e non è collegato: {% include "contratti/_contratto_breve.html" with x=rinnovo_scollegato %}. <a class="alert-link" href="{% url 'contratti:fabbisogno' c.fabbisogno_id %}">Collegalo dal fabbisogno</a>.</div>
+{% endif %}
 
 <div class="row g-3 mb-4">
   <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Fine effettiva</div><div class="kpi-valore">{{ riga.fine|date:"d/m/Y"|default:"—" }}</div><div class="kpi-nota">{% if c.proroghe.all %}con {{ c.proroghe.all|length }} proroghe{% else %}{{ c.durata_mesi }} mesi dal {{ c.data_inizio|date:"d/m/Y"|default:"—" }}{% endif %}</div></div></div></div>

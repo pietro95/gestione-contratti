@@ -209,7 +209,7 @@ TIPI: dict[str, Tipo] = {
             {
                 "righe_lette": "Righe lette",
                 "contratti_creati": "Contratti creati",
-                "contratti_gia_presenti": "Contratti già presenti",
+                "contratti_gia_presenti": "Già presenti (scartati)",
                 "voci_create": "Voci create",
                 "fornitori_creati": "Fornitori creati",
                 "proposte_raggruppamento": "Proposte di raggruppamento",
