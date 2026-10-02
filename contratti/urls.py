@@ -13,6 +13,7 @@ urlpatterns = [
     path("contratti/<int:pk>/modifica/", views.contratto_modifica, name="contratto_modifica"),
     path("contratti/<int:pk>/rinnovo/", views.contratto_rinnovo, name="contratto_rinnovo"),
     path("contratti/<int:pk>/proroga/", views.proroga_nuova, name="proroga_nuova"),
+    path("contratti/<int:pk>/sposta/", views.contratto_sposta, name="contratto_sposta"),
     path("contratti/<int:contratto_pk>/voci/nuova/", views.voce_modifica, name="voce_nuova"),
     path("contratti/<int:contratto_pk>/voci/<int:pk>/", views.voce_modifica, name="voce_modifica"),
     path(
@@ -33,6 +34,7 @@ urlpatterns = [
     path("fabbisogni/nuovo/", views.fabbisogno_modifica, name="fabbisogno_nuovo"),
     path("fabbisogni/<int:pk>/", views.fabbisogno_dettaglio, name="fabbisogno"),
     path("fabbisogni/<int:pk>/modifica/", views.fabbisogno_modifica, name="fabbisogno_modifica"),
+    path("fabbisogni/<int:pk>/accorpa/", views.fabbisogno_accorpa, name="fabbisogno_accorpa"),
     path("fornitori/", views.fornitori_elenco, name="fornitori"),
     path("fornitori/nuovo/", views.fornitore_modifica, name="fornitore_nuovo"),
     path("fornitori/<int:pk>/", views.fornitore_dettaglio, name="fornitore"),

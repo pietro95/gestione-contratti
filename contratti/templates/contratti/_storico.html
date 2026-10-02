@@ -7,7 +7,7 @@
     <tr>
       <td class="text-nowrap">{{ h.data|date:"d/m/Y H:i" }}</td>
       <td>{{ h.utente|default:"—" }}</td>
-      <td>{{ h.tipo }}</td>
+      <td>{{ h.tipo }}{% if h.motivo %}<div class="small text-body-secondary">{{ h.motivo }}</div>{% endif %}</td>
       <td>{% for campo, prima, dopo in h.modifiche %}<div><strong>{{ campo }}</strong>: {{ prima|default:"—" }} → {{ dopo|default:"—" }}</div>{% empty %}—{% endfor %}</td>
     </tr>
   {% endfor %}

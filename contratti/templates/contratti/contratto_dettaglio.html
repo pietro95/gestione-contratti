@@ -20,6 +20,7 @@
     <ul class="dropdown-menu dropdown-menu-end">
       <li><a class="dropdown-item" href="{% url 'contratti:voce_nuova' c.pk %}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Aggiungi voce</a></li>
       <li><a class="dropdown-item" href="{% url 'contratti:proroga_nuova' c.pk %}"><i class="bi bi-calendar-plus" aria-hidden="true"></i> Registra proroga</a></li>
+      <li><a class="dropdown-item" href="{% url 'contratti:contratto_sposta' c.pk %}"><i class="bi bi-arrow-left-right" aria-hidden="true"></i> Sposta in un altro fabbisogno</a></li>
       <li><hr class="dropdown-divider"></li>
       <li><a class="dropdown-item text-danger" href="{% url 'contratti:archivia' 'contratto' c.pk %}"><i class="bi bi-archive" aria-hidden="true"></i> {% if c.archiviato %}Ripristina{% else %}Archivia{% endif %}</a></li>
     </ul>

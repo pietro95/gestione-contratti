@@ -8,6 +8,7 @@
 {% if puo_modificare %}
   <a class="btn btn-primary" href="{% url 'contratti:contratto_nuovo' %}?fabbisogno={{ f.pk }}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuovo contratto</a>
   <a class="btn btn-outline-primary" href="{% url 'contratti:fabbisogno_modifica' f.pk %}"><i class="bi bi-pencil" aria-hidden="true"></i> Modifica</a>
+  {% if not f.archiviato %}<a class="btn btn-outline-primary" href="{% url 'contratti:fabbisogno_accorpa' f.pk %}"><i class="bi bi-intersect" aria-hidden="true"></i> Accorpa in…</a>{% endif %}
   <a class="btn btn-outline-danger" href="{% url 'contratti:archivia' 'fabbisogno' f.pk %}"><i class="bi bi-archive" aria-hidden="true"></i> {% if f.archiviato %}Ripristina{% else %}Archivia{% endif %}</a>
 {% endif %}
 {% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Sposta contratto{% endblock %}
+{% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'contratti:fabbisogno' c.fabbisogno.pk %}">{{ c.fabbisogno.descrizione }}</a></li><li class="breadcrumb-item"><a href="{% url 'contratti:contratto' c.pk %}">{{ c.numero_contratto|default:c.cig|default:"contratto" }}</a></li><li class="breadcrumb-item active" aria-current="page">Sposta</li></ol></nav>{% endblock %}
+{% block titolo_pagina %}Sposta in un altro fabbisogno{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">{% include "contratti/_contratto_breve.html" with x=c %}</div>{% endblock %}
+{% block content %}
+{% if not anteprima %}
+<p class="text-body-secondary" style="max-width: 48rem">Serve quando il contratto è stato assegnato al fabbisogno sbagliato. La catena dei rinnovi resta coerente: nel fabbisogno di partenza il predecessore si ricollega al successore, nella destinazione scegli tu a quale contratto collegarlo. Prima di salvare vedi l'anteprima.</p>
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "contratti/_campi.html" with form=form %}
+  <div class="form-azioni">
+    <button type="submit" name="passo" value="anteprima" class="btn btn-primary"><i class="bi bi-eye" aria-hidden="true"></i> Anteprima</button>
+    <a class="btn btn-outline-secondary" href="{% url 'contratti:contratto' c.pk %}">Annulla</a>
+  </div>
+</form>
+{% else %}
+<form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="destinazione" value="{{ destinazione.pk }}">
+  {% if con_successivi %}<input type="hidden" name="con_successivi" value="on">{% endif %}
+  {% for a in anteprima.avvisi %}<div class="alert alert-warning small">{{ a }}</div>{% endfor %}
+  <div class="row g-3 mb-3">
+    <div class="col-lg-6"><div class="card h-100">
+      <div class="card-header"><i class="bi bi-box-arrow-right" aria-hidden="true"></i> Da «{{ c.fabbisogno.descrizione }}»</div>
+      <div class="card-body">
+        <p class="small text-body-secondary mb-1">Si spostano:</p>
+        <ul class="mb-3">{% for x in anteprima.contratti %}<li>{% include "contratti/_contratto_breve.html" %}</li>{% endfor %}</ul>
+        {% if anteprima.successore_origine %}
+          <p class="small mb-0">{% if anteprima.predecessore_origine %}La catena si richiude: <strong>{{ anteprima.predecessore_origine.numero_contratto|default:anteprima.predecessore_origine.pk }}</strong> diventa il predecessore di <strong>{{ anteprima.successore_origine.numero_contratto|default:anteprima.successore_origine.pk }}</strong>.{% else %}<strong>{{ anteprima.successore_origine.numero_contratto|default:anteprima.successore_origine.pk }}</strong> resta e apre la catena.{% endif %}</p>
+        {% elif anteprima.predecessore_origine %}
+          <p class="small mb-0"><strong>{{ anteprima.predecessore_origine.numero_contratto|default:anteprima.predecessore_origine.pk }}</strong> torna a essere l'ultimo contratto della catena.</p>
+        {% endif %}
+      </div>
+    </div></div>
+    <div class="col-lg-6"><div class="card h-100">
+      <div class="card-header"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> A «{{ destinazione.descrizione }}»</div>
+      <div class="card-body">
+        <fieldset>
+          <legend class="form-label fs-6">Di quale contratto è il rinnovo?</legend>
+          {% for x in anteprima.candidati %}
+          <div class="form-check"><input class="form-check-input" type="radio" name="predecessore" id="pred-{{ x.pk }}" value="{{ x.pk }}"{% if x == anteprima.proposto %} checked{% endif %}><label class="form-check-label" for="pred-{{ x.pk }}">{% include "contratti/_contratto_breve.html" %}{% if x == anteprima.proposto %} <span class="stato stato-blu">proposto</span>{% endif %}</label></div>
+          {% endfor %}
+          <div class="form-check"><input class="form-check-input" type="radio" name="predecessore" id="pred-nessuno" value=""{% if not anteprima.proposto %} checked{% endif %}><label class="form-check-label" for="pred-nessuno">Nessuno: apre una nuova catena</label></div>
+        </fieldset>
+        {% if anteprima.candidati %}<p class="form-text mb-0">Proposto: il contratto che finisce per ultimo prima dell'inizio di questo.</p>{% endif %}
+      </div>
+    </div></div>
+  </div>
+  <div class="form-azioni">
+    <button type="submit" name="passo" value="conferma" class="btn btn-primary"><i class="bi bi-arrow-left-right" aria-hidden="true"></i> Conferma lo spostamento</button>
+    <a class="btn btn-outline-secondary" href="{% url 'contratti:contratto_sposta' c.pk %}">Cambia destinazione</a>
+    <a class="btn btn-outline-secondary" href="{% url 'contratti:contratto' c.pk %}">Annulla</a>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

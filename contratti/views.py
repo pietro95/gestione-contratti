@@ -58,6 +58,7 @@ def storico(oggetto) -> list[dict]:
                 "utente": h.history_user,
                 "tipo": {"+": "Creazione", "~": "Modifica", "-": "Cancellazione"}[h.history_type],
                 "modifiche": modifiche,
+                "motivo": h.history_change_reason or "",
             }
         )
         precedente = h
@@ -396,7 +397,7 @@ def contratto_nuovo(request):
 @editor_required
 def contratto_modifica(request, pk):
     contratto = get_object_or_404(m.Contratto, pk=pk)
-    form = forms.ContrattoForm(request.POST or None, instance=contratto)
+    form = forms.ContrattoModificaForm(request.POST or None, instance=contratto)
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Contratto aggiornato.")
@@ -406,6 +407,85 @@ def contratto_modifica(request, pk):
         "contratti/form.html",
         {"form": form, "titolo": f"Modifica contratto — {contratto}", "annulla": contratto},
     )
+
+
+def _pk_o_none(valore):
+    try:
+        return int(valore)
+    except (TypeError, ValueError):
+        return None
+
+
+@editor_required
+def contratto_sposta(request, pk):
+    """Sposta il contratto in un altro fabbisogno: anteprima della catena, poi conferma."""
+    contratto = get_object_or_404(m.Contratto.objects.select_related("fabbisogno"), pk=pk)
+    successivi = servizi.contratto_e_successivi(contratto)[1:]
+    form = forms.SpostaContrattoForm(
+        request.POST or None, contratto=contratto, n_successivi=len(successivi)
+    )
+    contesto = {"c": contratto, "form": form, "successivi": successivi}
+    if request.method != "POST" or not form.is_valid():
+        return render(request, "contratti/sposta.html", contesto)
+    destinazione = form.cleaned_data["destinazione"]
+    con_successivi = form.cleaned_data.get("con_successivi", False)
+    try:
+        if request.POST.get("passo") == "conferma":
+            scelto = _pk_o_none(request.POST.get("predecessore"))
+            predecessore = m.Contratto.objects.filter(pk=scelto).first() if scelto else None
+            a = servizi.sposta_contratto(
+                contratto, destinazione, con_successivi=con_successivi, predecessore=predecessore
+            )
+            n = len(a.contratti)
+            messages.success(
+                request,
+                f"{'Contratto spostato' if n == 1 else f'{n} contratti spostati'} in "
+                f"«{destinazione.descrizione}».",
+            )
+            for avviso in a.avvisi:
+                messages.info(request, avviso)
+            return redirect("contratti:contratto", pk=contratto.pk)
+        contesto["anteprima"] = servizi.anteprima_spostamento(
+            contratto, destinazione, con_successivi=con_successivi
+        )
+    except (servizi.OperazioneNonAmmessa, ValidationError) as exc:
+        messages.error(request, "; ".join(getattr(exc, "messages", [str(exc)])))
+    contesto |= {"destinazione": destinazione, "con_successivi": con_successivi}
+    return render(request, "contratti/sposta.html", contesto)
+
+
+@editor_required
+def fabbisogno_accorpa(request, pk):
+    """Accorpa questo fabbisogno in un altro: anteprima dei collegamenti, poi conferma."""
+    origine = get_object_or_404(m.Fabbisogno, pk=pk)
+    form = forms.SceltaFabbisognoForm(request.POST or None, escludi=origine)
+    contesto = {"f": origine, "form": form}
+    if request.method != "POST" or not form.is_valid():
+        return render(request, "contratti/accorpa.html", contesto)
+    destinazione = form.cleaned_data["destinazione"]
+    try:
+        if request.POST.get("passo") == "conferma":
+            collegamenti = []
+            for valore in request.POST.getlist("collegamenti"):
+                p, _, s = valore.partition("-")
+                if _pk_o_none(p) and _pk_o_none(s):
+                    collegamenti.append((int(p), int(s)))
+            servizi.accorpa_fabbisogni(
+                origine,
+                destinazione,
+                collegamenti=collegamenti,
+                previsto_da_origine=request.POST.get("previsto_da") == "origine",
+                pratica_da_origine=request.POST.get("pratica_da") == "origine",
+            )
+            messages.success(
+                request, f"«{origine.descrizione}» accorpato e archiviato: i contratti sono qui."
+            )
+            return redirect("contratti:fabbisogno", pk=destinazione.pk)
+        contesto["anteprima"] = servizi.anteprima_accorpamento(origine, destinazione)
+    except (servizi.OperazioneNonAmmessa, ValidationError) as exc:
+        messages.error(request, "; ".join(getattr(exc, "messages", [str(exc)])))
+    contesto["destinazione"] = destinazione
+    return render(request, "contratti/accorpa.html", contesto)
 
 
 @editor_required

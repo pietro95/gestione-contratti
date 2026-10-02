@@ -1,5 +1,7 @@
 """Operazioni che scrivono sul database usando il motore."""
 
+from dataclasses import dataclass
+
 from django.db import transaction
 from django.db.models import Q
 
@@ -156,3 +158,279 @@ def salva_rata_manuale(rata: m.Rata) -> m.Rata:
     rata.full_clean()
     rata.save()
     return rata
+
+
+# --- Spostamento di contratti e accorpamento di fabbisogni (F8) -------------------------
+#
+# Il fabbisogno di un contratto si cambia solo da qui: la catena dei rinnovi (predecessore
+# → successore) deve restare dentro un solo fabbisogno (SPEC §4).
+
+MOTIVO_MAX = 100  # history_change_reason di simple-history
+
+
+def _motivo(testo: str) -> str:
+    return testo if len(testo) <= MOTIVO_MAX else testo[: MOTIVO_MAX - 1] + "…"
+
+
+def _salva(oggetto, motivo: str, **kw) -> None:
+    oggetto._change_reason = _motivo(motivo)
+    oggetto.save(**kw)
+
+
+def successore_di(contratto: m.Contratto) -> m.Contratto | None:
+    return m.Contratto.objects.filter(predecessore=contratto).first()
+
+
+def contratto_e_successivi(contratto: m.Contratto) -> list[m.Contratto]:
+    """Il contratto e i suoi successori, nell'ordine della catena."""
+    catena, visti, c = [], set(), contratto
+    while c is not None and c.pk not in visti:
+        catena.append(c)
+        visti.add(c.pk)
+        c = successore_di(c)
+    return catena
+
+
+def _ultimo_prima(candidati, inizio):
+    """Il candidato che finisce per ultimo prima dell'inizio: il predecessore naturale."""
+    if inizio is None:
+        return None
+    validi = [
+        (fine, c)
+        for c in candidati
+        if (fine := adapters.data_fine_effettiva(c)) is not None and fine < inizio
+    ]
+    return max(validi, key=lambda x: (x[0], x[1].pk))[1] if validi else None
+
+
+@dataclass
+class AnteprimaSpostamento:
+    contratti: list[m.Contratto]  # da spostare, nell'ordine della catena
+    predecessore_origine: m.Contratto | None
+    successore_origine: m.Contratto | None  # resta nell'origine e si ricollega
+    candidati: list[m.Contratto]  # possibili predecessori nella destinazione
+    proposto: m.Contratto | None
+    avvisi: list[str]
+
+
+def anteprima_spostamento(
+    contratto: m.Contratto, destinazione: m.Fabbisogno, *, con_successivi: bool
+) -> AnteprimaSpostamento:
+    if destinazione.pk == contratto.fabbisogno_id:
+        raise OperazioneNonAmmessa("Il contratto è già in questo fabbisogno.")
+    if destinazione.archiviato:
+        raise OperazioneNonAmmessa("Il fabbisogno di destinazione è archiviato.")
+    spostati = contratto_e_successivi(contratto) if con_successivi else [contratto]
+    successore = None if con_successivi else successore_di(contratto)
+    candidati = list(
+        destinazione.contratti.filter(archiviato=False, successore__isnull=True)
+        .select_related("procedura", "fornitore")
+        .prefetch_related("proroghe")
+        .order_by("data_inizio", "pk")
+    )
+    avvisi = []
+    if destinazione.previsto_data_avvio and not destinazione.contratti.exists():
+        avvisi.append(
+            "Il fabbisogno di destinazione ha un previsto manuale: con i contratti spostati "
+            "i rinnovi previsti partiranno da questi."
+        )
+    if destinazione.stati_pratica.exists() and not destinazione.contratti.exists():
+        avvisi.append(
+            "Il fabbisogno di destinazione ha una pratica da fabbisogno nuovo: resta nello "
+            "storico, la pratica di rinnovo seguirà i contratti."
+        )
+    rimasti = contratto.fabbisogno.contratti.exclude(pk__in=[c.pk for c in spostati])
+    if not rimasti.filter(archiviato=False).exists():
+        avvisi.append(
+            f"«{contratto.fabbisogno.descrizione}» resterà senza contratti: archivialo se "
+            "non serve più."
+        )
+    return AnteprimaSpostamento(
+        contratti=spostati,
+        predecessore_origine=contratto.predecessore,
+        successore_origine=successore,
+        candidati=candidati,
+        proposto=_ultimo_prima(candidati, contratto.data_inizio),
+        avvisi=avvisi,
+    )
+
+
+@transaction.atomic
+def sposta_contratto(
+    contratto: m.Contratto,
+    destinazione: m.Fabbisogno,
+    *,
+    con_successivi: bool,
+    predecessore: m.Contratto | None = None,
+) -> AnteprimaSpostamento:
+    """Sposta il contratto (e, se richiesto, i successori) in un altro fabbisogno.
+
+    Nell'origine la catena si richiude (P → C → S diventa P → S); nella destinazione il
+    contratto si collega al predecessore scelto, o a nessuno.
+    """
+    a = anteprima_spostamento(contratto, destinazione, con_successivi=con_successivi)
+    if predecessore is not None and predecessore.pk not in {c.pk for c in a.candidati}:
+        raise OperazioneNonAmmessa(
+            "Il predecessore deve essere un contratto del fabbisogno di destinazione senza "
+            "successore."
+        )
+    origine = contratto.fabbisogno
+    motivo = f"Spostato da «{origine.descrizione}» a «{destinazione.descrizione}»"
+    p, s = a.predecessore_origine, a.successore_origine
+    # Prima si sciolgono i legami: ogni contratto ha al massimo un successore.
+    if s is not None:
+        s.predecessore = None
+        _salva(s, "Catena ricucita dopo uno spostamento", update_fields=["predecessore"])
+    # In ordine di catena: ogni successore si verifica dopo che il suo predecessore è
+    # già nella destinazione. clean() controlla solo la regola della catena: i dati
+    # importati possono avere altri campi da completare, e non bloccano lo spostamento.
+    for c in a.contratti:
+        c.fabbisogno = destinazione
+        if c.pk == contratto.pk:
+            c.predecessore = predecessore
+        c.clean()
+        _salva(c, motivo, update_fields=["fabbisogno", "predecessore"])
+    if s is not None and p is not None:
+        s.predecessore = p
+        s.clean()
+        _salva(s, "Catena ricucita dopo uno spostamento", update_fields=["predecessore"])
+    return a
+
+
+@dataclass
+class AnteprimaAccorpamento:
+    origine: m.Fabbisogno
+    destinazione: m.Fabbisogno
+    contratti: list[m.Contratto]  # dell'origine, che passano alla destinazione
+    collegamenti: list[tuple[m.Contratto, m.Contratto]]  # (predecessore, successore) proposti
+    conflitto_previsto: bool
+    conflitto_pratica: bool
+    avvisi: list[str]
+
+
+def _ha_previsto(f: m.Fabbisogno) -> bool:
+    return bool(f.previsto_data_avvio or f.stima_prossimo_importo is not None)
+
+
+def _catene(contratti) -> list[list[m.Contratto]]:
+    """Catene dei rinnovi tra i contratti dati, ciascuna dal più vecchio al più recente."""
+    per_pk = {c.pk: c for c in contratti}
+    successori = {c.predecessore_id: c for c in contratti if c.predecessore_id in per_pk}
+    radici = [c for c in contratti if c.predecessore_id not in per_pk]
+    catene = []
+    for r in radici:
+        catena, c = [], r
+        while c is not None and c not in catena:
+            catena.append(c)
+            c = successori.get(c.pk)
+        catene.append(catena)
+    return catene
+
+
+def anteprima_accorpamento(
+    origine: m.Fabbisogno, destinazione: m.Fabbisogno
+) -> AnteprimaAccorpamento:
+    if origine.pk == destinazione.pk:
+        raise OperazioneNonAmmessa("Scegli un fabbisogno diverso.")
+    if destinazione.archiviato or origine.archiviato:
+        raise OperazioneNonAmmessa("Non si accorpa un fabbisogno archiviato.")
+    tutti = list(
+        m.Contratto.objects.filter(fabbisogno__in=[origine, destinazione], archiviato=False)
+        .exclude(data_inizio__isnull=True)
+        .select_related("procedura", "fornitore")
+        .prefetch_related("proroghe")
+    )
+    catene = sorted(_catene(tutti), key=lambda k: (k[0].data_inizio, k[0].pk))
+    collegamenti, avvisi = [], []
+    for prima, dopo in zip(catene, catene[1:], strict=False):
+        ultimo, primo = prima[-1], dopo[0]
+        if ultimo.fabbisogno_id == primo.fabbisogno_id:
+            continue  # interruzione già presente, non creata dall'accorpamento
+        fine = adapters.data_fine_effettiva(ultimo)
+        if fine < primo.data_inizio:
+            collegamenti.append((ultimo, primo))
+        else:
+            avvisi.append(
+                f"Periodi sovrapposti: {ultimo} finisce il {fine:%d/%m/%Y}, {primo} inizia il "
+                f"{primo.data_inizio:%d/%m/%Y}. Nessun collegamento proposto: verifica."
+            )
+    for campo, etichetta in (
+        ("area", "Area diversa"),
+        ("categoria_id", "Categoria diversa"),
+        ("decisione", "Decisione diversa"),
+        ("natura_previsti", "Natura dei rinnovi diversa"),
+        ("conto_previsti_id", "Conto dei rinnovi diverso"),
+    ):
+        if getattr(origine, campo) != getattr(destinazione, campo):
+            avvisi.append(f"{etichetta}: resta il valore di «{destinazione.descrizione}».")
+    return AnteprimaAccorpamento(
+        origine=origine,
+        destinazione=destinazione,
+        contratti=list(origine.contratti.order_by("data_inizio", "pk")),
+        collegamenti=collegamenti,
+        conflitto_previsto=_ha_previsto(origine) and _ha_previsto(destinazione),
+        conflitto_pratica=origine.stati_pratica.exists() and destinazione.stati_pratica.exists(),
+        avvisi=avvisi,
+    )
+
+
+CAMPI_PREVISTO = (
+    "stima_prossimo_importo",
+    "previsto_data_avvio",
+    "previsto_durata_mesi",
+    "previsto_procedura",
+    "previsto_modalita",
+    "previsto_periodicita",
+)
+
+
+@transaction.atomic
+def accorpa_fabbisogni(
+    origine: m.Fabbisogno,
+    destinazione: m.Fabbisogno,
+    *,
+    collegamenti: list[tuple[int, int]] = (),
+    previsto_da_origine: bool = False,
+    pratica_da_origine: bool = False,
+) -> AnteprimaAccorpamento:
+    """Tutti i contratti dell'origine passano alla destinazione; l'origine si archivia.
+
+    ``collegamenti``: coppie (predecessore, successore) confermate tra quelle proposte.
+    Previsto manuale e pratica da fabbisogno nuovo: vale quello della destinazione, salvo
+    scelta contraria; se la destinazione non li ha, si prendono dall'origine.
+    """
+    a = anteprima_accorpamento(origine, destinazione)
+    proposti = {(p.pk, s.pk): (p, s) for p, s in a.collegamenti}
+    if any(tuple(c) not in proposti for c in collegamenti):
+        raise OperazioneNonAmmessa("Collegamento non tra quelli proposti.")
+    motivo = f"Accorpato «{origine.descrizione}» in «{destinazione.descrizione}»"
+    for c in a.contratti:
+        c.fabbisogno = destinazione
+        _salva(c, motivo, update_fields=["fabbisogno"])
+    for coppia in collegamenti:
+        predecessore, successore = proposti[tuple(coppia)]
+        # Ricaricati: in memoria hanno ancora il fabbisogno di prima dell'accorpamento.
+        predecessore.refresh_from_db()
+        successore.refresh_from_db()
+        successore.predecessore = predecessore
+        successore.clean()
+        _salva(successore, motivo, update_fields=["predecessore"])
+
+    if _ha_previsto(origine) and (previsto_da_origine or not _ha_previsto(destinazione)):
+        for campo in CAMPI_PREVISTO:
+            setattr(destinazione, campo, getattr(origine, campo))
+        _salva(destinazione, motivo)
+    pratica_origine = list(origine.stati_pratica.all())
+    pratica_destinazione = list(destinazione.stati_pratica.all())
+    if pratica_origine and (pratica_da_origine or not pratica_destinazione):
+        # Si scambiano: la pratica scelta passa alla destinazione, l'altra resta nello
+        # storico del fabbisogno archiviato. Nessun passaggio si cancella.
+        for passaggio in pratica_destinazione:
+            passaggio.fabbisogno = origine
+            _salva(passaggio, motivo, update_fields=["fabbisogno"])
+        for passaggio in pratica_origine:
+            passaggio.fabbisogno = destinazione
+            _salva(passaggio, motivo, update_fields=["fabbisogno"])
+    origine.archiviato = True
+    _salva(origine, motivo, update_fields=["archiviato"])
+    return a

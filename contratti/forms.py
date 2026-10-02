@@ -272,6 +272,45 @@ class ContrattoForm(ModelFormBootstrap):
         _solo_attivi(self, "progetto", m.Progetto.objects.filter(archiviato=False))
 
 
+class ContrattoModificaForm(ContrattoForm):
+    """Modifica: il fabbisogno si cambia solo con "Sposta", che tiene coerente la catena."""
+
+    class Meta(ContrattoForm.Meta):
+        fields = CAMPI_CONTRATTO
+
+
+class SceltaFabbisognoForm(FormBase):
+    """Fabbisogno di destinazione per spostare un contratto o accorpare un fabbisogno."""
+
+    destinazione = forms.ModelChoiceField(
+        queryset=m.Fabbisogno.objects.none(), label="Fabbisogno di destinazione"
+    )
+
+    def __init__(self, *args, escludi: m.Fabbisogno, **kwargs):
+        super().__init__(*args, **kwargs)
+        campo = self.fields["destinazione"]
+        campo.queryset = (
+            m.Fabbisogno.objects.filter(archiviato=False)
+            .exclude(pk=escludi.pk)
+            .select_related("categoria")
+            .order_by("area", "descrizione")
+        )
+        campo.widget.attrs["class"] = campo.widget.attrs.get("class", "") + " js-cerca"
+
+
+class SpostaContrattoForm(SceltaFabbisognoForm):
+    con_successivi = forms.BooleanField(required=False)
+
+    def __init__(self, *args, contratto: m.Contratto, n_successivi: int, **kwargs):
+        super().__init__(*args, escludi=contratto.fabbisogno, **kwargs)
+        if n_successivi:
+            self.fields[
+                "con_successivi"
+            ].label = f"Sposta anche i rinnovi successivi ({n_successivi})"
+        else:
+            del self.fields["con_successivi"]
+
+
 class RinnovoForm(ContrattoForm):
     """Contratto successore: il fabbisogno e il predecessore li fissa la vista."""
 
