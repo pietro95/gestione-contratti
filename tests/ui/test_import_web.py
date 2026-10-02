@@ -130,9 +130,9 @@ def test_formato_e_file_illeggibile(editor, dati):
     risposta = _carica(editor, "date_emissione", _file("date.txt", b"x"))
     assert risposta.status_code == 302
     assert m.Importazione.objects.count() == 1  # rifiutato prima di registrarlo
+    # Un .xlsx che non è uno zip si rifiuta prima di registrarlo.
     _carica(editor, "date_emissione", _file("date.xlsx", b"non sono un excel"))
-    imp = _ultimo()
-    assert imp.stato == S.ERRORE and "Excel" in imp.messaggio
+    assert m.Importazione.objects.count() == 1
     _carica(editor, "date_emissione", _file("date.csv", b"numero;quando\n1;2\n"))
     imp = _ultimo()
     assert imp.stato == S.ERRORE and "Colonna mancante: numero_contratto" in imp.messaggio
@@ -209,3 +209,15 @@ def test_registro_in_elenco(editor, dati):
     _carica(editor, "date_emissione", _csv_date(("5800000099", "01/02/2026")))
     html = editor.get(reverse("contratti:importazioni")).content.decode()
     assert "date.csv" in html and "In anteprima" in html
+
+
+def test_xlsx_che_si_espande_troppo_rifiutato(editor, dati):
+    """Zip bomb: pochi KB compressi, centinaia di MB decompressi. Non si apre."""
+    import zipfile
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("xl/worksheets/sheet1.xml", b"0" * (210 * 1024 * 1024))
+    risposta = _carica(editor, "date_emissione", _file("bomba.xlsx", buffer.getvalue()))
+    assert risposta.status_code == 302
+    assert m.Importazione.objects.count() == 1

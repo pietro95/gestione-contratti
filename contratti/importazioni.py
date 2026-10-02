@@ -7,9 +7,11 @@ di emissione, piano dei conti, quadratura con l'Excel. Il file resta nel registr
 
 import datetime
 import hashlib
+import io
 import logging
 import re
 import tempfile
+import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -30,6 +32,10 @@ from contratti.importer.tabelle import FileNonValido
 log = logging.getLogger(__name__)
 
 DIMENSIONE_MASSIMA = 10 * 1024 * 1024  # 10 MB: i file reali sono di poche centinaia di righe
+# Un XLSX è uno zip: oltre questa dimensione decompressa (o questo rapporto) è sospetto, e
+# leggerlo potrebbe esaurire la memoria del container (zip bomb).
+DECOMPRESSO_MASSIMO = 200 * 1024 * 1024
+RAPPORTO_MASSIMO = 200
 VALIDITA_ANTEPRIMA = datetime.timedelta(hours=24)
 S = m.Importazione.Stato
 
@@ -285,6 +291,17 @@ def _esegui(imp: m.Importazione, *, dry_run: bool):
         return tipo.esegui(percorso, dry_run, imp.opzioni)
 
 
+def controlla_xlsx(contenuto: bytes) -> None:
+    """Rifiuta gli XLSX che non sono zip validi o che si espandono troppo."""
+    try:
+        with zipfile.ZipFile(io.BytesIO(contenuto)) as z:
+            decompresso = sum(i.file_size for i in z.infolist())
+    except zipfile.BadZipFile as exc:
+        raise ImportNonAmmesso("Il file non è un Excel valido (.xlsx).") from exc
+    if decompresso > DECOMPRESSO_MASSIMO or decompresso > RAPPORTO_MASSIMO * max(len(contenuto), 1):
+        raise ImportNonAmmesso("Il file Excel è troppo grande una volta decompresso.")
+
+
 def carica(tipo: Tipo, file, opzioni: dict, utente) -> m.Importazione:
     """Registra il file e ne calcola l'anteprima (o il report, per i tipi senza conferma)."""
     if not puo_usare(utente, tipo):
@@ -295,6 +312,8 @@ def carica(tipo: Tipo, file, opzioni: dict, utente) -> m.Importazione:
     if file.size > DIMENSIONE_MASSIMA:
         raise ImportNonAmmesso("Il file supera i 10 MB.")
     contenuto = file.read()
+    if Path(nome).suffix.lower() in (".xlsx", ".xlsm"):
+        controlla_xlsx(contenuto)
     imp = m.Importazione.objects.create(
         tipo=tipo.codice,
         nome_file=nome[:255],
