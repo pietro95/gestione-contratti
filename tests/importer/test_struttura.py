@@ -11,7 +11,7 @@ from django.urls import reverse
 from accounts.roles import ADMIN, EDITOR
 from contratti import importazioni as imp_svc
 from contratti import models as m
-from contratti.importer import tabelle
+from contratti.importer import modello_struttura, tabelle
 from contratti.importer.struttura import importa_struttura
 
 from .. import factories as f
@@ -24,7 +24,7 @@ COLONNE = {"Cluster": 3, "Responsabili": 3, "Conti": 6, "WBS": 6}  # senza «Con
 
 def _file(tmp_path, nome="struttura.xlsx", **fogli) -> str:
     """Il modello approvato, con le righe indicate al posto di quelle proposte."""
-    wb = openpyxl.load_workbook(imp_svc.MODELLO_STRUTTURA)
+    wb = modello_struttura.crea()
     for titolo, n in COLONNE.items():
         ws = wb[titolo]
         for riga in ws.iter_rows(min_row=2, max_col=n):
@@ -56,6 +56,27 @@ RESPONSABILI = [("m.rossi", "IT", ""), ("M.Rossi", "TLC", ""), ("a.bianchi", "TU
 def _completo(tmp_path, **altro):
     fogli = {"cluster": CLUSTER, "conti": CONTI, "wbs": WBS, "responsabili": RESPONSABILI}
     return _file(tmp_path, **(fogli | altro))
+
+
+def test_modello_generato_come_quello_approvato():
+    """Fogli, intestazioni e colonna «Controllo» del modello Rev00 (approvato da Pietro)."""
+    wb = modello_struttura.crea()
+    assert wb.sheetnames == ["Istruzioni", "Cluster", "Responsabili", "Conti", "WBS"]
+    intestazioni = {
+        "Cluster": ("codice", "nome", "note", "Controllo"),
+        "Responsabili": ("utente", "cluster", "note", "Controllo"),
+        "Conti": ("codice", "descrizione", "cluster", "valido_dal", "valido_al",
+                  "sostituito_da", "Controllo"),
+        "WBS": ("codice_wbs", "descrizione", "tipo", "cluster", "attiva", "note", "Controllo"),
+    }  # fmt: skip
+    for foglio, attese in intestazioni.items():
+        ws = wb[foglio]
+        assert tuple(c.value for c in ws[1]) == attese
+        assert str(ws.cell(2, len(attese)).value).startswith("=IF(")
+        assert ws.max_row == 501
+    assert [wb["Cluster"].cell(i, 1).value for i in range(2, 7)] == [
+        "IT", "TLC", "OT", "SICFIS", "INN"
+    ]  # fmt: skip
 
 
 def test_import_completo_e_idempotente(tmp_path):

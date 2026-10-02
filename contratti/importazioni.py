@@ -18,12 +18,13 @@ from pathlib import Path
 
 from django.db import transaction
 from django.utils import timezone
-from openpyxl import Workbook, load_workbook
+from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 
 from accounts.roles import ADMIN, WRITE_ROLES, role_of
 from contratti import models as m
 from contratti import permessi
+from contratti.importer import modello_struttura as modello_struttura_rev00
 from contratti.importer.carica import importa as importa_excel
 from contratti.importer.conti import importa_conti
 from contratti.importer.date_emissione import importa_date
@@ -137,17 +138,9 @@ def _modello(fogli: list[tuple[str, list[str], set[str]]], istruzioni: list[str]
     return wb
 
 
-MODELLO_STRUTTURA = (
-    Path(__file__).parent
-    / "importer"
-    / "modelli"
-    / "2026.10.02_PFE_Modello_import_struttura_ICTDINN_Rev00.xlsx"
-)
-
-
 def modello_struttura() -> Workbook:
     """Il modello approvato da Pietro (Rev00), con istruzioni e colonna di controllo."""
-    return load_workbook(MODELLO_STRUTTURA)
+    return modello_struttura_rev00.crea()
 
 
 def modello_date() -> Workbook:
@@ -284,7 +277,7 @@ TIPI: dict[str, Tipo] = {
             },
             solo_admin=True,
             modello=modello_struttura,
-            nome_modello=MODELLO_STRUTTURA.name,
+            nome_modello=modello_struttura_rev00.NOME,
             note=[
                 "Il foglio Responsabili, se compilato, è l'elenco completo: chi non c'è perde "
                 "le assegnazioni. Conti e WBS non si cancellano mai.",
