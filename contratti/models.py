@@ -235,9 +235,29 @@ class ContoCoge(models.Model):
 # ---------------------------------------------------------------------------
 
 
-class Area(models.TextChoices):
-    IT = "IT", "IT"
-    TLC = "TLC", "TLC"
+class Cluster(Archiviabile):
+    """Area dell'ufficio ICTDINN che raggruppa più conti (IT, TLC, OT, ...): F9.2.
+
+    Il codice è breve e stabile: lo usano filtri, import e indirizzi (``?area=IT``).
+    """
+
+    codice = models.CharField(max_length=10, unique=True)
+    nome = models.CharField(max_length=100)
+    note = models.TextField(blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "cluster"
+        verbose_name_plural = "cluster"
+        ordering = ["codice"]
+
+    def __str__(self):
+        return self.nome if self.nome == self.codice else f"{self.codice} — {self.nome}"
+
+
+def scelte_cluster() -> list[tuple[str, str]]:
+    """(codice, nome) dei cluster attivi, per filtri e tendine."""
+    return [(c.codice, c.nome) for c in Cluster.objects.filter(archiviato=False)]
 
 
 class Natura(models.TextChoices):
@@ -314,7 +334,7 @@ class Fabbisogno(Archiviabile):
         DISMETTERE = "dismettere", "Dismettere"
 
     descrizione = models.CharField(max_length=250)
-    area = models.CharField(max_length=3, choices=Area.choices)
+    cluster = models.ForeignKey(Cluster, on_delete=models.PROTECT, related_name="fabbisogni")
     categoria = models.ForeignKey(Categoria, on_delete=models.PROTECT, related_name="fabbisogni")
     impianto = models.ForeignKey(
         Impianto, on_delete=models.PROTECT, null=True, blank=True, related_name="fabbisogni"
@@ -383,7 +403,7 @@ class Fabbisogno(Archiviabile):
     class Meta:
         verbose_name = "fabbisogno"
         verbose_name_plural = "fabbisogni"
-        ordering = ["area", "descrizione"]
+        ordering = ["cluster__codice", "descrizione"]
         constraints = [
             models.CheckConstraint(
                 condition=Q(stima_prossimo_importo__isnull=True) | Q(stima_prossimo_importo__gte=0),
@@ -408,6 +428,11 @@ class Fabbisogno(Archiviabile):
         from django.urls import reverse
 
         return reverse("contratti:fabbisogno", args=[self.pk])
+
+    @property
+    def area(self) -> str:
+        """Codice del cluster (prima di F9.2 era l'area IT/TLC)."""
+        return self.cluster.codice
 
 
 class Contratto(Archiviabile):

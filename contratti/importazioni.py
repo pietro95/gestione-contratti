@@ -195,8 +195,6 @@ def modello_contratti() -> Workbook:
     )
 
 
-AREA = {"area": "Area"}
-
 TIPI: dict[str, Tipo] = {
     t.codice: t
     for t in (

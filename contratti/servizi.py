@@ -589,7 +589,7 @@ def anteprima_accorpamento(
         _qs_collegamenti([origine, destinazione]).exclude(pk__in=da_archiviare)
     )
     for campo, etichetta in (
-        ("area", "Area diversa"),
+        ("cluster_id", "Cluster diverso"),
         ("categoria_id", "Categoria diversa"),
         ("decisione", "Decisione diversa"),
         ("natura_previsti", "Natura dei rinnovi diversa"),

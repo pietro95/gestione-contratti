@@ -90,6 +90,10 @@ class _Caricamento:
     def __init__(self, report: Report, area: str, oggi: datetime.date):
         self.report = report
         self.area = area
+        try:
+            self.cluster = m.Cluster.objects.get(codice=area)
+        except m.Cluster.DoesNotExist as exc:
+            raise ValueError(f"Cluster inesistente: {area}.") from exc
         self.oggi = oggi
         self.procedura = m.Procedura.objects.get(codice="da_verificare")
         self.categoria = m.Categoria.objects.get(nome="Da classificare")
@@ -217,7 +221,7 @@ class _Caricamento:
         descrizione = primo.descrizione or DESCRIZIONE_ASSENTE
         fabbisogno = m.Fabbisogno.objects.create(
             descrizione=descrizione,
-            area=self.area,
+            cluster=self.cluster,
             categoria=self.categoria,
             decisione=primo.decisione,
             note="Fabbisogno provvisorio creato dall'import Excel.",

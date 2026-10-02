@@ -18,8 +18,14 @@ def fornitore(ragione_sociale="Fornitore Esempio S.r.l.", **kw):
     return m.Fornitore.objects.create(ragione_sociale=ragione_sociale, **kw)
 
 
+def cluster(codice="IT"):
+    return m.Cluster.objects.get_or_create(codice=codice, defaults={"nome": codice})[0]
+
+
 def fabbisogno(descrizione="Licenze gestionale di prova", **kw):
-    kw.setdefault("area", m.Area.IT)
+    if "area" in kw:  # codice del cluster, come prima di F9.2
+        kw["cluster"] = cluster(kw.pop("area"))
+    kw.setdefault("cluster", cluster())
     kw.setdefault("categoria", categoria())
     return m.Fabbisogno.objects.create(descrizione=descrizione, **kw)
 

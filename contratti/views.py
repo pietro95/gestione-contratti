@@ -175,7 +175,7 @@ def cruscotto(request):
                 (Alert.GIALLO, "In avvicinamento o pratica in corso", gruppi[Alert.GIALLO]),
             ],
             "filtri": filtri,
-            "aree": m.Area.choices,
+            "aree": m.scelte_cluster(),
             "categorie": m.Categoria.objects.all(),
             "proposte_aperte": m.PropostaRaggruppamento.objects.filter(stato="proposta").count()
             + m.PropostaPredecessore.objects.filter(stato="proposta").count(),
@@ -201,7 +201,7 @@ def _filtra_contratti(request, oggi):
             | Q(fornitore__ragione_sociale__icontains=q)
         )
     if g.get("area"):
-        qs = qs.filter(fabbisogno__area=g["area"])
+        qs = qs.filter(fabbisogno__cluster__codice=g["area"])
     if g.get("finanziamento"):
         qs = qs.filter(finanziamento=g["finanziamento"])
     if g.get("fornitore"):
@@ -289,7 +289,7 @@ def contratti_elenco(request):
             g,
             {
                 "q": "Testo",
-                "area": "Area",
+                "area": "Cluster",
                 "stato": lambda v: "Stato: " + dict(STATI_TEMPORALI).get(v, v),
                 "alert": lambda v: "Alert: " + v,
                 "anno": "Attivi nell'anno",
@@ -301,7 +301,7 @@ def contratti_elenco(request):
             },
         ),
         "filtri": request.GET,
-        "aree": m.Area.choices,
+        "aree": m.scelte_cluster(),
         "fornitori": m.Fornitore.objects.filter(archiviato=False),
         "stati": STATI_TEMPORALI,
         "alert": [(a.value, a.value.capitalize()) for a in Alert],
@@ -910,21 +910,22 @@ def fabbisogni_elenco(request):
         qs = qs.filter(
             Q(descrizione__icontains=q) | Q(referente__icontains=q) | Q(note__icontains=q)
         )
-    for campo in ("area", "decisione"):
-        if g.get(campo):
-            qs = qs.filter(**{campo: g[campo]})
+    if g.get("area"):
+        qs = qs.filter(cluster__codice=g["area"])
+    if g.get("decisione"):
+        qs = qs.filter(decisione=g["decisione"])
     if g.get("categoria"):
         qs = qs.filter(categoria_id=g["categoria"])
     ordine = _ordine_qs(
         g.get("ordina", ""),
         {
             "descrizione": "descrizione",
-            "area": "area",
+            "area": "cluster__codice",
             "categoria": "categoria__nome",
             "decisione": "decisione",
             "contratti": "n_contratti",
         },
-        ("area", "descrizione"),
+        ("cluster__codice", "descrizione"),
     )
     pagina = Paginator(qs.order_by(*ordine), PER_PAGINA).get_page(g.get("pagina"))
     return render(
@@ -937,14 +938,14 @@ def fabbisogni_elenco(request):
                 g,
                 {
                     "q": "Testo",
-                    "area": "Area",
+                    "area": "Cluster",
                     "decisione": lambda v: "Decisione: "
                     + dict(m.Fabbisogno.Decisione.choices).get(v, v),
                     "categoria": lambda v: _nome(m.Categoria, v),
                     "archiviati": lambda v: "Con gli archiviati",
                 },
             ),
-            "aree": m.Area.choices,
+            "aree": m.scelte_cluster(),
             "decisioni": m.Fabbisogno.Decisione.choices,
             "categorie": m.Categoria.objects.all(),
         },

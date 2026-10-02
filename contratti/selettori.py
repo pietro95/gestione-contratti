@@ -106,7 +106,7 @@ def righe_previsti_manuali(oggi: datetime.date, filtri: dict) -> list[RigaContra
         )
     )
     if filtri.get("area"):
-        qs = qs.filter(area=filtri["area"])
+        qs = qs.filter(cluster__codice=filtri["area"])
     if filtri.get("categoria"):
         qs = qs.filter(categoria_id=filtri["categoria"])
     default = m.Procedura.objects.filter(codice="da_verificare").first()
@@ -152,7 +152,7 @@ def contratti_terminali():
 def cruscotto(oggi: datetime.date, filtri: dict) -> dict[Alert, list[RigaContratto]]:
     qs = contratti_terminali().filter(fabbisogno__archiviato=False)
     if filtri.get("area"):
-        qs = qs.filter(fabbisogno__area=filtri["area"])
+        qs = qs.filter(fabbisogno__cluster__codice=filtri["area"])
     if filtri.get("categoria"):
         qs = qs.filter(fabbisogno__categoria_id=filtri["categoria"])
     gruppi: dict[Alert, list[RigaContratto]] = {

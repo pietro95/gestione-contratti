@@ -19,7 +19,7 @@ RIGHE_ANTEPRIMA = 500  # anomalie mostrate in pagina; il file XLSX le ha tutte
 
 class CaricaForm(FormBase):
     file = dj_forms.FileField(label="File")
-    area = dj_forms.ChoiceField(choices=m.Area.choices, required=False)
+    area = dj_forms.ChoiceField(choices=[], required=False, label="Cluster")
 
     def __init__(self, *args, tipo: imp_svc.Tipo, **kwargs):
         super().__init__(*args, **kwargs)
@@ -32,6 +32,7 @@ class CaricaForm(FormBase):
         )
         if tipo.chiede_area:
             self.fields["area"].required = True
+            self.fields["area"].choices = m.scelte_cluster()
         else:
             del self.fields["area"]
 

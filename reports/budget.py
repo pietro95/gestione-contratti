@@ -32,7 +32,7 @@ LIVELLI = tuple(Livello)
 PARTI = ("consolidato", "previsionale", "totale")
 RAGGRUPPAMENTI = {
     "conto": "Conto",
-    "area": "Area",
+    "area": "Cluster",
     "fornitore": "Fornitore",
     "finanziamento": "Finanziamento",
     "fabbisogno": "Fabbisogno",
@@ -208,14 +208,14 @@ def orizzonte_report(anno: int, oggi: datetime.date) -> datetime.date:
 def _contratti(filtri: Filtri):
     qs = m.Contratto.objects.filter(archiviato=False, fabbisogno__archiviato=False)
     if filtri.area:
-        qs = qs.filter(fabbisogno__area=filtri.area)
+        qs = qs.filter(fabbisogno__cluster__codice=filtri.area)
     if filtri.fornitore:
         qs = qs.filter(fornitore_id=filtri.fornitore)
     if filtri.finanziamento:
         qs = qs.filter(finanziamento=filtri.finanziamento)
     if filtri.natura:
         qs = qs.filter(natura=filtri.natura)
-    return qs.select_related("fabbisogno", "fornitore", "procedura").prefetch_related(
+    return qs.select_related("fabbisogno__cluster", "fornitore", "procedura").prefetch_related(
         *adapters.PREFETCH_CALCOLO
     )
 
@@ -271,11 +271,11 @@ def _voci_previste(filtri: Filtri, oggi: datetime.date):
     orizzonte = orizzonte_report(filtri.anno, oggi)
     fabbisogni = (
         m.Fabbisogno.objects.filter(archiviato=False)
-        .select_related("categoria", "previsto_procedura", "conto_previsti")
+        .select_related("cluster", "categoria", "previsto_procedura", "conto_previsti")
         .prefetch_related(*adapters.PREFETCH_FABBISOGNO)
     )
     if filtri.area:
-        fabbisogni = fabbisogni.filter(area=filtri.area)
+        fabbisogni = fabbisogni.filter(cluster__codice=filtri.area)
     voci: list[VoceBudget] = []
     mancanti: list[RinnovoMancante] = []
     for f in fabbisogni.order_by("pk"):

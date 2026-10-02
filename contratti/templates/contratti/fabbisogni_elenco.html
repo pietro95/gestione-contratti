@@ -7,7 +7,7 @@
 {% block content %}
 <form method="get" class="filtri row g-3 align-items-end">
   <div class="col-md-6 col-xl-4"><label class="form-label" for="f-q">Cerca</label><input id="f-q" type="search" name="q" value="{{ filtri.q }}" class="form-control" placeholder="Descrizione, referente, note"></div>
-  <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-area">Area</label><select id="f-area" name="area" class="form-select"><option value="">Tutte</option>{% for v, t in aree %}<option value="{{ v }}" {% if filtri.area == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+  <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-area">Cluster</label><select id="f-area" name="area" class="form-select"><option value="">Tutti</option>{% for v, t in aree %}<option value="{{ v }}" {% if filtri.area == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
   <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-dec">Decisione</label><select id="f-dec" name="decisione" class="form-select"><option value="">Tutte</option>{% for v, t in decisioni %}<option value="{{ v }}" {% if filtri.decisione == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
   <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-cat">Categoria</label><select id="f-cat" name="categoria" class="form-select"><option value="">Tutte</option>{% for c in categorie %}<option value="{{ c.pk|stringformat:"d" }}" {% if filtri.categoria == c.pk|stringformat:"s" %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
   <div class="col-auto"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="archiviati" value="1" id="f-arch" {% if filtri.archiviati %}checked{% endif %}><label class="form-check-label" for="f-arch">Archiviati</label></div></div>
@@ -16,7 +16,7 @@
 {% include "contratti/_filtri_attivi.html" %}
 <div class="tabella-card"><div class="table-responsive">
 <table class="table table-hover align-middle">
-  <thead><tr><th>{% ordina 'descrizione' 'Descrizione' %}</th><th>{% ordina 'area' 'Area' %}</th><th>{% ordina 'categoria' 'Categoria' %}</th><th>{% ordina 'decisione' 'Decisione' %}</th><th class="text-end">{% ordina 'contratti' 'Contratti' %}</th></tr></thead>
+  <thead><tr><th>{% ordina 'descrizione' 'Descrizione' %}</th><th>{% ordina 'area' 'Cluster' %}</th><th>{% ordina 'categoria' 'Categoria' %}</th><th>{% ordina 'decisione' 'Decisione' %}</th><th class="text-end">{% ordina 'contratti' 'Contratti' %}</th></tr></thead>
   <tbody>
   {% for f in pagina %}{% url 'contratti:fabbisogno' f.pk as link %}
     <tr data-href="{{ link }}"><td><a href="{{ link }}" class="fw-semibold">{{ f.descrizione }}</a>{% if f.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}</td><td>{{ f.area }}</td><td>{{ f.categoria }}</td><td>{{ f.get_decisione_display }}</td><td class="text-end">{{ f.n_contratti }}</td></tr>

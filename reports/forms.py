@@ -13,7 +13,7 @@ class FiltriBudgetForm(FormBase):
     natura = forms.ChoiceField(
         choices=[*m.Natura.choices, (ENTRAMBE, "OPEX e CAPEX, separati")], required=False
     )
-    area = forms.ChoiceField(choices=[("", "Tutte le aree"), *m.Area.choices], required=False)
+    area = forms.ChoiceField(choices=[], required=False, label="Cluster")
     conto = forms.ModelChoiceField(
         queryset=m.ContoCoge.objects.order_by("codice"), required=False, empty_label="Tutti i conti"
     )
@@ -44,6 +44,7 @@ class FiltriBudgetForm(FormBase):
         # OPEX e CAPEX sono budget distinti: di default si vede l'OPEX, mai la somma.
         dati.setdefault("natura", m.Natura.OPEX)
         super().__init__(dati)
+        self.fields["area"].choices = [("", "Tutti i cluster"), *m.scelte_cluster()]
 
     def filtri(self) -> Filtri:
         d = self.cleaned_data
@@ -68,7 +69,7 @@ class FiltriBudgetForm(FormBase):
 
 class FiltriPianoForm(FormBase):
     anno = forms.IntegerField(min_value=2000, max_value=2100)
-    area = forms.ChoiceField(choices=[("", "Tutte le aree"), *m.Area.choices], required=False)
+    area = forms.ChoiceField(choices=[], required=False, label="Cluster")
     categoria = forms.ModelChoiceField(
         queryset=m.Categoria.objects.all(), required=False, empty_label="Tutte le categorie"
     )
@@ -78,10 +79,11 @@ class FiltriPianoForm(FormBase):
         dati = dati.copy()
         dati.setdefault("anno", str(anno_default))
         super().__init__(dati)
+        self.fields["area"].choices = [("", "Tutti i cluster"), *m.scelte_cluster()]
 
     def descrizione(self) -> str:
         d = self.cleaned_data
-        parti = [f"Area {d['area']}" if d.get("area") else "Tutte le aree"]
+        parti = [f"Cluster {d['area']}" if d.get("area") else "Tutti i cluster"]
         parti.append(f"categoria {d['categoria']}" if d.get("categoria") else "tutte le categorie")
         parti.append(d["natura"] if d.get("natura") else "OPEX e CAPEX")
         return "; ".join(parti)

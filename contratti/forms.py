@@ -149,7 +149,7 @@ class FornitoreForm(ModelFormBootstrap):
 
 class FabbisognoForm(ModelFormBootstrap):
     sezioni = [
-        ("Fabbisogno", ["descrizione", "area", "categoria", "impianto", "referente"]),
+        ("Fabbisogno", ["descrizione", "cluster", "categoria", "impianto", "referente"]),
         ("Decisione sul rinnovo", ["decisione", "stima_prossimo_importo", "note"]),
         (
             "Classificazione dei rinnovi previsti (se diversa dall'ultimo contratto)",
@@ -171,7 +171,7 @@ class FabbisognoForm(ModelFormBootstrap):
         model = m.Fabbisogno
         fields = [
             "descrizione",
-            "area",
+            "cluster",
             "categoria",
             "impianto",
             "referente",
@@ -189,6 +189,7 @@ class FabbisognoForm(ModelFormBootstrap):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        _solo_attivi(self, "cluster", m.Cluster.objects.filter(archiviato=False))
         _solo_attivi(self, "categoria", m.Categoria.objects.filter(attiva=True))
         _solo_attivi(self, "impianto", m.Impianto.objects.filter(archiviato=False))
         _solo_attivi(self, "previsto_procedura", m.Procedura.objects.filter(attiva=True))
@@ -293,7 +294,7 @@ class SceltaFabbisognoForm(FormBase):
             m.Fabbisogno.objects.filter(archiviato=False)
             .exclude(pk=escludi.pk)
             .select_related("categoria")
-            .order_by("area", "descrizione")
+            .order_by("cluster__codice", "descrizione")
         )
         campo.widget.attrs["class"] = campo.widget.attrs.get("class", "") + " js-cerca"
 

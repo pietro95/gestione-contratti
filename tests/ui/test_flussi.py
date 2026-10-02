@@ -257,7 +257,7 @@ def test_fabbisogno_e_fornitore_da_interfaccia(editor, dati):
         reverse("contratti:fabbisogno_nuovo"),
         {
             "descrizione": "Firewall perimetrale",
-            "area": "IT",
+            "cluster": m.Cluster.objects.get(codice="IT").pk,
             "categoria": m.Categoria.objects.get(nome="Licenze software").pk,
             "decisione": "da_valutare",
             "previsto_data_avvio": "2027-01-01",

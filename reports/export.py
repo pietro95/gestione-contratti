@@ -29,7 +29,7 @@ def descrivi_filtri(budget: Budget) -> str:
     f = budget.filtri
     parti = [f"Anno {f.anno}", f"natura {f.natura}" if f.natura else "OPEX e CAPEX separati"]
     if f.area:
-        parti.append(f"area {f.area}")
+        parti.append(f"cluster {f.area}")
     if f.conto:
         parti.append(f"conto {m.ContoCoge.objects.filter(pk=f.conto).first()}")
     if f.fornitore:
@@ -78,7 +78,7 @@ def budget_xlsx(budget: Budget, criterio: str):
     xlsx.foglio(wb, f"Per {criterio}", intestazione, colonne, righe)
 
     colonne = [
-        "Tipo", "Natura", "Previsto n.", "Area", "Fabbisogno", "Contratto", "Voce",
+        "Tipo", "Natura", "Previsto n.", "Cluster", "Fabbisogno", "Contratto", "Voce",
         "Fornitore", "Conto", "Finanziamento", "Inizio servizio", "Fine servizio",
     ]  # fmt: skip
     colonne += [f"{SIGLE_VISTE[vista]} {liv.value}" for vista in VISTE for liv in LIVELLI]
@@ -122,12 +122,12 @@ def piano_xlsx(piano: PianoOrdini, oggi: datetime.date, filtri: str = ""):
     wb = xlsx.nuovo_libro()
     intestazione = [
         f"Piano ordini {piano.anno}",
-        filtri or "Tutte le aree e categorie",
+        filtri or "Tutti i cluster e le categorie",
         NOTA_IMPONIBILE,
         _generato(oggi),
     ]
     colonne = [
-        "Fabbisogno", "Natura", "Area", "Categoria", "Fornitore uscente", "Procedura presunta",
+        "Fabbisogno", "Natura", "Cluster", "Categoria", "Fornitore uscente", "Procedura presunta",
         "Lead time (mesi)", "Data limite di avvio", "Avvio servizio", "Fine servizio",
         "Durata (mesi)", "Stato pratica", "Fisso", "Probabile", "Massimo", "Oltre soglia",
     ]  # fmt: skip

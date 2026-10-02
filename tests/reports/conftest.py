@@ -34,7 +34,7 @@ def archivio(conti):
     importa(IT, area="IT", oggi=OGGI)
     importa(TLC, area="TLC", oggi=OGGI)
 
-    fab = f.fabbisogno("Servizio costruito per i report", area=m.Area.TLC, decisione="rinnovare")
+    fab = f.fabbisogno("Servizio costruito per i report", area="TLC", decisione="rinnovare")
     c = f.contratto(
         fabbisogno=fab,
         data_inizio=D(2026, 1, 1),

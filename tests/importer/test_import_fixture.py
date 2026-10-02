@@ -35,8 +35,8 @@ def test_import_completo_senza_eccezioni(importati):
     it, tlc = importati
     assert it.conteggi["contratti_creati"] == 67
     assert tlc.conteggi["contratti_creati"] == 23
-    assert m.Contratto.objects.filter(fabbisogno__area="IT").count() == 67
-    assert m.Contratto.objects.filter(fabbisogno__area="TLC").count() == 23
+    assert m.Contratto.objects.filter(fabbisogno__cluster__codice="IT").count() == 67
+    assert m.Contratto.objects.filter(fabbisogno__cluster__codice="TLC").count() == 23
     # Nessun nullo scritto come testo.
     for campo in ("numero_contratto", "cig"):
         valori = set(m.Contratto.objects.values_list(campo, flat=True))

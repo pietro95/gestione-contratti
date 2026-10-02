@@ -6,7 +6,7 @@
 {% block sottotitolo %}<div class="sottotitolo">Al {{ oggi|date:"d/m/Y" }} · ordinati per data limite di avvio della pratica</div>{% endblock %}
 {% block content %}
 <form method="get" class="filtri row g-3 align-items-end">
-  <div class="col-sm-4 col-lg-3"><label class="form-label" for="f-area">Area</label><select id="f-area" name="area" class="form-select"><option value="">Tutte le aree</option>{% for v, t in aree %}<option value="{{ v }}" {% if filtri.area == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+  <div class="col-sm-4 col-lg-3"><label class="form-label" for="f-area">Cluster</label><select id="f-area" name="area" class="form-select"><option value="">Tutti i cluster</option>{% for v, t in aree %}<option value="{{ v }}" {% if filtri.area == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
   <div class="col-sm-5 col-lg-4"><label class="form-label" for="f-cat">Categoria</label><select id="f-cat" name="categoria" class="form-select"><option value="">Tutte le categorie</option>{% for c in categorie %}<option value="{{ c.pk|stringformat:"d" }}" {% if filtri.categoria == c.pk|stringformat:"s" %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
   {% if request.GET.oggi %}<input type="hidden" name="oggi" value="{{ request.GET.oggi }}">{% endif %}
   <div class="col-auto"><button class="btn btn-primary" type="submit">Applica</button></div>

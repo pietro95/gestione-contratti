@@ -36,7 +36,7 @@
     <tr data-href="{{ link }}">
       <td class="text-nowrap"><a href="{{ link }}">{{ imp.caricata_il|date:"d/m/Y H:i" }}</a></td>
       <td>{{ titolo }}</td>
-      <td>{{ imp.nome_file }}{% if imp.opzioni.area %} <span class="small text-body-secondary">· area {{ imp.opzioni.area }}</span>{% endif %}</td>
+      <td>{{ imp.nome_file }}{% if imp.opzioni.area %} <span class="small text-body-secondary">· cluster {{ imp.opzioni.area }}</span>{% endif %}</td>
       <td>{{ imp.utente }}</td>
       <td>{% include "contratti/import/_stato.html" %}</td>
     </tr>

@@ -21,7 +21,7 @@ def _gruppi(area: str):
     gruppi = defaultdict(list)
     contratti = (
         m.Contratto.objects.filter(chiave_import__isnull=False, archiviato=False)
-        .filter(fabbisogno__area=area)
+        .filter(fabbisogno__cluster__codice=area)
         .select_related("fornitore", "procedura")
     )
     for c in contratti:

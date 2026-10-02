@@ -161,11 +161,11 @@ def _calcola_piano(anno: int, oggi: datetime.date, area: str, categoria: int | N
     procedura_default = m.Procedura.objects.filter(codice="da_verificare").first()
     fabbisogni = (
         m.Fabbisogno.objects.filter(archiviato=False)
-        .select_related("categoria", "previsto_procedura")
+        .select_related("cluster", "categoria", "previsto_procedura")
         .prefetch_related(*adapters.PREFETCH_FABBISOGNO)
     )
     if area:
-        fabbisogni = fabbisogni.filter(area=area)
+        fabbisogni = fabbisogni.filter(cluster__codice=area)
     if categoria:
         fabbisogni = fabbisogni.filter(categoria_id=categoria)
     righe: list[RigaPiano] = []

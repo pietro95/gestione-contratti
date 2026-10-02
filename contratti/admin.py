@@ -143,13 +143,13 @@ class ContrattoInline(InlineSenzaCancellazione):
 
 @admin.register(m.Fabbisogno)
 class FabbisognoAdmin(ArchiviabileAdmin):
-    list_display = ("descrizione", "area", "categoria", "decisione", "impianto", "archiviato")
-    list_filter = ("area", "categoria", "decisione", "impianto", "archiviato")
+    list_display = ("descrizione", "cluster", "categoria", "decisione", "impianto", "archiviato")
+    list_filter = ("cluster", "categoria", "decisione", "impianto", "archiviato")
     search_fields = ("descrizione", "referente", "note")
     autocomplete_fields = ("categoria", "impianto", "referente_utente", "previsto_procedura")
     inlines = [ContrattoInline, StatoPraticaFabbisognoInline]
     fieldsets = (
-        (None, {"fields": ("descrizione", "area", "categoria", "impianto")}),
+        (None, {"fields": ("descrizione", "cluster", "categoria", "impianto")}),
         ("Responsabilità", {"fields": ("referente", "referente_utente")}),
         ("Continuità", {"fields": ("decisione", "stima_prossimo_importo", "note")}),
         (
@@ -214,7 +214,7 @@ class ContrattoAdmin(ArchiviabileAdmin):
         "natura",
         "archiviato",
     )
-    list_filter = ("fabbisogno__area", "procedura", "finanziamento", "natura", "archiviato")
+    list_filter = ("fabbisogno__cluster", "procedura", "finanziamento", "natura", "archiviato")
     search_fields = (
         "fabbisogno__descrizione",
         "descrizione",
