@@ -424,23 +424,31 @@ def _ha_previsto(f: m.Fabbisogno) -> bool:
 UN_GIORNO = datetime.timedelta(days=1)
 
 
+def _distanza(fine: datetime.date, inizio: datetime.date) -> int:
+    """Giorni tra il giorno dopo la fine e l'inizio del rinnovo (0 = rinnovo a ridosso)."""
+    return abs((inizio - (fine + UN_GIORNO)).days)
+
+
 def proponi_collegamenti(contratti) -> tuple[list[tuple[m.Contratto, m.Contratto]], list[str]]:
     """Catene dei rinnovi interrotte da ricucire: coppie (predecessore, successore) e avvisi.
 
     Per ogni contratto senza successore si propone il contratto senza predecessore che
-    inizia dopo la sua fine; ogni contratto si usa una volta sola, prima le coppie più
-    vicine nel tempo. Così le catene di due fabbisogni accorpati si ricuciono anche quando
-    i periodi si alternano.
+    inizia dopo di lui e finisce dopo di lui, con l'inizio più vicino al giorno dopo la sua
+    fine: il rinnovo può anche partire prima della scadenza (periodi sovrapposti). Ogni
+    contratto si usa una volta sola, prima le coppie più vicine.
     """
     attivi = [c for c in contratti if not c.archiviato and c.data_inizio is not None]
     ultimi = [c for c in attivi if not hasattr(c, "successore")]
     primi = [c for c in attivi if c.predecessore_id is None]
-    fini = {u.pk: adapters.data_fine_effettiva(u) for u in ultimi}
+    fini = {c.pk: adapters.data_fine_effettiva(c) for c in attivi}
     candidate = [
-        ((p.data_inizio - fini[u.pk]).days, u.pk, p.pk, u, p)
+        (_distanza(fini[u.pk], p.data_inizio), u.pk, p.pk, u, p)
         for u in ultimi
         for p in primi
-        if p.pk != u.pk and fini[u.pk] < p.data_inizio
+        if p.pk != u.pk
+        and fini[u.pk] is not None
+        and u.data_inizio < p.data_inizio
+        and (fini[p.pk] is None or fini[p.pk] > fini[u.pk])
     ]
     coppie, usati_u, usati_p = [], set(), set()
     for *_, u, p in sorted(candidate, key=lambda x: x[:3]):
@@ -449,26 +457,85 @@ def proponi_collegamenti(contratti) -> tuple[list[tuple[m.Contratto, m.Contratto
         coppie.append((u, p))
         usati_u.add(u.pk)
         usati_p.add(p.pk)
-    # Contratto finito senza successore mentre un altro copre già il periodo seguente.
     avvisi = []
+    for u, p in coppie:
+        if p.data_inizio <= fini[u.pk]:
+            avvisi.append(
+                f"{p} inizia il {p.data_inizio:%d/%m/%Y}, prima della fine di {u} "
+                f"({fini[u.pk]:%d/%m/%Y}): periodi sovrapposti. Verifica che sia il rinnovo."
+            )
+    # Contratto finito senza successore mentre il rinnovo ha già un altro predecessore.
     for u in ultimi:
         fine = fini[u.pk]
         if u.pk in usati_u or fine is None:
             continue
         for c in attivi:
-            if c.pk == u.pk or not (u.data_inizio < c.data_inizio <= fine + UN_GIORNO):
-                continue
-            perche = (
-                "è già il rinnovo di un altro contratto"
-                if c.predecessore_id is not None
-                else "ha il periodo sovrapposto (periodi sovrapposti)"
-            )
-            avvisi.append(
-                f"{u} finisce il {fine:%d/%m/%Y} senza successore; {c}, che inizia il "
-                f"{c.data_inizio:%d/%m/%Y}, {perche}. Nessun collegamento proposto: verifica."
-            )
-            break
+            if (
+                c.pk != u.pk
+                and c.predecessore_id is not None
+                and u.data_inizio < c.data_inizio <= fine + UN_GIORNO
+            ):
+                avvisi.append(
+                    f"{u} finisce il {fine:%d/%m/%Y} senza successore; {c}, che inizia il "
+                    f"{c.data_inizio:%d/%m/%Y}, è già il rinnovo di un altro contratto. "
+                    "Nessun collegamento proposto: verifica."
+                )
+                break
     return sorted(coppie, key=lambda x: (x[1].data_inizio, x[1].pk)), avvisi
+
+
+def candidati_rinnovo(contratto: m.Contratto) -> list[m.Contratto]:
+    """Contratti del fabbisogno che si possono collegare a mano come rinnovo del contratto.
+
+    Senza predecessore, non archiviati, con inizio successivo a quello del contratto; per
+    primi quelli che iniziano più vicino al giorno dopo la sua fine.
+    """
+    if contratto.data_inizio is None or hasattr(contratto, "successore"):
+        return []
+    catena = {c.pk for c in contratto_e_predecessori(contratto)}
+    candidati = [
+        c
+        for c in _qs_collegamenti([contratto.fabbisogno_id]).filter(
+            predecessore__isnull=True, data_inizio__gt=contratto.data_inizio
+        )
+        if c.pk not in catena
+    ]
+    fine = adapters.data_fine_effettiva(contratto)
+    return sorted(candidati, key=lambda c: (_distanza(fine, c.data_inizio), c.pk))
+
+
+def contratto_e_predecessori(contratto: m.Contratto) -> list[m.Contratto]:
+    catena, visti, c = [], set(), contratto
+    while c is not None and c.pk not in visti:
+        catena.append(c)
+        visti.add(c.pk)
+        c = c.predecessore
+    return catena
+
+
+@transaction.atomic
+def collega_rinnovo(predecessore: m.Contratto, successore: m.Contratto) -> None:
+    """Collega a mano il successore come rinnovo del predecessore (stesso fabbisogno)."""
+    if successore.pk not in {c.pk for c in candidati_rinnovo(predecessore)}:
+        raise OperazioneNonAmmessa(
+            "Il rinnovo deve essere un contratto dello stesso fabbisogno, senza predecessore, "
+            "che inizia dopo questo; e questo non deve avere già un successore."
+        )
+    _collega(predecessore, successore, f"Collegato a mano come rinnovo di #{predecessore.pk}")
+
+
+@transaction.atomic
+def scollega_predecessore(contratto: m.Contratto) -> m.Contratto:
+    """Toglie il collegamento al predecessore (es. collegamento sbagliato)."""
+    contratto.refresh_from_db()
+    predecessore = contratto.predecessore
+    if predecessore is None:
+        raise OperazioneNonAmmessa("Il contratto non ha un predecessore.")
+    contratto.predecessore = None
+    _salva(
+        contratto, f"Scollegato dal predecessore #{predecessore.pk}", update_fields=["predecessore"]
+    )
+    return predecessore
 
 
 def collegamenti_del_fabbisogno(f: m.Fabbisogno) -> list[tuple[m.Contratto, m.Contratto]]:

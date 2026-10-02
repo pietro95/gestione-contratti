@@ -20,6 +20,7 @@
     <ul class="dropdown-menu dropdown-menu-end">
       <li><a class="dropdown-item" href="{% url 'contratti:voce_nuova' c.pk %}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Aggiungi voce</a></li>
       <li><a class="dropdown-item" href="{% url 'contratti:proroga_nuova' c.pk %}"><i class="bi bi-calendar-plus" aria-hidden="true"></i> Registra proroga</a></li>
+      {% if not successore %}<li><a class="dropdown-item" href="{% url 'contratti:contratto_collega' c.pk %}"><i class="bi bi-link-45deg" aria-hidden="true"></i> Collega un rinnovo già registrato</a></li>{% endif %}
       <li><a class="dropdown-item" href="{% url 'contratti:contratto_sposta' c.pk %}"><i class="bi bi-arrow-left-right" aria-hidden="true"></i> Sposta in un altro fabbisogno</a></li>
       <li><hr class="dropdown-divider"></li>
       <li><a class="dropdown-item text-danger" href="{% url 'contratti:archivia' 'contratto' c.pk %}"><i class="bi bi-archive" aria-hidden="true"></i> {% if c.archiviato %}Ripristina{% else %}Archivia{% endif %}</a></li>
@@ -29,8 +30,8 @@
 {% endblock %}
 {% block content %}
 {% for e in esiti %}<div class="alert alert-warning small">{{ e.messaggio }}</div>{% endfor %}
-{% if rinnovo_scollegato and puo_modificare %}
-<div class="alert alert-danger small"><i class="bi bi-link-45deg" aria-hidden="true"></i> Nel fabbisogno c'è un contratto che inizia dopo la fine di questo e non è collegato: {% include "contratti/_contratto_breve.html" with x=rinnovo_scollegato %}. <a class="alert-link" href="{% url 'contratti:fabbisogno' c.fabbisogno_id %}">Collegalo dal fabbisogno</a>.</div>
+{% if rinnovi_scollegati and puo_modificare %}
+<div class="alert alert-danger small"><i class="bi bi-link-45deg" aria-hidden="true"></i> Nel fabbisogno c'è un contratto successivo non collegato a nessun predecessore: {% include "contratti/_contratto_breve.html" with x=rinnovi_scollegati.0 %}. Se è il rinnovo di questo, <a class="alert-link" href="{% url 'contratti:contratto_collega' c.pk %}">collegalo</a>.</div>
 {% endif %}
 
 <div class="row g-3 mb-4">
@@ -131,6 +132,12 @@
         <li class="previsto" title="Contratto previsto, calcolato">{{ p.inizio|date:"m/Y" }} · previsto</li>
       {% endfor %}
     </ol>
+    {% if puo_modificare and c.predecessore_id %}
+    <form method="post" action="{% url 'contratti:contratto_scollega' c.pk %}" class="mb-4" data-conferma="Il contratto non sarà più il rinnovo di {{ c.predecessore }}; il predecessore torna senza successore." data-conferma-etichetta="Scollega">
+      {% csrf_token %}
+      <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-scissors" aria-hidden="true"></i> Scollega dal predecessore</button>
+    </form>
+    {% endif %}
     <h2 class="h6 text-uppercase text-body-secondary">Proroghe</h2>
     {% if c.proroghe.all %}
     <div class="tabella-card"><div class="table-responsive"><table class="table table-sm">

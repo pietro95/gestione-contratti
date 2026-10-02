@@ -20,7 +20,8 @@ def _pagine(dati):
     v = dati["voce"]
     # Catena interrotta: avviso nel fabbisogno e nel contratto rimasto senza rinnovo.
     interrotto = f.fabbisogno("Catena interrotta", decisione="rinnovare")
-    vecchio = f.contratto(fabbisogno=interrotto, data_inizio=datetime.date(2025, 1, 1))
+    # Rinnovo che parte prima della scadenza (01/03/2025–28/02/2026, poi dal 01/01/2026).
+    vecchio = f.contratto(fabbisogno=interrotto, data_inizio=datetime.date(2025, 3, 1))
     f.contratto(fabbisogno=interrotto, data_inizio=datetime.date(2026, 1, 1))
     return [
         "/",
@@ -44,6 +45,7 @@ def _pagine(dati):
         f"/fabbisogni/{fab.pk}/accorpa/",
         f"/fabbisogni/{interrotto.pk}/",
         f"/contratti/{vecchio.pk}/",
+        f"/contratti/{vecchio.pk}/collega/",
         "/piani-da-verificare/",
         "/import/",
         "/report/budget/?anno=2026",

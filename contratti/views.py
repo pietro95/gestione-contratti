@@ -355,16 +355,11 @@ def contratto_dettaglio(request, pk):
     voci_engine, esiti = adapters.voci_contratto(contratto)
     valori = {v.riferimento: {liv: valore(v, liv) for liv in Livello} for v in voci_engine}
     successore = m.Contratto.objects.filter(predecessore=contratto).first()
-    rinnovo_scollegato = None
-    if successore is None and not contratto.archiviato:
-        rinnovo_scollegato = next(
-            (
-                rinnovo
-                for prima, rinnovo in servizi.collegamenti_del_fabbisogno(contratto.fabbisogno)
-                if prima.pk == contratto.pk
-            ),
-            None,
-        )
+    rinnovi_scollegati = (
+        servizi.candidati_rinnovo(contratto)
+        if successore is None and not contratto.archiviato
+        else []
+    )
     return render(
         request,
         "contratti/contratto_dettaglio.html",
@@ -379,7 +374,7 @@ def contratto_dettaglio(request, pk):
             },
             "esiti": esiti,
             "successore": successore,
-            "rinnovo_scollegato": rinnovo_scollegato,
+            "rinnovi_scollegati": rinnovi_scollegati,
             "pratica": contratto.stati_pratica.select_related("utente").order_by("-data", "-id"),
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
             "storico": storico(contratto),
@@ -511,6 +506,47 @@ def fabbisogno_collega(request, pk):
     else:
         messages.success(request, f"{n} contratti collegati al loro rinnovo.")
     return redirect("contratti:fabbisogno", pk=pk)
+
+
+@editor_required
+def contratto_collega(request, pk):
+    """Collega a mano come rinnovo un contratto già registrato nello stesso fabbisogno."""
+    contratto = get_object_or_404(m.Contratto.objects.select_related("fabbisogno"), pk=pk)
+    candidati = servizi.candidati_rinnovo(contratto)
+    if request.method == "POST":
+        scelto = next(
+            (c for c in candidati if c.pk == _pk_o_none(request.POST.get("successore"))), None
+        )
+        if scelto is None:
+            messages.error(request, "Scegli il contratto che rinnova questo.")
+        else:
+            servizi.collega_rinnovo(contratto, scelto)
+            messages.success(request, f"Collegato: {scelto} è il rinnovo di questo contratto.")
+            return redirect("contratti:contratto", pk=pk)
+    return render(
+        request,
+        "contratti/collega.html",
+        {
+            "c": contratto,
+            "fine": adapters.data_fine_effettiva(contratto),
+            "candidati": [(x, adapters.data_fine_effettiva(x)) for x in candidati],
+            "ha_successore": m.Contratto.objects.filter(predecessore=contratto).exists(),
+        },
+    )
+
+
+@editor_required
+@require_POST
+def contratto_scollega(request, pk):
+    """Toglie il collegamento al predecessore: il contratto torna inizio di una catena."""
+    contratto = get_object_or_404(m.Contratto, pk=pk)
+    try:
+        predecessore = servizi.scollega_predecessore(contratto)
+    except servizi.OperazioneNonAmmessa as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, f"Scollegato da {predecessore}.")
+    return redirect("contratti:contratto", pk=pk)
 
 
 def _pk_o_none(valore):
@@ -932,7 +968,10 @@ def fabbisogno_dettaglio(request, pk):
             "previsti": [(p, sum((valore(v) for v in p.voci), Decimal("0.00"))) for p in previsti],
             "natura_previsti": adapters.natura_previsti(f, adapters.contratto_base_previsti(f)),
             "doppioni": servizi.doppioni_del_fabbisogno(f),
-            "collegamenti": servizi.collegamenti_del_fabbisogno(f),
+            "collegamenti": [
+                (p, s, adapters.data_fine_effettiva(p))
+                for p, s in servizi.collegamenti_del_fabbisogno(f)
+            ],
             "pratica": f.stati_pratica.order_by("-data", "-id"),
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
             "storico": storico(f),

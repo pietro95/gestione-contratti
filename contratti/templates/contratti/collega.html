@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Collega un rinnovo{% endblock %}
+{% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'contratti:fabbisogno' c.fabbisogno.pk %}">{{ c.fabbisogno.descrizione }}</a></li><li class="breadcrumb-item"><a href="{% url 'contratti:contratto' c.pk %}">{{ c.numero_contratto|default:c.cig|default:"contratto" }}</a></li><li class="breadcrumb-item active" aria-current="page">Collega un rinnovo</li></ol></nav>{% endblock %}
+{% block titolo_pagina %}Collega un rinnovo già registrato{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">{% include "contratti/_contratto_breve.html" with x=c %}{% if fine %} · fine {{ fine|date:"d/m/Y" }}{% endif %}</div>{% endblock %}
+{% block content %}
+<p class="text-body-secondary" style="max-width: 48rem">Scegli il contratto che rinnova questo. Il rinnovo può iniziare anche prima della scadenza: i periodi sovrapposti restano, e nel budget contano entrambi i contratti. Si possono collegare solo contratti dello stesso fabbisogno, senza predecessore, che iniziano dopo questo. Se il rinnovo è in un altro fabbisogno, prima accorpa i fabbisogni o sposta il contratto.</p>
+{% if ha_successore %}
+<div class="alert alert-warning">Questo contratto ha già un successore. Per cambiarlo, scollega prima il successore dal suo dettaglio (scheda Rinnovi).</div>
+{% elif not candidati %}
+<div class="vuoto"><i class="bi bi-inbox" aria-hidden="true"></i>Nel fabbisogno non ci sono contratti successivi senza predecessore.</div>
+{% else %}
+<form method="post">
+  {% csrf_token %}
+  <fieldset class="card mb-3"><legend class="card-header fs-6 mb-0">Rinnovo</legend><div class="card-body">
+    {% for x, fine_x in candidati %}
+    <div class="form-check"><input class="form-check-input" type="radio" name="successore" id="succ-{{ forloop.counter }}" value="{{ x.pk|stringformat:"d" }}"{% if forloop.first %} checked{% endif %}><label class="form-check-label" for="succ-{{ forloop.counter }}">{% include "contratti/_contratto_breve.html" with x=x %}{% if fine_x %} · fine {{ fine_x|date:"d/m/Y" }}{% endif %}{% if fine and x.data_inizio <= fine %} <span class="stato stato-giallo">inizia prima della scadenza</span>{% endif %}</label></div>
+    {% endfor %}
+  </div></fieldset>
+  <div class="form-azioni">
+    <button type="submit" class="btn btn-primary"><i class="bi bi-link-45deg" aria-hidden="true"></i> Collega</button>
+    <a class="btn btn-outline-secondary" href="{% url 'contratti:contratto' c.pk %}">Annulla</a>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

@@ -230,6 +230,19 @@ Rev00: segnalazioni di Pietro del 02/10/2026.
   rate), 3 scadenzario generato, con «Aggiungi un'altra voce» o «Concludi». Salvando una voce
   le rate si generano sempre; quelle modificate a mano o consuntivate non si toccano.
 
+## F9.1.2 — Rinnovi che partono prima della scadenza
+
+Rev00: segnalazione di Pietro del 02/10/2026 (contratto 01/03/2025–28/02/2026 rinnovato dal
+01/01/2026 nello stesso fabbisogno, in rosso «Senza rinnovo» e senza modo di collegarli).
+
+- **Proposta di collegamento**: il rinnovo può iniziare prima della scadenza del
+  predecessore. Si propone il contratto senza predecessore che inizia dopo e finisce dopo,
+  con l'inizio più vicino al giorno dopo la fine; i periodi sovrapposti sono segnalati. Un
+  contratto parallelo che finisce prima non è un rinnovo.
+- **Collegamento a mano** dal contratto («Collega un rinnovo già registrato»): contratti
+  dello stesso fabbisogno, senza predecessore, che iniziano dopo. **Scollega dal
+  predecessore** per correggere un collegamento sbagliato. Entrambi nello storico.
+
 ## F9.2 — Estensione all'ufficio ICTDINN (bozza)
 
 Rev01: risposte di Pietro del 02/10/2026. Da confermare prima di iniziare.
