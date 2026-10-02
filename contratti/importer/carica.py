@@ -4,7 +4,11 @@
 - Stesso numero di contratto e CIG ma periodi diversi → contratti distinti e anomalia ODA_RIUSATO.
 - Ogni contratto entra in un proprio fabbisogno provvisorio; raggruppamenti e catene
   dei rinnovi restano proposte da confermare (``proposte.py``).
-- Idempotente: una riga già importata (chiave d'import) non si ricrea né si modifica.
+- Incrementale: un contratto già registrato non si ricrea né si modifica, e la riga è
+  scartata con un'anomalia GIA_PRESENTE. Si riconosce dalla chiave d'import e, se il file è
+  cambiato (righe spostate o inserite, foglio rinominato, altro cluster) o il contratto è
+  stato inserito a mano, da numero di contratto o CIG con la data di inizio; senza codici,
+  da fornitore, descrizione, data di inizio e durata.
 - ``dry_run``: stesso report, nessuna scrittura (rollback).
 """
 
@@ -172,11 +176,42 @@ class _Caricamento:
         self.report.conteggi["proposte_raggruppamento"] += nuove["raggruppamento"]
         self.report.conteggi["proposte_predecessore"] += nuove["predecessore"]
 
+    def gia_presente(self, chiave: str, primo: Riga) -> m.Contratto | None:
+        """Il contratto registrato che corrisponde alla riga, se c'è (archiviati compresi)."""
+        trovato = m.Contratto.objects.filter(chiave_import=chiave).first()
+        if trovato is not None:
+            return trovato
+        candidati = m.Contratto.objects.filter(data_inizio=primo.data_inizio)
+        if primo.numero_contratto:
+            return candidati.filter(numero_contratto=primo.numero_contratto).first()
+        if primo.cig:
+            return candidati.filter(numero_contratto__isnull=True, cig=primo.cig).first()
+        fornitore = chiave_nome(primo.fornitore or FORNITORE_NON_INDICATO)
+        descrizione = chiave_nome(primo.descrizione or DESCRIZIONE_ASSENTE)
+        for c in candidati.filter(
+            numero_contratto__isnull=True, cig__isnull=True, durata_mesi=primo.mesi
+        ).select_related("fornitore"):
+            if (
+                chiave_nome(c.fornitore.ragione_sociale) == fornitore
+                and chiave_nome(c.descrizione) == descrizione
+            ):
+                return c
+        return None
+
     def _contratto(self, chiave_gruppo: tuple, gruppo: list[Riga]):
         primo = gruppo[0]
         chiave = chiave_contratto(self.area, chiave_gruppo)
-        if m.Contratto.objects.filter(chiave_import=chiave).exists():
+        esistente = self.gia_presente(chiave, primo)
+        if esistente is not None:
             self.report.conteggi["contratti_gia_presenti"] += 1
+            if esistente.chiave_import != chiave:
+                righe = ", ".join(str(r.numero) for r in gruppo)
+                self.report.anomalia(
+                    primo.foglio, primo.numero, "GIA_PRESENTE", "contratto",
+                    primo.numero_contratto or primo.cig or primo.descrizione or "",
+                    f"Riga {righe}: contratto già registrato (id {esistente.pk}, "
+                    f"{esistente.fabbisogno.descrizione}). Scartata, nessuna modifica.",
+                )  # fmt: skip
             return
         fornitore = self._fornitore(primo.fornitore or FORNITORE_NON_INDICATO)
         descrizione = primo.descrizione or DESCRIZIONE_ASSENTE
