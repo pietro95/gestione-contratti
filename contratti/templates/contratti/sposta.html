@@ -17,7 +17,7 @@
 {% else %}
 <form method="post">
   {% csrf_token %}
-  <input type="hidden" name="destinazione" value="{{ destinazione.pk }}">
+  <input type="hidden" name="destinazione" value="{{ destinazione.pk|stringformat:"d" }}">
   {% if con_successivi %}<input type="hidden" name="con_successivi" value="on">{% endif %}
   {% for a in anteprima.avvisi %}<div class="alert alert-warning small">{{ a }}</div>{% endfor %}
   <div class="row g-3 mb-3">
@@ -39,7 +39,7 @@
         <fieldset>
           <legend class="form-label fs-6">Di quale contratto è il rinnovo?</legend>
           {% for x in anteprima.candidati %}
-          <div class="form-check"><input class="form-check-input" type="radio" name="predecessore" id="pred-{{ x.pk }}" value="{{ x.pk }}"{% if x == anteprima.proposto %} checked{% endif %}><label class="form-check-label" for="pred-{{ x.pk }}">{% include "contratti/_contratto_breve.html" %}{% if x == anteprima.proposto %} <span class="stato stato-blu">proposto</span>{% endif %}</label></div>
+          <div class="form-check"><input class="form-check-input" type="radio" name="predecessore" id="pred-{{ x.pk|stringformat:"d" }}" value="{{ x.pk|stringformat:"d" }}"{% if x == anteprima.proposto %} checked{% endif %}><label class="form-check-label" for="pred-{{ x.pk|stringformat:"d" }}">{% include "contratti/_contratto_breve.html" %}{% if x == anteprima.proposto %} <span class="stato stato-blu">proposto</span>{% endif %}</label></div>
           {% endfor %}
           <div class="form-check"><input class="form-check-input" type="radio" name="predecessore" id="pred-nessuno" value=""{% if not anteprima.proposto %} checked{% endif %}><label class="form-check-label" for="pred-nessuno">Nessuno: apre una nuova catena</label></div>
         </fieldset>

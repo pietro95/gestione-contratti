@@ -17,7 +17,7 @@
 {% else %}
 <form method="post">
   {% csrf_token %}
-  <input type="hidden" name="destinazione" value="{{ destinazione.pk }}">
+  <input type="hidden" name="destinazione" value="{{ destinazione.pk|stringformat:"d" }}">
   {% for a in anteprima.avvisi %}<div class="alert alert-warning small">{{ a }}</div>{% endfor %}
   <div class="card mb-3">
     <div class="card-header">Contratti che passano a «{{ destinazione.descrizione }}» <span class="badge rounded-pill text-bg-light">{{ anteprima.contratti|length }}</span></div>
@@ -29,7 +29,7 @@
     <div class="card-header"><i class="bi bi-link-45deg" aria-hidden="true"></i> Collegamenti tra le catene dei rinnovi</div>
     <div class="card-body">
       {% for p, s in anteprima.collegamenti %}
-      <div class="form-check"><input class="form-check-input" type="checkbox" name="collegamenti" id="col-{{ forloop.counter }}" value="{{ p.pk }}-{{ s.pk }}" checked><label class="form-check-label" for="col-{{ forloop.counter }}">{% include "contratti/_contratto_breve.html" with x=s %} è il rinnovo di {% include "contratti/_contratto_breve.html" with x=p %}</label></div>
+      <div class="form-check"><input class="form-check-input" type="checkbox" name="collegamenti" id="col-{{ forloop.counter }}" value="{{ p.pk|stringformat:"d" }}-{{ s.pk|stringformat:"d" }}" checked><label class="form-check-label" for="col-{{ forloop.counter }}">{% include "contratti/_contratto_breve.html" with x=s %} è il rinnovo di {% include "contratti/_contratto_breve.html" with x=p %}</label></div>
       {% empty %}<p class="mb-0 text-body-secondary">Nessun collegamento da proporre.</p>{% endfor %}
       {% if anteprima.collegamenti %}<p class="form-text mb-0">Senza collegamento l'ultimo contratto della catena più vecchia resta senza successore e va in rosso «Senza rinnovo».</p>{% endif %}
     </div>
