@@ -28,14 +28,13 @@
 <div class="tabella-card"><div class="table-responsive">
 <table class="table table-hover align-middle" id="piano">
   <thead>
-    <tr><th>Fabbisogno</th><th>Natura</th><th>Fornitore uscente</th><th>Procedura</th><th>Data limite</th><th>Avvio</th><th>Durata</th><th>Pratica</th>{% for liv in livelli %}<th class="text-end text-capitalize">{{ liv.value }}</th>{% endfor %}</tr>
+    <tr><th>Fabbisogno</th><th>Fornitore uscente</th><th>Procedura</th><th>Data limite</th><th>Avvio</th><th>Durata</th><th>Pratica</th>{% for liv in livelli %}<th class="text-end text-capitalize">{{ liv.value }}</th>{% endfor %}</tr>
   </thead>
   <tbody>
   {% for r in piano.righe %}{% url 'contratti:fabbisogno' r.fabbisogno.pk as link %}
     <tr data-href="{{ link }}">
       <td style="min-width: 16rem"><a href="{{ link }}" class="fw-semibold">{{ r.fabbisogno.descrizione }}</a>
-        <div class="small text-body-secondary">{{ r.fabbisogno.area }} · {{ r.categoria }}{% if not r.contratto_uscente %} · <span class="stato stato-blu">nuovo</span>{% endif %}{% for s in r.sopra_soglia %} <span class="stato stato-rosso" title="{{ s }}">oltre soglia</span>{% endfor %}</div></td>
-      <td><span class="stato {% if r.natura == 'CAPEX' %}stato-blu{% else %}stato-grigio{% endif %}">{{ r.natura }}</span></td>
+        <div class="small text-body-secondary"><span class="stato {% if r.natura == 'CAPEX' %}stato-blu{% else %}stato-grigio{% endif %}">{{ r.natura }}</span> {{ r.fabbisogno.area }} · {{ r.categoria }}{% if not r.contratto_uscente %} · <span class="stato stato-blu">nuovo</span>{% endif %}{% for s in r.sopra_soglia %} <span class="stato stato-rosso" title="{{ s }}">oltre soglia</span>{% endfor %}</div></td>
       <td>{{ r.fornitore_uscente|default:"—" }}</td>
       <td class="text-nowrap">{{ r.procedura|default:"—" }}<div class="small text-body-secondary">{{ r.lead_time_mesi }} mesi di lead time</div></td>
       <td class="text-nowrap">{{ r.data_limite|date:"d/m/Y" }}</td>
@@ -47,12 +46,12 @@
       <td class="text-end">{{ r.importi.massimo|euro }}</td>
     </tr>
   {% empty %}
-    <tr><td colspan="11"><div class="vuoto py-4">Nessun contratto previsto con avvio nell'anno.</div></td></tr>
+    <tr><td colspan="10"><div class="vuoto py-4">Nessun contratto previsto con avvio nell'anno.</div></td></tr>
   {% endfor %}
   </tbody>
   <tfoot class="fw-semibold">
     {% for natura, totali in per_natura.items %}
-    <tr><td colspan="8">Totale {{ natura }}</td><td class="text-end">{{ totali.fisso|euro }}</td><td class="text-end">{{ totali.probabile|euro }}</td><td class="text-end">{{ totali.massimo|euro }}</td></tr>
+    <tr><td colspan="7">Totale {{ natura }}</td><td class="text-end">{{ totali.fisso|euro }}</td><td class="text-end">{{ totali.probabile|euro }}</td><td class="text-end">{{ totali.massimo|euro }}</td></tr>
     {% endfor %}
   </tfoot>
 </table></div></div>

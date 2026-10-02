@@ -43,7 +43,7 @@
           {% endfor %}
           <div class="form-check"><input class="form-check-input" type="radio" name="predecessore" id="pred-nessuno" value=""{% if not anteprima.proposto %} checked{% endif %}><label class="form-check-label" for="pred-nessuno">Nessuno: apre una nuova catena</label></div>
         </fieldset>
-        {% if anteprima.candidati %}<p class="form-text mb-0">Proposto: il contratto che finisce per ultimo prima dell'inizio di questo.</p>{% endif %}
+        {% if anteprima.proposto %}<p class="form-text mb-0">Proposto: il contratto che finisce per ultimo prima dell'inizio di questo.</p>{% endif %}
       </div>
     </div></div>
   </div>

@@ -228,6 +228,12 @@ th a.ordina .bi { font-size: .75rem; opacity: .7; }
 .invalid-feedback { display: block; }
 .ts-wrapper.form-select, .ts-wrapper.form-control { padding: 0; }
 .ts-control { border-color: #c9d3de; }
+/* Tendina singola: voce scelta e campo di ricerca sulla stessa riga. Altrimenti con il
+   fuoco la tendina va su due righe, e al blur il contenuto sotto risale di una riga:
+   il clic iniziato su un pulsante finisce fuori e si perde. */
+.ts-wrapper.single .ts-control { flex-wrap: nowrap; }
+.ts-wrapper.single .ts-control > .item { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.ts-wrapper.single .ts-control > input { min-width: 2rem !important; }
 .flatpickr-input[readonly] { background-color: #fff; }
 
 /* --- Schede (tab) -------------------------------------------------------------------- */
