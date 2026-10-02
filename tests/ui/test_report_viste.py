@@ -53,10 +53,11 @@ def _righe(foglio, da=7):
 
 def test_export_budget_coincide_con_il_calcolo(reader, dati):
     risposta = reader.get(reverse("reports:budget"), {"anno": 2027, "formato": "xlsx"})
-    assert "_Budget_2027.xlsx" in risposta["Content-Disposition"]
+    # Senza filtro la pagina mostra l'OPEX: OPEX e CAPEX sono budget distinti.
+    assert "_Budget_2027_OPEX.xlsx" in risposta["Content-Disposition"]
     wb = openpyxl.load_workbook(io.BytesIO(risposta.content))
     assert wb.sheetnames[:3] == ["Riepilogo", "Per conto", "Dettaglio voci"]
-    totali = calcola_budget(Filtri(anno=2027), OGGI).totali()
+    totali = calcola_budget(Filtri(anno=2027, natura="OPEX"), OGGI).totali()
     attese = [
         (
             vista,
@@ -69,7 +70,8 @@ def test_export_budget_coincide_con_il_calcolo(reader, dati):
     lette = _righe(wb["Riepilogo"])
     assert len(lette) == len(attese)
     for letta, attesa in zip(lette, attese, strict=True):
-        assert [Decimal(str(x)) for x in letta[2:]] == list(attesa[2:])
+        assert letta[0] == "OPEX"
+        assert [Decimal(str(x)) for x in letta[3:]] == list(attesa[2:])
     # Rinnovo 2027 (10.000) + previsto manuale (5.000).
     assert totali["previsionale"]["impegno"][Livello.FISSO] == Decimal("15000.00")
 
@@ -79,8 +81,20 @@ def test_export_piano_ordini(reader, dati):
     wb = openpyxl.load_workbook(io.BytesIO(risposta.content))
     righe = _righe(wb["Piano ordini"])
     piano = calcola_piano(2027, OGGI)
-    assert len(righe) == len(piano.righe) + 1
-    totale = righe[-1]
-    assert totale[0] == "Totale"
-    assert [Decimal(str(x)) for x in totale[11:14]] == [piano.totali()[liv] for liv in LIVELLI]
-    assert isinstance(righe[0][6], datetime.datetime)  # date come date, non testo
+    per_natura = piano.totali_per_natura()
+    assert len(righe) == len(piano.righe) + len(per_natura)
+    for riga, (natura, totali) in zip(righe[len(piano.righe) :], per_natura.items(), strict=True):
+        assert riga[0] == f"Totale {natura}"
+        assert [Decimal(str(x)) for x in riga[12:15]] == [totali[liv] for liv in LIVELLI]
+    assert isinstance(righe[0][7], datetime.datetime)  # date come date, non testo
+
+
+def test_budget_opex_di_default_e_nature_separate(reader, dati):
+    url = reverse("reports:budget")
+    html = reader.get(url, {"anno": 2026}).content.decode()
+    assert "Budget OPEX 2026" in html and "Budget CAPEX" not in html
+    html = reader.get(url, {"anno": 2026, "natura": "separate"}).content.decode()
+    assert "Budget OPEX 2026" in html and "Budget CAPEX 2026" in html
+    assert "i totali non si sommano" in html
+    # Il fatturato è la prima vista.
+    assert html.index("Fatturato (data fattura)") < html.index("Ordinato (contratti emessi)")

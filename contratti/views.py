@@ -70,7 +70,7 @@ def storico(oggetto) -> list[dict]:
 @login_required
 def home(request):
     """Pagina iniziale: numeri chiave, cose da fare, prossime scadenze, budget dell'anno."""
-    from reports.budget import Filtri, calcola_budget
+    from reports.budget import ETICHETTE_VISTE, NATURE, VISTE, Filtri, calcola_budget
 
     oggi = oggi_richiesta(request)
     gruppi = selettori.cruscotto(oggi, {})
@@ -87,8 +87,18 @@ def home(request):
     )
     budget = None
     try:
-        totali = calcola_budget(Filtri(anno=oggi.year), oggi).totali()["totale"]
-        budget = {v: totali[v][Livello.PROBABILE] for v in ("impegno", "cassa", "competenza")}
+        # OPEX e CAPEX affiancati, mai sommati.
+        per_natura = {
+            s.filtri.natura: s.totali()["totale"]
+            for s in calcola_budget(Filtri(anno=oggi.year), oggi).sezioni()
+        }
+        budget = {
+            "nature": NATURE,
+            "righe": [
+                (ETICHETTE_VISTE[v], [per_natura[n][v][Livello.PROBABILE] for n in NATURE])
+                for v in VISTE
+            ],
+        }
     except adapters.ParametroMancante:
         pass
     return render(
@@ -729,6 +739,7 @@ def fabbisogno_dettaglio(request, pk):
             "f": f,
             "contratti": contratti,
             "previsti": [(p, sum((valore(v) for v in p.voci), Decimal("0.00"))) for p in previsti],
+            "natura_previsti": adapters.natura_previsti(f, adapters.contratto_base_previsti(f)),
             "pratica": f.stati_pratica.order_by("-data", "-id"),
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
             "storico": storico(f),

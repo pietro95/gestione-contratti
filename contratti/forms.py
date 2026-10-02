@@ -152,6 +152,10 @@ class FabbisognoForm(ModelFormBootstrap):
         ("Fabbisogno", ["descrizione", "area", "categoria", "impianto", "referente"]),
         ("Decisione sul rinnovo", ["decisione", "stima_prossimo_importo", "note"]),
         (
+            "Classificazione dei rinnovi previsti (se diversa dall'ultimo contratto)",
+            ["natura_previsti", "conto_previsti"],
+        ),
+        (
             "Previsto manuale (solo per fabbisogni nuovi, senza contratti)",
             [
                 "previsto_data_avvio",
@@ -174,6 +178,8 @@ class FabbisognoForm(ModelFormBootstrap):
             "decisione",
             "stima_prossimo_importo",
             "note",
+            "natura_previsti",
+            "conto_previsti",
             "previsto_data_avvio",
             "previsto_durata_mesi",
             "previsto_procedura",
@@ -186,6 +192,11 @@ class FabbisognoForm(ModelFormBootstrap):
         _solo_attivi(self, "categoria", m.Categoria.objects.filter(attiva=True))
         _solo_attivi(self, "impianto", m.Impianto.objects.filter(archiviato=False))
         _solo_attivi(self, "previsto_procedura", m.Procedura.objects.filter(attiva=True))
+        self.fields["natura_previsti"].choices = [
+            ("", "Come l'ultimo contratto"),
+            *m.Natura.choices,
+        ]
+        self.fields["conto_previsti"].empty_label = "Come le voci dell'ultimo contratto"
 
     def clean(self):
         dati = super().clean()

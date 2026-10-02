@@ -12,8 +12,10 @@
 {% endif %}
 {% endblock %}
 {% block content %}
-{% if f.stima_prossimo_importo or f.note %}
+{% if f.stima_prossimo_importo or f.note or f.natura_previsti or f.conto_previsti %}
 <div class="card mb-4"><div class="card-body"><dl class="dati">
+  {% if f.natura_previsti %}<dt>Natura dei rinnovi previsti</dt><dd>{{ f.natura_previsti }}</dd>{% endif %}
+  {% if f.conto_previsti %}<dt>Conto dei rinnovi previsti</dt><dd>{{ f.conto_previsti }}</dd>{% endif %}
   {% if f.stima_prossimo_importo %}<dt>Stima del prossimo importo</dt><dd>{{ f.stima_prossimo_importo|euro }}</dd>{% endif %}
   {% if f.note %}<dt>Note</dt><dd>{{ f.note|linebreaksbr }}</dd>{% endif %}
 </dl></div></div>
@@ -33,10 +35,10 @@
 <h2 class="sezione-titolo">Contratti previsti <span class="fw-normal small text-body-secondary">calcolati dal registro, non salvati</span></h2>
 <div class="tabella-card mb-4"><div class="table-responsive">
 <table class="table table-sm align-middle">
-  <thead><tr><th>#</th><th>Periodo</th><th class="text-end">Importo fisso</th></tr></thead>
+  <thead><tr><th>#</th><th>Periodo</th><th>Natura</th><th class="text-end">Importo fisso</th></tr></thead>
   <tbody>
-  {% for p, totale in previsti %}<tr><td>P{{ p.numero }}</td><td>{{ p.inizio|date:"d/m/Y" }} – {{ p.fine|date:"d/m/Y" }}</td><td class="text-end">{{ totale|euro }}</td></tr>
-  {% empty %}<tr><td colspan="3"><div class="vuoto py-3">Nessun contratto previsto nell'orizzonte.</div></td></tr>{% endfor %}
+  {% for p, totale in previsti %}<tr><td>P{{ p.numero }}</td><td>{{ p.inizio|date:"d/m/Y" }} – {{ p.fine|date:"d/m/Y" }}</td><td>{{ natura_previsti }}</td><td class="text-end">{{ totale|euro }}</td></tr>
+  {% empty %}<tr><td colspan="4"><div class="vuoto py-3">Nessun contratto previsto nell'orizzonte.</div></td></tr>{% endfor %}
   </tbody>
 </table></div></div>
 

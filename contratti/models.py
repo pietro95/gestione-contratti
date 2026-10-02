@@ -240,6 +240,13 @@ class Area(models.TextChoices):
     TLC = "TLC", "TLC"
 
 
+class Natura(models.TextChoices):
+    """Natura di bilancio: OPEX e CAPEX sono budget distinti, mai sommati."""
+
+    OPEX = "OPEX", "OPEX"
+    CAPEX = "CAPEX", "CAPEX"
+
+
 class Fornitore(Archiviabile):
     ragione_sociale = models.CharField(max_length=200)
     # NULL = assente (TC-08 normalizza i nulli a NULL); univoca solo se presente.
@@ -352,6 +359,25 @@ class Fabbisogno(Archiviabile):
     previsto_periodicita = models.CharField(
         "periodicità prevista", max_length=20, choices=Periodicita.choices, blank=True
     )
+
+    # Rinnovi previsti con classificazione diversa dall'ultimo contratto (es. nato CAPEX
+    # su WBS, rinnovi in OPEX): dati decisi, il previsto li usa al posto di quelli copiati.
+    natura_previsti = models.CharField(
+        "natura dei rinnovi previsti",
+        max_length=5,
+        choices=Natura.choices,
+        blank=True,
+        help_text="Vuoto: come l'ultimo contratto (per un fabbisogno nuovo: OPEX).",
+    )
+    conto_previsti = models.ForeignKey(
+        ContoCoge,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="conto dei rinnovi previsti",
+        help_text="Vuoto: il conto di ogni voce dell'ultimo contratto.",
+    )
     history = HistoricalRecords()
 
     class Meta:
@@ -391,9 +417,7 @@ class Contratto(Archiviabile):
         ORDINARIO = "ordinario", "Ordinario"
         FINANZIATO = "finanziato", "Finanziato"
 
-    class Natura(models.TextChoices):
-        OPEX = "OPEX", "OPEX"
-        CAPEX = "CAPEX", "CAPEX"
+    Natura = Natura
 
     fabbisogno = models.ForeignKey(Fabbisogno, on_delete=models.PROTECT, related_name="contratti")
     predecessore = models.OneToOneField(

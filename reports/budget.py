@@ -1,12 +1,14 @@
 """Budget dell'anno X: tre viste × tre livelli, consolidato e previsionale (SPEC §5.2-5.3).
 
+OPEX e CAPEX sono budget distinti: il report li tiene in sezioni separate, mai sommate.
+
 Ogni voce (reale o prevista) si calcola con il motore da sola; i totali del report sono
 somme di questi importi, quindi coincidono al centesimo con il motore sull'insieme.
 """
 
 import datetime
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal
 
 from contratti import adapters
@@ -15,12 +17,17 @@ from contratti.engine import budget
 from contratti.engine.importi import ZERO
 from contratti.engine.tipi import Esito, Livello, Voce
 
-VISTE = ("impegno", "cassa", "competenza")
+# Il fatturato (rate per data fattura) è il budget di riferimento: prima colonna.
+# "impegno" resta il nome interno della vista (SPEC §5.2, TEST_CASES); in pagina è "Ordinato".
+VISTE = ("cassa", "impegno", "competenza")
 ETICHETTE_VISTE = {
-    "impegno": "Impegno (ordini)",
-    "cassa": "Cassa (data fattura)",
-    "competenza": "Competenza",
+    "cassa": "Fatturato (data fattura)",
+    "impegno": "Ordinato (contratti emessi)",
+    "competenza": "Competenza (pro-rata a giorni)",
 }
+# Nomi brevi per le intestazioni delle colonne dell'export.
+SIGLE_VISTE = {"cassa": "fatturato", "impegno": "ordinato", "competenza": "competenza"}
+NATURE = tuple(m.Natura.values)
 LIVELLI = tuple(Livello)
 PARTI = ("consolidato", "previsionale", "totale")
 RAGGRUPPAMENTI = {
@@ -53,6 +60,7 @@ class Filtri:
     fornitore: int | None = None
     finanziamento: str = ""
     previsionali: bool = True
+    natura: str = ""  # vuoto: entrambe, da presentare separate
 
 
 @dataclass
@@ -69,6 +77,9 @@ class VoceBudget:
     importi: Somme
     numero_previsto: int | None = None
     esiti: list[Esito] = field(default_factory=list)
+    natura: str = m.Natura.OPEX
+    # Solo per i previsti: conto deciso sul fabbisogno al posto di quello della voce d'origine.
+    conto_previsti: m.ContoCoge | None = None
 
     @property
     def area(self) -> str:
@@ -76,6 +87,8 @@ class VoceBudget:
 
     @property
     def conto(self) -> m.ContoCoge | None:
+        if self.conto_previsti is not None:
+            return self.conto_previsti
         return self.voce.conto if self.voce else None
 
     @property
@@ -86,6 +99,8 @@ class VoceBudget:
     def finanziamento(self) -> str:
         if self.contratto is None:
             return m.Contratto.Finanziamento.ORDINARIO
+        if self.previsionale:
+            return adapters.finanziamento_previsti(self.fabbisogno, self.contratto)
         return self.contratto.finanziamento
 
     def gruppo(self, criterio: str) -> tuple[str, str]:
@@ -109,6 +124,7 @@ class RinnovoMancante:
     previsti_esclusi: int
     dal: datetime.date
     al: datetime.date
+    natura: str = m.Natura.OPEX
 
 
 @dataclass
@@ -122,6 +138,26 @@ class Budget:
 
     def totali(self) -> dict[str, Somme]:
         return _totali(self.voci)
+
+    def sezioni(self) -> list["Budget"]:
+        """Un budget per natura: quella filtrata, oppure OPEX e CAPEX separati."""
+        nature = [self.filtri.natura] if self.filtri.natura else NATURE
+        return [self.di_natura(n) for n in nature]
+
+    def di_natura(self, natura: str) -> "Budget":
+        voci = [v for v in self.voci if v.natura == natura]
+        avvisi: dict[str, list[str]] = defaultdict(list)
+        for vb in voci:
+            for e in vb.esiti:
+                avvisi[e.messaggio].append(f"{vb.fabbisogno} — {vb.descrizione}")
+        return Budget(
+            filtri=replace(self.filtri, natura=natura),
+            oggi=self.oggi,
+            voci=voci,
+            rinnovi_mancanti=[r for r in self.rinnovi_mancanti if r.natura == natura],
+            avvisi=dict(avvisi),
+            senza_data=self.senza_data,
+        )
 
     def gruppi(self, criterio: str) -> list["Gruppo"]:
         per_chiave: dict[str, list[VoceBudget]] = defaultdict(list)
@@ -177,6 +213,8 @@ def _contratti(filtri: Filtri):
         qs = qs.filter(fornitore_id=filtri.fornitore)
     if filtri.finanziamento:
         qs = qs.filter(finanziamento=filtri.finanziamento)
+    if filtri.natura:
+        qs = qs.filter(natura=filtri.natura)
     return qs.select_related("fabbisogno", "fornitore", "procedura").prefetch_related(
         *adapters.PREFETCH_CALCOLO
     )
@@ -213,6 +251,7 @@ def _calcola_budget(filtri: Filtri, oggi: datetime.date) -> Budget:
                 fine=ve.fine,
                 importi=importi,
                 esiti=esiti,
+                natura=c.natura,
             )
             voci.append(vb)
 
@@ -232,7 +271,7 @@ def _voci_previste(filtri: Filtri, oggi: datetime.date):
     orizzonte = orizzonte_report(filtri.anno, oggi)
     fabbisogni = (
         m.Fabbisogno.objects.filter(archiviato=False)
-        .select_related("categoria", "previsto_procedura")
+        .select_related("categoria", "previsto_procedura", "conto_previsti")
         .prefetch_related(*adapters.PREFETCH_FABBISOGNO)
     )
     if filtri.area:
@@ -243,7 +282,10 @@ def _voci_previste(filtri: Filtri, oggi: datetime.date):
         base = adapters.contratto_base_previsti(f)
         if filtri.fornitore and (base is None or base.fornitore_id != filtri.fornitore):
             continue
-        finanziamento = base.finanziamento if base else m.Contratto.Finanziamento.ORDINARIO
+        natura = adapters.natura_previsti(f, base)
+        if filtri.natura and natura != filtri.natura:
+            continue
+        finanziamento = adapters.finanziamento_previsti(f, base)
         if filtri.finanziamento and finanziamento != filtri.finanziamento:
             continue
         previsti = adapters.previsti_fabbisogno(f, orizzonte)
@@ -251,7 +293,9 @@ def _voci_previste(filtri: Filtri, oggi: datetime.date):
         esclusi = [p for p in previsti if p.fine < inizio_anno]
         passati = [p for p in esclusi if p.fine < oggi]
         if passati:
-            mancanti.append(RinnovoMancante(f, len(passati), passati[0].inizio, passati[-1].fine))
+            mancanti.append(
+                RinnovoMancante(f, len(passati), passati[0].inizio, passati[-1].fine, natura)
+            )
         riferimenti = {v.riferimento for p in previsti for v in p.voci if v.riferimento}
         modelli = m.VoceContratto.objects.select_related("conto").in_bulk(riferimenti)
         for p in previsti:
@@ -259,7 +303,8 @@ def _voci_previste(filtri: Filtri, oggi: datetime.date):
                 continue
             for ve in p.voci:
                 voce = modelli.get(ve.riferimento)
-                if filtri.conto and (voce is None or voce.conto_id != filtri.conto):
+                conto = adapters.conto_previsto(f, voce)
+                if filtri.conto and (conto is None or conto.pk != filtri.conto):
                     continue
                 importi, esiti = importi_anno(ve, filtri.anno)
                 if not _non_nulla(importi):
@@ -276,6 +321,8 @@ def _voci_previste(filtri: Filtri, oggi: datetime.date):
                         importi=importi,
                         numero_previsto=p.numero,
                         esiti=esiti,
+                        natura=natura,
+                        conto_previsti=f.conto_previsti,
                     )
                 )
     return voci, mancanti

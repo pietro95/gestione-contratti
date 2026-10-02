@@ -5,9 +5,14 @@ from contratti.engine.tipi import Livello
 from contratti.forms import FormBase
 from reports.budget import RAGGRUPPAMENTI, Filtri
 
+ENTRAMBE = "separate"
+
 
 class FiltriBudgetForm(FormBase):
     anno = forms.IntegerField(min_value=2000, max_value=2100)
+    natura = forms.ChoiceField(
+        choices=[*m.Natura.choices, (ENTRAMBE, "OPEX e CAPEX, separati")], required=False
+    )
     area = forms.ChoiceField(choices=[("", "Tutte le aree"), *m.Area.choices], required=False)
     conto = forms.ModelChoiceField(
         queryset=m.ContoCoge.objects.order_by("codice"), required=False, empty_label="Tutti i conti"
@@ -36,6 +41,8 @@ class FiltriBudgetForm(FormBase):
         dati.setdefault("livello", Livello.PROBABILE.value)
         dati.setdefault("per", "conto")
         dati.setdefault("previsti", "si")
+        # OPEX e CAPEX sono budget distinti: di default si vede l'OPEX, mai la somma.
+        dati.setdefault("natura", m.Natura.OPEX)
         super().__init__(dati)
 
     def filtri(self) -> Filtri:
@@ -47,6 +54,7 @@ class FiltriBudgetForm(FormBase):
             fornitore=d["fornitore"].pk if d.get("fornitore") else None,
             finanziamento=d.get("finanziamento") or "",
             previsionali=d.get("previsti") != "no",
+            natura=d["natura"] if d.get("natura") in m.Natura.values else "",
         )
 
     @property
@@ -64,6 +72,7 @@ class FiltriPianoForm(FormBase):
     categoria = forms.ModelChoiceField(
         queryset=m.Categoria.objects.all(), required=False, empty_label="Tutte le categorie"
     )
+    natura = forms.ChoiceField(choices=[("", "OPEX e CAPEX"), *m.Natura.choices], required=False)
 
     def __init__(self, dati, *, anno_default: int):
         dati = dati.copy()
@@ -74,4 +83,5 @@ class FiltriPianoForm(FormBase):
         d = self.cleaned_data
         parti = [f"Area {d['area']}" if d.get("area") else "Tutte le aree"]
         parti.append(f"categoria {d['categoria']}" if d.get("categoria") else "tutte le categorie")
+        parti.append(d["natura"] if d.get("natura") else "OPEX e CAPEX")
         return "; ".join(parti)

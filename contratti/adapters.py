@@ -358,3 +358,24 @@ def data_fine_effettiva(contratto: m.Contratto) -> datetime.date | None:
 def data_limite_avvio(contratto: m.Contratto) -> datetime.date | None:
     s = scadenza(contratto)
     return scadenze.data_limite_avvio(s) if s else None
+
+
+def natura_previsti(fabbisogno: m.Fabbisogno, base: m.Contratto | None) -> str:
+    """Natura dei rinnovi previsti: quella decisa sul fabbisogno, se no dell'ultimo contratto."""
+    if fabbisogno.natura_previsti:
+        return fabbisogno.natura_previsti
+    return base.natura if base is not None else m.Natura.OPEX
+
+
+def finanziamento_previsti(fabbisogno: m.Fabbisogno, base: m.Contratto | None) -> str:
+    """Il previsto resta finanziato solo se conserva la natura del contratto di partenza."""
+    if base is None or natura_previsti(fabbisogno, base) != base.natura:
+        return m.Contratto.Finanziamento.ORDINARIO
+    return base.finanziamento
+
+
+def conto_previsto(fabbisogno: m.Fabbisogno, voce: m.VoceContratto | None) -> m.ContoCoge | None:
+    """Conto della voce prevista: quello deciso sul fabbisogno, se no della voce d'origine."""
+    if fabbisogno.conto_previsti_id:
+        return fabbisogno.conto_previsti
+    return voce.conto if voce is not None else None
