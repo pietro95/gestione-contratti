@@ -55,6 +55,16 @@ def dati():
     m.ContoCoge.objects.create(
         codice="6000000001", descrizione="Conto fittizio", valido_dal=D(2020, 1, 1)
     )
+    from django.contrib.auth import get_user_model
+
+    m.Importazione.objects.create(
+        tipo="date_emissione",
+        nome_file="prova.csv",
+        contenuto=b"",
+        sha256="0" * 64,
+        dimensione=0,
+        utente=get_user_model().objects.create_user("autore_import_prova"),
+    )
     return {"contratto": c, "voce": v, "piano": p, "proroga": proroga}
 
 

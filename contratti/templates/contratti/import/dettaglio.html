@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load registro %}
+{% block title %}{{ tipo.titolo }} — {{ imp.nome_file }}{% endblock %}
+{% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'contratti:importazioni' %}">Import</a></li><li class="breadcrumb-item active" aria-current="page">{{ imp.nome_file }}</li></ol></nav>{% endblock %}
+{% block titolo_pagina %}{{ tipo.titolo }}{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">{% include "contratti/import/_stato.html" %} <span>· {{ imp.nome_file }}{% if imp.opzioni.area %} · area {{ imp.opzioni.area }}{% endif %} · caricato da {{ imp.utente }} il {{ imp.caricata_il|date:"d/m/Y H:i" }}{% if imp.confermata_il %} · {% if imp.stato == "confermata" %}confermato{% else %}tentato{% endif %} da {{ imp.confermata_da }} il {{ imp.confermata_il|date:"d/m/Y H:i" }}{% endif %}</span></div>{% endblock %}
+{% block azioni %}
+  {% if imp.stato != "errore" and imp.stato != "scaduta" and imp.stato != "annullata" %}<a class="btn btn-outline-primary" href="{% url 'contratti:importazione_report' imp.pk %}"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i> {% if imp.tipo == "quadratura" %}Scarica la quadratura{% else %}Scarica il report{% endif %}</a>{% endif %}
+{% endblock %}
+{% block content %}
+{% if imp.stato == "errore" %}<div class="alert alert-danger"><i class="bi bi-x-octagon" aria-hidden="true"></i> {{ imp.messaggio }}{% if not imp.confermata_il %} Nulla è stato importato: correggi il file e caricalo di nuovo.{% endif %}</div>{% endif %}
+{% if imp.stato == "anteprima" %}
+<div class="alert alert-info">
+  <p class="mb-1"><strong>Anteprima: nessun dato è stato ancora scritto.</strong> Questo è ciò che succederà confermando.</p>
+  <p class="small mb-0">L'anteprima vale 24 ore. Se nel frattempo i dati cambiano, l'esito finale può differire: lo vedi in questa pagina dopo la conferma.</p>
+</div>
+{% if gia_importato %}<div class="alert alert-warning small"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Lo stesso file è già stato importato il {{ gia_importato.confermata_il|date:"d/m/Y H:i" }} da {{ gia_importato.confermata_da }}. Rieseguirlo non crea duplicati.</div>{% endif %}
+{% endif %}
+{% if imp.stato == "scaduta" %}<div class="alert alert-warning">Anteprima scaduta: carica di nuovo il file.</div>{% endif %}
+{% if imp.stato == "annullata" %}<div class="alert alert-secondary">Anteprima annullata: nessun dato importato.</div>{% endif %}
+
+{% if imp.stato != "errore" %}
+<div class="row g-3 mb-4">
+  {% for etichetta, numero in conteggi %}
+  <div class="col-6 col-md-4 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">{{ etichetta }}</div><div class="kpi-valore">{{ numero }}</div></div></div></div>
+  {% endfor %}
+  <div class="col-6 col-md-4 col-xl-3"><div class="card kpi {% if anomalie_totali %}arancione{% else %}verde{% endif %}"><div class="card-body"><div class="kpi-etichetta">Anomalie segnalate</div><div class="kpi-valore">{{ anomalie_totali }}</div></div></div></div>
+</div>
+{% endif %}
+
+{% if riepilogo %}
+<h2 class="sezione-titolo">Totali per anno</h2>
+<div class="tabella-card mb-4"><div class="table-responsive">
+<table class="table table-sm align-middle text-end">
+  <thead><tr><th class="text-start">Anno</th><th>Excel minimo</th><th>Registro fisso</th><th>Differenza</th><th>Excel massimo</th><th>Registro massimo</th><th>Differenza</th></tr></thead>
+  <tbody>{% for r in riepilogo %}<tr><th class="text-start" scope="row">{{ r.anno }}</th><td>{{ r.excel_minimo|euro }}</td><td>{{ r.app_fisso|euro }}</td><td>{{ r.diff_minimo|euro }}</td><td>{{ r.excel_massimo|euro }}</td><td>{{ r.app_massimo|euro }}</td><td>{{ r.diff_massimo|euro }}</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endif %}
+
+{% if anomalie %}
+<h2 class="sezione-titolo">Anomalie {% if anomalie_totali > anomalie|length %}<span class="fw-normal small text-body-secondary">prime {{ anomalie|length }} di {{ anomalie_totali }}: il report le contiene tutte</span>{% endif %}</h2>
+<div class="tabella-card mb-4"><div class="table-responsive">
+<table class="table table-sm align-top" id="anomalie">
+  <thead><tr><th>Foglio</th><th>Riga</th><th>Codice</th><th>Valore</th><th>Messaggio</th></tr></thead>
+  <tbody>{% for foglio, riga, codice, campo, valore, messaggio in anomalie %}<tr><td>{{ foglio|default:"—" }}</td><td>{{ riga|default:"—" }}</td><td><code>{{ codice }}</code></td><td>{{ valore|default:"—" }}</td><td>{{ messaggio }}</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endif %}
+
+{% if mappature %}
+<details class="mb-4"><summary class="fw-semibold">Coppie conto vecchio → nuovo trovate ({{ mappature|length }})</summary>
+<ul class="small mt-2">{% for vecchio, nuovo, righe in mappature %}<li>{{ vecchio }} → {{ nuovo }} ({{ righe }} righe)</li>{% endfor %}</ul></details>
+{% endif %}
+
+{% if puo_confermare %}
+<div class="form-azioni">
+  <form method="post" action="{% url 'contratti:importazione_conferma' imp.pk %}" data-conferma="Confermi l'import di «{{ imp.nome_file }}»? I dati verranno scritti nel registro." data-conferma-etichetta="Importa">
+    {% csrf_token %}<button class="btn btn-primary" type="submit"><i class="bi bi-check-lg" aria-hidden="true"></i> Conferma l'import</button>
+  </form>
+  <form method="post" action="{% url 'contratti:importazione_annulla' imp.pk %}">
+    {% csrf_token %}<button class="btn btn-outline-secondary" type="submit">Annulla</button>
+  </form>
+</div>
+{% elif imp.stato == "anteprima" %}
+<p class="text-body-secondary small">Può confermare chi ha caricato il file ({{ imp.utente }}) o un Admin.</p>
+{% endif %}
+{% endblock %}

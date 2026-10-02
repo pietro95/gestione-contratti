@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Import{% endblock %}
+{% block titolo_pagina %}Import{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">Carica il file: vedi l'anteprima di cosa cambia, poi confermi. Nulla si scrive prima della conferma.</div>{% endblock %}
+{% block content %}
+<div class="row g-3 mb-4">
+{% for tipo, form in schede %}
+  <div class="col-lg-6"><div class="card h-100">
+    <div class="card-header d-flex justify-content-between align-items-center"><span>{{ tipo.titolo }}</span>{% if tipo.modello %}<a class="small" href="{% url 'contratti:importazione_modello' tipo.codice %}"><i class="bi bi-download" aria-hidden="true"></i> Scarica il modello</a>{% endif %}</div>
+    <div class="card-body">
+      <p class="small text-body-secondary">{{ tipo.descrizione }}</p>
+      <form method="post" enctype="multipart/form-data" action="{% url 'contratti:importazione_carica' tipo.codice %}">
+        {% csrf_token %}
+        <div class="row g-2 align-items-end">
+          {% for campo in form %}
+          <div class="{% if campo.name == 'area' %}col-sm-3{% else %}col{% endif %}">
+            <label class="form-label" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+            {{ campo }}
+            {% if campo.help_text %}<div class="form-text">{{ campo.help_text }}</div>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        <button class="btn btn-primary mt-3" type="submit"><i class="bi bi-upload" aria-hidden="true"></i> {% if tipo.con_conferma %}Carica e vedi l'anteprima{% else %}Carica e calcola{% endif %}</button>
+      </form>
+    </div>
+  </div></div>
+{% endfor %}
+</div>
+
+<h2 class="sezione-titolo">Registro degli import</h2>
+<div class="tabella-card"><div class="table-responsive">
+<table class="table table-hover align-middle" id="registro">
+  <thead><tr><th>Caricato il</th><th>Tipo</th><th>File</th><th>Da</th><th>Stato</th></tr></thead>
+  <tbody>
+  {% for imp, titolo in registro %}{% url 'contratti:importazione' imp.pk as link %}
+    <tr data-href="{{ link }}">
+      <td class="text-nowrap"><a href="{{ link }}">{{ imp.caricata_il|date:"d/m/Y H:i" }}</a></td>
+      <td>{{ titolo }}</td>
+      <td>{{ imp.nome_file }}{% if imp.opzioni.area %} <span class="small text-body-secondary">· area {{ imp.opzioni.area }}</span>{% endif %}</td>
+      <td>{{ imp.utente }}</td>
+      <td>{% include "contratti/import/_stato.html" %}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="5"><div class="vuoto py-4">Nessun import ancora.</div></td></tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

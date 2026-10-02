@@ -1,3 +1,4 @@
+from accounts.roles import can_write
 from contratti import models as m
 from contratti import selettori
 
@@ -12,6 +13,7 @@ def navigazione(request):
         + m.PropostaPredecessore.objects.filter(stato="proposta").count()
     )
     return {
+        "puo_importare": can_write(user),
         "proposte_aperte": aperte,
         "piani_da_verificare": selettori.voci_piano_da_verificare().count(),
     }

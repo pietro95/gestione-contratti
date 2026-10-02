@@ -2,6 +2,7 @@ import datetime
 from decimal import Decimal
 
 import pytest
+from django.contrib.auth import get_user_model
 
 from accounts.roles import ADMIN, EDITOR, READER
 from contratti import models as m
@@ -55,7 +56,17 @@ def dati(db):
         previsto_durata_mesi=12,
         stima_prossimo_importo=Decimal("5000.00"),
     )
+    autore = get_user_model().objects.create_user("autore_import", password=PASSWORD)
+    importazione = m.Importazione.objects.create(
+        tipo="date_emissione",
+        nome_file="date.csv",
+        contenuto=b"numero_contratto;data_emissione\n",
+        sha256="0" * 64,
+        dimensione=0,
+        utente=autore,
+    )
     return {
+        "importazione": importazione,
         "fabbisogno": fab,
         "contratto": c,
         "voce": v,

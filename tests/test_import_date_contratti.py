@@ -47,7 +47,7 @@ def test_compila_solo_le_date_vuote_e_segnala_le_discordanze(tmp_path, contratti
     assert "compilate: 1, già uguali: 1, discordanti: 1, numeri non trovati: 1" in out
     assert "registrata 01/11/2025, nel file 01/12/2025" in out
     motivo = contratti["vuoto"].history.first().history_change_reason
-    assert motivo == "Data di emissione da import_date_contratti"
+    assert motivo == "Data di emissione da import"
     # Rieseguire non cambia nulla.
     assert "compilate: 0, già uguali: 2" in _esegui(file)
 

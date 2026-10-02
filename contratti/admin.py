@@ -398,3 +398,26 @@ class StatoPraticaAdmin(BaseAdmin):
         if not change and obj.utente_id is None:
             obj.utente = request.user
         super().save_model(request, obj, form, change)
+
+
+@admin.register(m.Importazione)
+class ImportazioneAdmin(admin.ModelAdmin):
+    """Registro degli import: in sola lettura, il file e l'esito restano come sono."""
+
+    list_display = ("caricata_il", "tipo", "nome_file", "utente", "stato")
+    list_filter = ("tipo", "stato")
+    search_fields = ("nome_file", "utente__username")
+    exclude = ("contenuto", "risultato")
+    readonly_fields = (
+        "tipo", "nome_file", "sha256", "dimensione", "opzioni", "stato", "anteprima", "esito",
+        "messaggio", "utente", "caricata_il", "confermata_il", "confermata_da",
+    )  # fmt: skip
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
