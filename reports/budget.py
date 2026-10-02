@@ -184,14 +184,7 @@ class Budget:
         )
 
     def gruppi(self, criterio: str) -> list["Gruppo"]:
-        per_chiave: dict[str, list[VoceBudget]] = defaultdict(list)
-        etichette: dict[str, str] = {}
-        for v in self.voci:
-            chiave, etichetta = v.gruppo(criterio)
-            per_chiave[chiave].append(v)
-            etichette[chiave] = etichetta
-        gruppi = [Gruppo(k, etichette[k], vv, _totali(vv)) for k, vv in per_chiave.items()]
-        return sorted(gruppi, key=lambda g: g.etichetta.lower())
+        return raggruppa(self.voci, criterio)
 
 
 @dataclass
@@ -200,6 +193,21 @@ class Gruppo:
     etichetta: str
     voci: list[VoceBudget]
     totali: dict[str, Somme]
+
+    def sotto(self, criterio: str) -> list["Gruppo"]:
+        """Dettaglio del gruppo, es. i conti di una WBS (come lo legge il CdG)."""
+        return raggruppa(self.voci, criterio)
+
+
+def raggruppa(voci: list[VoceBudget], criterio: str) -> list[Gruppo]:
+    per_chiave: dict[str, list[VoceBudget]] = defaultdict(list)
+    etichette: dict[str, str] = {}
+    for v in voci:
+        chiave, etichetta = v.gruppo(criterio)
+        per_chiave[chiave].append(v)
+        etichette[chiave] = etichetta
+    gruppi = [Gruppo(k, etichette[k], vv, _totali(vv)) for k, vv in per_chiave.items()]
+    return sorted(gruppi, key=lambda g: g.etichetta.lower())
 
 
 def _totali(voci: list[VoceBudget]) -> dict[str, Somme]:

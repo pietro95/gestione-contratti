@@ -30,6 +30,7 @@
       <div class="app-sezione">Report</div>
       {% nav_voce 'reports:budget' 'Budget' 'bi-cash-stack' %}
       {% nav_voce 'reports:piano_ordini' 'Piano ordini' 'bi-cart-check' %}
+      {% nav_voce 'reports:wbs' 'Spese per WBS' 'bi-bar-chart-steps' %}
       <div class="app-sezione">Gestione</div>
       {% if puo_importare %}{% nav_voce 'contratti:importazioni' 'Import' 'bi-upload' '/import/' %}{% endif %}
       {% nav_voce 'contratti:proposte' 'Proposte import' 'bi-inboxes' conteggio=proposte_aperte %}

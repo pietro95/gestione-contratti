@@ -3,7 +3,7 @@
 import datetime
 
 from contratti import models as m
-from contratti.engine.importi import arrotonda
+from contratti.engine.importi import ZERO, arrotonda
 from contratti.engine.tipi import Livello
 from contratti.selettori import codici_cluster
 from reports import xlsx
@@ -88,6 +88,20 @@ def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):
                     riga += [g.totali[parte][vista][livello] for parte in PARTI]
             righe.append(riga)
     xlsx.foglio(wb, f"Per {criterio}" if criterio else "Per gruppo", intestazione, colonne, righe)
+
+    # CAPEX per WBS e, dentro ogni WBS, per conto: la lettura del Controllo di gestione.
+    capex = [s for s in sezioni if s.filtri.natura == m.Natura.CAPEX]
+    if capex and criteri[m.Natura.CAPEX] == "wbs":
+        colonne_wbs = ["WBS", "Conto", *colonne[2:]]
+        righe = []
+        for g in capex[0].gruppi("wbs"):
+            for sg in g.sotto("conto"):
+                riga = [g.etichetta, sg.etichetta]
+                for vista in VISTE:
+                    for livello in LIVELLI:
+                        riga += [sg.totali[parte][vista][livello] for parte in PARTI]
+                righe.append(riga)
+        xlsx.foglio(wb, "CAPEX per WBS e conto", intestazione, colonne_wbs, righe)
 
     colonne = [
         "Tipo", "Natura", "Previsto n.", "Cluster", "Fabbisogno", "Contratto", "Voce",
@@ -216,4 +230,42 @@ def quadratura_xlsx(q: Quadratura):
     righe = [[c, CAUSE[c], k] for c, k in q.conteggio_cause().items()]
     righe += [[f"Riga {num}", motivo, None] for num, motivo in q.escluse]
     xlsx.foglio(wb, "Cause ed esclusioni", intestazione, ["Codice", "Descrizione", "Righe"], righe)
+    return wb
+
+
+def wbs_xlsx(spese, oggi: datetime.date):
+    """Spese per WBS: una riga per voce, una colonna per anno, poi il totale."""
+    wb = xlsx.nuovo_libro()
+    w = spese.wbs
+    intestazione = [
+        f"Spese per WBS {w.codice_wbs} — {w.descrizione}",
+        f"{w.get_tipo_display()}{f', cluster {w.cluster.codice}' if w.cluster else ''}; "
+        f"{ETICHETTE_VISTE[spese.vista]}, livello {spese.livello.value}; solo contratti registrati",
+        NOTA_IMPONIBILE,
+        _generato(oggi),
+    ]
+    anni = spese.anni
+    colonne = ["Cluster", "Fabbisogno", "Contratto", "Fornitore", "Voce", "Conto",
+               "Inizio servizio", "Fine servizio", *[str(a) for a in anni], "Totale"]  # fmt: skip
+    righe = []
+    for r in spese.righe:
+        importi = [r.per_anno.get(a, ZERO) for a in anni]
+        righe.append(
+            [
+                r.contratto.fabbisogno.cluster.codice,
+                r.contratto.fabbisogno.descrizione,
+                r.contratto.numero_contratto or "",
+                str(r.contratto.fornitore),
+                r.voce.descrizione,
+                r.voce.conto.codice if r.voce.conto else "",
+                r.inizio,
+                r.fine,
+                *importi,
+                sum(importi, ZERO),
+            ]
+        )
+    totali = spese.totali()
+    righe.append(["Totale", "", "", "", "", "", None, None, *[totali[a] for a in anni],
+                  spese.totale])  # fmt: skip
+    xlsx.foglio(wb, "Spese per anno", intestazione, colonne, righe)
     return wb

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load registro %}
+{% block title %}WBS {{ s.wbs.codice_wbs }}{% endblock %}
+{% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'reports:wbs' %}">Spese per WBS</a></li><li class="breadcrumb-item active" aria-current="page">{{ s.wbs.codice_wbs }}</li></ol></nav>{% endblock %}
+{% block titolo_pagina %}WBS {{ s.wbs.codice_wbs }}{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">{{ s.wbs.descrizione }} · <span class="stato {% if s.wbs.tipo == 'progetto' %}stato-grigio{% else %}stato-blu{% endif %}">{{ s.wbs.get_tipo_display }}</span>{% if s.wbs.cluster %} · cluster {{ s.wbs.cluster.codice }}{% endif %}{% if s.wbs.archiviato %} · <span class="stato stato-grigio">non attiva</span>{% endif %}</div>{% endblock %}
+{% block azioni %}<a class="btn btn-outline-primary" href="?vista={{ s.vista }}&amp;livello={{ s.livello.value }}&amp;formato=xlsx"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i> Esporta Excel</a>{% endblock %}
+{% block content %}
+<form method="get" class="filtri row g-3 align-items-end">
+  <div class="col-sm-5 col-xl-3"><label class="form-label" for="f-vista">Vista</label><select id="f-vista" name="vista" class="form-select">{% for v, t in viste %}<option value="{{ v }}" {% if s.vista == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+  <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-liv">Livello</label><select id="f-liv" name="livello" class="form-select">{% for l in livelli %}<option value="{{ l.value }}" {% if s.livello == l %}selected{% endif %}>{{ l.value|capfirst }}</option>{% endfor %}</select></div>
+  <div class="col-auto"><button class="btn btn-primary" type="submit">Applica</button></div>
+</form>
+<p class="small text-body-secondary">Solo contratti registrati (niente previsti), importi imponibili.{% if s.wbs.tipo == 'progetto' %} Le WBS a progetto sono fuori dai budget dei cluster.{% endif %}</p>
+{% for e in s.esclusi %}<div class="alert alert-warning small">{{ e }}: senza data di inizio, escluso.</div>{% endfor %}
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Voci sulla WBS</div><div class="kpi-valore">{{ s.righe|length }}</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi verde"><div class="card-body"><div class="kpi-etichetta">Totale {{ s.livello.value }}</div><div class="kpi-valore">{{ s.totale|euro }}</div><div class="kpi-nota">tutti gli anni</div></div></div></div>
+</div>
+<div class="tabella-card"><div class="table-responsive">
+<table class="table table-hover align-middle text-end table-prima-fissa" id="wbs-spese">
+  <thead><tr><th class="text-start">Contratto / voce</th><th class="text-start">Conto</th><th class="text-start">Servizio</th>{% for a in anni %}<th>{{ a|stringformat:"d" }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for r, celle in righe %}
+    <tr><td class="text-start"><a href="{% url 'contratti:contratto' r.contratto.pk %}">{{ r.contratto.fabbisogno.descrizione }}</a> <span class="small text-body-secondary">{{ r.contratto.numero_contratto|default:r.contratto.fornitore }}</span> — {{ r.voce.descrizione }}</td><td class="text-start">{{ r.voce.conto.codice|default:"—" }}</td><td class="text-start text-nowrap">{{ r.inizio|date:"d/m/Y" }} – {{ r.fine|date:"d/m/Y" }}</td>{% for c in celle %}<td>{% if c %}{{ c|euro }}{% else %}—{% endif %}</td>{% endfor %}</tr>
+  {% empty %}<tr><td colspan="3" class="text-start"><div class="vuoto py-4">Nessun contratto su questa WBS.</div></td></tr>{% endfor %}
+  </tbody>
+  {% if righe %}<tfoot class="fw-semibold"><tr><td class="text-start" colspan="3">Totale</td>{% for t in totali %}<td>{{ t|euro }}</td>{% endfor %}</tr></tfoot>{% endif %}
+</table></div></div>
+{% endblock %}

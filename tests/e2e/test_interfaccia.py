@@ -23,6 +23,7 @@ def _pagine(dati):
     # Rinnovo che parte prima della scadenza (01/03/2025–28/02/2026, poi dal 01/01/2026).
     vecchio = f.contratto(fabbisogno=interrotto, data_inizio=datetime.date(2025, 3, 1))
     f.contratto(fabbisogno=interrotto, data_inizio=datetime.date(2026, 1, 1))
+    wbs = m.WBS.objects.create(codice_wbs="X.0001.00.000", descrizione="WBS di prova")
     return [
         "/",
         "/cruscotto/",
@@ -51,6 +52,8 @@ def _pagine(dati):
         "/report/budget/?anno=2026",
         "/report/budget/?anno=2026&natura=separate",
         "/report/piano-ordini/?anno=2027",
+        "/report/wbs/",
+        f"/report/wbs/{wbs.pk}/",
         "/cerca/?q=prova",
         "/proposte/",
     ]
