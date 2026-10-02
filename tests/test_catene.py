@@ -173,3 +173,63 @@ def test_senza_conflitto_si_prende_il_previsto_dell_origine():
     servizi.accorpa_fabbisogni(a, b)
     _ricarica(b)
     assert b.previsto_data_avvio == D(2027, 1, 1)
+
+
+# --- Contratti doppi (bug: "accorpando i fabbisogni non si accorpano i contratti") ------
+
+
+def _doppio(fabbisogno, numero="5800000100", **kw):
+    kw.setdefault("data_inizio", D(2025, 1, 1))
+    c = f.contratto(fabbisogno=fabbisogno, numero_contratto=numero, durata_mesi=12, **kw)
+    f.voce(c, importo_fisso=Decimal("1000.00"))
+    return c
+
+
+def test_accorpare_unisce_lo_stesso_contratto_registrato_due_volte(due):
+    a, b = due
+    copia = _doppio(a)
+    buono = _doppio(b)
+    f.piano(buono.voci.get(), modalita="anticipata", periodicita="annuale")  # più dati
+    anteprima = servizi.anteprima_accorpamento(a, b)
+    assert [(t.pk, d.pk) for t, d in anteprima.doppioni] == [(buono.pk, copia.pk)]
+    assert not any("sovrapposti" in x for x in anteprima.avvisi)
+    servizi.accorpa_fabbisogni(a, b)
+    _ricarica(copia, buono)
+    assert copia.archiviato and not buono.archiviato
+    assert copia.fabbisogno == b  # resta nello storico del fabbisogno accorpato
+    attivi = m.Contratto.objects.filter(fabbisogno=b, archiviato=False)
+    assert list(attivi) == [buono]
+
+
+def test_il_doppione_passa_la_catena_al_contratto_tenuto(due):
+    a, b = due
+    (vecchio,) = _catena(a, 2024)
+    copia = _doppio(a, predecessore=vecchio)
+    buono = _doppio(b)
+    m.StatoPratica.objects.create(contratto=buono, stato="offerta_richiesta", data=D(2025, 6, 1))
+    servizi.accorpa_fabbisogni(a, b)
+    _ricarica(vecchio, copia, buono)
+    assert copia.archiviato and copia.predecessore is None
+    assert buono.predecessore == vecchio
+    assert adapters.contratto_base_previsti(b) == buono
+
+
+def test_doppioni_nello_stesso_fabbisogno(due):
+    a, _ = due
+    primo = _doppio(a)
+    secondo = _doppio(a)
+    ((tenuto, doppione),) = servizi.doppioni_del_fabbisogno(a)
+    assert (tenuto, doppione) == (primo, secondo)  # a parità di dati si tiene il più vecchio
+    with pytest.raises(servizi.OperazioneNonAmmessa):
+        servizi.unisci_doppioni(a, [(secondo.pk, primo.pk)])
+    assert servizi.unisci_doppioni(a, [(primo.pk, secondo.pk)]) == 1
+    _ricarica(secondo)
+    assert secondo.archiviato
+    assert servizi.doppioni_del_fabbisogno(a) == []
+
+
+def test_rinnovi_con_lo_stesso_numero_non_sono_doppioni(due):
+    a, _ = due
+    _doppio(a, data_inizio=D(2025, 1, 1))
+    _doppio(a, data_inizio=D(2026, 1, 1))
+    assert servizi.doppioni_del_fabbisogno(a) == []

@@ -35,6 +35,7 @@ urlpatterns = [
     path("fabbisogni/<int:pk>/", views.fabbisogno_dettaglio, name="fabbisogno"),
     path("fabbisogni/<int:pk>/modifica/", views.fabbisogno_modifica, name="fabbisogno_modifica"),
     path("fabbisogni/<int:pk>/accorpa/", views.fabbisogno_accorpa, name="fabbisogno_accorpa"),
+    path("fabbisogni/<int:pk>/doppioni/", views.fabbisogno_doppioni, name="fabbisogno_doppioni"),
     path("fornitori/", views.fornitori_elenco, name="fornitori"),
     path("fornitori/nuovo/", views.fornitore_modifica, name="fornitore_nuovo"),
     path("fornitori/<int:pk>/", views.fornitore_dettaglio, name="fornitore"),

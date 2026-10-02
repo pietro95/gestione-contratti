@@ -25,6 +25,18 @@
       <ul class="mb-0">{% for x in anteprima.contratti %}<li>{% include "contratti/_contratto_breve.html" %}</li>{% empty %}<li>Nessun contratto: si accorpano solo i dati del fabbisogno.</li>{% endfor %}</ul>
     </div>
   </div>
+  {% if anteprima.doppioni %}
+  <div class="card mb-3 border-warning">
+    <div class="card-header"><i class="bi bi-files" aria-hidden="true"></i> Contratti registrati due volte <span class="badge rounded-pill text-bg-light">{{ anteprima.doppioni|length }}</span></div>
+    <div class="card-body">
+      <input type="hidden" name="doppioni_presenti" value="1">
+      <p class="small text-body-secondary">Stesso numero di contratto (o CIG) e stessa data di inizio. Si tiene quello con più dati (piano di fatturazione, rate, pratica); l'altro viene archiviato, non cancellato, e la sua catena dei rinnovi passa al contratto tenuto.</p>
+      {% for tenuto, doppione in anteprima.doppioni %}
+      <div class="form-check"><input class="form-check-input" type="checkbox" name="doppioni" id="dop-{{ forloop.counter }}" value="{{ tenuto.pk|stringformat:"d" }}-{{ doppione.pk|stringformat:"d" }}" checked><label class="form-check-label" for="dop-{{ forloop.counter }}">Archivia {% include "contratti/_contratto_breve.html" with x=doppione %} <span class="small text-body-secondary">(id {{ doppione.pk|stringformat:"d" }})</span>, doppione di id {{ tenuto.pk|stringformat:"d" }}</label></div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
   <div class="card mb-3">
     <div class="card-header"><i class="bi bi-link-45deg" aria-hidden="true"></i> Collegamenti tra le catene dei rinnovi</div>
     <div class="card-body">

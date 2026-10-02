@@ -22,6 +22,20 @@
 </dl></div></div>
 {% endif %}
 
+{% if doppioni and puo_modificare %}
+<div class="alert alert-warning">
+  <form method="post" action="{% url 'contratti:fabbisogno_doppioni' f.pk %}" data-conferma="I contratti selezionati vengono archiviati (non cancellati); la loro catena dei rinnovi passa al contratto tenuto." data-conferma-etichetta="Archivia i doppioni">
+    {% csrf_token %}
+    <p class="fw-semibold mb-1"><i class="bi bi-files" aria-hidden="true"></i> Contratti registrati due volte</p>
+    <p class="small mb-2">Stesso numero di contratto (o CIG) e stessa data di inizio. Si tiene quello con più dati.</p>
+    {% for tenuto, doppione in doppioni %}
+    <div class="form-check small"><input class="form-check-input" type="checkbox" name="doppioni" id="dop-{{ forloop.counter }}" value="{{ tenuto.pk|stringformat:"d" }}-{{ doppione.pk|stringformat:"d" }}" checked><label class="form-check-label" for="dop-{{ forloop.counter }}">Archivia id {{ doppione.pk|stringformat:"d" }} ({% include "contratti/_contratto_breve.html" with x=doppione %}), doppione di id {{ tenuto.pk|stringformat:"d" }}</label></div>
+    {% endfor %}
+    <button class="btn btn-sm btn-warning mt-2" type="submit">Archivia i doppioni</button>
+  </form>
+</div>
+{% endif %}
+
 <h2 class="sezione-titolo">Contratti <span class="badge rounded-pill text-bg-light">{{ contratti|length }}</span></h2>
 <div class="tabella-card mb-4"><div class="table-responsive">
 <table class="table table-hover align-middle">

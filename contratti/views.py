@@ -409,6 +409,30 @@ def contratto_modifica(request, pk):
     )
 
 
+def _coppie(valori) -> list[tuple[int, int]]:
+    """Valori "12-34" dei checkbox → coppie di pk; quelli non validi si ignorano."""
+    coppie = []
+    for testo in valori:
+        a, _, b = testo.partition("-")
+        if _pk_o_none(a) and _pk_o_none(b):
+            coppie.append((int(a), int(b)))
+    return coppie
+
+
+@editor_required
+@require_POST
+def fabbisogno_doppioni(request, pk):
+    """Archivia i contratti registrati due volte nel fabbisogno (si tiene quello con più dati)."""
+    f = get_object_or_404(m.Fabbisogno, pk=pk)
+    try:
+        n = servizi.unisci_doppioni(f, _coppie(request.POST.getlist("doppioni")))
+    except servizi.OperazioneNonAmmessa as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, f"{n} contratti doppi archiviati." if n else "Nessuna modifica.")
+    return redirect("contratti:fabbisogno", pk=pk)
+
+
 def _pk_o_none(valore):
     try:
         return int(valore)
@@ -470,10 +494,14 @@ def fabbisogno_accorpa(request, pk):
                 p, _, s = valore.partition("-")
                 if _pk_o_none(p) and _pk_o_none(s):
                     collegamenti.append((int(p), int(s)))
+            doppioni = None
+            if request.POST.get("doppioni_presenti"):
+                doppioni = _coppie(request.POST.getlist("doppioni"))
             servizi.accorpa_fabbisogni(
                 origine,
                 destinazione,
                 collegamenti=collegamenti,
+                doppioni_confermati=doppioni,
                 previsto_da_origine=request.POST.get("previsto_da") == "origine",
                 pratica_da_origine=request.POST.get("pratica_da") == "origine",
             )
@@ -822,6 +850,7 @@ def fabbisogno_dettaglio(request, pk):
             "contratti": contratti,
             "previsti": [(p, sum((valore(v) for v in p.voci), Decimal("0.00"))) for p in previsti],
             "natura_previsti": adapters.natura_previsti(f, adapters.contratto_base_previsti(f)),
+            "doppioni": servizi.doppioni_del_fabbisogno(f),
             "pratica": f.stati_pratica.order_by("-data", "-id"),
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
             "storico": storico(f),

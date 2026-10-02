@@ -6,6 +6,8 @@ from decimal import Decimal
 import pytest
 from django.urls import reverse
 
+from contratti import servizi
+
 from .. import factories as f
 
 pytestmark = pytest.mark.django_db
@@ -69,3 +71,36 @@ def test_accorpa_con_collegamento(editor):
     origine.refresh_from_db()
     nuovo.refresh_from_db()
     assert origine.archiviato and nuovo.predecessore == vecchio
+
+
+def test_accorpa_mostra_e_unisce_i_doppioni(editor):
+    origine = f.fabbisogno("Importato due volte")
+    destinazione = f.fabbisogno("Originale")
+    copia = f.contratto(
+        fabbisogno=origine, numero_contratto="5800000777", data_inizio=D(2025, 1, 1)
+    )
+    buono = f.contratto(
+        fabbisogno=destinazione, numero_contratto="5800000777", data_inizio=D(2025, 1, 1)
+    )
+    url = reverse("contratti:fabbisogno_accorpa", args=[origine.pk])
+    html = editor.post(url, {"destinazione": destinazione.pk, "passo": "anteprima"}).content
+    assert "Contratti registrati due volte" in html.decode()
+    # Deselezionando la coppia il doppione resta.
+    editor.post(
+        url,
+        {"destinazione": destinazione.pk, "passo": "conferma", "doppioni_presenti": "1"},
+    )
+    copia.refresh_from_db()
+    assert not copia.archiviato and copia.fabbisogno == destinazione
+
+    html = editor.get(reverse("contratti:fabbisogno", args=[destinazione.pk])).content.decode()
+    assert "Contratti registrati due volte" in html
+    ((tenuto, doppione),) = servizi.doppioni_del_fabbisogno(destinazione)
+    assert {tenuto, doppione} == {buono, copia}
+    editor.post(
+        reverse("contratti:fabbisogno_doppioni", args=[destinazione.pk]),
+        {"doppioni": [f"{tenuto.pk}-{doppione.pk}"]},
+    )
+    doppione.refresh_from_db()
+    tenuto.refresh_from_db()
+    assert doppione.archiviato and not tenuto.archiviato
