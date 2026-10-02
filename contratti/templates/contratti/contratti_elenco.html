@@ -6,7 +6,7 @@
 {% block content %}
 <form method="get" class="filtri" hx-get="{% url 'contratti:contratti' %}" hx-target="#tabella" hx-trigger="change, keyup changed delay:400ms from:input[name=q]" hx-push-url="true">
   <div class="row g-3 align-items-end">
-    <div class="col-md-6 col-xl-4"><label class="form-label" for="f-q">Cerca</label><input id="f-q" type="search" name="q" value="{{ filtri.q }}" class="form-control" placeholder="Descrizione, OdA, CIG, RDA, fornitore"></div>
+    <div class="col-md-6 col-xl-4"><label class="form-label" for="f-q">Cerca</label><input id="f-q" type="search" name="q" value="{{ filtri.q }}" class="form-control" placeholder="Descrizione, n. contratto, CIG, RDA, fornitore"></div>
     <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-area">Area</label><select id="f-area" name="area" class="form-select"><option value="">Tutte</option>{% for v, t in aree %}<option value="{{ v }}" {% if filtri.area == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
     <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-stato">Stato</label><select id="f-stato" name="stato" class="form-select"><option value="">Tutti</option>{% for v, t in stati %}<option value="{{ v }}" {% if filtri.stato == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
     <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-alert">Alert</label><select id="f-alert" name="alert" class="form-select"><option value="">Tutti</option>{% for v, t in alert %}<option value="{{ v }}" {% if filtri.alert == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
@@ -15,7 +15,7 @@
   <button class="btn btn-link btn-sm px-0 mt-2" type="button" data-bs-toggle="collapse" data-bs-target="#altri-filtri" aria-expanded="{% if filtri.fornitore or filtri.finanziamento or filtri.archiviati %}true{% else %}false{% endif %}" aria-controls="altri-filtri"><i class="bi bi-sliders" aria-hidden="true"></i> Altri filtri</button>
   <div class="collapse{% if filtri.fornitore or filtri.finanziamento or filtri.archiviati %} show{% endif %}" id="altri-filtri">
     <div class="row g-3 align-items-end pt-2">
-      <div class="col-md-6 col-xl-4"><label class="form-label" for="f-forn">Fornitore</label><select id="f-forn" name="fornitore" class="form-select js-cerca"><option value="">Tutti i fornitori</option>{% for f in fornitori %}<option value="{{ f.pk }}" {% if filtri.fornitore == f.pk|stringformat:"s" %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
+      <div class="col-md-6 col-xl-4"><label class="form-label" for="f-forn">Fornitore</label><select id="f-forn" name="fornitore" class="form-select js-cerca"><option value="">Tutti i fornitori</option>{% for f in fornitori %}<option value="{{ f.pk|stringformat:"d" }}" {% if filtri.fornitore == f.pk|stringformat:"s" %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
       <div class="col-sm-6 col-xl-3"><label class="form-label" for="f-fin">Finanziamento</label><select id="f-fin" name="finanziamento" class="form-select"><option value="">Tutti</option>{% for v, t in finanziamenti %}<option value="{{ v }}" {% if filtri.finanziamento == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
       <div class="col-sm-6 col-xl-3"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="archiviati" value="1" id="f-arch" {% if filtri.archiviati %}checked{% endif %}><label class="form-check-label" for="f-arch">Includi gli archiviati</label></div></div>
     </div>

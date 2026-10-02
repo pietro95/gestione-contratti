@@ -2,7 +2,8 @@
 
 Una riga per ogni contratto previsto (automatico o manuale) con avvio del servizio
 nell'anno X: è lo stesso criterio dell'impegno dei previsti, quindi il totale del piano
-coincide con l'impegno previsionale dell'anno.
+coincide con l'impegno previsionale dell'anno. Il Procurement ordina sia OPEX sia CAPEX:
+il piano li contiene entrambi, con i totali per natura.
 """
 
 import datetime
@@ -18,7 +19,7 @@ from contratti.engine.budget import valore
 from contratti.engine.date import UN_GIORNO, aggiungi_mesi
 from contratti.engine.importi import ZERO
 from contratti.engine.tipi import ContrattoPrevisto, Livello
-from reports.budget import LIVELLI, orizzonte_report
+from reports.budget import LIVELLI, NATURE, orizzonte_report
 
 CATEGORIA_NON_CLASSIFICATA = "Da classificare"
 
@@ -36,6 +37,7 @@ class RigaPiano:
     stato_pratica: str | None
     importi: dict[Livello, Decimal]
     numero_previsto: int
+    natura: str = m.Natura.OPEX
     sopra_soglia: list[str] = field(default_factory=list)
 
     @property
@@ -69,12 +71,19 @@ class PianoOrdini:
     soglie: list[m.Soglia]
     avvisi: list[AvvisoFrazionamento]
 
-    def totali(self) -> dict[Livello, Decimal]:
+    def totali(self, natura: str = "") -> dict[Livello, Decimal]:
         totali = dict.fromkeys(LIVELLI, ZERO)
         for r in self.righe:
+            if natura and r.natura != natura:
+                continue
             for livello in LIVELLI:
                 totali[livello] += r.importi[livello]
         return totali
+
+    def totali_per_natura(self) -> dict[str, dict[Livello, Decimal]]:
+        """OPEX e CAPEX distinti: sono budget diversi anche quando si ordinano insieme."""
+        nature = [n for n in NATURE if any(r.natura == n for r in self.righe)]
+        return {n: self.totali(n) for n in nature}
 
 
 def soglie_valide(alla_data: datetime.date) -> list[m.Soglia]:
@@ -131,17 +140,23 @@ def _riga(
         stato_pratica=stato,
         importi=importi,
         numero_previsto=p.numero,
+        natura=adapters.natura_previsti(f, base),
     )
 
 
 def calcola_piano(
-    anno: int, oggi: datetime.date, *, area: str = "", categoria: int | None = None
+    anno: int,
+    oggi: datetime.date,
+    *,
+    area: str = "",
+    categoria: int | None = None,
+    natura: str = "",
 ) -> PianoOrdini:
     with adapters.parametri_in_cache():
-        return _calcola_piano(anno, oggi, area, categoria)
+        return _calcola_piano(anno, oggi, area, categoria, natura)
 
 
-def _calcola_piano(anno: int, oggi: datetime.date, area: str, categoria: int | None):
+def _calcola_piano(anno: int, oggi: datetime.date, area: str, categoria: int | None, natura: str):
     orizzonte = orizzonte_report(anno, oggi)
     procedura_default = m.Procedura.objects.filter(codice="da_verificare").first()
     fabbisogni = (
@@ -161,6 +176,8 @@ def _calcola_piano(anno: int, oggi: datetime.date, area: str, categoria: int | N
         base = adapters.contratto_base_previsti(f)
         durata = base.durata_mesi if base is not None else f.previsto_durata_mesi
         righe += [_riga(f, base, p, durata, procedura_default) for p in previsti]
+    if natura:
+        righe = [r for r in righe if r.natura == natura]
     righe.sort(key=lambda r: (r.data_limite, r.fabbisogno.descrizione))
     soglie = soglie_valide(datetime.date(anno, 1, 1))
     return PianoOrdini(anno, righe, soglie, avvisi_frazionamento(righe, soglie))

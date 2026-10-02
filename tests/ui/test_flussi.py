@@ -20,8 +20,8 @@ def campi_contratto(**kw):
     base = {
         "fornitore": "",
         "descrizione": "",
-        "numero_oda": "",
-        "data_oda": "",
+        "numero_contratto": "",
+        "data_emissione": "",
         "numero_rda": "",
         "cig": "",
         "procedura": "",
@@ -61,7 +61,7 @@ def test_registro_rinnovo_il_previsto_sparisce(editor, dati):
                 fornitore=vecchio.fornitore_id,
                 procedura=vecchio.procedura_id,
                 data_inizio="2027-01-01",
-                numero_oda="5800000099",
+                numero_contratto="5800000099",
                 cig="Z000000099",
             ),
             "voci-TOTAL_FORMS": "1",
@@ -73,7 +73,7 @@ def test_registro_rinnovo_il_previsto_sparisce(editor, dati):
             "voci-0-massimale_variabile": "0",
         },
     )
-    nuovo = m.Contratto.objects.get(numero_oda="5800000099")
+    nuovo = m.Contratto.objects.get(numero_contratto="5800000099")
     assert risposta.status_code == 302 and risposta.url == reverse(
         "contratti:contratto", args=[nuovo.pk]
     )
@@ -277,7 +277,7 @@ def test_storico_mostra_le_modifiche(editor, dati):
                 fornitore=c.fornitore_id,
                 procedura=c.procedura_id,
                 data_inizio="2026-01-01",
-                numero_oda="5800000077",
+                numero_contratto="5800000077",
             ),
             "fabbisogno": c.fabbisogno_id,
         },

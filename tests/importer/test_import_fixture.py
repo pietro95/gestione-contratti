@@ -38,7 +38,7 @@ def test_import_completo_senza_eccezioni(importati):
     assert m.Contratto.objects.filter(fabbisogno__area="IT").count() == 67
     assert m.Contratto.objects.filter(fabbisogno__area="TLC").count() == 23
     # Nessun nullo scritto come testo.
-    for campo in ("numero_oda", "cig"):
+    for campo in ("numero_contratto", "cig"):
         valori = set(m.Contratto.objects.values_list(campo, flat=True))
         assert not valori & {"n/a", "N/A", "n/d", "", "0"}
 
@@ -73,13 +73,13 @@ def test_anomalie_note_del_file_tlc(importati):
 
 
 def test_valori_normalizzati(importati):
-    bom = m.Contratto.objects.get(numero_oda="5800593497")
+    bom = m.Contratto.objects.get(numero_contratto="5800593497")
     assert bom.cig == "B2HIBI36J2"
-    rda = m.Contratto.objects.get(numero_oda="7300456608")
+    rda = m.Contratto.objects.get(numero_contratto="7300456608")
     assert rda.numero_rda == "5100004438"
     assert rda.stati_pratica.get().stato == "rda_predisposta"
-    assert m.Contratto.objects.get(numero_oda="5800829771").numero_rda == "3563270716"
-    voce = m.VoceContratto.objects.get(contratto__numero_oda="SI002OA600")
+    assert m.Contratto.objects.get(numero_contratto="5800829771").numero_rda == "3563270716"
+    voce = m.VoceContratto.objects.get(contratto__numero_contratto="SI002OA600")
     assert (voce.importo_fisso, voce.massimale_variabile) == (
         Decimal("17722.68"),
         Decimal("10303.89"),
@@ -100,7 +100,7 @@ def test_proposte_generate(importati):
     )
     assert sorted(c.data_inizio.year for c in proposta.contratti.all()) == [2022, 2025, 2026]
     assert m.PropostaPredecessore.objects.filter(
-        successore__numero_oda="5800091127", predecessore__numero_oda="OA1 197/22"
+        successore__numero_contratto="5800091127", predecessore__numero_contratto="OA1 197/22"
     ).exists()
     assert not m.Contratto.objects.exclude(predecessore=None).exists()  # niente di automatico
 

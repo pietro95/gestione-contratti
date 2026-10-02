@@ -49,7 +49,7 @@ def aveva_invisibili(valore) -> bool:
 
 
 def codice(valore) -> str | None:
-    """Codice (OdA, CIG, conto, codice SAP): ``None`` per tutte le forme di nullo."""
+    """Codice (numero contratto, CIG, conto, codice SAP): ``None`` per tutte le forme di nullo."""
     s = testo(valore)
     if s is None or s.lower() in NULLI_CODICE:
         return None
@@ -71,7 +71,8 @@ def oda(valore) -> tuple[str | None, list[Anomalia]]:
     if s is None:
         return None, []
     if not RE_ODA.match(s):
-        return s, [Anomalia("ODA_FORMATO", "numero_oda", s, "L'OdA SAP ha 10 cifre.")]
+        messaggio = "Il numero di contratto SAP ha 10 cifre."
+        return s, [Anomalia("ODA_FORMATO", "numero_contratto", s, messaggio)]
     return s, []
 
 

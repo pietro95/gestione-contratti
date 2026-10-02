@@ -300,6 +300,16 @@ Se LDAPS non è ancora pronto (§3.1), l'app parte con gli account locali:
    ./manage.sh import_excel /import/<Contratti_TLC.xlsx> --area TLC
    ```
    Il report delle anomalie (`*_anomalie_import.csv`) compare accanto al file.
+   **Date di emissione dei contratti**: gli Excel non le hanno. Estrai da SAP l'elenco dei
+   contratti con numero e data di emissione, salvalo in CSV o XLSX con le colonne
+   `numero_contratto` e `data_emissione` (date `gg/mm/aaaa`, `gg.mm.aaaa` o `aaaa-mm-gg`) e
+   caricalo. Riempie solo le date vuote; le date diverse da quelle già registrate e i numeri
+   non trovati sono elencati a video, senza modifiche:
+   ```bash
+   ./manage.sh import_date_contratti /import/date_contratti.csv --dry-run
+   ./manage.sh import_date_contratti /import/date_contratti.csv
+   ```
+   Finché la data manca, l'"Ordinato" di quel contratto cade nell'anno di inizio del servizio.
 5. **Quadratura con l'Excel**:
    ```bash
    ./manage.sh quadratura_excel /import/<Contratti_IT.xlsx> --area IT
@@ -309,6 +319,9 @@ Se LDAPS non è ancora pronto (§3.1), l'app parte con gli account locali:
    raggruppamenti e poi i predecessori.
 7. **Configurazione** (admin dell'app): verifica soglie, lead time e parametri, che sono valori
    provvisori.
+8. **Piani di fatturazione**: dall'app, menu "Piani da verificare". Le voci importate hanno il
+   piano `Da verificare` e il loro fatturato è stimato a pro-rata: imposta modalità e
+   periodicità reali partendo dalle voci più pesanti, poi genera lo scadenzario.
 
 ## 7. Aggiornamento e rollback
 

@@ -134,7 +134,7 @@ class StatoPraticaFabbisognoInline(InlineSenzaCancellazione):
 
 class ContrattoInline(InlineSenzaCancellazione):
     model = m.Contratto
-    fields = ("numero_oda", "cig", "fornitore", "data_inizio", "durata_mesi", "archiviato")
+    fields = ("numero_contratto", "cig", "fornitore", "data_inizio", "durata_mesi", "archiviato")
     readonly_fields = fields
 
     def has_add_permission(self, request, obj=None):
@@ -218,7 +218,7 @@ class ContrattoAdmin(ArchiviabileAdmin):
     search_fields = (
         "fabbisogno__descrizione",
         "descrizione",
-        "numero_oda",
+        "numero_contratto",
         "numero_rda",
         "cig",
         "fornitore__ragione_sociale",
@@ -228,7 +228,7 @@ class ContrattoAdmin(ArchiviabileAdmin):
     inlines = [VoceInline, OpzioneInline, ProrogaInline, StatoPraticaContrattoInline]
     fieldsets = (
         (None, {"fields": ("fabbisogno", "predecessore", "fornitore", "descrizione")}),
-        ("Riferimenti", {"fields": ("numero_oda", "data_oda", "numero_rda", "cig")}),
+        ("Riferimenti", {"fields": ("numero_contratto", "data_emissione", "numero_rda", "cig")}),
         ("Procedura", {"fields": ("procedura", "lead_time_mesi_override")}),
         (
             "Date",
@@ -243,7 +243,7 @@ class ContrattoAdmin(ArchiviabileAdmin):
 @admin.register(m.Proroga)
 class ProrogaAdmin(BaseAdmin):
     list_display = ("contratto", "data_atto", "nuova_data_fine", "riferimento")
-    search_fields = ("contratto__numero_oda", "contratto__cig", "riferimento")
+    search_fields = ("contratto__numero_contratto", "contratto__cig", "riferimento")
     autocomplete_fields = ("contratto",)
 
 
@@ -263,7 +263,7 @@ class PianoInline(admin.StackedInline):
 class VoceContrattoAdmin(ArchiviabileAdmin):
     list_display = ("descrizione", "contratto", "conto", "importo_fisso", "massimale_variabile")
     list_filter = ("archiviato", "piano_fatturazione__modalita")
-    search_fields = ("descrizione", "contratto__numero_oda", "contratto__cig")
+    search_fields = ("descrizione", "contratto__numero_contratto", "contratto__cig")
     autocomplete_fields = ("contratto", "proroga", "conto")
     inlines = [QuotaInline, PianoInline]
 
@@ -294,7 +294,7 @@ def marca_rate_modificate(formset):
 class PianoFatturazioneAdmin(BaseAdmin):
     list_display = ("voce", "modalita", "periodicita", "data_prima_fattura")
     list_filter = ("modalita", "periodicita")
-    search_fields = ("voce__descrizione", "voce__contratto__numero_oda")
+    search_fields = ("voce__descrizione", "voce__contratto__numero_contratto")
     autocomplete_fields = ("voce",)
     inlines = [RataInline]
 

@@ -40,12 +40,12 @@ def dati(db):
     """Un fabbisogno con contratto annuale, voce con piano, rata, proroga e proposte."""
     fab = f.fabbisogno(decisione="rinnovare")
     c = f.contratto(
-        fabbisogno=fab, data_inizio=D(2026, 1, 1), durata_mesi=12, numero_oda="5800000001"
+        fabbisogno=fab, data_inizio=D(2026, 1, 1), durata_mesi=12, numero_contratto="5800000001"
     )
     v = f.voce(c, importo_fisso=Decimal("10000.00"))
     p = f.piano(v, modalita="anticipata", periodicita="annuale")
     rata = f.rata(p, data_fattura=D(2026, 1, 1), data_pagamento_stimata=D(2026, 3, 31))
-    altro = f.contratto(fabbisogno=f.fabbisogno("Altro"), numero_oda="5800000002")
+    altro = f.contratto(fabbisogno=f.fabbisogno("Altro"), numero_contratto="5800000002")
     rag = m.PropostaRaggruppamento.objects.create(motivazione="prova", chiave="k")
     rag.contratti.set([c, altro])
     pred = m.PropostaPredecessore.objects.create(predecessore=c, successore=altro, motivazione="p")

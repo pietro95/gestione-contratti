@@ -54,11 +54,11 @@
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-cash-stack" aria-hidden="true"></i> Budget {{ oggi|date:"Y" }} <span class="fw-normal text-body-secondary small">livello probabile, con i previsti</span></span><a class="small" href="{% url 'reports:budget' %}">dettaglio</a></div>
       {% if budget %}
-      <div class="card-body"><dl class="dati">
-        <dt>Impegno (ordini)</dt><dd class="text-end fw-semibold">{{ budget.impegno|euro }}</dd>
-        <dt>Cassa (data fattura)</dt><dd class="text-end fw-semibold">{{ budget.cassa|euro }}</dd>
-        <dt>Competenza</dt><dd class="text-end fw-semibold">{{ budget.competenza|euro }}</dd>
-      </dl></div>
+      <div class="table-responsive"><table class="table table-sm align-middle mb-0" id="budget-home">
+        <thead><tr><th scope="col">Vista</th>{% for n in budget.nature %}<th scope="col" class="text-end">{{ n }}</th>{% endfor %}</tr></thead>
+        <tbody>{% for vista, importi in budget.righe %}<tr{% if forloop.first %} class="fw-semibold"{% endif %}><th scope="row" class="fw-normal">{{ vista }}</th>{% for i in importi %}<td class="text-end">{{ i|euro }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+      </table></div>
+      <div class="card-footer small text-body-secondary">OPEX e CAPEX sono budget distinti.{% if piani_da_verificare %} <a href="{% url 'contratti:piani_da_verificare' %}">{{ piani_da_verificare }} voci con piano da verificare</a>: il loro fatturato è stimato a pro-rata.{% endif %}</div>
       {% else %}<div class="vuoto py-4">Budget non calcolabile: parametri di configurazione mancanti.</div>{% endif %}
     </div>
   </div>

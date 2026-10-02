@@ -4,13 +4,13 @@
 {% block titolo_pagina %}Ricerca{% endblock %}
 {% block sottotitolo %}<div class="sottotitolo">{% if q %}{{ trovati }} risultati per «{{ q }}»{% else %}Scrivi almeno due caratteri nella barra in alto.{% endif %}</div>{% endblock %}
 {% block content %}
-{% if q and not trovati %}<div class="card"><div class="vuoto"><i class="bi bi-search" aria-hidden="true"></i>Nessun risultato. Prova con una parte dell'OdA, del CIG o del nome del fornitore.</div></div>{% endif %}
+{% if q and not trovati %}<div class="card"><div class="vuoto"><i class="bi bi-search" aria-hidden="true"></i>Nessun risultato. Prova con una parte del numero di contratto, del CIG o del nome del fornitore.</div></div>{% endif %}
 {% if risultati.contratti %}
 <h2 class="sezione-titolo">Contratti <span class="badge rounded-pill text-bg-light">{{ risultati.contratti|length }}</span></h2>
 <div class="tabella-card"><div class="table-responsive"><table class="table table-hover align-middle">
-  <thead><tr><th>Fabbisogno</th><th>Fornitore</th><th>OdA</th><th>CIG</th><th>Fine</th><th>Stato</th></tr></thead>
+  <thead><tr><th>Fabbisogno</th><th>Fornitore</th><th>N. contratto</th><th>CIG</th><th>Fine</th><th>Stato</th></tr></thead>
   <tbody>{% for r in risultati.contratti %}{% url 'contratti:contratto' r.contratto.pk as link %}
-    <tr data-href="{{ link }}"><td><a href="{{ link }}">{{ r.contratto.fabbisogno.descrizione }}</a>{% if r.contratto.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}</td><td>{{ r.contratto.fornitore }}</td><td>{{ r.contratto.numero_oda|default:"—" }}</td><td>{{ r.contratto.cig|default:"—" }}</td><td class="text-nowrap">{{ r.fine|date:"d/m/Y"|default:"—" }}</td><td>{{ r.stato|stato_badge }}</td></tr>
+    <tr data-href="{{ link }}"><td><a href="{{ link }}">{{ r.contratto.fabbisogno.descrizione }}</a>{% if r.contratto.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}</td><td>{{ r.contratto.fornitore }}</td><td>{{ r.contratto.numero_contratto|default:"—" }}</td><td>{{ r.contratto.cig|default:"—" }}</td><td class="text-nowrap">{{ r.fine|date:"d/m/Y"|default:"—" }}</td><td>{{ r.stato|stato_badge }}</td></tr>
   {% endfor %}</tbody>
 </table></div></div>
 {% endif %}

@@ -34,7 +34,7 @@ def url(model, view, *args):
 @pytest.fixture
 def dati():
     """Un'istanza per ogni modello del registro."""
-    c = f.contratto(numero_oda="5800000001", cig="Z000000001")
+    c = f.contratto(numero_contratto="5800000001", cig="Z000000001")
     v = f.voce(c, massimale_variabile=Decimal("500"), stima_consumo_pct=Decimal("30"))
     p = f.piano(v)
     f.rata(p)
@@ -45,7 +45,7 @@ def dati():
     m.StatoPratica.objects.create(contratto=c, stato="non_avviata", data=D(2026, 9, 1))
     m.Impianto.objects.create(nome="Impianto di prova")
     m.Progetto.objects.create(codice_wbs="WBS-PROVA-01", descrizione="Progetto prova")
-    successore = f.contratto(fabbisogno=c.fabbisogno, numero_oda="5800000002")
+    successore = f.contratto(fabbisogno=c.fabbisogno, numero_contratto="5800000002")
     m.PropostaPredecessore.objects.create(
         predecessore=c, successore=successore, motivazione="prova"
     )

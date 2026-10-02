@@ -42,7 +42,7 @@ def test_predecessore_di_altro_fabbisogno_rifiutato():
 
 def test_contratto_con_piu_voci():
     # Un OdA con più voci (SPEC §2.1): un contratto, n voci.
-    c = f.contratto(numero_oda="7300000001", cig="Z000000001")
+    c = f.contratto(numero_contratto="7300000001", cig="Z000000001")
     for i in range(4):
         f.voce(c, descrizione=f"Voce {i}", importo_fisso=Decimal("100.00"))
     assert c.voci.count() == 4
@@ -117,18 +117,18 @@ def test_cancellazione_protetta():
 
 
 def test_storia_delle_modifiche():
-    c = f.contratto(numero_oda="5800000001")
-    c.numero_oda = "5800000002"
+    c = f.contratto(numero_contratto="5800000001")
+    c.numero_contratto = "5800000002"
     c.save()
     c.archiviato = True
     c.save()
 
     storia = list(c.history.order_by("history_date"))
     assert [h.history_type for h in storia] == ["+", "~", "~"]
-    assert [h.numero_oda for h in storia] == ["5800000001", "5800000002", "5800000002"]
+    assert [h.numero_contratto for h in storia] == ["5800000001", "5800000002", "5800000002"]
     delta = storia[1].diff_against(storia[0])
     assert [(ch.field, ch.old, ch.new) for ch in delta.changes] == [
-        ("numero_oda", "5800000001", "5800000002")
+        ("numero_contratto", "5800000001", "5800000002")
     ]
 
 

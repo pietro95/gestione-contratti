@@ -101,3 +101,40 @@ def test_fabbisogno_mostra_i_previsti(reader, dati):
 def test_versione_nel_pie_di_pagina(reader, settings):
     settings.APP_VERSION = "v1.2"
     assert "versione v1.2" in reader.get(reverse("home")).content.decode()
+
+
+def test_id_oltre_mille_non_formattati_con_il_separatore(editor, dati):
+    """USE_THOUSAND_SEPARATOR: un id 12345 nei valori dei filtri deve restare 12345."""
+    from contratti import models as m
+
+    fornitore = m.Fornitore.objects.create(pk=12345, ragione_sociale="Fornitore 12345")
+    fab = m.Fabbisogno.objects.create(
+        pk=23456, descrizione="Id grande", area="IT", categoria=dati["fabbisogno"].categoria
+    )
+    html = editor.get(reverse("contratti:contratti")).content.decode()
+    assert f'value="{fornitore.pk}"' in html
+    html = editor.get(reverse("contratti:fabbisogno", args=[fab.pk])).content.decode()
+    assert "?fabbisogno=23456" in html
+
+
+def test_piani_da_verificare_elenca_le_voci_senza_piano_reale(editor, dati):
+    from decimal import Decimal
+
+    from contratti import models as m
+    from tests import factories as f
+
+    c = dati["contratto"]
+    pesante = f.voce(c, descrizione="Voce pesante", importo_fisso=Decimal("90000.00"))
+    f.piano(pesante, modalita="da_verificare", periodicita="")
+    f.voce(c, descrizione="Voce senza piano", importo_fisso=Decimal("10.00"))
+    url = reverse("contratti:piani_da_verificare")
+    html = editor.get(url).content.decode()
+    assert "Voce pesante" in html and "Voce senza piano" in html
+    assert html.index("Voce pesante") < html.index("Voce senza piano")
+    assert "Canone" not in html.split('id="piani"')[1]  # la voce con piano reale non c'è
+    # Salvando il piano dall'elenco si torna all'elenco.
+    modifica = reverse("contratti:voce_modifica", args=[c.pk, pesante.pk]) + "?ritorno=piani"
+    assert modifica.replace("&", "&amp;") in html or modifica in html
+    risposta = editor.get(url)
+    assert risposta.context["piani_da_verificare"] == 2
+    assert m.VoceContratto.objects.count() == 3

@@ -1,0 +1,1 @@
+<strong>{{ x.numero_contratto|default:x.cig|default:x.pk }}</strong> · {{ x.fornitore }}{% if x.data_inizio %} · dal {{ x.data_inizio|date:"d/m/Y" }}, {{ x.durata_mesi }} mesi{% else %} · senza data di inizio{% endif %}{% if x.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}

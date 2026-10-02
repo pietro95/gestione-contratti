@@ -32,7 +32,11 @@ def _pagine(dati):
         "/fabbisogni/nuovo/",
         "/fornitori/",
         f"/fornitori/{c.fornitore_id}/",
+        f"/contratti/{c.pk}/sposta/",
+        f"/fabbisogni/{fab.pk}/accorpa/",
+        "/piani-da-verificare/",
         "/report/budget/?anno=2026",
+        "/report/budget/?anno=2026&natura=separate",
         "/report/piano-ordini/?anno=2027",
         "/cerca/?q=prova",
         "/proposte/",
@@ -132,7 +136,7 @@ def test_filtri_attivi_e_ordinamento(pagina, dati):
         procedura=dati["contratto"].procedura,
         data_inizio=datetime.date(2024, 1, 1),
         durata_mesi=12,
-        numero_oda="5800000002",
+        numero_contratto="5800000002",
     )
     pagina.goto(f"{pagina.base}/contratti/?ordina=inizio")
     prima = pagina.locator("#tabella tbody tr").first.inner_text()
@@ -173,3 +177,31 @@ def test_menu_su_tablet(browser, live_server, dati, make_user):
     menu.locator("a:has-text('Contratti')").click()
     pg.wait_for_url(f"{live_server.url}/contratti/")
     pg.close()
+
+
+def test_sposta_contratto_con_anteprima_accessibile(pagina, dati):
+    """F8: scelta della destinazione con la ricerca, anteprima della catena, conferma."""
+    c = dati["contratto"]
+    pagina.goto(f"{pagina.base}/contratti/{c.pk}/sposta/")
+    wrapper = pagina.locator("select#id_destinazione ~ .ts-wrapper")
+    wrapper.locator(".ts-control").click()
+    expect(wrapper.locator(".ts-dropdown")).to_be_visible()
+    campo = wrapper.locator("input")
+    expect(campo).to_be_focused()
+    campo.fill("Nuovo servizio")
+    opzioni = pagina.locator(".ts-dropdown .option:visible")
+    expect(opzioni).to_have_count(1)
+    opzioni.first.click()
+    expect(wrapper.locator(".ts-dropdown")).to_be_hidden()
+    # Con il fuoco la tendina resta su una riga: al blur il pulsante non si sposta e il
+    # clic arriva (prima il layout saltava di una riga e il clic si perdeva).
+    altezza = wrapper.locator(".ts-control").bounding_box()["height"]
+    pagina.click("button[value=anteprima]")
+    expect(pagina.locator("text=Di quale contratto è il rinnovo?")).to_be_visible()
+    assert altezza < 45
+    assert violazioni_axe(pagina) == []
+    pagina.click("button[value=conferma]")
+    pagina.wait_for_url(f"{pagina.base}/contratti/{c.pk}/")
+    c.refresh_from_db()
+    assert c.fabbisogno.descrizione == "Nuovo servizio di prova"
+    assert not pagina.errori, pagina.errori

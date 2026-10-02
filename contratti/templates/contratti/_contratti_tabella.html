@@ -6,7 +6,7 @@
   <thead><tr>
     <th>{% ordina 'fabbisogno' 'Fabbisogno / descrizione' %}</th>
     <th>{% ordina 'fornitore' 'Fornitore' %}</th>
-    <th>OdA · CIG</th>
+    <th>N. contratto · CIG</th>
     <th>{% ordina 'inizio' 'Inizio' %}</th>
     <th>{% ordina 'fine' 'Fine' %}</th>
     <th>Stato</th>
@@ -17,7 +17,7 @@
     <tr data-href="{{ link }}"{% if r.contratto.archiviato %} class="text-body-secondary"{% endif %}>
       <td><a href="{{ link }}" class="fw-semibold">{{ r.contratto.fabbisogno.descrizione }}</a>{% if r.contratto.descrizione and r.contratto.descrizione != r.contratto.fabbisogno.descrizione %}<div class="small text-body-secondary">{{ r.contratto.descrizione }}</div>{% endif %}</td>
       <td>{{ r.contratto.fornitore }}<div class="small text-body-secondary">{{ r.contratto.fabbisogno.area }}</div></td>
-      <td class="small">{{ r.contratto.numero_oda|default:"—" }}<div class="text-body-secondary">{{ r.contratto.cig|default:"—" }}</div></td>
+      <td class="small">{{ r.contratto.numero_contratto|default:"—" }}<div class="text-body-secondary">{{ r.contratto.cig|default:"—" }}</div></td>
       <td class="text-nowrap">{{ r.contratto.data_inizio|date:"d/m/Y"|default:"—" }}</td>
       <td class="text-nowrap">{{ r.fine|date:"d/m/Y"|default:"—" }}</td>
       <td>{{ r.stato|stato_badge }}{% if r.contratto.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}</td>

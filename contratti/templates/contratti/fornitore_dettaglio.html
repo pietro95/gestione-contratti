@@ -16,9 +16,9 @@
 <h2 class="sezione-titolo">Contratti <span class="badge rounded-pill text-bg-light">{{ contratti|length }}</span></h2>
 <div class="tabella-card mb-4"><div class="table-responsive">
 <table class="table table-hover align-middle">
-  <thead><tr><th>Fabbisogno</th><th>OdA</th><th>Inizio</th><th>Fine</th><th>Stato</th><th>Alert</th></tr></thead>
+  <thead><tr><th>Fabbisogno</th><th>N. contratto</th><th>Inizio</th><th>Fine</th><th>Stato</th><th>Alert</th></tr></thead>
   <tbody>
-  {% for r in contratti %}{% url 'contratti:contratto' r.contratto.pk as link %}<tr data-href="{{ link }}"><td><a href="{{ link }}">{{ r.contratto.fabbisogno.descrizione }}</a></td><td>{{ r.contratto.numero_oda|default:"—" }}</td><td class="text-nowrap">{{ r.contratto.data_inizio|date:"d/m/Y"|default:"—" }}</td><td class="text-nowrap">{{ r.fine|date:"d/m/Y"|default:"—" }}</td><td>{{ r.stato|stato_badge }}</td><td>{{ r.alert|alert_badge }}</td></tr>
+  {% for r in contratti %}{% url 'contratti:contratto' r.contratto.pk as link %}<tr data-href="{{ link }}"><td><a href="{{ link }}">{{ r.contratto.fabbisogno.descrizione }}</a></td><td>{{ r.contratto.numero_contratto|default:"—" }}</td><td class="text-nowrap">{{ r.contratto.data_inizio|date:"d/m/Y"|default:"—" }}</td><td class="text-nowrap">{{ r.fine|date:"d/m/Y"|default:"—" }}</td><td>{{ r.stato|stato_badge }}</td><td>{{ r.alert|alert_badge }}</td></tr>
   {% empty %}<tr><td colspan="6"><div class="vuoto py-4">Nessun contratto.</div></td></tr>{% endfor %}
   </tbody>
 </table></div></div>

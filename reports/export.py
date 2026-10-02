@@ -6,7 +6,15 @@ from contratti import models as m
 from contratti.engine.importi import arrotonda
 from contratti.engine.tipi import Livello
 from reports import xlsx
-from reports.budget import ETICHETTE_VISTE, LIVELLI, PARTI, RAGGRUPPAMENTI, VISTE, Budget
+from reports.budget import (
+    ETICHETTE_VISTE,
+    LIVELLI,
+    PARTI,
+    RAGGRUPPAMENTI,
+    SIGLE_VISTE,
+    VISTE,
+    Budget,
+)
 from reports.piano_ordini import PianoOrdini
 from reports.quadratura import CAUSE, Quadratura
 
@@ -19,7 +27,7 @@ def _generato(oggi: datetime.date) -> str:
 
 def descrivi_filtri(budget: Budget) -> str:
     f = budget.filtri
-    parti = [f"Anno {f.anno}"]
+    parti = [f"Anno {f.anno}", f"natura {f.natura}" if f.natura else "OPEX e CAPEX separati"]
     if f.area:
         parti.append(f"area {f.area}")
     if f.conto:
@@ -40,40 +48,46 @@ def budget_xlsx(budget: Budget, criterio: str):
         NOTA_IMPONIBILE,
         _generato(budget.oggi),
     ]
-    totali = budget.totali()
+    # OPEX e CAPEX in righe distinte: nessun totale le somma.
+    sezioni = budget.sezioni()
     righe = []
-    for vista in VISTE:
-        for livello in LIVELLI:
-            righe.append(
-                [ETICHETTE_VISTE[vista], livello.value]
-                + [totali[parte][vista][livello] for parte in PARTI]
-            )
-    colonne = ["Vista", "Livello", "Consolidato", "Previsionale", "Totale"]
+    for s in sezioni:
+        totali = s.totali()
+        for vista in VISTE:
+            for livello in LIVELLI:
+                righe.append(
+                    [s.filtri.natura, ETICHETTE_VISTE[vista], livello.value]
+                    + [totali[parte][vista][livello] for parte in PARTI]
+                )
+    colonne = ["Natura", "Vista", "Livello", "Consolidato", "Previsionale", "Totale"]
     xlsx.foglio(wb, "Riepilogo", intestazione, colonne, righe)
 
-    colonne = [RAGGRUPPAMENTI[criterio]]
+    colonne = ["Natura", RAGGRUPPAMENTI[criterio]]
     for vista in VISTE:
         for livello in LIVELLI:
             for parte in PARTI:
-                colonne.append(f"{vista} {livello.value} {parte}")
+                colonne.append(f"{SIGLE_VISTE[vista]} {livello.value} {parte}")
     righe = []
-    for g in budget.gruppi(criterio):
-        riga = [g.etichetta]
-        for vista in VISTE:
-            for livello in LIVELLI:
-                riga += [g.totali[parte][vista][livello] for parte in PARTI]
-        righe.append(riga)
+    for s in sezioni:
+        for g in s.gruppi(criterio):
+            riga = [s.filtri.natura, g.etichetta]
+            for vista in VISTE:
+                for livello in LIVELLI:
+                    riga += [g.totali[parte][vista][livello] for parte in PARTI]
+            righe.append(riga)
     xlsx.foglio(wb, f"Per {criterio}", intestazione, colonne, righe)
 
     colonne = [
-        "Tipo", "Previsto n.", "Area", "Fabbisogno", "Contratto", "Voce", "Fornitore",
-        "Conto", "Finanziamento", "Inizio servizio", "Fine servizio",
-    ] + [f"{vista} {livello.value}" for vista in VISTE for livello in LIVELLI]  # fmt: skip
+        "Tipo", "Natura", "Previsto n.", "Area", "Fabbisogno", "Contratto", "Voce",
+        "Fornitore", "Conto", "Finanziamento", "Inizio servizio", "Fine servizio",
+    ]  # fmt: skip
+    colonne += [f"{SIGLE_VISTE[vista]} {liv.value}" for vista in VISTE for liv in LIVELLI]
     righe = []
-    for v in budget.voci:
+    for v in sorted(budget.voci, key=lambda v: v.natura != "OPEX"):
         righe.append(
             [
                 "Previsionale" if v.previsionale else "Consolidato",
+                v.natura,
                 v.numero_previsto,
                 v.area,
                 str(v.fabbisogno),
@@ -113,13 +127,14 @@ def piano_xlsx(piano: PianoOrdini, oggi: datetime.date, filtri: str = ""):
         _generato(oggi),
     ]
     colonne = [
-        "Fabbisogno", "Area", "Categoria", "Fornitore uscente", "Procedura presunta",
+        "Fabbisogno", "Natura", "Area", "Categoria", "Fornitore uscente", "Procedura presunta",
         "Lead time (mesi)", "Data limite di avvio", "Avvio servizio", "Fine servizio",
         "Durata (mesi)", "Stato pratica", "Fisso", "Probabile", "Massimo", "Oltre soglia",
     ]  # fmt: skip
     righe = [
         [
             r.fabbisogno.descrizione,
+            r.natura,
             r.fabbisogno.area,
             r.categoria.nome,
             str(r.fornitore_uscente or ""),
@@ -137,8 +152,9 @@ def piano_xlsx(piano: PianoOrdini, oggi: datetime.date, filtri: str = ""):
         ]
         for r in piano.righe
     ]
-    totali = piano.totali()
-    righe.append(["Totale"] + [None] * 10 + [totali[liv] for liv in LIVELLI] + [None])
+    # Un totale per natura: OPEX e CAPEX sono budget distinti.
+    for natura, totali in piano.totali_per_natura().items():
+        righe.append([f"Totale {natura}"] + [None] * 11 + [totali[liv] for liv in LIVELLI] + [None])
     xlsx.foglio(wb, "Piano ordini", intestazione, colonne, righe)
 
     righe = [

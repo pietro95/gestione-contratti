@@ -149,3 +149,87 @@ restano quelle di F4–F5; cambiano struttura delle pagine, gerarchia visiva e f
 - test end-to-end nel browser (Playwright, in CI) sulle pagine principali: caricamento senza
   errori JavaScript, navigazione da tastiera, nessuna violazione di accessibilità grave;
 - revisione di Pietro sugli screenshot delle pagine principali, prima e dopo.
+
+## F8 — Correzioni del modello dopo il primo uso
+
+Rev00: note di Pietro dopo il primo uso in produzione (v1.0.2), proposte approvate.
+
+**Numero di contratto**
+- In azienda non si usa l'OdA: il riferimento SAP è il numero di contratto. I campi diventano
+  `numero_contratto` e `data_emissione` (rinomina, nessun dato perso); lo stato della pratica
+  "OdA emesso" diventa "Contratto emesso", anche nello storico. Resta il controllo delle 10 cifre.
+- Gli Excel non hanno la data di emissione: comando `import_date_contratti` da un'estrazione
+  SAP (CSV o XLSX). Compila solo le date vuote, le discordanze vanno nel report.
+
+**Budget: il fatturato è il riferimento**
+- Il budget si legge sulla fatturazione (rate per data fattura): prima colonna e default.
+- "Impegno" diventa "Ordinato (contratti emessi)": resta come informazione per il Procurement.
+- Elenco di lavoro "Piani da verificare": voci senza piano reale, il cui fatturato è un
+  pro-rata, ordinate per importo.
+
+**OPEX e CAPEX distinti**
+- Budget con filtro natura obbligatorio (default OPEX); "OPEX e CAPEX, separati" mostra due
+  sezioni con totali propri, mai sommati. Lo stesso nell'export e nella home.
+- Piano ordini: contiene entrambe le nature, con colonna, filtro e totali per natura; il
+  controllo del frazionamento resta trasversale.
+- Fabbisogno: natura e conto dei rinnovi previsti, per i contratti nati CAPEX con rinnovi in
+  OPEX. Il previsto resta finanziato solo se conserva la natura.
+
+**Catena dei rinnovi**
+- "Sposta in un altro fabbisogno" (solo il contratto o anche i successivi): nell'origine la
+  catena si richiude, nella destinazione si sceglie il predecessore. Anteprima, poi conferma.
+- "Accorpa in…": i contratti passano al fabbisogno scelto, l'origine si archivia; propone il
+  collegamento tra catene consecutive; previsto manuale e pratica presenti in entrambi: si
+  sceglie quale tenere, nulla si cancella.
+- Il fabbisogno non si cambia più dal form di modifica del contratto.
+
+**Accettazione:**
+- test verdi, compresi quelli nel browser sulle nuove pagine (accessibilità, flusso Sposta);
+- Pietro: data di emissione caricata da SAP sui contratti reali, un accorpamento e uno
+  spostamento sui dati reali, budget OPEX e CAPEX confrontati con le attese.
+
+## F9 — Estensione all'ufficio ICTDINN (bozza)
+
+Rev00: risposte di Pietro del 02/10/2026. Da confermare prima di iniziare.
+
+**Nome e aree**
+- L'applicazione diventa "Registro contratti ICTDINN". Repository, cartella sul server e gruppi
+  AD restano gli stessi.
+- Aree: IT, TLC, OT, Sicurezza fisica, Innovazione.
+
+**Cluster**
+- Il cluster è un'area che raggruppa più conti: tabella di configurazione con nome e
+  responsabili. Ogni conto appartiene a un solo cluster (campo obbligatorio sul conto).
+- Il fabbisogno ha un cluster; una voce con un conto di un altro cluster è bloccata nel form e
+  segnalata nell'import.
+- IT e TLC sono due cluster con lo stesso responsabile e in pratica lo stesso budget: i filtri
+  accettano più cluster, con il default "i miei cluster" che li mostra insieme.
+
+**WBS**
+- Tabella unica con due tipi:
+  - WBS di cluster: CAPEX "generico" del cluster, nel suo budget CAPEX;
+  - WBS a progetto (es. nuovi dissalatori): fuori dai budget dei cluster, contratti registrati.
+- CAPEX ⇔ WBS obbligatoria sul contratto; OPEX ⇔ nessuna WBS.
+- "Finanziato" coincide con "WBS a progetto": il campo finanziamento si ricava dal tipo di WBS.
+  La tabella Progetti attuale confluisce nelle WBS a progetto.
+- Il campo WBS a testo libero sulla voce si elimina; i valori presenti vanno in un report.
+
+**Budget**
+- OPEX per cluster e conto; CAPEX per cluster e WBS di cluster, con il dettaglio per conto (come
+  lo legge il Controllo di gestione).
+- Pagina "Spese per WBS": per una WBS (anche a progetto) i contratti e il fatturato anno per
+  anno.
+
+**Permessi**
+- Admin: tutto. Editor: modifica solo i fabbisogni e i contratti dei propri cluster; un Editor
+  può essere abilitato a tutti i cluster (addetto amministrativo). Reader: legge tutto.
+- Assegnazione dei cluster agli utenti nell'app (pagina Admin), non con gruppi AD.
+- Visibilità: ogni utente vede di default solo i propri cluster; gli altri solo su richiesta
+  (filtro "tutti i cluster"), in lettura.
+- Fornitori in comune, modificabili da ogni Editor. Spostare o accorpare tra cluster diversi
+  richiede il permesso su entrambi.
+
+**Da decidere prima di iniziare**
+- Piano ordini: completo per tutti, o anche lui limitato ai propri cluster di default?
+- Elenco iniziale dei cluster, dei conti e delle WBS di ciascun cluster (dati reali: si
+  caricano sul server, non nel repository).

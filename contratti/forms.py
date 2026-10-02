@@ -152,6 +152,10 @@ class FabbisognoForm(ModelFormBootstrap):
         ("Fabbisogno", ["descrizione", "area", "categoria", "impianto", "referente"]),
         ("Decisione sul rinnovo", ["decisione", "stima_prossimo_importo", "note"]),
         (
+            "Classificazione dei rinnovi previsti (se diversa dall'ultimo contratto)",
+            ["natura_previsti", "conto_previsti"],
+        ),
+        (
             "Previsto manuale (solo per fabbisogni nuovi, senza contratti)",
             [
                 "previsto_data_avvio",
@@ -174,6 +178,8 @@ class FabbisognoForm(ModelFormBootstrap):
             "decisione",
             "stima_prossimo_importo",
             "note",
+            "natura_previsti",
+            "conto_previsti",
             "previsto_data_avvio",
             "previsto_durata_mesi",
             "previsto_procedura",
@@ -186,6 +192,11 @@ class FabbisognoForm(ModelFormBootstrap):
         _solo_attivi(self, "categoria", m.Categoria.objects.filter(attiva=True))
         _solo_attivi(self, "impianto", m.Impianto.objects.filter(archiviato=False))
         _solo_attivi(self, "previsto_procedura", m.Procedura.objects.filter(attiva=True))
+        self.fields["natura_previsti"].choices = [
+            ("", "Come l'ultimo contratto"),
+            *m.Natura.choices,
+        ]
+        self.fields["conto_previsti"].empty_label = "Come le voci dell'ultimo contratto"
 
     def clean(self):
         dati = super().clean()
@@ -200,8 +211,8 @@ class FabbisognoForm(ModelFormBootstrap):
 CAMPI_CONTRATTO = [
     "fornitore",
     "descrizione",
-    "numero_oda",
-    "data_oda",
+    "numero_contratto",
+    "data_emissione",
     "numero_rda",
     "cig",
     "procedura",
@@ -225,7 +236,14 @@ class ContrattoForm(ModelFormBootstrap):
         ("Oggetto e fornitore", ["fabbisogno", "fornitore", "descrizione"]),
         (
             "Ordine e procedura",
-            ["numero_oda", "data_oda", "numero_rda", "cig", "procedura", "lead_time_mesi_override"],
+            [
+                "numero_contratto",
+                "data_emissione",
+                "numero_rda",
+                "cig",
+                "procedura",
+                "lead_time_mesi_override",
+            ],
         ),
         (
             "Durata",
@@ -252,6 +270,45 @@ class ContrattoForm(ModelFormBootstrap):
         _solo_attivi(self, "fornitore", m.Fornitore.objects.filter(archiviato=False))
         _solo_attivi(self, "procedura", m.Procedura.objects.filter(attiva=True))
         _solo_attivi(self, "progetto", m.Progetto.objects.filter(archiviato=False))
+
+
+class ContrattoModificaForm(ContrattoForm):
+    """Modifica: il fabbisogno si cambia solo con "Sposta", che tiene coerente la catena."""
+
+    class Meta(ContrattoForm.Meta):
+        fields = CAMPI_CONTRATTO
+
+
+class SceltaFabbisognoForm(FormBase):
+    """Fabbisogno di destinazione per spostare un contratto o accorpare un fabbisogno."""
+
+    destinazione = forms.ModelChoiceField(
+        queryset=m.Fabbisogno.objects.none(), label="Fabbisogno di destinazione"
+    )
+
+    def __init__(self, *args, escludi: m.Fabbisogno, **kwargs):
+        super().__init__(*args, **kwargs)
+        campo = self.fields["destinazione"]
+        campo.queryset = (
+            m.Fabbisogno.objects.filter(archiviato=False)
+            .exclude(pk=escludi.pk)
+            .select_related("categoria")
+            .order_by("area", "descrizione")
+        )
+        campo.widget.attrs["class"] = campo.widget.attrs.get("class", "") + " js-cerca"
+
+
+class SpostaContrattoForm(SceltaFabbisognoForm):
+    con_successivi = forms.BooleanField(required=False)
+
+    def __init__(self, *args, contratto: m.Contratto, n_successivi: int, **kwargs):
+        super().__init__(*args, escludi=contratto.fabbisogno, **kwargs)
+        if n_successivi:
+            self.fields[
+                "con_successivi"
+            ].label = f"Sposta anche i rinnovi successivi ({n_successivi})"
+        else:
+            del self.fields["con_successivi"]
 
 
 class RinnovoForm(ContrattoForm):

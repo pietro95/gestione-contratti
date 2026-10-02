@@ -58,6 +58,7 @@ def storico(oggetto) -> list[dict]:
                 "utente": h.history_user,
                 "tipo": {"+": "Creazione", "~": "Modifica", "-": "Cancellazione"}[h.history_type],
                 "modifiche": modifiche,
+                "motivo": h.history_change_reason or "",
             }
         )
         precedente = h
@@ -70,7 +71,7 @@ def storico(oggetto) -> list[dict]:
 @login_required
 def home(request):
     """Pagina iniziale: numeri chiave, cose da fare, prossime scadenze, budget dell'anno."""
-    from reports.budget import Filtri, calcola_budget
+    from reports.budget import ETICHETTE_VISTE, NATURE, VISTE, Filtri, calcola_budget
 
     oggi = oggi_richiesta(request)
     gruppi = selettori.cruscotto(oggi, {})
@@ -87,8 +88,18 @@ def home(request):
     )
     budget = None
     try:
-        totali = calcola_budget(Filtri(anno=oggi.year), oggi).totali()["totale"]
-        budget = {v: totali[v][Livello.PROBABILE] for v in ("impegno", "cassa", "competenza")}
+        # OPEX e CAPEX affiancati, mai sommati.
+        per_natura = {
+            s.filtri.natura: s.totali()["totale"]
+            for s in calcola_budget(Filtri(anno=oggi.year), oggi).sezioni()
+        }
+        budget = {
+            "nature": NATURE,
+            "righe": [
+                (ETICHETTE_VISTE[v], [per_natura[n][v][Livello.PROBABILE] for n in NATURE])
+                for v in VISTE
+            ],
+        }
     except adapters.ParametroMancante:
         pass
     return render(
@@ -117,7 +128,7 @@ def cerca(request):
         contratti = selettori.contratti_base().filter(
             Q(descrizione__icontains=q)
             | Q(fabbisogno__descrizione__icontains=q)
-            | Q(numero_oda__icontains=q)
+            | Q(numero_contratto__icontains=q)
             | Q(cig__icontains=q)
             | Q(numero_rda__icontains=q)
             | Q(fornitore__ragione_sociale__icontains=q)
@@ -184,7 +195,7 @@ def _filtra_contratti(request, oggi):
         qs = qs.filter(
             Q(descrizione__icontains=q)
             | Q(fabbisogno__descrizione__icontains=q)
-            | Q(numero_oda__icontains=q)
+            | Q(numero_contratto__icontains=q)
             | Q(cig__icontains=q)
             | Q(numero_rda__icontains=q)
             | Q(fornitore__ragione_sociale__icontains=q)
@@ -386,7 +397,7 @@ def contratto_nuovo(request):
 @editor_required
 def contratto_modifica(request, pk):
     contratto = get_object_or_404(m.Contratto, pk=pk)
-    form = forms.ContrattoForm(request.POST or None, instance=contratto)
+    form = forms.ContrattoModificaForm(request.POST or None, instance=contratto)
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Contratto aggiornato.")
@@ -396,6 +407,85 @@ def contratto_modifica(request, pk):
         "contratti/form.html",
         {"form": form, "titolo": f"Modifica contratto — {contratto}", "annulla": contratto},
     )
+
+
+def _pk_o_none(valore):
+    try:
+        return int(valore)
+    except (TypeError, ValueError):
+        return None
+
+
+@editor_required
+def contratto_sposta(request, pk):
+    """Sposta il contratto in un altro fabbisogno: anteprima della catena, poi conferma."""
+    contratto = get_object_or_404(m.Contratto.objects.select_related("fabbisogno"), pk=pk)
+    successivi = servizi.contratto_e_successivi(contratto)[1:]
+    form = forms.SpostaContrattoForm(
+        request.POST or None, contratto=contratto, n_successivi=len(successivi)
+    )
+    contesto = {"c": contratto, "form": form, "successivi": successivi}
+    if request.method != "POST" or not form.is_valid():
+        return render(request, "contratti/sposta.html", contesto)
+    destinazione = form.cleaned_data["destinazione"]
+    con_successivi = form.cleaned_data.get("con_successivi", False)
+    try:
+        if request.POST.get("passo") == "conferma":
+            scelto = _pk_o_none(request.POST.get("predecessore"))
+            predecessore = m.Contratto.objects.filter(pk=scelto).first() if scelto else None
+            a = servizi.sposta_contratto(
+                contratto, destinazione, con_successivi=con_successivi, predecessore=predecessore
+            )
+            n = len(a.contratti)
+            messages.success(
+                request,
+                f"{'Contratto spostato' if n == 1 else f'{n} contratti spostati'} in "
+                f"«{destinazione.descrizione}».",
+            )
+            for avviso in a.avvisi:
+                messages.info(request, avviso)
+            return redirect("contratti:contratto", pk=contratto.pk)
+        contesto["anteprima"] = servizi.anteprima_spostamento(
+            contratto, destinazione, con_successivi=con_successivi
+        )
+    except (servizi.OperazioneNonAmmessa, ValidationError) as exc:
+        messages.error(request, "; ".join(getattr(exc, "messages", [str(exc)])))
+    contesto |= {"destinazione": destinazione, "con_successivi": con_successivi}
+    return render(request, "contratti/sposta.html", contesto)
+
+
+@editor_required
+def fabbisogno_accorpa(request, pk):
+    """Accorpa questo fabbisogno in un altro: anteprima dei collegamenti, poi conferma."""
+    origine = get_object_or_404(m.Fabbisogno, pk=pk)
+    form = forms.SceltaFabbisognoForm(request.POST or None, escludi=origine)
+    contesto = {"f": origine, "form": form}
+    if request.method != "POST" or not form.is_valid():
+        return render(request, "contratti/accorpa.html", contesto)
+    destinazione = form.cleaned_data["destinazione"]
+    try:
+        if request.POST.get("passo") == "conferma":
+            collegamenti = []
+            for valore in request.POST.getlist("collegamenti"):
+                p, _, s = valore.partition("-")
+                if _pk_o_none(p) and _pk_o_none(s):
+                    collegamenti.append((int(p), int(s)))
+            servizi.accorpa_fabbisogni(
+                origine,
+                destinazione,
+                collegamenti=collegamenti,
+                previsto_da_origine=request.POST.get("previsto_da") == "origine",
+                pratica_da_origine=request.POST.get("pratica_da") == "origine",
+            )
+            messages.success(
+                request, f"«{origine.descrizione}» accorpato e archiviato: i contratti sono qui."
+            )
+            return redirect("contratti:fabbisogno", pk=destinazione.pk)
+        contesto["anteprima"] = servizi.anteprima_accorpamento(origine, destinazione)
+    except (servizi.OperazioneNonAmmessa, ValidationError) as exc:
+        messages.error(request, "; ".join(getattr(exc, "messages", [str(exc)])))
+    contesto["destinazione"] = destinazione
+    return render(request, "contratti/accorpa.html", contesto)
 
 
 @editor_required
@@ -532,6 +622,8 @@ def voce_modifica(request, contratto_pk, pk=None):
             quote.instance = voce_salvata
             quote.save()
         messages.success(request, "Voce salvata. Genera lo scadenzario per salvare le rate.")
+        if request.GET.get("ritorno") == "piani":
+            return redirect("contratti:piani_da_verificare")
         return redirect("contratti:contratto", pk=contratto.pk)
     return render(
         request,
@@ -729,6 +821,7 @@ def fabbisogno_dettaglio(request, pk):
             "f": f,
             "contratti": contratti,
             "previsti": [(p, sum((valore(v) for v in p.voci), Decimal("0.00"))) for p in previsti],
+            "natura_previsti": adapters.natura_previsti(f, adapters.contratto_base_previsti(f)),
             "pratica": f.stati_pratica.order_by("-data", "-id"),
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
             "storico": storico(f),
@@ -826,6 +919,21 @@ def fornitore_modifica(request, pk=None):
 
 
 # --- Proposte dell'import ------------------------------------------------------------
+
+
+@login_required
+def piani_da_verificare(request):
+    """Elenco di lavoro: voci con piano `Da verificare`, il cui fatturato è un pro-rata."""
+    voci = list(selettori.voci_piano_da_verificare())
+    return render(
+        request,
+        "contratti/piani_da_verificare.html",
+        {
+            "voci": voci,
+            "totale": sum((v.peso for v in voci), Decimal("0.00")),
+            "puo_modificare": role_of(request.user) in ("Admin", "Editor"),
+        },
+    )
 
 
 @login_required

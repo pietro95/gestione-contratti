@@ -60,7 +60,7 @@ class Riga:
     foglio: str
     numero: int
     finanziato: bool
-    numero_oda: str | None
+    numero_contratto: str | None
     cig: str | None
     conto: str | None
     conto_vecchio: str | None
@@ -153,7 +153,7 @@ def normalizza_riga(g: RigaGrezza) -> Riga:
             anomalie.append(
                 Anomalia("CARATTERI_INVISIBILI", campo, repr(v.get(campo)), "Rimossi BOM/spazi.")
             )
-    numero_oda, a = n.oda(v.get("contratto"))
+    numero_contratto, a = n.oda(v.get("contratto"))
     anomalie += a
     cig, a = n.cig(v.get("cig"))
     anomalie += a
@@ -236,7 +236,7 @@ def normalizza_riga(g: RigaGrezza) -> Riga:
         foglio=g.foglio,
         numero=g.numero,
         finanziato=fin,
-        numero_oda=numero_oda,
+        numero_contratto=numero_contratto,
         cig=cig,
         conto=n.codice(v.get("conto_nuovo")) or n.codice(v.get("conto")),
         conto_vecchio=n.codice(v.get("conto")),

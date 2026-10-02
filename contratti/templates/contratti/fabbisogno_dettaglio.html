@@ -6,14 +6,17 @@
 {% block sottotitolo %}<div class="sottotitolo"><span class="stato stato-blu">{{ f.get_decisione_display }}</span>{% if f.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %} <span>· {{ f.area }} · {{ f.categoria }}{% if f.impianto %} · {{ f.impianto }}{% endif %}{% if f.referente %} · referente {{ f.referente }}{% endif %}</span></div>{% endblock %}
 {% block azioni %}
 {% if puo_modificare %}
-  <a class="btn btn-primary" href="{% url 'contratti:contratto_nuovo' %}?fabbisogno={{ f.pk }}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuovo contratto</a>
+  <a class="btn btn-primary" href="{% url 'contratti:contratto_nuovo' %}?fabbisogno={{ f.pk|stringformat:"d" }}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuovo contratto</a>
   <a class="btn btn-outline-primary" href="{% url 'contratti:fabbisogno_modifica' f.pk %}"><i class="bi bi-pencil" aria-hidden="true"></i> Modifica</a>
+  {% if not f.archiviato %}<a class="btn btn-outline-primary" href="{% url 'contratti:fabbisogno_accorpa' f.pk %}"><i class="bi bi-intersect" aria-hidden="true"></i> Accorpa in…</a>{% endif %}
   <a class="btn btn-outline-danger" href="{% url 'contratti:archivia' 'fabbisogno' f.pk %}"><i class="bi bi-archive" aria-hidden="true"></i> {% if f.archiviato %}Ripristina{% else %}Archivia{% endif %}</a>
 {% endif %}
 {% endblock %}
 {% block content %}
-{% if f.stima_prossimo_importo or f.note %}
+{% if f.stima_prossimo_importo or f.note or f.natura_previsti or f.conto_previsti %}
 <div class="card mb-4"><div class="card-body"><dl class="dati">
+  {% if f.natura_previsti %}<dt>Natura dei rinnovi previsti</dt><dd>{{ f.natura_previsti }}</dd>{% endif %}
+  {% if f.conto_previsti %}<dt>Conto dei rinnovi previsti</dt><dd>{{ f.conto_previsti }}</dd>{% endif %}
   {% if f.stima_prossimo_importo %}<dt>Stima del prossimo importo</dt><dd>{{ f.stima_prossimo_importo|euro }}</dd>{% endif %}
   {% if f.note %}<dt>Note</dt><dd>{{ f.note|linebreaksbr }}</dd>{% endif %}
 </dl></div></div>
@@ -25,18 +28,18 @@
   <thead><tr><th>Contratto</th><th>Fornitore</th><th>Inizio</th><th>Fine</th><th>Stato</th><th>Alert</th></tr></thead>
   <tbody>
   {% for r in contratti %}{% url 'contratti:contratto' r.contratto.pk as link %}
-    <tr data-href="{{ link }}"><td><a href="{{ link }}">{{ r.contratto.numero_oda|default:r.contratto.cig|default:r.contratto.pk }}</a>{% if r.contratto.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}</td><td>{{ r.contratto.fornitore }}</td><td class="text-nowrap">{{ r.contratto.data_inizio|date:"d/m/Y"|default:"—" }}</td><td class="text-nowrap">{{ r.fine|date:"d/m/Y"|default:"—" }}</td><td>{{ r.stato|stato_badge }}</td><td>{{ r.alert|alert_badge }}</td></tr>
-  {% empty %}<tr><td colspan="6"><div class="vuoto py-4">Nessun contratto.{% if puo_modificare %} <a href="{% url 'contratti:contratto_nuovo' %}?fabbisogno={{ f.pk }}">Inserisci il primo</a>.{% endif %}</div></td></tr>{% endfor %}
+    <tr data-href="{{ link }}"><td><a href="{{ link }}">{{ r.contratto.numero_contratto|default:r.contratto.cig|default:r.contratto.pk }}</a>{% if r.contratto.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}</td><td>{{ r.contratto.fornitore }}</td><td class="text-nowrap">{{ r.contratto.data_inizio|date:"d/m/Y"|default:"—" }}</td><td class="text-nowrap">{{ r.fine|date:"d/m/Y"|default:"—" }}</td><td>{{ r.stato|stato_badge }}</td><td>{{ r.alert|alert_badge }}</td></tr>
+  {% empty %}<tr><td colspan="6"><div class="vuoto py-4">Nessun contratto.{% if puo_modificare %} <a href="{% url 'contratti:contratto_nuovo' %}?fabbisogno={{ f.pk|stringformat:"d" }}">Inserisci il primo</a>.{% endif %}</div></td></tr>{% endfor %}
   </tbody>
 </table></div></div>
 
 <h2 class="sezione-titolo">Contratti previsti <span class="fw-normal small text-body-secondary">calcolati dal registro, non salvati</span></h2>
 <div class="tabella-card mb-4"><div class="table-responsive">
 <table class="table table-sm align-middle">
-  <thead><tr><th>#</th><th>Periodo</th><th class="text-end">Importo fisso</th></tr></thead>
+  <thead><tr><th>#</th><th>Periodo</th><th>Natura</th><th class="text-end">Importo fisso</th></tr></thead>
   <tbody>
-  {% for p, totale in previsti %}<tr><td>P{{ p.numero }}</td><td>{{ p.inizio|date:"d/m/Y" }} – {{ p.fine|date:"d/m/Y" }}</td><td class="text-end">{{ totale|euro }}</td></tr>
-  {% empty %}<tr><td colspan="3"><div class="vuoto py-3">Nessun contratto previsto nell'orizzonte.</div></td></tr>{% endfor %}
+  {% for p, totale in previsti %}<tr><td>P{{ p.numero }}</td><td>{{ p.inizio|date:"d/m/Y" }} – {{ p.fine|date:"d/m/Y" }}</td><td>{{ natura_previsti }}</td><td class="text-end">{{ totale|euro }}</td></tr>
+  {% empty %}<tr><td colspan="4"><div class="vuoto py-3">Nessun contratto previsto nell'orizzonte.</div></td></tr>{% endfor %}
   </tbody>
 </table></div></div>
 

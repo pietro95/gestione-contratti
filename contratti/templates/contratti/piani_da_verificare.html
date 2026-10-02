@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load registro %}
+{% block title %}Piani da verificare{% endblock %}
+{% block titolo_pagina %}Piani di fatturazione da verificare{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">{{ voci|length }} voci · {{ totale|euro }} tra fisso e massimale</div>{% endblock %}
+{% block content %}
+<div class="alert alert-info small" style="max-width: 60rem"><i class="bi bi-info-circle" aria-hidden="true"></i> Il budget di riferimento è il fatturato, cioè le rate per data fattura. Per queste voci il piano non è noto (dati importati dagli Excel): il fatturato è stimato a pro-rata sui giorni del servizio, come facevano gli Excel. Imposta modalità e periodicità reali, poi genera lo scadenzario. Le voci più pesanti sono in cima.</div>
+<div class="tabella-card"><div class="table-responsive">
+<table class="table table-hover align-middle" id="piani">
+  <thead><tr><th>Fabbisogno · contratto</th><th>Voce</th><th>Natura</th><th>Servizio</th><th class="text-end">Fisso</th><th class="text-end">Massimale</th>{% if puo_modificare %}<th><span class="visually-hidden">Azioni</span></th>{% endif %}</tr></thead>
+  <tbody>
+  {% for v in voci %}{% url 'contratti:contratto' v.contratto.pk as link %}
+    <tr data-href="{{ link }}">
+      <td style="min-width: 16rem"><a href="{{ link }}" class="fw-semibold">{{ v.contratto.fabbisogno.descrizione }}</a><div class="small text-body-secondary">{{ v.contratto.numero_contratto|default:v.contratto.cig|default:"senza numero" }} · {{ v.contratto.fornitore }}</div></td>
+      <td>{{ v.descrizione }}</td>
+      <td>{{ v.contratto.natura }}</td>
+      <td class="text-nowrap">{% if v.contratto.data_inizio %}dal {{ v.contratto.data_inizio|date:"d/m/Y" }}, {{ v.contratto.durata_mesi }} mesi{% else %}senza data di inizio{% endif %}</td>
+      <td class="text-end">{{ v.importo_fisso|euro }}</td>
+      <td class="text-end">{{ v.massimale_variabile|euro }}</td>
+      {% if puo_modificare %}<td class="text-end"><a class="btn btn-sm btn-outline-primary text-nowrap" href="{% url 'contratti:voce_modifica' v.contratto.pk v.pk %}?ritorno=piani"><i class="bi bi-pencil" aria-hidden="true"></i> Imposta il piano</a></td>{% endif %}
+    </tr>
+  {% empty %}
+    <tr><td colspan="7"><div class="vuoto py-4"><i class="bi bi-check2-circle" aria-hidden="true"></i>Tutte le voci hanno un piano di fatturazione.</div></td></tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

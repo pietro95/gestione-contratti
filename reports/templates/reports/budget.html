@@ -1,22 +1,12 @@
 {% extends "base.html" %}
 {% load registro %}
 {% block title %}Budget {{ form.anno.value }}{% endblock %}
-{% block titolo_pagina %}Budget {{ form.anno.value }}{% endblock %}
+{% block titolo_pagina %}Budget {{ form.anno.value }}{% if budget.filtri.natura %} · {{ budget.filtri.natura }}{% endif %}{% endblock %}
 {% block sottotitolo %}<div class="sottotitolo">Al {{ oggi|date:"d/m/Y" }} · importi imponibili (IVA esclusa){% if budget %} · livello {{ livello.value }}{% endif %}</div>{% endblock %}
 {% block azioni %}{% include "reports/_azioni.html" %}{% endblock %}
 {% block content %}
 {% include "reports/_filtri.html" %}
 {% if budget %}
-<div class="row g-3 mb-4">
-  {% for vista, consolidato, previsionale, totale in kpi %}
-  <div class="col-md-4"><div class="card kpi blu"><div class="card-body">
-    <div class="kpi-etichetta">{{ vista }} · {{ livello.value }}</div>
-    <div class="kpi-valore">{{ totale|euro }}</div>
-    <div class="kpi-nota">consolidato {{ consolidato|euro }} · previsionale {{ previsionale|euro }}</div>
-  </div></div></div>
-  {% endfor %}
-</div>
-
 {% if budget.rinnovi_mancanti or budget.avvisi or budget.senza_data %}
 <div class="accordion mb-4" id="avvisi">
   <div class="accordion-item">
@@ -38,34 +28,47 @@
 </div>
 {% endif %}
 
-<h2 class="sezione-titolo">Riepilogo per vista e livello</h2>
+{% if sezioni|length > 1 %}<p class="small text-body-secondary mb-4"><i class="bi bi-info-circle" aria-hidden="true"></i> OPEX e CAPEX sono budget distinti: i totali non si sommano.</p>{% endif %}
+{% for s in sezioni %}
+<section class="mb-5" aria-labelledby="natura-{{ s.natura }}">
+<h2 class="h4 mb-3 natura-titolo" id="natura-{{ s.natura }}"><i class="bi {% if s.natura == 'CAPEX' %}bi-building-gear{% else %}bi-arrow-repeat{% endif %}" aria-hidden="true"></i> Budget {{ s.natura }} {{ budget.filtri.anno|stringformat:"s" }}</h2>
+<div class="row g-3 mb-4">
+  {% for vista, consolidato, previsionale, totale in s.kpi %}
+  <div class="col-md-4"><div class="card kpi {% if forloop.first %}blu{% endif %}"><div class="card-body">
+    <div class="kpi-etichetta">{{ vista }} · {{ livello.value }}</div>
+    <div class="kpi-valore">{{ totale|euro }}</div>
+    <div class="kpi-nota">consolidato {{ consolidato|euro }} · previsionale {{ previsionale|euro }}</div>
+  </div></div></div>
+  {% endfor %}
+</div>
+<h3 class="sezione-titolo">Riepilogo {{ s.natura }} per vista e livello</h3>
 <div class="tabella-card mb-4"><div class="table-responsive">
-<table class="table table-sm align-middle text-end" id="riepilogo">
+<table class="table table-sm align-middle text-end" id="riepilogo-{{ s.natura }}">
   <thead>
     <tr><th class="text-start" rowspan="2">Vista</th>{% for liv in livelli %}<th colspan="3" class="text-center text-capitalize">{{ liv.value }}</th>{% endfor %}</tr>
     <tr>{% for liv in livelli %}<th>Consolidato</th><th>Previsionale</th><th>Totale</th>{% endfor %}</tr>
   </thead>
   <tbody>
-  {% for vista, per_livello in riepilogo %}
+  {% for vista, per_livello in s.riepilogo %}
     <tr><th class="text-start" scope="row">{{ vista }}</th>{% for c in per_livello %}<td>{{ c.0|euro }}</td><td class="text-body-secondary">{{ c.1|euro }}</td><td class="fw-semibold">{{ c.2|euro }}</td>{% endfor %}</tr>
   {% endfor %}
   </tbody>
 </table></div></div>
 
-<h2 class="sezione-titolo">Per {{ criterio|lower }} <span class="fw-normal small text-body-secondary">livello {{ livello.value }} · clic su una riga per le voci</span></h2>
+<h3 class="sezione-titolo">{{ s.natura }} per {{ criterio|lower }} <span class="fw-normal small text-body-secondary">livello {{ livello.value }} · clic su una riga per le voci</span></h3>
 <div class="tabella-card mb-4"><div class="table-responsive">
-<table class="table table-hover align-middle text-end table-prima-fissa" id="gruppi">
+<table class="table table-hover align-middle text-end table-prima-fissa" id="gruppi-{{ s.natura }}">
   <thead>
     <tr><th class="text-start" rowspan="2">{{ criterio }}</th>{% for v in viste %}<th colspan="3" class="text-center">{{ v }}</th>{% endfor %}</tr>
     <tr>{% for v in viste %}<th>Consolidato</th><th>Previsionale</th><th>Totale</th>{% endfor %}</tr>
   </thead>
   <tbody>
-  {% for g in gruppi %}
+  {% for g in s.gruppi %}
     <tr>
-      <td class="text-start"><a href="#g{{ forloop.counter }}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="g{{ forloop.counter }}"><i class="bi bi-chevron-right small" aria-hidden="true"></i> {{ g.etichetta }}</a> <span class="badge rounded-pill text-bg-light">{{ g.voci|length }}</span></td>
+      <td class="text-start"><a href="#g-{{ s.natura }}-{{ forloop.counter }}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="g-{{ s.natura }}-{{ forloop.counter }}"><i class="bi bi-chevron-right small" aria-hidden="true"></i> {{ g.etichetta }}</a> <span class="badge rounded-pill text-bg-light">{{ g.voci|length }}</span></td>
       {% for c in g.celle %}<td>{{ c.0|euro }}</td><td class="text-body-secondary">{{ c.1|euro }}</td><td class="fw-semibold">{{ c.2|euro }}</td>{% endfor %}
     </tr>
-    <tr class="collapse" id="g{{ forloop.counter }}"><td colspan="10" class="bg-body-tertiary p-3">
+    <tr class="collapse" id="g-{{ s.natura }}-{{ forloop.counter }}"><td colspan="10" class="bg-body-tertiary p-3">
       <table class="table table-sm mb-0 small">
         <thead><tr><th class="text-start">Tipo</th><th class="text-start">Fabbisogno / voce</th><th class="text-start">Servizio</th>{% for v in viste %}<th>{{ v }}</th>{% endfor %}</tr></thead>
         <tbody>
@@ -85,8 +88,10 @@
   {% endfor %}
   </tbody>
   <tfoot class="fw-semibold">
-    <tr><td class="text-start">Totale</td>{% for c in totale_celle %}<td>{{ c.0|euro }}</td><td>{{ c.1|euro }}</td><td>{{ c.2|euro }}</td>{% endfor %}</tr>
+    <tr><td class="text-start">Totale</td>{% for c in s.totale_celle %}<td>{{ c.0|euro }}</td><td>{{ c.1|euro }}</td><td>{{ c.2|euro }}</td>{% endfor %}</tr>
   </tfoot>
 </table></div></div>
+</section>
+{% endfor %}
 {% endif %}
 {% endblock %}
