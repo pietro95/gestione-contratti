@@ -156,7 +156,7 @@ def test_filtri_attivi_e_ordinamento(pagina, dati):
     assert "5800000002" in prima  # 2024 prima del 2026
     pagina.goto(f"{pagina.base}/contratti/?ordina=-inizio&area=IT")
     assert "5800000001" in pagina.locator("#tabella tbody tr").first.inner_text()
-    chip = pagina.locator(".chip", has_text="Area: IT")
+    chip = pagina.locator(".chip", has_text="Cluster: IT")
     assert chip.is_visible()
     chip.locator("a").click()
     pagina.wait_for_load_state("networkidle")

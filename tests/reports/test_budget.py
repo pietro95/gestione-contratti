@@ -74,8 +74,10 @@ def test_filtro_conto_e_fornitore(archivio, conti):
     b = calcola_budget(Filtri(anno=2026, conto=conti["627020"].pk), OGGI)
     assert b.voci and all(v.conto == conti["627020"] for v in b.voci)
     fornitore = archivio.fornitore
-    b = calcola_budget(Filtri(anno=2027, fornitore=fornitore.pk), OGGI)
+    b = calcola_budget(Filtri(anno=2027, fornitore=fornitore.pk, progetti="includi"), OGGI)
     assert b.voci and all(v.fornitore == fornitore for v in b.voci)
+    # Il contratto è su una WBS a progetto: fuori dal budget del cluster (F9.2).
+    assert not calcola_budget(Filtri(anno=2027, fornitore=fornitore.pk), OGGI).voci
 
 
 def test_solo_consolidato_esclude_i_previsti(archivio):
