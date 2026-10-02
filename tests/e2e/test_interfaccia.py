@@ -9,6 +9,7 @@ from playwright.sync_api import expect
 
 from contratti import models as m
 
+from .. import factories as f
 from .conftest import violazioni_axe
 
 pytestmark = [pytest.mark.e2e, pytest.mark.django_db(transaction=True, serialized_rollback=True)]
@@ -17,6 +18,10 @@ pytestmark = [pytest.mark.e2e, pytest.mark.django_db(transaction=True, serialize
 def _pagine(dati):
     c, fab = dati["contratto"], dati["fabbisogno"]
     v = dati["voce"]
+    # Catena interrotta: avviso nel fabbisogno e nel contratto rimasto senza rinnovo.
+    interrotto = f.fabbisogno("Catena interrotta", decisione="rinnovare")
+    vecchio = f.contratto(fabbisogno=interrotto, data_inizio=datetime.date(2025, 1, 1))
+    f.contratto(fabbisogno=interrotto, data_inizio=datetime.date(2026, 1, 1))
     return [
         "/",
         "/cruscotto/",
@@ -37,6 +42,8 @@ def _pagine(dati):
         f"/contratti/{c.pk}/voci/nuova/?guidata=1",
         f"/contratti/{c.pk}/scadenzario/",
         f"/fabbisogni/{fab.pk}/accorpa/",
+        f"/fabbisogni/{interrotto.pk}/",
+        f"/contratti/{vecchio.pk}/",
         "/piani-da-verificare/",
         "/import/",
         "/report/budget/?anno=2026",

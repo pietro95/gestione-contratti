@@ -104,3 +104,40 @@ def test_accorpa_mostra_e_unisce_i_doppioni(editor):
     doppione.refresh_from_db()
     tenuto.refresh_from_db()
     assert doppione.archiviato and not tenuto.archiviato
+
+
+def test_catena_interrotta_avviso_e_collegamento_dal_fabbisogno(editor):
+    """Dopo un accorpamento senza collegamento il vecchio contratto si ricollega a mano."""
+    fab = f.fabbisogno("Accorpato in passato", decisione="rinnovare")
+    vecchio = f.contratto(fabbisogno=fab, numero_contratto="5800000881", data_inizio=D(2025, 1, 1))
+    nuovo = f.contratto(fabbisogno=fab, numero_contratto="5800000882", data_inizio=D(2026, 1, 1))
+    html = editor.get(reverse("contratti:contratto", args=[vecchio.pk])).content.decode()
+    assert "Collegalo dal fabbisogno" in html and "5800000882" in html
+    html = editor.get(reverse("contratti:fabbisogno", args=[fab.pk])).content.decode()
+    assert "Catena dei rinnovi interrotta" in html
+    risposta = editor.post(
+        reverse("contratti:fabbisogno_collega", args=[fab.pk]),
+        {"collegamenti": [f"{vecchio.pk}-{nuovo.pk}"]},
+        follow=True,
+    )
+    assert "1 contratti collegati al loro rinnovo" in risposta.content.decode()
+    nuovo.refresh_from_db()
+    assert nuovo.predecessore == vecchio
+    html = editor.get(reverse("contratti:fabbisogno", args=[fab.pk])).content.decode()
+    assert "Catena dei rinnovi interrotta" not in html
+    html = editor.get(reverse("contratti:contratto", args=[vecchio.pk])).content.decode()
+    assert "Collegalo dal fabbisogno" not in html
+
+
+def test_collegamento_non_proposto_rifiutato_dalla_vista(editor):
+    fab = f.fabbisogno("Senza catene")
+    vecchio = f.contratto(fabbisogno=fab, data_inizio=D(2025, 1, 1))
+    nuovo = f.contratto(fabbisogno=fab, data_inizio=D(2026, 1, 1))
+    risposta = editor.post(
+        reverse("contratti:fabbisogno_collega", args=[fab.pk]),
+        {"collegamenti": [f"{nuovo.pk}-{vecchio.pk}"]},
+        follow=True,
+    )
+    assert "Collegamento non tra quelli proposti" in risposta.content.decode()
+    nuovo.refresh_from_db()
+    assert nuovo.predecessore is None

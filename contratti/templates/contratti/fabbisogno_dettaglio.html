@@ -36,6 +36,20 @@
 </div>
 {% endif %}
 
+{% if collegamenti and puo_modificare %}
+<div class="alert alert-danger">
+  <form method="post" action="{% url 'contratti:fabbisogno_collega' f.pk %}">
+    {% csrf_token %}
+    <p class="fw-semibold mb-1"><i class="bi bi-link-45deg" aria-hidden="true"></i> Catena dei rinnovi interrotta</p>
+    <p class="small mb-2">Contratti finiti senza successore, mentre nel fabbisogno c'è un contratto che inizia dopo e non è collegato a nessun predecessore. Collegati, il vecchio contratto non va più in rosso «Senza rinnovo».</p>
+    {% for p, s in collegamenti %}
+    <div class="form-check small"><input class="form-check-input" type="checkbox" name="collegamenti" id="col-{{ forloop.counter }}" value="{{ p.pk|stringformat:"d" }}-{{ s.pk|stringformat:"d" }}" checked><label class="form-check-label" for="col-{{ forloop.counter }}">{% include "contratti/_contratto_breve.html" with x=s %} è il rinnovo di {% include "contratti/_contratto_breve.html" with x=p %}</label></div>
+    {% endfor %}
+    <button class="btn btn-sm btn-danger mt-2" type="submit">Collega i contratti selezionati</button>
+  </form>
+</div>
+{% endif %}
+
 <h2 class="sezione-titolo">Contratti <span class="badge rounded-pill text-bg-light">{{ contratti|length }}</span></h2>
 <div class="tabella-card mb-4"><div class="table-responsive">
 <table class="table table-hover align-middle">

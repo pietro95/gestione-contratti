@@ -219,6 +219,13 @@ Rev00: segnalazioni di Pietro del 02/10/2026.
 - **Accorpa**: lo stesso contratto registrato due volte si unisce (si tiene quello con più
   dati, l'altro si archivia e la catena passa a quello tenuto). I doppioni già presenti in un
   fabbisogno si uniscono dal dettaglio del fabbisogno.
+- **Accorpa, catena dei rinnovi**: a ogni contratto senza successore si propone come rinnovo
+  il contratto senza predecessore che inizia per primo dopo la sua fine (ogni contratto una
+  volta sola, prima le coppie più vicine), anche quando le catene dei due fabbisogni si
+  alternano nel tempo. Se il periodo seguente è già coperto da un rinnovo di un altro
+  contratto, nessuna proposta e un avviso (più predecessori: F9.3). Le catene già interrotte
+  (fabbisogni accorpati prima della correzione) si ricuciono dal dettaglio del fabbisogno;
+  il contratto rimasto in rosso lo segnala.
 - **Nuovo contratto guidato**: 1 contratto, 2 voce con piano di fatturazione (anteprima delle
   rate), 3 scadenzario generato, con «Aggiungi un'altra voce» o «Concludi». Salvando una voce
   le rate si generano sempre; quelle modificate a mano o consuntivate non si toccano.

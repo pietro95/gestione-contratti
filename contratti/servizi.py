@@ -1,5 +1,6 @@
 """Operazioni che scrivono sul database usando il motore."""
 
+import datetime
 from dataclasses import dataclass, field
 
 from django.db import transaction
@@ -420,19 +421,92 @@ def _ha_previsto(f: m.Fabbisogno) -> bool:
     return bool(f.previsto_data_avvio or f.stima_prossimo_importo is not None)
 
 
-def _catene(contratti) -> list[list[m.Contratto]]:
-    """Catene dei rinnovi tra i contratti dati, ciascuna dal più vecchio al più recente."""
-    per_pk = {c.pk: c for c in contratti}
-    successori = {c.predecessore_id: c for c in contratti if c.predecessore_id in per_pk}
-    radici = [c for c in contratti if c.predecessore_id not in per_pk]
-    catene = []
-    for r in radici:
-        catena, c = [], r
-        while c is not None and c not in catena:
-            catena.append(c)
-            c = successori.get(c.pk)
-        catene.append(catena)
-    return catene
+UN_GIORNO = datetime.timedelta(days=1)
+
+
+def proponi_collegamenti(contratti) -> tuple[list[tuple[m.Contratto, m.Contratto]], list[str]]:
+    """Catene dei rinnovi interrotte da ricucire: coppie (predecessore, successore) e avvisi.
+
+    Per ogni contratto senza successore si propone il contratto senza predecessore che
+    inizia dopo la sua fine; ogni contratto si usa una volta sola, prima le coppie più
+    vicine nel tempo. Così le catene di due fabbisogni accorpati si ricuciono anche quando
+    i periodi si alternano.
+    """
+    attivi = [c for c in contratti if not c.archiviato and c.data_inizio is not None]
+    ultimi = [c for c in attivi if not hasattr(c, "successore")]
+    primi = [c for c in attivi if c.predecessore_id is None]
+    fini = {u.pk: adapters.data_fine_effettiva(u) for u in ultimi}
+    candidate = [
+        ((p.data_inizio - fini[u.pk]).days, u.pk, p.pk, u, p)
+        for u in ultimi
+        for p in primi
+        if p.pk != u.pk and fini[u.pk] < p.data_inizio
+    ]
+    coppie, usati_u, usati_p = [], set(), set()
+    for *_, u, p in sorted(candidate, key=lambda x: x[:3]):
+        if u.pk in usati_u or p.pk in usati_p:
+            continue
+        coppie.append((u, p))
+        usati_u.add(u.pk)
+        usati_p.add(p.pk)
+    # Contratto finito senza successore mentre un altro copre già il periodo seguente.
+    avvisi = []
+    for u in ultimi:
+        fine = fini[u.pk]
+        if u.pk in usati_u or fine is None:
+            continue
+        for c in attivi:
+            if c.pk == u.pk or not (u.data_inizio < c.data_inizio <= fine + UN_GIORNO):
+                continue
+            perche = (
+                "è già il rinnovo di un altro contratto"
+                if c.predecessore_id is not None
+                else "ha il periodo sovrapposto (periodi sovrapposti)"
+            )
+            avvisi.append(
+                f"{u} finisce il {fine:%d/%m/%Y} senza successore; {c}, che inizia il "
+                f"{c.data_inizio:%d/%m/%Y}, {perche}. Nessun collegamento proposto: verifica."
+            )
+            break
+    return sorted(coppie, key=lambda x: (x[1].data_inizio, x[1].pk)), avvisi
+
+
+def collegamenti_del_fabbisogno(f: m.Fabbisogno) -> list[tuple[m.Contratto, m.Contratto]]:
+    """Catene interrotte nel fabbisogno, escluse quelle già segnalate come doppioni."""
+    da_archiviare = {d.pk for _, d in doppioni_del_fabbisogno(f)}
+    coppie, _ = proponi_collegamenti(_qs_collegamenti([f]).exclude(pk__in=da_archiviare))
+    return coppie
+
+
+def _qs_collegamenti(fabbisogni):
+    return (
+        m.Contratto.objects.filter(fabbisogno__in=fabbisogni, archiviato=False)
+        .exclude(data_inizio__isnull=True)
+        .select_related("procedura", "fornitore", "fabbisogno", "successore")
+        .prefetch_related("proroghe")
+        .order_by("data_inizio", "pk")
+    )
+
+
+def _collega(predecessore: m.Contratto, successore: m.Contratto, motivo: str) -> None:
+    # Ricaricati: in memoria possono avere il fabbisogno di prima di un accorpamento.
+    predecessore.refresh_from_db()
+    successore.refresh_from_db()
+    successore.predecessore = predecessore
+    successore.clean()
+    _salva(successore, motivo, update_fields=["predecessore"])
+
+
+@transaction.atomic
+def collega_contratti(f: m.Fabbisogno, coppie: list[tuple[int, int]]) -> int:
+    """Ricuce le catene interrotte confermate (tra quelle proposte) del fabbisogno."""
+    proposte = {(p.pk, s.pk): (p, s) for p, s in collegamenti_del_fabbisogno(f)}
+    if not coppie or any(tuple(c) not in proposte for c in coppie):
+        raise OperazioneNonAmmessa("Collegamento non tra quelli proposti.")
+    for coppia in coppie:
+        predecessore, successore = proposte[tuple(coppia)]
+        _collega(predecessore, successore, "Catena dei rinnovi ricucita")
+    return len(coppie)
 
 
 def anteprima_accorpamento(
@@ -444,27 +518,9 @@ def anteprima_accorpamento(
         raise OperazioneNonAmmessa("Non si accorpa un fabbisogno archiviato.")
     coppie = doppioni(_qs_doppioni([origine, destinazione]))
     da_archiviare = {d.pk for _, d in coppie}
-    tutti = list(
-        m.Contratto.objects.filter(fabbisogno__in=[origine, destinazione], archiviato=False)
-        .exclude(data_inizio__isnull=True)
-        .exclude(pk__in=da_archiviare)
-        .select_related("procedura", "fornitore")
-        .prefetch_related("proroghe")
+    collegamenti, avvisi = proponi_collegamenti(
+        _qs_collegamenti([origine, destinazione]).exclude(pk__in=da_archiviare)
     )
-    catene = sorted(_catene(tutti), key=lambda k: (k[0].data_inizio, k[0].pk))
-    collegamenti, avvisi = [], []
-    for prima, dopo in zip(catene, catene[1:], strict=False):
-        ultimo, primo = prima[-1], dopo[0]
-        if ultimo.fabbisogno_id == primo.fabbisogno_id:
-            continue  # interruzione già presente, non creata dall'accorpamento
-        fine = adapters.data_fine_effettiva(ultimo)
-        if fine < primo.data_inizio:
-            collegamenti.append((ultimo, primo))
-        else:
-            avvisi.append(
-                f"Periodi sovrapposti: {ultimo} finisce il {fine:%d/%m/%Y}, {primo} inizia il "
-                f"{primo.data_inizio:%d/%m/%Y}. Nessun collegamento proposto: verifica."
-            )
     for campo, etichetta in (
         ("area", "Area diversa"),
         ("categoria_id", "Categoria diversa"),
@@ -531,13 +587,7 @@ def accorpa_fabbisogni(
         tenuto, doppione = rilevati[tuple(coppia)]
         _archivia_doppione(tenuto, doppione, f"Doppione di #{tenuto.pk}, archiviato ({motivo})")
     for coppia in collegamenti:
-        predecessore, successore = proposti[tuple(coppia)]
-        # Ricaricati: in memoria hanno ancora il fabbisogno di prima dell'accorpamento.
-        predecessore.refresh_from_db()
-        successore.refresh_from_db()
-        successore.predecessore = predecessore
-        successore.clean()
-        _salva(successore, motivo, update_fields=["predecessore"])
+        _collega(*proposti[tuple(coppia)], motivo)
 
     if _ha_previsto(origine) and (previsto_da_origine or not _ha_previsto(destinazione)):
         for campo in CAMPI_PREVISTO:

@@ -354,6 +354,17 @@ def contratto_dettaglio(request, pk):
     )
     voci_engine, esiti = adapters.voci_contratto(contratto)
     valori = {v.riferimento: {liv: valore(v, liv) for liv in Livello} for v in voci_engine}
+    successore = m.Contratto.objects.filter(predecessore=contratto).first()
+    rinnovo_scollegato = None
+    if successore is None and not contratto.archiviato:
+        rinnovo_scollegato = next(
+            (
+                rinnovo
+                for prima, rinnovo in servizi.collegamenti_del_fabbisogno(contratto.fabbisogno)
+                if prima.pk == contratto.pk
+            ),
+            None,
+        )
     return render(
         request,
         "contratti/contratto_dettaglio.html",
@@ -367,7 +378,8 @@ def contratto_dettaglio(request, pk):
                 liv: sum((x[liv] for x in valori.values()), Decimal("0.00")) for liv in Livello
             },
             "esiti": esiti,
-            "successore": m.Contratto.objects.filter(predecessore=contratto).first(),
+            "successore": successore,
+            "rinnovo_scollegato": rinnovo_scollegato,
             "pratica": contratto.stati_pratica.select_related("utente").order_by("-data", "-id"),
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
             "storico": storico(contratto),
@@ -484,6 +496,20 @@ def fabbisogno_doppioni(request, pk):
         messages.error(request, str(exc))
     else:
         messages.success(request, f"{n} contratti doppi archiviati." if n else "Nessuna modifica.")
+    return redirect("contratti:fabbisogno", pk=pk)
+
+
+@editor_required
+@require_POST
+def fabbisogno_collega(request, pk):
+    """Ricuce le catene dei rinnovi interrotte (es. dopo un accorpamento)."""
+    f = get_object_or_404(m.Fabbisogno, pk=pk)
+    try:
+        n = servizi.collega_contratti(f, _coppie(request.POST.getlist("collegamenti")))
+    except servizi.OperazioneNonAmmessa as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, f"{n} contratti collegati al loro rinnovo.")
     return redirect("contratti:fabbisogno", pk=pk)
 
 
@@ -906,6 +932,7 @@ def fabbisogno_dettaglio(request, pk):
             "previsti": [(p, sum((valore(v) for v in p.voci), Decimal("0.00"))) for p in previsti],
             "natura_previsti": adapters.natura_previsti(f, adapters.contratto_base_previsti(f)),
             "doppioni": servizi.doppioni_del_fabbisogno(f),
+            "collegamenti": servizi.collegamenti_del_fabbisogno(f),
             "pratica": f.stati_pratica.order_by("-data", "-id"),
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
             "storico": storico(f),
