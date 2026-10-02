@@ -285,6 +285,13 @@ Se LDAPS non è ancora pronto (§3.1), l'app parte con gli account locali:
    ```
 2. **Login con le credenziali di dominio**: entra con un utente di ciascun gruppo AD. Il ruolo
    compare in alto a destra (Admin, Editor, Reader). Chi non è in alcun gruppo non entra.
+**Import dall'interfaccia (dalla v1.2).** Gli import dei passi 3, 4 e 5 si fanno anche dal
+menu **Gestione → Import**, senza accedere al server: carichi il file, vedi l'anteprima (nulla
+è scritto), poi confermi. Ogni scheda ha il suo modello XLSX da scaricare. Excel dei contratti,
+date di emissione e quadratura li usano Admin ed Editor; il piano dei conti solo l'Admin. Ogni
+file resta nel registro degli import, con chi l'ha caricato, l'anteprima e l'esito. I comandi
+qui sotto restano per l'emergenza: fanno la stessa cosa con lo stesso codice.
+
 3. **Piano dei conti**: prepara un CSV con le colonne `codice;descrizione;valido_dal` (e,
    facoltativa, `valido_al`; date `gg/mm/aaaa`), mettilo in
    `/appdata/gestione-contratti/import/` e caricalo:

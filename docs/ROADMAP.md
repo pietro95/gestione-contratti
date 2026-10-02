@@ -188,9 +188,29 @@ Rev00: note di Pietro dopo il primo uso in produzione (v1.0.2), proposte approva
 - Pietro: data di emissione caricata da SAP sui contratti reali, un accorpamento e uno
   spostamento sui dati reali, budget OPEX e CAPEX confrontati con le attese.
 
-## F9 — Estensione all'ufficio ICTDINN (bozza)
+## F9.1 — Import dall'interfaccia
 
-Rev00: risposte di Pietro del 02/10/2026. Da confermare prima di iniziare.
+Rev00: richiesta di Pietro del 02/10/2026, proposte approvate.
+
+- Pagina Gestione → Import: Excel dei contratti, date di emissione, piano dei conti,
+  quadratura con l'Excel. Modello XLSX scaricabile per ogni import, generato dall'app.
+- Carica → anteprima (stesso codice, nessuna scrittura; conteggi e anomalie, report XLSX) →
+  conferma. La conferma usa il file caricato, vale 24 ore, una sola volta; può confermare chi
+  ha caricato il file o un Admin.
+- Registro degli import: file, hash, utente, anteprima, esito. Lo stesso file già importato
+  è segnalato; rieseguirlo è innocuo.
+- Permessi: Excel dei contratti, date di emissione e quadratura per Admin ed Editor (i
+  responsabili); piano dei conti solo Admin (tabella di configurazione). Dalla F9.2 gli Editor
+  importano solo nei propri cluster.
+- File `.xlsx`/`.csv` fino a 10 MB, esecuzione immediata (nessuna coda di lavori).
+- I comandi da riga di comando restano e usano lo stesso codice.
+
+**Accettazione:** test verdi (anteprima senza scritture, conferma, scadenza, permessi, modelli
+reimportabili, flusso nel browser); Pietro carica dal web le date di emissione estratte da SAP.
+
+## F9.2 — Estensione all'ufficio ICTDINN (bozza)
+
+Rev01: risposte di Pietro del 02/10/2026. Da confermare prima di iniziare.
 
 **Nome e aree**
 - L'applicazione diventa "Registro contratti ICTDINN". Repository, cartella sul server e gruppi
@@ -229,7 +249,29 @@ Rev00: risposte di Pietro del 02/10/2026. Da confermare prima di iniziare.
 - Fornitori in comune, modificabili da ogni Editor. Spostare o accorpare tra cluster diversi
   richiede il permesso su entrambi.
 
-**Da decidere prima di iniziare**
-- Piano ordini: completo per tutti, o anche lui limitato ai propri cluster di default?
-- Elenco iniziale dei cluster, dei conti e delle WBS di ciascun cluster (dati reali: si
-  caricano sul server, non nel repository).
+- Piano ordini: di default solo i propri cluster, come le altre viste.
+- Import: gli Editor importano contratti e date solo nei propri cluster; l'import della
+  struttura (cluster, responsabili, conti, WBS) è solo Admin, con il modello
+  `2026.10.02_PFE_Modello_import_struttura_ICTDINN_Rev00` (fogli Cluster, Responsabili,
+  Conti, WBS), accettato da Pietro.
+
+**Quota CAPEX e quota OPEX nello stesso contratto (nota del 02/10/2026, da decidere)**
+- Proposta: natura e WBS diventano attributi della voce (in SAP ogni posizione ha la sua
+  imputazione: centro di costo o WBS). La natura del contratto si ricava: OPEX, CAPEX o mista.
+- Budget: ogni voce va nella sezione della sua natura. Piano ordini: un previsto misto mostra
+  le due quote.
+- Natura e conto dei rinnovi (F8) passano dalla voce, perché il cambio CAPEX → OPEX può
+  riguardare solo alcune voci; sul fabbisogno restano solo per il previsto manuale.
+
+**Un contratto che rinnova più contratti (nota del 02/10/2026, da decidere; F9.3)**
+- Caso: SIM voce e SIM M2M accorpati in un unico contratto nuovo, con un unico fabbisogno.
+- Proposta: un contratto può avere più predecessori, ognuno con un solo successore. I
+  fabbisogni di partenza si accorpano in quello del contratto nuovo ("Accorpa in…"): la storia
+  dei costi resta in un solo fabbisogno.
+- Effetti: i contratti accorpati non vanno in alert (hanno un successore); i previsti partono
+  dal contratto nuovo. "Registra rinnovo" chiede quali altri contratti sostituisce.
+- Serve un caso numerico in TEST_CASES (lo scrive Pietro).
+
+**Da avere prima di iniziare**
+- Elenco iniziale dei cluster, dei conti e delle WBS di ciascun cluster, nel modello (dati
+  reali: si caricano sul server dall'import, non nel repository).
