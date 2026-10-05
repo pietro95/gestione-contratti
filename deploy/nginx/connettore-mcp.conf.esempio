@@ -1,0 +1,38 @@
+# Host pubblico del connettore MCP (SPEC_MCP §2.2, RUNBOOK §12) per un nginx con file di
+# configurazione. Con Nginx Proxy Manager le stesse regole vanno nell'Access List e nella
+# scheda «Advanced» del proxy host (RUNBOOK §12.3). In CI questo file prova le regole.
+# Segnaposto:
+#   __MCP_SERVER_NAME__  nome DNS pubblico (MCP_HOST del .env)
+#   __MCP_UPSTREAM__     MCP_BIND:MCP_PORT del .env (es. 127.0.0.1:18472)
+#   __CERT__ __KEY__     certificato di una CA pubblica (Anthropic non si fida della CA interna)
+#   __RETE_INTERNA__     rete aziendale ammessa (per Claude Code), es. 10.0.0.0/8
+
+server {
+    listen 443 ssl http2;
+    server_name __MCP_SERVER_NAME__;
+
+    ssl_certificate     __CERT__;
+    ssl_certificate_key __KEY__;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+
+    # 1. Solo la rete di uscita di Anthropic e la rete interna.
+    allow 160.79.104.0/21;
+    allow __RETE_INTERNA__;
+    deny all;
+
+    # 2. Solo gli endpoint pubblici del connettore (più la verifica del certificato).
+    if ($uri !~ "^/(mcp|\.well-known/oauth-protected-resource(/mcp)?|\.well-known/oauth-authorization-server|oauth/token/|\.well-known/acme-challenge/.*)$") {
+        return 404;
+    }
+
+    client_max_body_size 1m;
+
+    location / {
+        proxy_pass http://__MCP_UPSTREAM__;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 60s;
+        proxy_redirect off;
+    }
+}

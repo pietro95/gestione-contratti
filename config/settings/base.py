@@ -140,9 +140,9 @@ OAUTH2_PROVIDER = {
     "REFRESH_TOKEN_EXPIRE_SECONDS": None,
     "ROTATE_REFRESH_TOKEN": True,
     "REFRESH_TOKEN_REUSE_PROTECTION": True,
-    # Claude ripete una richiesta andata in timeout: il refresh appena ruotato vale ancora
-    # per un minuto, poi il riuso revoca tutta la famiglia.
-    "REFRESH_TOKEN_GRACE_PERIOD_SECONDS": 60,
+    # Nessuna tolleranza sul refresh già ruotato: con i token salvati solo come hash non si
+    # può restituire di nuovo quello emesso. Il riuso revoca tutto il collegamento.
+    "REFRESH_TOKEN_GRACE_PERIOD_SECONDS": 0,
     "PKCE_REQUIRED": True,
     "REQUEST_APPROVAL_PROMPT": "force",
     # http solo per il redirect loopback di Claude Code, su qualunque porta (RFC 8252).
@@ -172,6 +172,8 @@ OAUTH2_PROVIDER = {
     "COMPLIANT_BCP_RFC9700_PKCE_METHOD": True,
     "COMPLIANT_BCP_RFC9700_ACCESS_TOKEN_TRANSPORT": True,
     "COMPLIANT_BCP_RFC9700_TOKEN_STORAGE": True,
+    # RFC 9207: parametro «iss» nella risposta di autorizzazione (difesa dal mix-up).
+    "COMPLIANT_BCP_RFC9700_AUTHZ_RESPONSE_ISS": True,
 }
 
 LOGGING = {

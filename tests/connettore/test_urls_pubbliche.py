@@ -41,3 +41,20 @@ def test_impostazioni_del_container_mcp():
 
     assert mcp.ROOT_URLCONF == "config.urls_mcp"
     assert not any("Session" in m or "Csrf" in m for m in mcp.MIDDLEWARE)
+
+
+@pytest.mark.parametrize("modulo", ["config.settings.prod", "config.settings.mcp"])
+def test_nessun_errore_nei_controlli_di_deploy(settings, modulo):
+    """deploy.sh esegue ``check --deploy --fail-level ERROR``: la configurazione OAuth passa."""
+    import importlib
+
+    from django.core import checks
+
+    configurazione = importlib.import_module(modulo).OAUTH2_PROVIDER
+    settings.OAUTH2_PROVIDER = configurazione
+    errori = [
+        e
+        for e in checks.run_checks(include_deployment_checks=True)
+        if e.level >= checks.ERROR and e.id.startswith("oauth2_provider")
+    ]
+    assert errori == []

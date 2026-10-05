@@ -31,7 +31,7 @@ echo "Dump: $(basename "$dump")"
 verifica=verifica_ripristino
 psql -q -d postgres -c "DROP DATABASE IF EXISTS $verifica" -c "CREATE DATABASE $verifica"
 trap 'psql -q -d postgres -c "DROP DATABASE IF EXISTS $verifica"' EXIT
-pg_restore --no-owner --exit-on-error -d "$verifica" "$dump"
+pg_restore --no-owner --no-acl --exit-on-error -d "$verifica" "$dump"
 
 tabelle=(contratti_fornitore contratti_fabbisogno contratti_contratto contratti_vocecontratto
   contratti_rata contratti_proroga contratti_statopratica accounts_user django_migrations)

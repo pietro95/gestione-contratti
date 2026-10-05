@@ -437,6 +437,7 @@ cd /appdata/gestione-contratti/app/deploy && source comune.sh
 | Stato | `compose ps` |
 | Log dell'app (ultimi, poi in tempo reale) | `compose logs --tail 100 -f web` |
 | Log dei login | `compose logs web \| grep accounts.auth` |
+| Log del connettore MCP | `compose logs --tail 100 -f mcp` |
 | Riavvio dell'app | `compose restart web` |
 | Arresto (dati intatti) | `compose stop` |
 | Riavvio dopo l'arresto | `compose start` |
@@ -465,3 +466,142 @@ riavvio del server (`restart: unless-stopped`).
 | L'app non parte, `accounts.E001` nel log | manca `config/certs/ca-interna.pem` |
 | Login AD rifiutato a tutti | `compose logs web \| grep -i ldap`; per diagnosi `LDAP_LOG_LEVEL=DEBUG`, poi `compose restart web` |
 | Emergenza senza AD | accesso con l'account break-glass (§6.1) |
+
+## 12. Connettore MCP (F10)
+
+Claude interroga il registro attraverso il connettore MCP (`docs/SPEC_MCP.md`). È l'unica parte
+dell'app esposta su Internet (deroga alla SPEC §8.2): un **host pubblico dedicato**, raggiungibile
+solo dalla rete di uscita di Anthropic (`160.79.104.0/21`) e dalla rete interna, con quattro
+endpoint. Login e consenso restano sull'host interno.
+
+| Endpoint (host pubblico) | Chi lo chiama |
+|---|---|
+| `POST /mcp` | Claude (cloud Anthropic), Claude Code dal PC |
+| `GET /.well-known/oauth-protected-resource` (anche `/mcp` in coda) | Claude |
+| `GET /.well-known/oauth-authorization-server` | Claude |
+| `POST /oauth/token/` | Claude, Claude Code |
+| `GET/POST /oauth/authorize/` **sull'host interno** | browser dell'utente |
+
+Il connettore gira in un container a parte (`mcp`), con le sole URL qui sopra e un utente
+PostgreSQL che legge tutto ma scrive solo su token e registro delle chiamate.
+
+### 12.1 Configurazione (`config/.env`)
+
+```bash
+MCP_PORT=18472                                   # porta libera; vuota = connettore spento
+MCP_BIND=172.17.0.1                              # come APP_BIND (§5.1)
+MCP_HOST=mcp-contratti.<dominio pubblico>
+MCP_URL_PUBBLICO=https://mcp-contratti.<dominio pubblico>
+MCP_URL_INTERNO=https://<NOME_DNS interno>       # lo stesso host dell'interfaccia
+MCP_DATABASE_URL=postgres://contratti_mcp:<password esadecimale>@db:5432/contratti
+```
+
+La password si genera come le altre (`python3 -c "import secrets; print(secrets.token_hex(24))"`);
+l'utente deve essere diverso da `POSTGRES_USER`. Poi `deploy.sh <versione>`: crea o aggiorna
+l'utente PostgreSQL (`manage.py ruolo_db_mcp`), avvia il container `mcp` e aspetta il suo
+`/healthz`. Lo stesso comando riallinea i privilegi dopo ogni migration e dopo un ripristino.
+
+### 12.2 DNS, firewall e certificato
+
+1. **DNS pubblico**: record A di `MCP_HOST` verso l'IP pubblico del proxy.
+2. **DNS interno** (split horizon): lo stesso nome verso l'IP interno del proxy, così Claude Code
+   usa lo stesso URL dalla rete aziendale.
+3. **Firewall perimetrale**: 443 in ingresso verso il proxy **solo** da `160.79.104.0/21`
+   (verifica l'intervallo aggiornato su <https://platform.claude.com/docs/en/api/ip-addresses>).
+4. **Certificato di una CA pubblica** per `MCP_HOST` (Let's Encrypt da Nginx Proxy Manager): il
+   cloud di Anthropic non si fida della CA interna. Con la porta 80 chiusa da Internet serve la
+   verifica DNS (*DNS Challenge*) del provider DNS.
+
+### 12.3 Nginx Proxy Manager
+
+1. **Access Lists** → Add Access List `connettore-mcp`:
+   - *Satisfy Any* spento, nessun utente;
+   - **Access**: `allow 160.79.104.0/21`, `allow <rete interna>` (es. `10.0.0.0/8`), poi `deny all`.
+2. **Hosts → Proxy Hosts** → Add Proxy Host:
+   - **Details**: Domain Names `MCP_HOST`; Scheme `http`; Forward `MCP_BIND` : `MCP_PORT`;
+     *Block Common Exploits* attivo; **Access List** `connettore-mcp`.
+   - **SSL**: il certificato pubblico, *Force SSL* e *HTTP/2* attivi.
+   - **Advanced**: solo i percorsi del connettore, tutto il resto 404:
+     ```nginx
+     if ($uri !~ "^/(mcp|\.well-known/oauth-protected-resource(/mcp)?|\.well-known/oauth-authorization-server|oauth/token/|\.well-known/acme-challenge/.*)$") {
+         return 404;
+     }
+     client_max_body_size 1m;
+     ```
+3. Le stesse regole, per un nginx con file, sono in `deploy/nginx/connettore-mcp.conf.esempio`
+   (la CI le usa per provare il connettore).
+
+**Verifica** (dopo ogni deploy e ogni modifica del proxy):
+```bash
+# da un PC della rete interna (in allowlist)
+/appdata/gestione-contratti/app/deploy/verifica_mcp.sh https://<MCP_HOST> ammesso
+# da una rete fuori allowlist (es. hotspot del telefono)
+deploy/verifica_mcp.sh https://<MCP_HOST> esterno
+```
+Esito atteso: «Verifica superata.» Da fuori, gli endpoint rispondono 403; da dentro, metadati
+200, `/mcp` senza token 401 con `resource_metadata`, ogni altro percorso 404.
+
+### 12.4 Client OAuth
+
+Nessuna registrazione automatica: i client si creano a mano, una volta.
+```bash
+cd /appdata/gestione-contratti/app/deploy
+./manage.sh crea_client_mcp claude        # claude.ai, Desktop, mobile, Cowork: ID e secret
+./manage.sh crea_client_mcp claude-code   # Claude Code: solo ID (client pubblico)
+```
+Il secret si vede **una volta sola**: va subito nel connettore di Claude (§12.5), non altrove.
+Per cambiarlo si crea un nuovo client e si elimina il vecchio da Amministrazione → Django OAuth
+Toolkit → Applications.
+
+### 12.5 Organizzazione Claude
+
+Lo fa un Owner dell'organizzazione Claude di Siciliacque (le voci dei menu possono cambiare):
+1. Impostazioni dell'organizzazione → **Connettori** → Aggiungi connettore personalizzato.
+2. Nome `Registro contratti`, URL `https://<MCP_HOST>/mcp`.
+3. **Impostazioni avanzate**: OAuth Client ID e Client Secret del client `claude` (§12.4).
+
+Ogni utente poi, **dalla rete interna o da VPN**: Impostazioni → Connettori → Registro contratti →
+Connetti. Si apre la pagina di login dell'app, poi «Collega il connettore MCP» → Autorizza.
+
+Claude Code, dalla rete interna:
+```bash
+claude mcp add --transport http --client-id <ID del client claude-code> \
+  registro-contratti https://<MCP_HOST>/mcp
+```
+poi `/mcp` in Claude Code → Authenticate.
+
+### 12.6 Prima prova (D8, ROADMAP F10)
+
+Primo collegamento da claude.ai di un utente di prova. Esiti:
+- **la pagina di login interna si apre e dopo «Autorizza» Claude mostra il connettore
+  collegato**: D8 risolta, il login resta interno;
+- Claude rifiuta i metadati o non apre la pagina: fermarsi, annotare il messaggio di errore e il
+  contenuto di Amministrazione → Connettore MCP → Chiamate, e decidere il piano B (SPEC_MCP §9).
+
+Poi, in una chat: «Quali contratti dei miei cluster sono in alert?». Il risultato deve coincidere
+con il cruscotto dell'app.
+
+### 12.7 Validità, revoca, registro
+
+- Access token di 1 ora (`MCP_ACCESS_TOKEN_SECONDI`), rinnovato da Claude. Il rinnovo riesce
+  solo se l'utente ha fatto login nell'app negli ultimi 7 giorni (parametro `mcp_giorni_login`):
+  altrimenti Claude chiede di ricollegare il connettore, dalla rete interna.
+- **Revoca immediata** di un utente: Amministrazione → Django OAuth Toolkit → *Refresh tokens* e
+  *Access tokens* → filtra per utente → elimina; oppure disattiva l'utente.
+- **Spegnere il connettore**: `MCP_PORT=` vuota nel `.env` e `deploy.sh <versione>`, oppure
+  disattivare il proxy host in Nginx Proxy Manager.
+- **Registro**: Amministrazione → Connettore MCP → Chiamate (utente, tool, argomenti, esito,
+  durata; mai i risultati né i token). Limite: 60 richieste al minuto per collegamento
+  (parametro `mcp_richieste_minuto`).
+
+### 12.8 Problemi frequenti
+
+| Sintomo | Causa e rimedio |
+|---|---|
+| Claude: «Couldn't reach the MCP server» | firewall o Access List non ammettono `160.79.104.0/21`, certificato non pubblico, o `/.well-known/...` bloccati dall'Advanced del proxy: `verifica_mcp.sh ... ammesso` |
+| La pagina di login non si apre da casa | normale: login e consenso solo dalla rete interna o da VPN (§12.5) |
+| «Authorization with the MCP server failed» | client ID/secret errati nel connettore, o redirect non registrato: ricrea il client (§12.4) |
+| Claude chiede di ricollegarsi ogni settimana | regola dei 7 giorni: basta un login all'app nel frattempo |
+| 403 con «Utente senza un ruolo» | l'utente non è più in un gruppo `GG_Contratti_*` o è disattivato |
+| 429 | più di 60 richieste al minuto dallo stesso collegamento |
+| `compose logs mcp`: `permission denied` | privilegi dell'utente PostgreSQL non allineati: `./manage.sh ruolo_db_mcp`, poi `compose restart mcp` |
