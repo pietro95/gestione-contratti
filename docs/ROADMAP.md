@@ -443,3 +443,32 @@ anche senza contratto ogni rinnovo va gestito con scadenza e alert.
 - Etichetta «senza contratto» in elenchi, cruscotto, pagina del contratto, budget (anche PDF
   ed export).
 - Tolte le scorciatoie della spesa di F9.5.3 (v1.5.2), sostituite da quelle qui sopra.
+
+## F10 — Connettore MCP in sola lettura
+
+Rev00: da realizzare. Decisioni di Pietro del 05/10/2026 (SPEC Rev10, `docs/SPEC_MCP.md`
+Rev03). Claude interroga il registro con gli stessi numeri dell'interfaccia.
+
+- **Primo passo, prima del resto**: prova con claude.ai di un flusso OAuth con la pagina di
+  autorizzazione sull'host interno e i metadati e il token endpoint sull'host pubblico
+  (SPEC_MCP §2.1). Se Claude non lo accetta, fermarsi e chiedere a Pietro (D8).
+- App `mcp/`: `POST /mcp` Streamable HTTP stateless, solo JSON; `initialize`, `ping`,
+  `tools/list`, `tools/call`. Undici tool di sola lettura (SPEC_MCP §5), con importi come
+  stringhe decimali e date ISO; logica oggi nelle viste (`cerca`, fornitore, catena del
+  contratto) spostata in `selettori` e riusata dalle viste.
+- OAuth 2.1 con `django-oauth-toolkit`: PKCE S256, client pre-registrati (app Claude e
+  Claude Code), access token 1 ora, refresh ruotato, refresh rifiutato senza login negli
+  ultimi 7 giorni (durate in `Parametro`); metadati RFC 9728 e RFC 8414.
+- Pagina «Connettore MCP» per l'utente (collegamenti, ultimo uso, revoca); revoca da Admin.
+- Registro delle chiamate e dei token (12 mesi), limiti di frequenza e dimensione.
+- Container `mcp` con URLconf ridotta ai quattro endpoint pubblici, utente PostgreSQL con
+  sola lettura sul dominio; script di verifica esterna in `deploy/`.
+- RUNBOOK: host pubblico su NPM (certificato pubblico, Access List `160.79.104.0/21` e rete
+  interna, percorsi ammessi), DNS split horizon, client OAuth, aggiunta del connettore
+  nell'organizzazione Claude, collegamento, revoca.
+
+Criteri di accettazione: SPEC_MCP §7. In particolare: client MCP reale (SDK, solo test) su
+tutti i tool; flusso OAuth completo nei test, rotazione e regola dei 7 giorni; `budget` e
+`piano_ordini` uguali al centesimo alla vista web e all'export XLSX; 401/403 per token non
+validi e utenti senza ruolo; oggetti fuori dai cluster visibili «non trovati»; URLconf del
+container `mcp` limitata ai quattro endpoint; prova in produzione da claude.ai e Claude Code.
