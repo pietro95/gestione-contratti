@@ -1,6 +1,6 @@
 # Istruzioni di progetto — Registro contratti ICTDINN
 
-Rev11 — 05/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
+Rev12 — 05/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
@@ -15,6 +15,7 @@ Storico revisioni:
 - Rev09 (05/10/2026): decisione di Pietro, testo scritto da Claude, da approvare. Tolta la spesa ricorrente sul fabbisogno (Rev07–Rev08): anche senza contratto ogni rinnovo va gestito, con scadenza, data limite, pratica e alert. Il **rinnovo senza contratto** è un contratto segnato «senza contratto», anello della catena come gli altri: stesse regole di scadenze, alert, previsti e budget; fuori dal piano ordini (§4, §5.1, §5.4, §5.6, TC-14). Chiusa la decisione aperta sulle spese ricorrenti nel budget (§9).
 - Rev10 (05/10/2026): decisione di Pietro, testo scritto da Claude, da approvare. Connettore MCP in sola lettura per Claude, specificato in `docs/SPEC_MCP.md` (§8.1). **Deroga** all'accesso solo interno: su Internet si espone solo il connettore, su un host dedicato raggiungibile solo dalla rete di uscita di Anthropic; login, interfaccia e amministrazione restano interni (§8.2).
 - Rev11 (05/10/2026): decisioni di Pietro per la release 2.0, testo scritto da Claude, **bozza da approvare**. Il registro traccia anche il processo d'acquisto dell'ufficio ICTDINN e sostituisce il file «Riepilogo RDA Ordini» (§1, §2.3). Nuove entità: **richiesta d'acquisto (RDA)**, **documento di esecuzione** (ODA/RDC, DDT, MIGO, MAP, attestazione di regolare esecuzione, modello di ricezione materiale) e **fattura**; chiusura del contratto; RUP, CUP, richiedente e percorso dei documenti (§4). Contratto **una tantum**: fuori dalla catena dei rinnovi, dagli alert e dai previsti, dentro il budget (§4, §5.1, §5.3, §5.4). Gli stati della pratica da `RDA richiesta` in poi si **ricavano dalla RDA** collegata (§4, §5.7, TC-15). Esecuzione, residuo da fatturare e contratti da chiudere (§5.8, TC-16). Import manuale da modello XLSX e import del Riepilogo dal 01/04/2025 (§7). Nuove decisioni aperte (§9).
+- Rev12 (05/10/2026): decisione di Pietro, testo scritto da Claude, da approvare. Il connettore MCP prevede anche la scrittura (sotto-fase F10.1, `docs/SPEC_MCP.md` Rev04 §8): solo Admin ed Editor, scope separato, anteprima con gli effetti calcolati e conferma, stesse validazioni e permessi dell'interfaccia, nessuna cancellazione (§8.1).
 
 ## 1. Obiettivo
 
@@ -397,7 +398,7 @@ Import dall'interfaccia (Gestione → Import), con lo stesso codice dei comandi 
   - Il log dei login (riusciti e falliti, mai la password) si conserva 12 mesi.
   - La sessione dura al massimo 8 ore; la rimozione da un gruppo AD ha effetto al login successivo.
 - **Codice**: repository GitHub privato. Lo sviluppo è affidato a Claude Code (sessioni cloud) tramite pull request; il merge su `main` lo fa Pietro, o Claude su sua richiesta esplicita, dopo revisione e CI verde.
-- **Connettore MCP** (Rev10): Claude (claude.ai, Desktop, mobile, Cowork, Claude Code) interroga il registro in sola lettura con gli stessi numeri dell'interfaccia. OAuth 2.1 con login AD per utente, ruolo e visibilità per cluster come nell'interfaccia, disponibile a tutti i ruoli. Specifica, sicurezza e criteri in `docs/SPEC_MCP.md`.
+- **Connettore MCP** (Rev10): Claude (claude.ai, Desktop, mobile, Cowork, Claude Code) interroga il registro con gli stessi numeri dell'interfaccia; da F10.1 (Rev12) Admin ed Editor possono anche scrivere, con anteprima e conferma, con le stesse validazioni e gli stessi permessi dell'interfaccia. OAuth 2.1 con login AD per utente, ruolo e visibilità per cluster come nell'interfaccia, disponibile a tutti i ruoli. Specifica, sicurezza e criteri in `docs/SPEC_MCP.md`.
 - **Deploy**: manuale sul server Docker aziendale (`deploy/deploy.sh <tag>`, con dump del database prima delle migration; `docs/RUNBOOK.md`). Nessun runner CI dentro la rete aziendale nella prima fase.
 
 ### 8.2 Requisiti non funzionali

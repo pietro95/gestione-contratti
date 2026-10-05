@@ -473,6 +473,26 @@ tutti i tool; flusso OAuth completo nei test, rotazione e regola dei 7 giorni; `
 validi e utenti senza ruolo; oggetti fuori dai cluster visibili «non trovati»; URLconf del
 container `mcp` limitata ai quattro endpoint; prova in produzione da claude.ai e Claude Code.
 
+## F10.1 — Scrittura dal connettore MCP
+
+Rev00: da realizzare dopo F10. Decisione di Pietro del 05/10/2026 (SPEC Rev12,
+`docs/SPEC_MCP.md` Rev04 §8). Perimetro da confermare (D11, D12, D13).
+
+- Scope OAuth `registro.scrittura`, concesso a parte nel consenso, solo Admin ed Editor.
+- Due passi: ogni tool di scrittura restituisce l'anteprima (modifiche, effetti calcolati dal
+  motore, errori) e un `id_operazione`; scrive solo `conferma_operazione`. Versione degli
+  oggetti per la concorrenza, conferma idempotente, transazione unica.
+- Tool dei gruppi A (pratica, rate, scadenzario), B (fornitori, fabbisogni), C (contratti,
+  rinnovi, proroghe, voci, archiviazione), D (catena) di SPEC_MCP §8.2; gruppo E con F11.
+  Regole oggi nelle viste spostate nei form e nei servizi, usate da viste e tool.
+- Interruttore `mcp_scrittura_attiva` e limite giornaliero in `Parametro`; storia con motivo
+  `MCP …`; privilegi PostgreSQL del container `mcp` senza `DELETE` fuori da rate e token.
+
+Criteri di accettazione: SPEC_MCP §8.4. In particolare: 403 per Reader e per cluster non
+propri su ogni tool; l'anteprima non scrive niente; equivalenza con la vista web (stesso stato
+del database, stessi errori); conferme scadute, ripetute o su oggetti cambiati gestite;
+TC-12 e TC-14 ricostruiti via MCP.
+
 ## F11 — Release 2.0: processo d'acquisto (RDA → esecuzione → chiusura)
 
 Rev00: bozza da approvare. Decisioni di Pietro del 05/10/2026 (SPEC Rev11): solo ICTDINN; le
