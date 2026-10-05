@@ -21,6 +21,7 @@
       <li><a class="dropdown-item" href="{% url 'contratti:voce_nuova' c.pk %}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Aggiungi voce</a></li>
       <li><a class="dropdown-item" href="{% url 'contratti:proroga_nuova' c.pk %}"><i class="bi bi-calendar-plus" aria-hidden="true"></i> Registra proroga</a></li>
       {% if not successore %}<li><a class="dropdown-item" href="{% url 'contratti:contratto_collega' c.pk %}"><i class="bi bi-link-45deg" aria-hidden="true"></i> Collega un rinnovo già registrato</a></li>{% endif %}
+      {% if puo_confluire %}<li><a class="dropdown-item" href="{% url 'contratti:contratto_confluiti' c.pk %}"><i class="bi bi-diagram-2" aria-hidden="true"></i> Sostituisce anche altri contratti</a></li>{% endif %}
       <li><a class="dropdown-item" href="{% url 'contratti:contratto_sposta' c.pk %}"><i class="bi bi-arrow-left-right" aria-hidden="true"></i> Sposta in un altro fabbisogno</a></li>
       <li><hr class="dropdown-divider"></li>
       <li><a class="dropdown-item text-danger" href="{% url 'contratti:archivia' 'contratto' c.pk %}"><i class="bi bi-archive" aria-hidden="true"></i> {% if c.archiviato %}Ripristina{% else %}Archivia{% endif %}</a></li>
@@ -132,6 +133,21 @@
         <li class="previsto" title="Contratto previsto, calcolato">{{ p.inizio|date:"m/Y" }} · previsto</li>
       {% endfor %}
     </ol>
+    {% if c.confluito_in %}
+    <div class="alert alert-info small"><i class="bi bi-diagram-2" aria-hidden="true"></i> Confluito in <a class="alert-link" href="{% url 'contratti:contratto' c.confluito_in_id %}">{{ c.confluito_in }}</a>, che lo sostituisce insieme al suo predecessore: non va più in alert e i rinnovi previsti partono dal nuovo contratto.
+      {% if puo_modificare %}<form method="post" action="{% url 'contratti:contratto_togli_confluenza' c.pk %}" class="d-inline" data-conferma="Il contratto torna senza successore (in rosso, se scaduto)." data-conferma-etichetta="Togli">{% csrf_token %}<button class="btn btn-link btn-sm p-0 align-baseline" type="submit">Togli il collegamento</button></form>{% endif %}
+    </div>
+    {% endif %}
+    {% if confluiti %}
+    <h2 class="h6 text-uppercase text-body-secondary">Sostituisce anche</h2>
+    <ul class="list-group mb-4">
+      {% for x in confluiti %}
+      <li class="list-group-item d-flex justify-content-between align-items-center small"><a href="{% url 'contratti:contratto' x.pk %}">{% include "contratti/_contratto_breve.html" with x=x %}</a>
+        {% if puo_modificare %}<form method="post" action="{% url 'contratti:contratto_togli_confluenza' x.pk %}" data-conferma="{{ x }} torna senza successore (in rosso, se scaduto)." data-conferma-etichetta="Togli">{% csrf_token %}<input type="hidden" name="ritorno" value="nuovo"><button class="btn btn-sm btn-outline-danger" type="submit">Togli</button></form>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
     {% if puo_modificare and c.predecessore_id %}
     <form method="post" action="{% url 'contratti:contratto_scollega' c.pk %}" class="mb-4" data-conferma="Il contratto non sarà più il rinnovo di {{ c.predecessore }}; il predecessore torna senza successore." data-conferma-etichetta="Scollega">
       {% csrf_token %}

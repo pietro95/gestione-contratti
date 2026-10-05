@@ -75,7 +75,11 @@ def _copia_piano(da: m.PianoFatturazione | None, voce: m.VoceContratto) -> None:
 
 @transaction.atomic
 def registra_rinnovo(
-    predecessore: m.Contratto, dati: dict, voci: list[dict], utente=None
+    predecessore: m.Contratto,
+    dati: dict,
+    voci: list[dict],
+    utente=None,
+    sostituisce: list[m.Contratto] = (),
 ) -> m.Contratto:
     """Nuovo contratto successore sullo stesso fabbisogno (SPEC §5.3, F4).
 
@@ -84,9 +88,17 @@ def registra_rinnovo(
     piano di fatturazione (senza data della prima fattura). I previsti del periodo spariscono
     perché il contratto reale prende il loro posto; la pratica del predecessore passa a
     "Contratto attivo".
+
+    ``sostituisce``: altri contratti dello stesso fabbisogno che il nuovo sostituisce (F9.3,
+    es. SIM voce e SIM M2M in un contratto solo): confluiscono nel nuovo.
     """
-    if m.Contratto.objects.filter(predecessore=predecessore, archiviato=False).exists():
+    if adapters.ha_successore(predecessore):
         raise OperazioneNonAmmessa("Il contratto ha già un successore registrato.")
+    ammessi = {c.pk for c in candidati_sostituiti(predecessore)}
+    if any(c.pk not in ammessi for c in sostituisce):
+        raise OperazioneNonAmmessa(
+            "Si sostituiscono solo contratti dello stesso fabbisogno senza successore."
+        )
     contratto = m.Contratto(fabbisogno=predecessore.fabbisogno, predecessore=predecessore, **dati)
     contratto.full_clean()
     contratto.save()
@@ -107,13 +119,16 @@ def registra_rinnovo(
         voce.full_clean()
         voce.save()
         _copia_piano(getattr(origine, "piano_fatturazione", None), voce)
-    m.StatoPratica.objects.create(
-        contratto=predecessore,
-        stato=m.StatoPratica.Stato.CONTRATTO_ATTIVO,
-        data=contratto.data_inizio or contratto.data_stipula or predecessore.data_inizio,
-        note="Rinnovo registrato.",
-        utente=utente,
-    )
+    for sostituito in (predecessore, *sostituisce):
+        if sostituito.pk != predecessore.pk:
+            _confluisci(sostituito, contratto, f"Sostituito dal rinnovo #{contratto.pk}")
+        m.StatoPratica.objects.create(
+            contratto=sostituito,
+            stato=m.StatoPratica.Stato.CONTRATTO_ATTIVO,
+            data=contratto.data_inizio or contratto.data_stipula or sostituito.data_inizio,
+            note="Rinnovo registrato.",
+            utente=utente,
+        )
     return contratto
 
 
@@ -206,6 +221,71 @@ def contratto_e_successivi(contratto: m.Contratto) -> list[m.Contratto]:
     return catena
 
 
+# --- Un contratto che rinnova più contratti (F9.3) -------------------------------------
+
+
+def candidati_sostituiti(predecessore: m.Contratto) -> list[m.Contratto]:
+    """Altri contratti che un rinnovo di ``predecessore`` può sostituire: stesso fabbisogno,
+    non archiviati, senza successore."""
+    return [
+        c
+        for c in predecessore.fabbisogno.contratti.filter(archiviato=False)
+        .exclude(pk=predecessore.pk)
+        .select_related("confluito_in", "fornitore")
+        .order_by("data_inizio", "pk")
+        if not adapters.ha_successore(c)
+    ]
+
+
+def candidati_confluenza(nuovo: m.Contratto) -> list[m.Contratto]:
+    """Contratti che possono confluire in ``nuovo``: senza successore, dello stesso
+    fabbisogno, iniziati prima del nuovo e fuori dalla sua catena."""
+    if nuovo.data_inizio is None:
+        return []
+    catena = {c.pk for c in contratto_e_predecessori(nuovo)}
+    return [
+        c
+        for c in nuovo.fabbisogno.contratti.filter(
+            archiviato=False, data_inizio__lt=nuovo.data_inizio
+        )
+        .select_related("confluito_in", "fornitore")
+        .order_by("data_inizio", "pk")
+        if c.pk not in catena and not adapters.ha_successore(c)
+    ]
+
+
+def _confluisci(contratto: m.Contratto, nuovo: m.Contratto, motivo: str) -> None:
+    contratto.refresh_from_db()
+    contratto.confluito_in = nuovo
+    contratto.clean()
+    _salva(contratto, motivo, update_fields=["confluito_in"])
+
+
+@transaction.atomic
+def confluisci(contratto: m.Contratto, nuovo: m.Contratto) -> None:
+    """Il contratto nuovo sostituisce anche ``contratto`` (oltre al suo predecessore)."""
+    if contratto.pk not in {c.pk for c in candidati_confluenza(nuovo)}:
+        raise OperazioneNonAmmessa(
+            "Può confluire solo un contratto dello stesso fabbisogno, senza successore, "
+            "iniziato prima del contratto nuovo."
+        )
+    _confluisci(contratto, nuovo, f"Confluito nel contratto #{nuovo.pk}")
+
+
+@transaction.atomic
+def togli_confluenza(contratto: m.Contratto) -> m.Contratto:
+    """Il contratto non è più sostituito dal nuovo: torna senza successore."""
+    contratto.refresh_from_db()
+    nuovo = contratto.confluito_in
+    if nuovo is None:
+        raise OperazioneNonAmmessa("Il contratto non è confluito in un altro.")
+    contratto.confluito_in = None
+    _salva(
+        contratto, f"Non più confluito nel contratto #{nuovo.pk}", update_fields=["confluito_in"]
+    )
+    return nuovo
+
+
 def _ultimo_prima(candidati, inizio):
     """Il candidato che finisce per ultimo prima dell'inizio: il predecessore naturale."""
     if inizio is None:
@@ -236,6 +316,11 @@ def anteprima_spostamento(
     if destinazione.archiviato:
         raise OperazioneNonAmmessa("Il fabbisogno di destinazione è archiviato.")
     spostati = contratto_e_successivi(contratto) if con_successivi else [contratto]
+    if any(c.confluito_in_id or c.confluiti.exists() for c in spostati):
+        raise OperazioneNonAmmessa(
+            "Il contratto è confluito in un altro (o altri vi confluiscono): togli prima il "
+            "collegamento dalla scheda Rinnovi."
+        )
     successore = None if con_successivi else successore_di(contratto)
     candidati = list(
         destinazione.contratti.filter(archiviato=False, successore__isnull=True)
@@ -393,9 +478,20 @@ def _archivia_doppione(tenuto: m.Contratto, doppione: m.Contratto, motivo: str) 
         successore.predecessore = None
         _salva(successore, motivo, update_fields=["predecessore"])
     predecessore = doppione.predecessore
+    confluito_in = doppione.confluito_in
     doppione.predecessore = None
+    doppione.confluito_in = None
     doppione.archiviato = True
-    _salva(doppione, motivo, update_fields=["predecessore", "archiviato"])
+    _salva(doppione, motivo, update_fields=["predecessore", "confluito_in", "archiviato"])
+    # F9.3: i contratti confluiti nel doppione confluiscono nel contratto tenuto, e il
+    # tenuto prende la confluenza del doppione se non ha già un successore.
+    for c in m.Contratto.objects.filter(confluito_in=doppione):
+        c.confluito_in = tenuto
+        _salva(c, motivo, update_fields=["confluito_in"])
+    tenuto.refresh_from_db()
+    if confluito_in is not None and confluito_in != tenuto and not adapters.ha_successore(tenuto):
+        tenuto.confluito_in = confluito_in
+        _salva(tenuto, motivo, update_fields=["confluito_in"])
     if predecessore is not None and tenuto.predecessore_id is None and predecessore != tenuto:
         tenuto.predecessore = predecessore
         tenuto.clean()
@@ -452,7 +548,7 @@ def proponi_collegamenti(contratti) -> tuple[list[tuple[m.Contratto, m.Contratto
     contratto si usa una volta sola, prima le coppie più vicine.
     """
     attivi = [c for c in contratti if not c.archiviato and c.data_inizio is not None]
-    ultimi = [c for c in attivi if not hasattr(c, "successore")]
+    ultimi = [c for c in attivi if not hasattr(c, "successore") and not c.confluito_in_id]
     primi = [c for c in attivi if c.predecessore_id is None]
     fini = {c.pk: adapters.data_fine_effettiva(c) for c in attivi}
     candidate = [
@@ -504,7 +600,7 @@ def candidati_rinnovo(contratto: m.Contratto) -> list[m.Contratto]:
     Senza predecessore, non archiviati, con inizio successivo a quello del contratto; per
     primi quelli che iniziano più vicino al giorno dopo la sua fine.
     """
-    if contratto.data_inizio is None or hasattr(contratto, "successore"):
+    if contratto.data_inizio is None or adapters.ha_successore(contratto):
         return []
     catena = {c.pk for c in contratto_e_predecessori(contratto)}
     candidati = [

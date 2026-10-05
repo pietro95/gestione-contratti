@@ -27,6 +27,17 @@
       </tbody>
     </table></div>
   </div>
+  {% if sostituibili %}
+  <fieldset class="card form-sezione">
+    <legend class="card-header fs-6 mb-0">Sostituisce anche</legend>
+    <div class="card-body">
+      <p class="small text-body-secondary">Se il nuovo contratto sostituisce anche altri contratti di questo fabbisogno (es. SIM voce e SIM M2M in un unico contratto), selezionali: non andranno più in alert e i rinnovi previsti partiranno solo dal nuovo. Un contratto di un altro fabbisogno va prima accorpato qui («Accorpa in…»).</p>
+      {% for x in sostituibili %}
+      <div class="form-check"><input class="form-check-input" type="checkbox" name="sostituisce" id="sost-{{ forloop.counter }}" value="{{ x.pk|stringformat:"d" }}"{% if x.pk|stringformat:"d" in sostituisce_scelti %} checked{% endif %}><label class="form-check-label" for="sost-{{ forloop.counter }}">{% include "contratti/_contratto_breve.html" with x=x %}</label></div>
+      {% endfor %}
+    </div>
+  </fieldset>
+  {% endif %}
   <div class="form-azioni">
     <button type="submit" class="btn btn-primary"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Registra rinnovo</button>
     <a class="btn btn-outline-secondary" href="{% url 'contratti:contratto' predecessore.pk %}">Annulla</a>

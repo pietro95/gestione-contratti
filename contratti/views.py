@@ -394,6 +394,7 @@ def contratto_dettaglio(request, pk):
         if successore is None and not contratto.archiviato
         else []
     )
+    confluiti = list(contratto.confluiti.select_related("fornitore").order_by("data_inizio"))
     return render(
         request,
         "contratti/contratto_dettaglio.html",
@@ -407,8 +408,11 @@ def contratto_dettaglio(request, pk):
                 liv: sum((x[liv] for x in valori.values()), Decimal("0.00")) for liv in Livello
             },
             "esiti": esiti,
-            "successore": successore,
+            "successore": successore or contratto.confluito_in,
             "rinnovi_scollegati": rinnovi_scollegati,
+            "confluiti": confluiti,
+            "puo_confluire": bool(servizi.candidati_confluenza(contratto))
+            and not contratto.archiviato,
             "pratica": contratto.stati_pratica.select_related("utente").order_by("-data", "-id"),
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
             "storico": storico(contratto),
@@ -591,6 +595,45 @@ def contratto_scollega(request, pk):
     return redirect("contratti:contratto", pk=pk)
 
 
+@editor_required
+def contratto_confluiti(request, pk):
+    """Contratto nuovo che sostituisce anche altri contratti (F9.3): sceglie quali."""
+    nuovo = get_object_or_404(m.Contratto.objects.select_related("fabbisogno"), pk=pk)
+    permessi.verifica_oggetto(request.user, nuovo)
+    candidati = servizi.candidati_confluenza(nuovo)
+    if request.method == "POST":
+        scelti = {str(v) for v in request.POST.getlist("confluiti")}
+        da_collegare = [c for c in candidati if str(c.pk) in scelti]
+        if not da_collegare:
+            messages.error(request, "Scegli almeno un contratto.")
+        else:
+            for c in da_collegare:
+                servizi.confluisci(c, nuovo)
+            messages.success(request, f"{len(da_collegare)} contratti confluiti in questo.")
+            return redirect("contratti:contratto", pk=pk)
+    return render(
+        request,
+        "contratti/confluiti.html",
+        {"c": nuovo, "candidati": [(x, adapters.data_fine_effettiva(x)) for x in candidati]},
+    )
+
+
+@editor_required
+@require_POST
+def contratto_togli_confluenza(request, pk):
+    """Il contratto non è più sostituito dal contratto in cui era confluito."""
+    contratto = get_object_or_404(m.Contratto, pk=pk)
+    permessi.verifica_oggetto(request.user, contratto)
+    ritorno = request.POST.get("ritorno") == "nuovo"
+    try:
+        nuovo = servizi.togli_confluenza(contratto)
+    except servizi.OperazioneNonAmmessa as exc:
+        messages.error(request, str(exc))
+        return redirect("contratti:contratto", pk=pk)
+    messages.success(request, f"{contratto} non è più sostituito da {nuovo}.")
+    return redirect("contratti:contratto", pk=nuovo.pk if ritorno else pk)
+
+
 def _pk_o_none(valore):
     try:
         return int(valore)
@@ -684,7 +727,7 @@ def contratto_rinnovo(request, pk):
     """Registra il rinnovo: nuovo contratto precompilato dal predecessore (SPEC §5.3)."""
     predecessore = get_object_or_404(m.Contratto, pk=pk)
     permessi.verifica_oggetto(request.user, predecessore)
-    if m.Contratto.objects.filter(predecessore=predecessore, archiviato=False).exists():
+    if adapters.ha_successore(predecessore):
         messages.error(request, "Il contratto ha già un successore registrato.")
         return redirect("contratti:contratto", pk=pk)
     fine = adapters.data_fine_effettiva(predecessore)
@@ -713,6 +756,7 @@ def contratto_rinnovo(request, pk):
     ]
     form = forms.RinnovoForm(request.POST or None, initial=iniziali)
     formset = forms.VociRinnovoFormSet(request.POST or None, initial=voci_iniziali, prefix="voci")
+    sostituibili = servizi.candidati_sostituiti(predecessore)
     if request.method == "POST" and form.is_valid() and formset.is_valid():
         voci = [
             {
@@ -724,9 +768,11 @@ def contratto_rinnovo(request, pk):
             for d in formset.cleaned_data
             if d.get("riporta")
         ]
+        scelti = set(request.POST.getlist("sostituisce"))
+        sostituisce = [c for c in sostituibili if str(c.pk) in scelti]
         try:
             nuovo = servizi.registra_rinnovo(
-                predecessore, form.cleaned_data, voci, utente=request.user
+                predecessore, form.cleaned_data, voci, utente=request.user, sostituisce=sostituisce
             )
         except (servizi.OperazioneNonAmmessa, ValidationError) as exc:
             messages.error(request, "; ".join(getattr(exc, "messages", [str(exc)])))
@@ -736,7 +782,14 @@ def contratto_rinnovo(request, pk):
     return render(
         request,
         "contratti/rinnovo.html",
-        {"form": form, "formset": formset, "predecessore": predecessore, "fine": fine},
+        {
+            "form": form,
+            "formset": formset,
+            "predecessore": predecessore,
+            "fine": fine,
+            "sostituibili": sostituibili,
+            "sostituisce_scelti": request.POST.getlist("sostituisce"),
+        },
     )
 
 
