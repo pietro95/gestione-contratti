@@ -55,7 +55,7 @@
   </tbody>
 </table></div></div>
 
-<h3 class="sezione-titolo">{{ s.natura }} per {% if s.criterio == "WBS" %}WBS{% else %}{{ s.criterio|lower }}{% endif %} <span class="fw-normal small text-body-secondary">livello {{ livello.value }} · clic su una riga per le voci</span></h3>
+<h3 class="sezione-titolo">{{ s.natura }} per {% if s.criterio == "WBS" %}WBS{% else %}{{ s.criterio|lower }}{% endif %} <span class="fw-normal small text-body-secondary">livello {{ livello.value }}<span class="d-print-none"> · clic su una riga per le voci</span></span></h3>
 <div class="tabella-card mb-4"><div class="table-responsive">
 <table class="table table-hover align-middle text-end table-prima-fissa" id="gruppi-{{ s.natura }}">
   <thead>

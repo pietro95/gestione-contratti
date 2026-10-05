@@ -253,3 +253,31 @@ def test_import_date_da_interfaccia(pagina, dati, tmp_path):
     c.refresh_from_db()
     assert c.data_emissione == datetime.date(2025, 12, 15)
     assert not pagina.errori, pagina.errori
+
+
+def test_stampa_dei_report_senza_colonne_tagliate(pagina, dati):
+    """In stampa (A4 orizzontale) nessuna tabella esce dal foglio e i totali sono in fondo."""
+    pagina.set_viewport_size({"width": 1050, "height": 740})  # area utile di un A4 orizzontale
+    for url in (
+        "/report/budget/?anno=2026&natura=separate&area=tutti",
+        "/report/piano-ordini/?anno=2027&area=tutti",
+        "/contratti/?area=tutti",
+    ):
+        pagina.goto(pagina.base + url)
+        pagina.wait_for_load_state("networkidle")
+        pagina.emulate_media(media="print")
+        fuori = pagina.evaluate(
+            """() => {
+              const larghezza = document.documentElement.clientWidth;
+              return [...document.querySelectorAll('table')]
+                .filter(t => t.offsetParent !== null)
+                .map(t => Math.ceil(t.getBoundingClientRect().right))
+                .filter(destra => destra > larghezza + 1);
+            }"""
+        )
+        assert not fuori, (url, fuori)
+        piede = pagina.evaluate(
+            "() => [...document.querySelectorAll('tfoot')].map(t => getComputedStyle(t).display)"
+        )
+        assert all(d == "table-row-group" for d in piede), (url, piede)
+        pagina.emulate_media(media="screen")

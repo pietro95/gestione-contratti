@@ -268,16 +268,30 @@ th a.ordina .bi { font-size: .75rem; opacity: .7; }
 /* --- Stampa / PDF ---------------------------------------------------------------------- */
 .solo-stampa { display: none; }
 @media print {
-  @page { size: A4 landscape; margin: 12mm; }
-  body { background: #fff; font-size: 9pt; }
-  .app-sidebar, .app-topbar, .app-footer, .d-print-none, .form-azioni, .breadcrumb { display: none !important; }
+  @page { size: A4 landscape; margin: 10mm; }
+  /* Bootstrap misura tutto in rem: la dimensione di base va sull'html, non sul body,
+     altrimenti tabelle e titoli restano a grandezza schermo e le colonne escono dal foglio. */
+  html { font-size: 8pt; }
+  body { background: #fff; }
+  .app-sidebar, .app-topbar, .app-footer, .d-print-none, .form-azioni, .breadcrumb, .filtri { display: none !important; }
   .app-main { margin: 0 !important; }
-  .app-content { padding: 0; }
+  .app-content { padding: 0; max-width: none; }
   .solo-stampa { display: flex !important; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--sa-blu); padding-bottom: 6pt; margin-bottom: 10pt; }
-  .solo-stampa img { height: 28pt; }
-  .card, .tabella-card, .filtri { box-shadow: none; break-inside: avoid; }
+  .solo-stampa img { height: 24pt; }
+  .card { box-shadow: none; break-inside: avoid; }
+  /* Le tabelle lunghe si dividono tra le pagine (intestazione ripetuta), le righe no. */
+  .tabella-card { box-shadow: none; break-inside: auto; overflow: visible !important; }
   .table-responsive { overflow: visible !important; }
+  .table { width: 100% !important; font-size: 7.5pt; }
+  .table > :not(caption) > * > * { padding: .2rem .3rem; }
+  .table th, .table td, .table-prima-fissa tbody td:first-child { white-space: normal !important; }
+  .table tr { break-inside: avoid; }
+  .table > thead { display: table-header-group; }
+  .table > tfoot { display: table-row-group; } /* i totali una volta sola, in fondo */
+  .table-prima-fissa th:first-child, .table-prima-fissa td:first-child { position: static; }
   .table > thead th { background: #eef1f4 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  h1, h2, h3, h4, .sezione-titolo { break-after: avoid; }
+  .kpi-valore { font-size: 1.6rem; }
   .collapse:not(.show) { display: none !important; }
   a { color: inherit; text-decoration: none; }
 }
