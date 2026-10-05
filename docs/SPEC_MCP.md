@@ -1,11 +1,12 @@
 # Connettore MCP — specifica (bozza)
 
-Rev02 — 05/10/2026 — proposta scritta da Claude, da approvare da Pietro Verro. Nulla di quanto segue è deciso finché non entra in `docs/SPEC.md` (nuova revisione) e in `docs/ROADMAP.md` (nuova fase).
+Rev03 — 05/10/2026 — testo scritto da Claude, decisioni di Pietro Verro, da approvare. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalla fase F10 di `docs/ROADMAP.md`.
 
 Storico revisioni:
 - Rev00 (05/10/2026): prima bozza, raccomandata l'opzione «solo rete interna con ponte locale».
 - Rev01 (05/10/2026): decisioni di Pietro. **Deroga alla SPEC §8.2**: si espone su Internet solo il connettore MCP (§2). D3: il token vale se l'utente ha fatto login negli ultimi 7 giorni (§4.4). D4: il connettore è disponibile a tutti i ruoli. Autenticazione OAuth 2.1 con login AD solo dalla rete interna (§4).
 - Rev02 (05/10/2026): decisioni di Pietro. D1 chiusa: i dati possono andare al fornitore del modello. D7: dipendenze approvate. D9 e organizzazione Claude: le gestisce Pietro. D5 spiegata meglio, con proposta.
+- Rev03 (05/10/2026): D5 chiusa: calcoli sempre alla data di oggi. Inserita nella SPEC (Rev10) e nella ROADMAP (F10).
 
 ## 1. Obiettivo
 
@@ -108,7 +109,7 @@ Niente registrazione dinamica (DCR): aprirebbe un endpoint pubblico di creazione
 - **Tutti i ruoli** (Admin, Editor, Reader) possono collegare il connettore.
 - In prima fase il connettore è **solo lettura per tutti**, anche per Admin ed Editor.
 - Visibilità per cluster identica all'interfaccia (`contratti/permessi.py`): di default i propri cluster, gli altri su richiesta esplicita con il parametro `cluster`. Chi non ha cluster assegnati vede tutto.
-- La simulazione della data (`?oggi=`, solo Admin nell'interfaccia) non si espone (D5).
+- La simulazione della data (`?oggi=`, solo Admin nell'interfaccia) non si espone: i calcoli usano sempre la data di oggi (D5).
 
 ## 5. Strumenti (prima fase, sola lettura)
 
@@ -177,11 +178,11 @@ Prese:
 - D3 (Rev01): rinnovo del token solo con login negli ultimi 7 giorni (§4.4).
 - D4 (Rev01): tutti i ruoli (§4.5).
 - D6 decade: con l'esposizione pubblica Desktop usa il connettore come claude.ai.
+- D5 (Rev03): calcoli sempre alla data di oggi, come nell'interfaccia; nessun parametro `alla_data`. «Cosa scade o va avviato entro il …» si ottiene con il filtro `entro` di `scadenze` e con `piano_ordini` per anno.
 - D7 (Rev02): `django-oauth-toolkit` (runtime) e SDK `mcp` (solo `dev`) approvati.
 - D9 (Rev02): host pubblico, DNS, firewall perimetrale e organizzazione Claude (aggiunta del connettore da parte dell'Owner) li gestisce Pietro. Il RUNBOOK descrive cosa configurare.
 
 Aperte:
-- **D5 — Data di riferimento dei calcoli.** Alert, data limite, stato temporale («attivo», «scaduto»), previsti e orizzonte del budget dipendono dalla data di oggi. Nell'interfaccia solo l'Admin può simulare un'altra data (`?oggi=`). Domanda: il connettore deve permettere a tutti di chiedere «come sarà la situazione al 01/01/2027?», ricalcolando tutto a quella data? Proposta: **no in prima fase**, sempre la data di oggi, come vede l'utente nell'interfaccia; la domanda pratica «cosa scade o va avviato entro il …» è già coperta dal filtro `entro` di `scadenze` e dal `piano_ordini` per anno.
 - **D8 — Piano B se Claude non accetta l'authorize su host interno** (§2.1): pubblicare anche `/oauth/authorize` e il login (sconsigliato), oppure delegare il login a un IdP aziendale già pubblico (Entra ID/ADFS), se esiste.
 
 ## 10. Stima

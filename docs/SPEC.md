@@ -1,6 +1,6 @@
 # Istruzioni di progetto — Registro contratti ICTDINN
 
-Rev09 — 05/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
+Rev10 — 05/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
@@ -13,6 +13,7 @@ Storico revisioni:
 - Rev07 (05/10/2026): spese ricorrenti senza contratto sul fabbisogno (§4, §5.6, TC-14), per gli acquisti piccoli e periodici pagati con fattura diretta (es. dominio DNS): entrano nel budget, hanno solo un promemoria 🟡 (§5.1) e restano fuori dal piano ordini (§5.4).
 - Rev08 (05/10/2026): la spesa senza contratto può proseguire un fabbisogno con contratti, se tutti finiscono prima della prima spesa: la spesa fa da successore dell'ultimo contratto (§4, §5.1, §5.6, TC-14).
 - Rev09 (05/10/2026): decisione di Pietro, testo scritto da Claude, da approvare. Tolta la spesa ricorrente sul fabbisogno (Rev07–Rev08): anche senza contratto ogni rinnovo va gestito, con scadenza, data limite, pratica e alert. Il **rinnovo senza contratto** è un contratto segnato «senza contratto», anello della catena come gli altri: stesse regole di scadenze, alert, previsti e budget; fuori dal piano ordini (§4, §5.1, §5.4, §5.6, TC-14). Chiusa la decisione aperta sulle spese ricorrenti nel budget (§9).
+- Rev10 (05/10/2026): decisione di Pietro, testo scritto da Claude, da approvare. Connettore MCP in sola lettura per Claude, specificato in `docs/SPEC_MCP.md` (§8.1). **Deroga** all'accesso solo interno: su Internet si espone solo il connettore, su un host dedicato raggiungibile solo dalla rete di uscita di Anthropic; login, interfaccia e amministrazione restano interni (§8.2).
 
 ## 1. Obiettivo
 
@@ -322,6 +323,7 @@ Import dall'interfaccia (Gestione → Import), con lo stesso codice dei comandi 
   - Il log dei login (riusciti e falliti, mai la password) si conserva 12 mesi.
   - La sessione dura al massimo 8 ore; la rimozione da un gruppo AD ha effetto al login successivo.
 - **Codice**: repository GitHub privato. Lo sviluppo è affidato a Claude Code (sessioni cloud) tramite pull request; il merge su `main` lo fa Pietro, o Claude su sua richiesta esplicita, dopo revisione e CI verde.
+- **Connettore MCP** (Rev10): Claude (claude.ai, Desktop, mobile, Cowork, Claude Code) interroga il registro in sola lettura con gli stessi numeri dell'interfaccia. OAuth 2.1 con login AD per utente, ruolo e visibilità per cluster come nell'interfaccia, disponibile a tutti i ruoli. Specifica, sicurezza e criteri in `docs/SPEC_MCP.md`.
 - **Deploy**: manuale sul server Docker aziendale (`deploy/deploy.sh <tag>`, con dump del database prima delle migration; `docs/RUNBOOK.md`). Nessun runner CI dentro la rete aziendale nella prima fase.
 
 ### 8.2 Requisiti non funzionali
@@ -331,7 +333,7 @@ Import dall'interfaccia (Gestione → Import), con lo stesso codice dei comandi 
 - **Importi** in `Decimal` (`DecimalField(max_digits=14, decimal_places=2)`), mai `float`. Arrotondamento `ROUND_HALF_UP` al centesimo; l'eventuale residuo va sull'ultima rata o sull'ultimo anno.
 - **Date** di tipo `date`, senza orario. Fuso orario `Europe/Rome`.
 - **Backup**: `pg_dump` giornaliero su una cartella inclusa nel backup aziendale esistente, con procedura di ripristino documentata e provata.
-- **Accesso** solo dalla rete interna, dietro reverse proxy HTTPS con certificato della CA interna. Cookie `Secure` e `HttpOnly`, CSRF attivo.
+- **Accesso** solo dalla rete interna, dietro reverse proxy HTTPS con certificato della CA interna. Unica eccezione (Rev10): il connettore MCP (`docs/SPEC_MCP.md`), pubblicato su un host dedicato con certificato di una CA pubblica, raggiungibile solo dalla rete di uscita di Anthropic e dalla rete interna, limitato agli endpoint del protocollo MCP, dei metadati OAuth e dello scambio dei token. Login, interfaccia e amministrazione restano solo interni. Cookie `Secure` e `HttpOnly`, CSRF attivo.
 - **Log applicativo** dei login riusciti e falliti.
 - **Lingua dell'interfaccia**: italiano. Formati numerici e date all'italiana (1.234,56; 31/12/2026).
 
