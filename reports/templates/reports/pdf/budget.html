@@ -1,0 +1,74 @@
+{% extends "reports/pdf/base.html" %}
+{% load registro %}
+{% block sottotitolo %}Al {{ oggi|date:"d/m/Y" }} · importi imponibili (IVA esclusa) · livello {{ livello.value }}{% endblock %}
+{% block contenuto %}
+{% if sezioni|length > 1 %}<p class="nota">OPEX e CAPEX sono budget distinti: i totali non si sommano.</p>{% endif %}
+{% for s in sezioni %}
+<section{% if not forloop.first %} class="nuova-pagina"{% endif %}>
+<h2>Budget {{ s.natura }} {{ budget.filtri.anno|stringformat:"s" }}</h2>
+<table class="kpi"><tr>
+  {% for vista, consolidato, previsionale, totale in s.kpi %}
+  <td><div class="etichetta">{{ vista }} · {{ livello.value }}</div><div class="valore">{{ totale|euro }}</div><div class="nota">consolidato {{ consolidato|euro }} · previsionale {{ previsionale|euro }}</div></td>
+  {% endfor %}
+</tr></table>
+
+<h3>Riepilogo {{ s.natura }} per vista e livello</h3>
+<table class="dati">
+  <thead>
+    <tr><th class="sx" rowspan="2">Vista</th>{% for liv in livelli %}<th colspan="3">{{ liv.value|capfirst }}</th>{% endfor %}</tr>
+    <tr>{% for liv in livelli %}<th class="num">Consolidato</th><th class="num">Previsionale</th><th class="num">Totale</th>{% endfor %}</tr>
+  </thead>
+  <tbody>
+  {% for vista, per_livello in s.riepilogo %}
+    <tr><td class="sx forte">{{ vista }}</td>{% for c in per_livello %}<td class="num">{{ c.0|euro }}</td><td class="num tenue">{{ c.1|euro }}</td><td class="num forte">{{ c.2|euro }}</td>{% endfor %}</tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h3>{{ s.natura }} per {% if s.criterio == "WBS" %}WBS{% else %}{{ s.criterio|lower }}{% endif %} · livello {{ livello.value }}</h3>
+<table class="dati" id="gruppi-{{ s.natura }}">
+  <thead>
+    <tr><th class="sx" rowspan="2">{{ s.criterio }}</th>{% for v in viste %}<th colspan="3">{{ v }}</th>{% endfor %}</tr>
+    <tr>{% for v in viste %}<th class="num">Consolidato</th><th class="num">Previsionale</th><th class="num">Totale</th>{% endfor %}</tr>
+  </thead>
+  <tbody>
+  {% for g in s.gruppi %}
+    <tr><td class="sx">{{ g.etichetta }} <span class="tenue">({{ g.voci|length }})</span></td>{% for c in g.celle %}<td class="num">{{ c.0|euro }}</td><td class="num tenue">{{ c.1|euro }}</td><td class="num forte">{{ c.2|euro }}</td>{% endfor %}</tr>
+    {% for etichetta, celle in g.sotto %}
+    <tr class="sotto"><td class="sx">conto {{ etichetta }}</td>{% for c in celle %}<td class="num">{{ c.0|euro }}</td><td class="num">{{ c.1|euro }}</td><td class="num">{{ c.2|euro }}</td>{% endfor %}</tr>
+    {% endfor %}
+  {% empty %}
+    <tr><td colspan="10" class="vuoto">Nessuna voce con importi nell'anno.</td></tr>
+  {% endfor %}
+    <tr class="totale"><td class="sx">Totale {{ s.natura }}</td>{% for c in s.totale_celle %}<td class="num">{{ c.0|euro }}</td><td class="num">{{ c.1|euro }}</td><td class="num">{{ c.2|euro }}</td>{% endfor %}</tr>
+  </tbody>
+</table>
+
+{% if dettaglio and s.gruppi %}
+<h3 class="nuova-pagina">Dettaglio delle voci {{ s.natura }} · livello {{ livello.value }}</h3>
+<table class="dati">
+  <thead><tr><th class="sx">Tipo</th><th class="sx">Fabbisogno — voce</th><th class="sx">Servizio</th>{% for v in viste %}<th class="num">{{ v }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for g in s.gruppi %}
+    <tr class="gruppo"><td class="sx" colspan="3">{{ g.etichetta }}</td>{% for c in g.celle %}<td class="num">{{ c.2|euro }}</td>{% endfor %}</tr>
+    {% for v, importi in g.voci %}
+    <tr><td class="sx"><span class="stato">{% if v.previsionale %}previsto {{ v.numero_previsto }}{% elif v.spesa_ricorrente %}senza contratto{% else %}contratto{% endif %}</span></td><td class="sx">{{ v.fabbisogno.descrizione }} — {{ v.descrizione }}{% if v.fornitore %} <span class="tenue">· {{ v.fornitore }}</span>{% endif %}</td><td class="sx" style="white-space: nowrap">{{ v.inizio|date:"d/m/Y" }} – {{ v.fine|date:"d/m/Y" }}</td>{% for i in importi %}<td class="num">{{ i|euro }}</td>{% endfor %}</tr>
+    {% endfor %}
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+</section>
+{% endfor %}
+
+{% if budget.rinnovi_mancanti or budget.avvisi or budget.senza_data %}
+<div class="avvisi">
+  <p><b>Avvisi sul calcolo</b></p>
+  <ul>
+  {% for r in budget.rinnovi_mancanti %}<li>Rinnovo mancante: {{ r.fabbisogno }} ({{ r.previsti_esclusi }} previsti dal {{ r.dal|date:"d/m/Y" }} al {{ r.al|date:"d/m/Y" }}, esclusi)</li>{% endfor %}
+  {% if budget.senza_data %}<li>{{ budget.senza_data }} contratti senza data di inizio esclusi dai calcoli.</li>{% endif %}
+  {% for messaggio, voci in budget.avvisi.items %}<li>{{ messaggio }} — {{ voci|length }} voci</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% endblock %}

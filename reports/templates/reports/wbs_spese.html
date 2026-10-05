@@ -4,7 +4,7 @@
 {% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'reports:wbs' %}">Spese per WBS</a></li><li class="breadcrumb-item active" aria-current="page">{{ s.wbs.codice_wbs }}</li></ol></nav>{% endblock %}
 {% block titolo_pagina %}WBS {{ s.wbs.codice_wbs }}{% endblock %}
 {% block sottotitolo %}<div class="sottotitolo">{{ s.wbs.descrizione }} · <span class="stato {% if s.wbs.tipo == 'progetto' %}stato-grigio{% else %}stato-blu{% endif %}">{{ s.wbs.get_tipo_display }}</span>{% if s.wbs.cluster %} · cluster {{ s.wbs.cluster.codice }}{% endif %}{% if s.wbs.archiviato %} · <span class="stato stato-grigio">non attiva</span>{% endif %}</div>{% endblock %}
-{% block azioni %}<a class="btn btn-outline-primary" href="?vista={{ s.vista }}&amp;livello={{ s.livello.value }}&amp;formato=xlsx"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i> Esporta Excel</a>{% endblock %}
+{% block azioni %}<a class="btn btn-outline-primary" href="?vista={{ s.vista }}&amp;livello={{ s.livello.value }}&amp;formato=xlsx"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i> Esporta Excel</a> <a class="btn btn-outline-secondary" href="?vista={{ s.vista }}&amp;livello={{ s.livello.value }}&amp;formato=pdf"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Scarica PDF</a>{% endblock %}
 {% block content %}
 <form method="get" class="filtri row g-3 align-items-end">
   <div class="col-sm-5 col-xl-3"><label class="form-label" for="f-vista">Vista</label><select id="f-vista" name="vista" class="form-select">{% for v, t in viste %}<option value="{{ v }}" {% if s.vista == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>

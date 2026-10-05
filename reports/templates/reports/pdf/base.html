@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>{{ titolo }}</title>
+<link rel="stylesheet" href="{{ pdf_css }}">
+</head>
+<body>
+<div class="testata"><img src="{{ pdf_logo }}" alt="Siciliacque"><div class="titolo"><b>{{ titolo }}</b><span>Registro contratti ICTDINN</span></div></div>
+<div class="piede">{{ filtri }} · generato il {{ generato_il|date:"d/m/Y H:i" }}{% if request.user.is_authenticated %} da {{ request.user.get_username }}{% endif %}</div>
+<h1>{{ titolo }}</h1>
+<p class="sottotitolo">{% block sottotitolo %}{% endblock %}</p>
+{% block contenuto %}{% endblock %}
+</body>
+</html>

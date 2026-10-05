@@ -130,6 +130,10 @@ LOGGING = {
     },
     "loggers": {
         "accounts.auth": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        # PDF dei report: WeasyPrint porta fontTools a DEBUG mentre riduce i font; senza
+        # propagazione quei messaggi non arrivano al log dell'applicazione.
+        "fontTools": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        "weasyprint": {"level": "WARNING"},
         "django_auth_ldap": {
             "handlers": ["console"],
             "level": env("LDAP_LOG_LEVEL", default="WARNING"),

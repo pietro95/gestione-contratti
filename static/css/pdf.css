@@ -1,0 +1,72 @@
+/* PDF dei report (WeasyPrint, reports/pdf.py): A4 orizzontale, tema Siciliacque. */
+
+@font-face { font-family: "Maven Pro"; font-weight: 400;
+  src: url("../vendor/maven-pro-5.3.0/maven-pro-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Maven Pro"; font-weight: 500;
+  src: url("../vendor/maven-pro-5.3.0/maven-pro-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Maven Pro"; font-weight: 600;
+  src: url("../vendor/maven-pro-5.3.0/maven-pro-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Maven Pro"; font-weight: 700;
+  src: url("../vendor/maven-pro-5.3.0/maven-pro-latin-700-normal.woff2") format("woff2"); }
+
+@page {
+  size: A4 landscape;
+  margin: 20mm 10mm 13mm 10mm;
+  @top-left { content: element(testata); vertical-align: bottom; padding-bottom: 3mm; }
+  @bottom-left { content: element(piede); vertical-align: top; padding-top: 2mm; }
+  @bottom-right {
+    content: "Pagina " counter(page) " di " counter(pages);
+    font: 7pt "Maven Pro", sans-serif; color: #5b6b7b; vertical-align: top; padding-top: 2mm;
+  }
+}
+
+html { font-family: "Maven Pro", "DejaVu Sans", sans-serif; font-size: 8pt; color: #1b2733; }
+body { margin: 0; }
+
+.testata { position: running(testata); width: 277mm; border-bottom: 1.2pt solid #003f6b;
+  padding-bottom: 2mm; }
+.testata img { height: 9mm; vertical-align: middle; }
+.testata .titolo { display: inline-block; vertical-align: middle; margin-left: 4mm; }
+.testata .titolo b { font-size: 11pt; color: #003f6b; display: block; }
+.testata .titolo span { font-size: 7pt; color: #5b6b7b; }
+.piede { position: running(piede); font-size: 7pt; color: #5b6b7b; }
+
+h1 { font-size: 15pt; color: #003f6b; margin: 0 0 1mm; font-weight: 700; }
+.sottotitolo { color: #5b6b7b; margin: 0 0 4mm; }
+h2 { font-size: 12pt; color: #003f6b; margin: 5mm 0 2mm; font-weight: 700; break-after: avoid; }
+h3 { font-size: 9pt; margin: 4mm 0 1.5mm; font-weight: 600; break-after: avoid; }
+.nuova-pagina { break-before: page; }
+.nota { color: #5b6b7b; font-size: 7pt; }
+
+/* Riquadri dei totali: tabella, non flex, per un'impaginazione stabile. */
+table.kpi { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 2mm 0; margin: 0 -2mm 3mm; }
+table.kpi td { border: .6pt solid #dde3ea; border-top: 2pt solid #003f6b; padding: 2mm 3mm;
+  vertical-align: top; }
+table.kpi td.vuota { border: none; }
+table.kpi .etichetta { font-size: 7pt; color: #5b6b7b; text-transform: uppercase; }
+table.kpi .valore { font-size: 13pt; font-weight: 700; color: #003f6b; }
+
+table.dati { width: 100%; border-collapse: collapse; margin-bottom: 3mm; }
+table.dati th, table.dati td { padding: 1.2mm 1.5mm; border-bottom: .4pt solid #dde3ea;
+  vertical-align: top; }
+table.dati thead { display: table-header-group; }
+table.dati thead th { background: #e8f1f8; color: #003f6b; font-weight: 600; font-size: 7pt;
+  text-align: center; }
+table.dati thead th.sx, table.dati td.sx, table.dati th.sx { text-align: left; }
+table.dati tr { break-inside: avoid; }
+table.dati td.num, table.dati th.num { text-align: right; white-space: nowrap; }
+table.dati .tenue { color: #5b6b7b; }
+table.dati .forte { font-weight: 600; }
+table.dati tr.sotto td { font-size: 7pt; color: #5b6b7b; }
+table.dati tr.sotto td.sx { padding-left: 5mm; }
+table.dati tr.totale td { font-weight: 700; border-top: 1pt solid #003f6b;
+  border-bottom: 1pt solid #003f6b; }
+table.dati tr.gruppo td { background: #f4f6f9; font-weight: 600; }
+table.dati td.vuoto { text-align: center; color: #5b6b7b; padding: 4mm; }
+
+.stato { font-size: 6.5pt; padding: .2mm 1mm; border-radius: 1mm; border: .4pt solid #dde3ea;
+  white-space: nowrap; }
+.avvisi { border: .6pt solid #8a5a00; background: #fff8e6; padding: 2mm 3mm; margin: 3mm 0;
+  break-inside: avoid; }
+.avvisi p { margin: 0 0 1mm; }
+.avvisi ul { margin: 0; padding-left: 4mm; }
