@@ -9,6 +9,7 @@ Owner: Pietro Verro (IT Manager).
 - `docs/SPEC.md`: requisiti, modello dati, regole di calcolo, decisioni. È il riferimento.
 - `docs/TEST_CASES.md`: casi numerici di riferimento. Sono l'oracolo dei test: **non modificarli per far passare un test**.
 - `docs/ROADMAP.md`: fasi e criteri di accettazione. Lavora solo sulla fase richiesta.
+- `docs/SPEC_MCP.md`: connettore MCP (F10): protocollo, OAuth, esposizione su Internet in deroga.
 
 Se la SPEC è ambigua o in conflitto con la richiesta, fermati e chiedi. Non scegliere in silenzio. Se proponi di cambiare la SPEC, scrivilo nella descrizione della PR: la SPEC la aggiorna Pietro.
 
@@ -19,6 +20,7 @@ Se la SPEC è ambigua o in conflitto con la richiesta, fermati e chiedi. Non sce
 - Interfaccia (F7): Bootstrap Icons, Tom Select (tendine con ricerca), flatpickr (calendario), font Maven Pro; tema in `static/css/app.css`, comportamenti in `static/js/app.js`. Identità: `static/img/logo/`, `docs/design/`.
 - File statici serviti dall'app con `whitenoise` (dietro Nginx Proxy Manager), raccolti nell'immagine Docker.
 - `django-auth-ldap` (Active Directory), `django-simple-history`, `openpyxl`, `django-environ`.
+- Connettore MCP (F10): `django-oauth-toolkit` (server OAuth 2.1); SDK `mcp` solo nei test, come client di conformità.
 - PDF dei report: `weasyprint` (richiede Pango nell'immagine Docker), template in `reports/templates/reports/pdf/`.
 - Test: `pytest`, `pytest-django`, `playwright` (test nel browser in `tests/e2e`, con axe-core per l'accessibilità). Lint e format: `ruff`. Dipendenze con `uv`, lock file `uv.lock` versionato.
 - Produzione: Docker Compose (gunicorn + postgres + backup) sul server Docker aziendale, tutto in `/appdata/gestione-contratti`, dietro il Nginx Proxy Manager esistente. Deploy manuale con `deploy/deploy.sh <tag>` (`docs/RUNBOOK.md`).
