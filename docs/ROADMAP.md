@@ -375,3 +375,12 @@ Rev00: realizzata (v1.5.0). Richiesta di Pietro del 05/10/2026. Caso numerico: T
   - solo promemoria 🟡 nel cruscotto, prima della prossima spesa;
   - fuori dal piano ordini, nessun contratto previsto;
   - scheda del fabbisogno con prossime e ultime spese.
+
+## F9.5.1 — Rinnovo senza contratto
+
+Rev00: realizzata (v1.5.1). Richiesta di Pietro del 05/10/2026. Caso numerico: TC-14.
+
+- La spesa senza contratto si può registrare su un fabbisogno con contratti, se tutti
+  finiscono prima della prima spesa; prima andava creato un fabbisogno nuovo.
+- La spesa fa da successore dell'ultimo contratto: niente alert, niente previsti; il
+  contratto resta nello storico e nel budget dei suoi anni. Nota sulla pagina del contratto.

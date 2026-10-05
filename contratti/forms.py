@@ -4,8 +4,9 @@ from django import forms
 from django.db.models import Q
 from django.forms import inlineformset_factory
 
+from contratti import adapters, permessi
 from contratti import models as m
-from contratti import permessi
+from contratti.engine import scadenze
 
 # Date scritte gg/mm/aaaa (calendario flatpickr nel browser); si accetta anche aaaa-mm-gg.
 FORMATI_DATA = ["%d/%m/%Y", "%Y-%m-%d", "%d/%m/%y"]
@@ -238,12 +239,21 @@ class FabbisognoForm(ModelFormBootstrap):
                     "previsto_data_avvio",
                     "Una spesa senza contratto non ha previsto manuale: lascia vuoto.",
                 )
-            if self.instance.pk and self.instance.contratti.filter(archiviato=False).exists():
-                self.add_error(
-                    "senza_contratto",
-                    "Il fabbisogno ha contratti attivi: archiviali o sposta la spesa in un "
-                    "altro fabbisogno.",
-                )
+            if self.instance.pk and (dal := dati.get("spesa_dal")):
+                for c in self.instance.contratti.filter(archiviato=False).prefetch_related(
+                    "proroghe"
+                ):
+                    s = adapters.scadenza(c)
+                    fine = scadenze.data_fine_effettiva(s) if s else None
+                    if fine is None or fine >= dal:
+                        self.add_error(
+                            "spesa_dal",
+                            f"Il contratto {c} finisce il "
+                            f"{fine:%d/%m/%Y}: la prima spesa deve essere dopo."
+                            if fine
+                            else f"Il contratto {c} non ha date: completalo o archivialo.",
+                        )
+                        break
         return dati
 
 

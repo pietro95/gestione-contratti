@@ -411,6 +411,7 @@ def contratto_dettaglio(request, pk):
             "successore": successore or contratto.confluito_in,
             "rinnovi_scollegati": rinnovi_scollegati,
             "confluiti": confluiti,
+            "sostituito_da_spesa": adapters.sostituito_da_spesa(contratto, riga.fine),
             "puo_confluire": bool(servizi.candidati_confluenza(contratto))
             and not contratto.archiviato,
             "pratica": contratto.stati_pratica.select_related("utente").order_by("-data", "-id"),

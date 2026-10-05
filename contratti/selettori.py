@@ -78,7 +78,9 @@ def riga_contratto(c: m.Contratto, oggi: datetime.date, finestra: int) -> RigaCo
         oggi,
         decisione=c.fabbisogno.decisione,
         stato_pratica=stato_pratica,
-        ha_successore=getattr(c, "n_successori", 0) > 0 or adapters.confluito(c),
+        ha_successore=getattr(c, "n_successori", 0) > 0
+        or adapters.confluito(c)
+        or adapters.sostituito_da_spesa(c, fine),
         finestra_mesi=finestra,
     )
     return RigaContratto(

@@ -235,6 +235,15 @@ def ha_successore(contratto: m.Contratto) -> bool:
     return m.Contratto.objects.filter(predecessore=contratto, archiviato=False).exists()
 
 
+def sostituito_da_spesa(contratto: m.Contratto, fine: datetime.date | None) -> bool:
+    """Il fabbisogno continua con una spesa senza contratto dopo la fine (SPEC §5.6).
+
+    La spesa fa da successore: il contratto finito prima della prima spesa non va in alert.
+    """
+    f = contratto.fabbisogno
+    return bool(f.senza_contratto and f.spesa_dal and fine is not None and fine < f.spesa_dal)
+
+
 def alert_contratto(contratto: m.Contratto, oggi: datetime.date) -> Alert | None:
     s = scadenza(contratto)
     if s is None:
@@ -244,7 +253,8 @@ def alert_contratto(contratto: m.Contratto, oggi: datetime.date) -> Alert | None
         oggi,
         decisione=contratto.fabbisogno.decisione,
         stato_pratica=stato_pratica_corrente(contratto),
-        ha_successore=ha_successore(contratto),
+        ha_successore=ha_successore(contratto)
+        or sostituito_da_spesa(contratto, scadenze.data_fine_effettiva(s)),
         finestra_mesi=int(parametro(Chiave.FINESTRA_ALERT_MESI, oggi)),
     )
 

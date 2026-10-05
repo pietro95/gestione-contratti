@@ -400,3 +400,11 @@ nessun alert; fatturato 2027 0,00.
 **Spesa dismessa** (decisione `Dismettere`, senza data di fine): contano solo le spese prima di
 oggi. Al 01/12/2026: fatturato 2026 25,00 (spesa del 15/03/2026), fatturato 2027 0,00, nessun
 alert. Al 01/03/2026: fatturato 2026 0,00.
+
+**Rinnovo senza contratto** (v1.5.1): lo stesso fabbisogno ha un contratto dal 15/03/2024, 12
+mesi (fine 14/03/2025), voce 300,00 € `Anticipata` annuale; la spesa parte il 15/03/2025.
+- prima spesa 14/03/2025: rifiutata (il contratto finisce il 14/03/2025);
+- al 20/12/2026: nessun alert sul contratto (nessun 🔴 «Senza rinnovo»), solo il promemoria
+  🟡 della spesa;
+- fatturato 2024: 300,00 (contratto); fatturato 2025: 25,00 (spesa del 15/03/2025);
+- nessun rinnovo mancante, nessun previsto, piano ordini vuoto.
