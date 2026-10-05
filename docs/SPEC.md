@@ -1,6 +1,6 @@
-# Istruzioni di progetto — Registro contratti IT/TLC
+# Istruzioni di progetto — Registro contratti ICTDINN
 
-Rev05 — 01/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
+Rev06 — 05/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
@@ -9,17 +9,18 @@ Storico revisioni:
 - Rev03 (01/10/2026): rinnovi previsti (§5.3): un solo contratto di partenza per fabbisogno; nei report di budget i previsti già conclusi prima dell'anno selezionato non entrano e il fabbisogno è segnalato come rinnovo mancante. Tolto l'adeguamento dal piano di fatturazione (§4, §5.2): non serve, gli importi anno per anno sono già fissati a contratto. Resta l'adeguamento parametrico dei rinnovi previsti (§5.3).
 - Rev04 (01/10/2026): quote per periodo sulla voce (§4, §5.2, §5.3): importi fissi diversi per sotto-periodi, tipicamente annuali, facoltativi. Nuovo caso TC-11.
 - Rev05 (01/10/2026): nuovo stato pratica `RDA richiesta` (§4); regole di dettaglio dell'import Excel (§7): mappatura di colonne e stati, contratti finanziati e dissalatori, valori di attesa per i dati mancanti, proposte da confermare.
+- Rev06 (05/10/2026): allineamento alle fasi F8–F9.3, già in produzione. Ufficio ICTDINN con i cluster al posto dell'area (§1, §4); numero e data di emissione del contratto al posto dell'OdA (§4); natura, conto e WBS sulla voce, WBS di cluster e a progetto (§4); un contratto può rinnovare più contratti (§4, §5.1, §5.3, TC-12); fatturato come riferimento del budget, OPEX e CAPEX mai sommati, CAPEX per WBS (§5.2); Spese per WBS (§5.5); import dall'interfaccia, incrementale, struttura dell'ufficio (§7); permessi e visibilità per cluster (§8.1); decisioni aperte aggiornate (§9).
 
 ## 1. Obiettivo
 
 Sostituire i due file Excel (`Contratti_IT.xlsx`, `Contratti_TLC.xlsx`) con un unico registro che:
 
-1. tenga traccia di tutti i contratti dell'ufficio IT/TLC e della loro catena di rinnovi;
+1. tenga traccia di tutti i contratti dell'ufficio ICTDINN (cluster IT, TLC, OT, Sicurezza fisica, Innovazione) e della loro catena di rinnovi;
 2. produca un budget annuale affidabile, distinguendo **impegno**, **cassa** e **competenza**;
 3. produca per il Procurement la **previsione annuale degli ordini/procedure da avviare**, con data limite di avvio e importo stimato;
 4. segnali in anticipo le scadenze, in funzione della procedura di affidamento e non di un preavviso fisso.
 
-Utenti: IT Manager (owner, scrittura), collaboratori IT (scrittura), Procurement e Controllo di gestione (lettura + export).
+Utenti: IT Manager (owner, amministrazione), responsabili dei cluster (scrittura sui propri cluster, §8.1), Procurement e Controllo di gestione (lettura + export).
 
 ## 2. Situazione attuale (as-is) e problemi rilevati
 
@@ -49,11 +50,11 @@ Struttura: una riga per ogni istanza contrattuale (ogni rinnovo = nuova riga), f
 
 ## 3. Principi di progettazione
 
-1. **Un solo registro** per IT e TLC. Area, finanziamento e impianto sono attributi, non fogli.
-2. **Separare il fabbisogno dal contratto.** Il *Fabbisogno* è il servizio ricorrente, che vive per anni (es. "Licenze IBM Cognos"). Il *Contratto* è la singola istanza con OdA, CIG, date e importi. Un rinnovo è un nuovo contratto sullo stesso fabbisogno.
+1. **Un solo registro** per l'ufficio ICTDINN. Cluster, natura, WBS e impianto sono attributi, non fogli.
+2. **Separare il fabbisogno dal contratto.** Il *Fabbisogno* è il servizio ricorrente, che vive per anni (es. "Licenze IBM Cognos"). Il *Contratto* è la singola istanza con numero di contratto SAP, CIG, date e importi. Un rinnovo è un nuovo contratto sullo stesso fabbisogno.
 3. **Il budget nasce dal piano di fatturazione**, non da una divisione per mesi.
 4. **Le date derivate si calcolano, le date decise si salvano.** Scadenza, data limite e alert sono sempre calcolati.
-5. **SAP resta il riferimento** per OdA, RDA, codici fornitore e conti COGE. Il registro li memorizza come chiavi esterne e non li reinventa. L'integrazione iniziale è un import/export, non un'interfaccia online.
+5. **SAP resta il riferimento** per numeri di contratto, RDA, codici fornitore, conti COGE e WBS. Il registro li memorizza come chiavi esterne e non li reinventa. L'integrazione iniziale è un import/export, non un'interfaccia online.
 6. **Soglie normative, lead time e aliquote sono parametri configurabili**, mai valori fissi nel codice.
 7. **Traccia completa delle modifiche** (chi, quando, valore prima e dopo). Nessuna cancellazione fisica.
 
@@ -64,38 +65,44 @@ Struttura: una riga per ogni istanza contrattuale (ogni rinnovo = nuova riga), f
 - Il codice SAP non è univoco: nei file attuali lo stesso codice è assegnato a più fornitori (§2.2). Il sistema lo ammette e lo segnala.
 
 **Fabbisogno** (servizio ricorrente):
-- descrizione, area (IT/TLC), categoria (licenze SW, manutenzione HW, connettività, servizi professionali, noleggio, ecc.);
-  - l'area è un elenco fisso (IT, TLC);
+- descrizione, cluster, categoria (licenze SW, manutenzione HW, connettività, servizi professionali, noleggio, ecc.);
+  - il cluster è una tabella di configurazione (vedi **Cluster**);
   - la categoria è una tabella di configurazione, modificabile dall'amministrazione;
 - impianto (facoltativo, da tabella; es. un dissalatore);
 - referente: testo libero, più un collegamento facoltativo all'utente dell'applicazione;
 - decisione di continuità: `Rinnovare` / `Da valutare` / `Sostituire` / `Dismettere`;
 - stima del prossimo importo e note;
-- **previsto manuale** (solo per un fabbisogno nuovo, senza contratti): data di avvio prevista, durata, procedura presunta, modalità e periodicità di fatturazione previste. Sono dati decisi e si salvano; il contratto previsto che ne deriva si calcola (§5.3). Avvio e durata vanno indicati insieme.
+- **previsto manuale** (solo per un fabbisogno nuovo, senza contratti): data di avvio prevista, durata, procedura presunta, modalità e periodicità di fatturazione previste, natura, conto e WBS previsti. Sono dati decisi e si salvano; il contratto previsto che ne deriva si calcola (§5.3). Avvio e durata vanno indicati insieme; CAPEX ⇔ WBS come sulla voce.
 
 **Contratto** (istanza):
-- chiave: fabbisogno, contratto predecessore (dello stesso fabbisogno; un contratto ha al massimo un successore);
-- riferimenti: fornitore, n. OdA SAP, data di emissione dell'OdA, n. RDA, CIG. I codici si conservano come arrivano; le anomalie di formato vanno nel report d'import (§7);
+- chiave: fabbisogno, contratto predecessore (dello stesso fabbisogno);
+- **più predecessori, un solo successore** (TC-12): un contratto nuovo può sostituire più contratti (es. SIM voce e SIM M2M in un contratto unico). Il rinnovo principale è il predecessore; gli altri contratti sostituiti **confluiscono** nel nuovo. Ogni contratto ha al massimo un successore: o è il predecessore di uno, o confluisce in uno. Si confluisce solo in un contratto dello stesso fabbisogno che inizia dopo il contratto confluito; un contratto di un altro fabbisogno va prima accorpato;
+- riferimenti: fornitore, numero di contratto SAP, data di emissione del contratto, n. RDA, CIG. In azienda il riferimento SAP è il numero di contratto, non l'OdA. I codici si conservano come arrivano; le anomalie di formato vanno nel report d'import (§7);
 - procedura (affidamento diretto, MEPA/ODA, RDO, negoziata, aperta, adesione a convenzione/AQ), con override del lead time sul singolo contratto;
 - date: data stipula, data inizio, durata in mesi (la data di fine si calcola, con override ammesso). La data di inizio può mancare solo nei dati importati: il contratto resta escluso dai calcoli e segnalato (TC-08);
 - opzioni di rinnovo/proroga previste e non ancora esercitate: zero o più, ciascuna con tipo (rinnovo o proroga), mesi e importo;
 - proroghe esercitate: zero o più (vedi **Proroga**);
 - tacito rinnovo con termine di disdetta in giorni (obbligatorio se c'è tacito rinnovo);
-- classificazione: finanziamento (ordinario / finanziato), con progetto obbligatorio se e solo se finanziato; natura (OPEX/CAPEX);
+- classificazione: natura e WBS stanno sulle voci. La natura del contratto si ricava dalle voci (OPEX, CAPEX o mista); il contratto è **finanziato** se ha almeno una voce su una WBS a progetto;
 - documenti: link al protocollo o a SharePoint, senza caricare file.
 
 **Proroga** (0..n per contratto): proroga effettivamente esercitata, anche più volte sullo stesso contratto.
-- data dell'atto, nuova data di fine, riferimento (protocollo, OdA integrativo o atto aggiuntivo), note;
+- data dell'atto, nuova data di fine, riferimento (protocollo, contratto integrativo o atto aggiuntivo), note;
 - l'eventuale importo aggiuntivo non sta sulla proroga ma in una o più **voci di contratto** collegate alla proroga, ciascuna con il proprio piano di fatturazione. Una proroga senza importo è ammessa.
 
-**Progetto** (tabella): codice WBS e descrizione, per i contratti finanziati.
+**Cluster** (tabella): area dell'ufficio che raggruppa più conti (IT, TLC, OT, Sicurezza fisica, Innovazione); codice breve e stabile, nome, note. I cluster IT e TLC hanno lo stesso responsabile e in pratica lo stesso budget: le viste li mostrano insieme ("i miei cluster", §8.1).
+
+**WBS** (tabella): elemento WBS di SAP, su cui si imputano le spese CAPEX. Due tipi:
+- **di cluster**: CAPEX "generico" del cluster, entra nel suo budget CAPEX; il cluster è obbligatorio;
+- **a progetto** (es. nuovi dissalatori): fuori dai budget dei cluster; i contratti restano registrati e consultabili per WBS (§5.5). Sostituisce la tabella Progetti; "finanziato" coincide con "su WBS a progetto".
 
 **Impianto** (tabella): nome e note.
 
 **Voce di contratto** (1..n per contratto):
 - descrizione;
 - proroga di riferimento, se la voce è l'importo di una proroga;
-- conto COGE e centro di costo/WBS; si conserva anche il codice conto come importato, se non è nel piano dei conti;
+- **natura** (OPEX/CAPEX), conto COGE, centro di costo e **WBS**. CAPEX ⇔ WBS: una voce CAPEX sta sempre su una WBS, una OPEX su nessuna; una WBS di cluster deve essere del cluster del fabbisogno. Il conto deve essere del cluster del fabbisogno. In SAP ogni posizione ha la sua imputazione: un contratto con quota OPEX e quota CAPEX ha voci separate, mai percentuali. Si conservano anche il codice conto e il codice WBS come importati, se non sono in tabella;
+- **natura, conto e WBS dei rinnovi** (facoltativi): la classificazione dei rinnovi previsti, se diversa da quella della voce (es. nata CAPEX, rinnovata in OPEX);
 - importo fisso (imponibile, IVA esclusa);
 - massimale variabile e stima di consumo del variabile, espressa **o** in percentuale (0–100) **o** in importo (non oltre il massimale), mai in entrambe le forme;
 - **quote per periodo** (facoltative): importi fissi diversi per sotto-periodi del servizio, tipicamente annuali (es. 10.000 il primo anno, 10.500 il secondo). Le quote devono essere contigue, coprire tutto il periodo di servizio della voce e sommare all'importo fisso; se non lo fanno si ignorano e l'anomalia è segnalata;
@@ -119,7 +126,7 @@ Regole di generazione:
 - `Da verificare`: nessuna rata; la cassa usa il pro-rata a giorni e lo segnala;
 - con quote per periodo, ogni quota si fattura come una voce a sé con lo stesso piano (la prima fattura esplicita vale solo per la prima quota); la numerazione delle rate prosegue. La `Una tantum` resta una sola rata dell'intero fisso.
 
-**Stato pratica di rinnovo** (workflow): `Non avviata` → `Offerta richiesta` → `Offerta ricevuta` → `RDA richiesta` → `RDA predisposta` → `RDA approvata` → `OdA emesso` → `Contratto attivo`.
+**Stato pratica di rinnovo** (workflow): `Non avviata` → `Offerta richiesta` → `Offerta ricevuta` → `RDA richiesta` → `RDA predisposta` → `RDA approvata` → `Contratto emesso` → `Contratto attivo`.
 - `RDA richiesta`: l'IT ha chiesto l'inserimento della RDA in SAP; diventa `RDA predisposta` quando la RDA è inserita.
 - La pratica si lega al **contratto in scadenza**; per un fabbisogno nuovo, senza contratti, si lega al fabbisogno. Mai a entrambi.
 - Si conserva lo storico dei passaggi (stato, data, utente, note). Lo stato corrente è l'ultimo passaggio; senza passaggi vale `Non avviata`.
@@ -127,7 +134,8 @@ Regole di generazione:
 **Tabelle di configurazione**:
 - lead time per procedura, in mesi;
 - soglie per l'importo, con validità temporale;
-- piano dei conti con validità temporale e mappatura vecchio→nuovo (sostituisce la colonna "Nuovo codice conto da 01/01/26"). Si **inserisce a mano** dall'amministrazione: non c'è import del piano dei conti, e i conti reali non entrano nel repository;
+- piano dei conti con validità temporale, mappatura vecchio→nuovo (sostituisce la colonna "Nuovo codice conto da 01/01/26") e **cluster** del conto (ogni conto appartiene a un solo cluster). Si carica dall'interfaccia (import del piano dei conti o della struttura, §7) o dall'amministrazione; i conti reali non entrano nel repository;
+- cluster, WBS e **assegnazioni dei cluster agli utenti** (§8.1), caricati con l'import della struttura;
 - parametri con validità temporale: giorni di pagamento, pagamento a fine mese, adeguamento dei rinnovi previsti, finestra dell'alert giallo, orizzonte della previsione;
 - categorie dei fabbisogni.
 
@@ -145,7 +153,7 @@ Nessun dato di dominio si cancella fisicamente: si archivia, e la storia delle m
 - `data_limite_avvio = data_fine − lead_time(procedura)`. Il lead time si può sovrascrivere sul singolo contratto. Sostituisce il valore fisso di 6 mesi.
 - Per i contratti a tacito rinnovo: `data_ultima_disdetta = data_fine − preavviso`. Negli alert (regole 3 e 4) la data di riferimento è la più vicina tra data limite e data ultima di disdetta.
 - Colori degli alert. Le regole si valutano in quest'ordine e vale la prima che si applica:
-  1. nessun alert se la decisione del fabbisogno è `Dismettere` o se esiste un contratto successore registrato;
+  1. nessun alert se la decisione del fabbisogno è `Dismettere`, se esiste un contratto successore registrato o se il contratto è confluito in un contratto nuovo (TC-12);
   2. 🔴 se oggi > data di fine;
   3. 🟠 se oggi > data limite e la pratica è `Non avviata` o `Offerta richiesta`;
   4. 🟡 se oggi > data limite con pratica più avanzata, oppure se oggi ≥ data limite − 3 mesi (finestra parametrica);
@@ -153,18 +161,18 @@ Nessun dato di dominio si cancella fisicamente: si archivia, e la storia delle m
 
   I casi di verifica sono in `docs/TEST_CASES.md`, TC-06.
 
-### 5.2 Tre viste di budget (tutte per anno, conto, area, fornitore, finanziamento)
+### 5.2 Tre viste di budget (tutte per anno, cluster, conto, WBS, fornitore)
 
 | Vista | Domanda a cui risponde | Regola |
 |---|---|---|
-| **Impegno / ordini** | Quanto devo ordinare nell'anno X? (Procurement) | intero valore contrattuale nell'anno di emissione (o di previsto avvio) dell'OdA |
-| **Cassa / fatturato** | Quanto viene fatturato nell'anno X? | somma delle rate dello scadenzario **per data fattura**. La data di pagamento non è usata: il flusso di cassa effettivo è fuori perimetro |
+| **Cassa / fatturato** | Quanto viene fatturato nell'anno X? | somma delle rate dello scadenzario **per data fattura**. La data di pagamento non è usata: il flusso di cassa effettivo è fuori perimetro. È **il riferimento del budget**: prima colonna e vista di default |
+| **Impegno / ordinato** | Quanto devo ordinare nell'anno X? (Procurement) | intero valore contrattuale nell'anno di emissione del contratto (o di previsto avvio) |
 | **Competenza** | Quanto costa all'esercizio X? (conto economico) | pro-rata **a giorni** sul periodo di servizio, indipendente dalla fatturazione |
 
 Esempio: licenza triennale da 30 k€ con pagamento anticipato unico → impegno 30 k€ nell'anno 1, cassa 30 k€ nell'anno 1, competenza 10 k€ all'anno per 3 anni.
 
 Regole di dettaglio:
-- **Impegno**: contratto reale nell'anno della data dell'OdA, o se manca nell'anno di inizio del servizio; voce di una proroga nell'anno della data dell'atto; contratto previsto nell'anno di inizio del servizio.
+- **Impegno**: contratto reale nell'anno della data di emissione del contratto, o se manca nell'anno di inizio del servizio; voce di una proroga nell'anno della data dell'atto; contratto previsto nell'anno di inizio del servizio.
 - **Competenza**: il periodo di servizio di una voce è quello del contratto; con quote per periodo, il fisso si ripartisce a giorni quota per quota (TC-11), il variabile sull'intera voce; per una voce di proroga va dal giorno dopo la data di fine precedente alla nuova data di fine. I contratti CAPEX seguono lo stesso pro-rata a giorni: l'ammortamento è fuori perimetro.
 
 Ogni vista ha tre livelli:
@@ -173,6 +181,11 @@ Ogni vista ha tre livelli:
 - **massimo**: fisso + intero massimale.
 
 In cassa la quota variabile (stimata o massima) si distribuisce sulle date delle rate in proporzione agli importi fissi delle rate; se il fisso è zero, in proporzione ai giorni dei periodi. Per la modalità `A consumo` le rate mensili si calcolano sul livello richiesto.
+
+**OPEX e CAPEX** sono budget distinti e non si sommano mai: ogni voce entra nella sezione della sua natura (un contratto misto contribuisce a entrambe). Il default è l'OPEX; "OPEX e CAPEX, separati" mostra due sezioni con totali propri, anche nell'export.
+- OPEX per cluster e conto; CAPEX per cluster e WBS di cluster, con il dettaglio per conto sotto ogni WBS (come lo legge il Controllo di gestione).
+- Le voci su WBS a progetto sono fuori dai budget dei cluster; un filtro le include o le mostra da sole.
+- Di default ogni utente vede i propri cluster (§8.1).
 
 ### 5.3 Previsione rinnovi (scenario)
 
@@ -184,7 +197,8 @@ Per ogni fabbisogno con decisione `Rinnovare` o `Da valutare`, il cui contratto 
 
 La generazione è ricorsiva: un annuale che scade nel 2027 genera un previsto 2027 e poi un previsto 2028.
 
-- Un fabbisogno non ha contratti paralleli. Se ha più contratti senza successore (per esempio un contratto vecchio non collegato alla catena), i previsti partono solo da quello che scade per ultimo.
+- Un fabbisogno non ha contratti paralleli. I previsti partono dal contratto senza successore che scade per ultimo; un contratto confluito in un altro ha un successore e non genera previsti (TC-12). Se restano più contratti senza successore (per esempio un contratto vecchio non collegato alla catena), il fabbisogno segnala la catena interrotta, con la proposta di collegamento (§7).
+- La classificazione del previsto (natura, conto, WBS) è quella decisa per i rinnovi sulla voce d'origine, se c'è, altrimenti quella della voce; per il previsto manuale, quella del fabbisogno. Un previsto è finanziato solo se resta su una WBS a progetto.
 - Un contratto scaduto da tempo, senza successore e con decisione `Rinnovare` o `Da valutare`, genera previsti anche per periodi già trascorsi. Nei report di budget dell'anno X entrano solo i previsti che finiscono dal 01/01/X in poi; gli altri non entrano, e il fabbisogno è segnalato come **rinnovo mancante**.
 
 - I contratti previsti entrano in tutte e tre le viste di budget, marcati come "previsionali" e filtrabili.
@@ -195,11 +209,18 @@ La generazione è ricorsiva: un annuale che scade nel 2027 genera un previsto 20
 Report annuale "Piano ordini anno X". Una riga per ogni contratto previsto o da rinnovare, con:
 - fabbisogno, fornitore uscente, importo stimato sull'intera durata;
 - procedura presunta, data limite di avvio, data di avvio servizio necessaria;
-- stato della pratica.
+- stato della pratica;
+- natura: OPEX, CAPEX o mista (un previsto misto mostra le due quote), con filtro e totali per natura.
+
+Di default il piano mostra i propri cluster (§8.1).
 
 Include un avviso quando più fabbisogni della stessa categoria o dello stesso fornitore, sommati, superano una soglia. Serve a valutare l'accorpamento ed evitare il frazionamento. L'applicabilità concreta delle soglie per Siciliacque (settori speciali) va confermata con Procurement/Legale.
 
 Export in XLSX, oltre al PDF quando serve da allegare.
+
+### 5.5 Spese per WBS
+
+Per una WBS, di cluster o a progetto: i contratti con voci sulla WBS e gli importi anno per anno, nella vista (fatturato, ordinato, competenza) e al livello scelti. Solo contratti registrati, niente previsti: è la spesa sostenuta o impegnata sulla WBS, anche fuori dai budget dei cluster. Export in XLSX. Di default l'elenco mostra le WBS dei propri cluster e tutte le WBS a progetto.
 
 ## 6. Perimetro funzionale
 
@@ -217,7 +238,7 @@ Export in XLSX, oltre al PDF quando serve da allegare.
 
 **Fase 2**:
 - notifiche email sulle date limite;
-- consuntivazione rate da export SAP (fatture/OdA);
+- consuntivazione rate da export SAP (fatture/contratti);
 - confronto preventivo/consuntivo;
 - storico costi per fabbisogno (trend);
 - dashboard grafica.
@@ -227,22 +248,30 @@ Export in XLSX, oltre al PDF quando serve da allegare.
 ## 7. Migrazione dati
 
 1. Normalizzare i campi: rimuovere il BOM, uniformare i nulli, applicare trim.
-2. Validare i codici: CIG di 10 caratteri alfanumerici, OdA SAP di 10 cifre, conti COGE presenti nel piano dei conti (inserito a mano prima dell'import). Le anomalie vanno in un report, senza correzioni silenziose.
+2. Validare i codici: CIG di 10 caratteri alfanumerici, numero di contratto SAP di 10 cifre, conti COGE presenti nel piano dei conti (caricato prima dell'import). Le anomalie vanno in un report, senza correzioni silenziose.
 3. Deduplicare i fornitori e verificare i codici SAP condivisi (139952).
 4. Raggruppare in fabbisogni le righe che sono rinnovi l'una dell'altra (proposta automatica per descrizione + fornitore, poi conferma manuale) e impostare il predecessore.
-5. Accorpare in un unico contratto con più voci le righe che condividono OdA e CIG.
+5. Accorpare in un unico contratto con più voci le righe che condividono numero di contratto e CIG.
 6. Assegnare a ogni voce il piano di fatturazione reale, dalle fatture o dagli ordini. Dove non è noto, impostare `Da verificare`: in questo caso il budget di cassa usa il pro-rata e lo segnala.
 7. Mappare i vecchi stati: `Rinnovato` / `Non rinnovare` diventano decisioni sul fabbisogno; `Offerta richiesta` / `RDA predisposta` diventano stato pratica; `Attivo` / `Scaduto` si derivano dalle date.
 8. Controllo di quadratura: totali per anno ricalcolati a competenza, confrontati con la dashboard Excel. Le differenze attese sono dovute al bug dei mesi e vanno documentate.
 
 Regole di dettaglio dell'import (comando `import_excel`, Rev05):
-- **Colonne**: "Contratto" → n. OdA (conservato com'è); "Corrispettivo Minimo" → importo fisso; "Corrispettivo Extra" → massimale variabile (nessuna stima di consumo: il probabile coincide con il fisso finché non la si inserisce); "Corrispettivo Massimo" non si importa, serve solo a segnalare le formule sovrascritte e i valori incoerenti; conto: quello "dal 01/01/26" se presente, altrimenti il vecchio (le coppie vecchio → nuovo trovate vanno nel report, per compilare a mano la mappatura).
+- **Colonne**: "Contratto" → numero di contratto (conservato com'è); "Corrispettivo Minimo" → importo fisso; "Corrispettivo Extra" → massimale variabile (nessuna stima di consumo: il probabile coincide con il fisso finché non la si inserisce); "Corrispettivo Massimo" non si importa, serve solo a segnalare le formule sovrascritte e i valori incoerenti; conto: quello "dal 01/01/26" se presente, altrimenti il vecchio (le coppie vecchio → nuovo trovate vanno nel report, per compilare a mano la mappatura).
 - **RDA**: il numero RDA si ricava dalle note ("RDA nnnnnnnnnn", oppure una nota di sole 10 cifre che inizia con 51); la nota resta intatta.
 - **Stati**: `Non rinnovare` → decisione `Dismettere`; `Rinnovato` e `Attivo` → `Rinnovare`; `Offerta richiesta`, `Offerta ricevuta`, `RDA Richiesta`, `RDA Predisposta` → passaggio della pratica **sul contratto della riga stessa** (è il contratto in scadenza), alla data dell'import, con decisione `Rinnovare`; `Scaduto`, `In scadenza`, `Da rinnovare` → nessun dato, si ricavano dalle date.
-- **Contratti finanziati e dissalatori**: i fogli "Contratti_Finanziati" e "Contratti Dissalatori" sono spese su altre WBS: finanziamento `Finanziato`, progetto dalla colonna "Codice WBS"; se manca, progetto `WBS-DA-DEFINIRE` e anomalia.
+- **Contratti finanziati e dissalatori**: i fogli "Contratti_Finanziati" e "Contratti Dissalatori" sono spese su WBS a progetto: voci CAPEX sulla WBS della colonna "Codice WBS"; se manca, WBS `WBS-DA-DEFINIRE` e anomalia.
+- **Cluster**: l'import si esegue per un cluster; una voce con un conto di un altro cluster è segnalata (`CONTO_ALTRO_CLUSTER`).
 - **Dati mancanti**: categoria `Da classificare`; procedura `Da verificare` (lead time 6 mesi, come il preavviso fisso degli Excel); piano di fatturazione `Da verificare`; fornitore assente → `(non indicato)`; descrizione assente → `(senza descrizione)`; durata assente → 12 mesi. Ogni sostituzione è segnalata.
 - **Raggruppamenti e catene**: ogni contratto entra in un fabbisogno provvisorio; l'import propone i raggruppamenti (stessa descrizione normalizzata e stesso fornitore) e le coppie predecessore → successore. Le proposte si confermano o scartano a mano; un predecessore si conferma solo dopo il raggruppamento. Confermando un raggruppamento, i contratti passano al fabbisogno del più recente e i fabbisogni provvisori svuotati si archiviano.
-- **Idempotenza**: ogni riga ha una chiave d'import stabile; rieseguire l'import non crea duplicati e non sovrascrive le modifiche fatte dopo.
+- **Idempotenza e import incrementale**: ogni riga ha una chiave d'import stabile; rieseguire l'import non crea duplicati e non sovrascrive le modifiche fatte dopo. Un contratto già registrato si riconosce anche se il file è cambiato (righe inserite o spostate, foglio rinominato, altro cluster) o se è stato inserito a mano: numero di contratto (o CIG) e data di inizio; senza codici, fornitore, descrizione, data di inizio e durata. La riga si scarta e va nel report (`GIA_PRESENTE`).
+- **Catene da ricucire**: dopo un accorpamento il sistema propone il collegamento tra un contratto senza successore e il contratto senza predecessore che inizia dopo di lui e finisce dopo, con l'inizio più vicino al giorno dopo la fine; il rinnovo può iniziare prima della scadenza (periodi sovrapposti, segnalati). Le proposte si confermano a mano; il collegamento si può fare o togliere anche dal contratto. Lo stesso contratto registrato due volte si unisce: si tiene quello con più dati, l'altro si archivia.
+
+Import dall'interfaccia (Gestione → Import), con lo stesso codice dei comandi da riga di comando:
+- tipi: Excel dei contratti, date di emissione (estrazione SAP), piano dei conti, struttura dell'ufficio (cluster, responsabili, conti, WBS, dal modello `2026.10.02_PFE_Modello_import_struttura_ICTDINN_Rev00`), quadratura con l'Excel;
+- carica → anteprima senza scritture (conteggi, anomalie, report) → conferma entro 24 ore, una sola volta, da chi ha caricato il file o da un Admin; registro degli import con file, hash, utente ed esito;
+- permessi: contratti, date e quadratura per Admin ed Editor, che importano solo nei propri cluster; piano dei conti e struttura solo Admin;
+- import della struttura: tutto o niente, idempotente, nessuna cancellazione di conti e WBS (si dismettono con fine validità o "non attiva"); il foglio Responsabili, se compilato, è l'elenco completo delle assegnazioni.
 
 ## 8. Decisioni prese e requisiti non funzionali
 
@@ -266,13 +295,18 @@ Regole di dettaglio dell'import (comando `import_excel`, Rev05):
     I nomi dei gruppi sono configurabili.
   - Un utente che non appartiene a nessuno dei tre gruppi non entra; se aveva già un utente, perde ruolo e privilegi.
   - Con più gruppi vale il ruolo più alto (Admin > Editor > Reader). L'annidamento dei gruppi è configurabile (matching rule AD, ricorsivo, nessuno).
-  - L'amministratore ha accesso completo all'amministrazione dell'applicazione; Editor e Reader lavorano dall'interfaccia operativa. Editor aggiunge e modifica i dati di dominio, Reader solo legge; le tabelle di configurazione le modifica solo l'amministratore; nessuno cancella.
+  - L'amministratore ha accesso completo all'amministrazione dell'applicazione; Editor e Reader lavorano dall'interfaccia operativa. Editor aggiunge e modifica i dati di dominio dei propri cluster, Reader solo legge; le tabelle di configurazione le modifica solo l'amministratore; nessuno cancella.
+- **Permessi e visibilità per cluster** (F9.2):
+  - i cluster si assegnano agli utenti nell'applicazione (amministrazione o import della struttura), per nome utente di dominio, anche prima del primo accesso; non con gruppi AD. Un'assegnazione `TUTTI` abilita tutti i cluster (es. addetto amministrativo). Un'assegnazione tolta si archivia;
+  - l'Editor modifica solo i fabbisogni e i contratti dei cluster assegnati; spostare o accorpare tra cluster diversi richiede il permesso su entrambi. I fornitori sono in comune;
+  - ogni utente vede di default i propri cluster (cruscotto, elenchi, budget, piano ordini, Spese per WBS); gli altri a richiesta, in lettura. Chi non ha cluster assegnati vede tutto;
+  - **transizione**: finché non è mai stata registrata un'assegnazione, gli Editor modificano tutti i cluster; dalla prima assegnazione valgono le regole per cluster, anche se in seguito le assegnazioni si archiviano.
   - Un solo account locale di emergenza (break-glass), con password lunga (almeno 24 caratteri) custodita fuori dall'applicazione.
   - Tutti i parametri LDAP arrivano da variabili d'ambiente. Senza server LDAP configurato vale solo il login locale (sviluppo).
   - Il log dei login (riusciti e falliti, mai la password) si conserva 12 mesi.
   - La sessione dura al massimo 8 ore; la rimozione da un gruppo AD ha effetto al login successivo.
-- **Codice**: repository GitHub privato. Lo sviluppo è affidato a Claude Code (sessioni cloud) tramite pull request; il merge su `main` lo fa solo Pietro, dopo revisione e CI verde.
-- **Deploy**: manuale sulla VM interna (`git pull` + `docker compose up -d --build` + `migrate`), con uno script di deploy nel repository. Nessun runner CI dentro la rete aziendale nella prima fase.
+- **Codice**: repository GitHub privato. Lo sviluppo è affidato a Claude Code (sessioni cloud) tramite pull request; il merge su `main` lo fa Pietro, o Claude su sua richiesta esplicita, dopo revisione e CI verde.
+- **Deploy**: manuale sul server Docker aziendale (`deploy/deploy.sh <tag>`, con dump del database prima delle migration; `docs/RUNBOOK.md`). Nessun runner CI dentro la rete aziendale nella prima fase.
 
 ### 8.2 Requisiti non funzionali
 
@@ -287,7 +321,7 @@ Regole di dettaglio dell'import (comando `import_excel`, Rev05):
 
 ## 9. Decisioni ancora aperte
 
-- **Budget di riferimento per il Controllo di gestione**: competenza economica o cassa? Quali conti sono CAPEX? Il sistema calcola comunque tutte e tre le viste, quindi la risposta non blocca lo sviluppo.
+- ~~Budget di riferimento per il Controllo di gestione~~: deciso in F8, il riferimento è il fatturato (cassa per data fattura); la natura OPEX/CAPEX si indica sulla voce (F9.2).
 - **Lead time per procedura** e soglie: parametri con valori iniziali provvisori, modificabili dall'amministrazione. Non bloccano lo sviluppo; le soglie UE dei settori speciali non sono caricate.
 - **Anno di imputazione dell'impegno per i contratti previsti**: il default è l'anno di inizio del servizio. Da confermare con il Procurement se preferisce l'anno della data limite di avvio.
 - **IVA**: gli importi sono sempre imponibile. Da verificare se il Procurement vuole anche l'IVA nel piano ordini.
