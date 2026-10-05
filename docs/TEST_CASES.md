@@ -2,7 +2,7 @@
 
 Ogni caso descrive: input, output atteso, regola della SPEC che verifica.
 
-Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (scritto da Claude su richiesta di Pietro del 02/10/2026). F9.4: aggiunto TC-13 (scritto da Claude su richiesta di Pietro del 05/10/2026). F9.5: aggiunto TC-14 (scritto da Claude su richiesta di Pietro del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (scritto da Claude su decisione di Pietro del 05/10/2026, da approvare). SPEC Rev10: aggiunti TC-15 e TC-16 (scritti da Claude su decisione di Pietro del 05/10/2026, bozza da approvare).
+Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (scritto da Claude su richiesta di Pietro del 02/10/2026). F9.4: aggiunto TC-13 (scritto da Claude su richiesta di Pietro del 05/10/2026). F9.5: aggiunto TC-14 (scritto da Claude su richiesta di Pietro del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (scritto da Claude su decisione di Pietro del 05/10/2026, da approvare). SPEC Rev11: aggiunti TC-15 e TC-16 (scritti da Claude su decisione di Pietro del 05/10/2026, bozza da approvare).
 
 I valori sono stati calcolati a mano e verificati con uno script indipendente. **Se un test non passa, l'errore è nel codice, non nel caso.** Un caso si modifica solo con l'approvazione di Pietro e insieme a una nuova revisione della SPEC.
 
@@ -402,7 +402,7 @@ registrato come contratto, il piano 2026 ha una riga con avvio 15/03/2026.
 
 ## TC-15 — Stato della pratica ricavato dalla RDA
 
-SPEC §4 (stato pratica, RDA), §5.1, §5.7. Rev10, bozza da approvare.
+SPEC §4 (stato pratica, RDA), §5.1, §5.7. Rev11, bozza da approvare.
 
 Parametri: procedura `Affidamento diretto`, lead time 4 mesi; finestra dell'alert giallo 3
 mesi.
@@ -448,7 +448,7 @@ ferma al 15/07/2026 (30 giorni) ed è ferma al 16/07/2026 (31 giorni).
 ## TC-16 — Esecuzione, residuo e chiusura di un contratto una tantum
 
 SPEC §4 (una tantum, documento di esecuzione, fattura, chiusura), §5.1, §5.3, §5.4, §5.7,
-§5.8. Rev10, bozza da approvare.
+§5.8. Rev11, bozza da approvare.
 
 Input: fabbisogno «Forniture di prova», decisione `Rinnovare`. RDA R1 con contratto F1
 **una tantum**: emesso e iniziato il 02/03/2026, durata 1 mese (fine 01/04/2026); voce OPEX,

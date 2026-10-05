@@ -444,15 +444,15 @@ anche senza contratto ogni rinnovo va gestito con scadenza e alert.
   ed export).
 - Tolte le scorciatoie della spesa di F9.5.3 (v1.5.2), sostituite da quelle qui sopra.
 
-## F10 — Release 2.0: processo d'acquisto (RDA → esecuzione → chiusura)
+## F11 — Release 2.0: processo d'acquisto (RDA → esecuzione → chiusura)
 
-Rev00: bozza da approvare. Decisioni di Pietro del 05/10/2026 (SPEC Rev10): solo ICTDINN; le
+Rev00: bozza da approvare. Decisioni di Pietro del 05/10/2026 (SPEC Rev11): solo ICTDINN; le
 forniture una tantum entrano come contratti; stati della pratica ricavati dalla RDA;
 inserimento a mano e import XLSX, nessun collegamento a SAP; CUP sì, basket del masterplan
-no. Casi numerici: TC-15, TC-16. Uscita prevista come `v2.0.0` alla fine di F10.4; le
+no. Casi numerici: TC-15, TC-16. Uscita prevista come `v2.0.0` alla fine di F11.4; le
 sotto-fasi si possono rilasciare come `v1.7.x` se servono prima.
 
-### F10.1 — Modello e motore
+### F11.1 — Modello e motore
 
 - Modelli (SPEC §4): `RichiestaAcquisto`, `DocumentoEsecuzione`, `Fattura`; sul contratto RDA
   d'origine, una tantum, CUP, RUP, percorso dei documenti, chiusura (data, utente). Storia
@@ -469,7 +469,7 @@ sotto-fasi si possono rilasciare come `v1.7.x` se servono prima.
 **Accettazione:** TC-15 e TC-16 come test parametrizzati; TC-01 … TC-14 invariati e verdi;
 `makemigrations --check` pulito.
 
-### F10.2 — Interfaccia operativa
+### F11.2 — Interfaccia operativa
 
 - RDA: elenco, dettaglio, form; «Nuova RDA» dal contratto in scadenza e dal fabbisogno;
   «Registra contratto da RDA» (rinnovo o una tantum, precompilato con imputazione e importo).
@@ -484,7 +484,7 @@ sotto-fasi si possono rilasciare come `v1.7.x` se servono prima.
 cluster); test nel browser del flusso «RDA → contratto → fatture → chiusura» e accessibilità
 (axe-core).
 
-### F10.3 — Viste e report
+### F11.3 — Viste e report
 
 - **Stato delle RDA**: una riga per RDA con fase, data della fase, giorni nella fase, «ferma»,
   fabbisogno, contratto in scadenza o generato, importo stimato; filtri per cluster, anno,
@@ -496,7 +496,7 @@ cluster); test nel browser del flusso «RDA → contratto → fatture → chiusu
 **Accettazione:** i totali delle viste sulle fixture coincidono con il motore (test); export
 e PDF con i filtri in evidenza come in F9.5.4.
 
-### F10.4 — Import
+### F11.4 — Import
 
 - Modello XLSX dell'esecuzione (RDA, documenti, fatture) nell'import dall'interfaccia, con
   anteprima, conferma, registro e report delle anomalie (SPEC §7).
