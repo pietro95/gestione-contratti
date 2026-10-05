@@ -122,12 +122,25 @@ def codici_filtro(user, valori: list[str]) -> list[str]:
     return valori
 
 
-def scelta_filtro(user, valori: list[str]) -> str:
-    """Valore selezionato nella tendina «Cluster»."""
+def selezione_filtro(user, valori: list[str]) -> list[str]:
+    """Valori selezionati nella tendina «Cluster», anche più di uno.
+
+    Nessun valore: i miei cluster (o tutti, per chi non ne ha). «tutti» prevale sul resto.
+    """
     valori = [v for v in valori if v]
     if not valori:
-        return MIEI if cluster_propri(user) else TUTTI
-    return valori[0] if len(valori) == 1 else MIEI
+        return [MIEI if cluster_propri(user) else TUTTI]
+    if TUTTI in valori:
+        return [TUTTI]
+    return list(dict.fromkeys(valori))
+
+
+def descrivi_filtro(codici) -> str:
+    """«Cluster: IT (nome), TLC (nome)» o «Cluster: tutti», per intestazioni ed export."""
+    if not codici:
+        return "Cluster: tutti"
+    nomi = dict(m.Cluster.objects.filter(codice__in=codici).values_list("codice", "nome"))
+    return "Cluster: " + ", ".join(f"{c} ({nomi[c]})" if nomi.get(c, c) != c else c for c in codici)
 
 
 def scelte_filtro(user) -> list[tuple[str, str]]:

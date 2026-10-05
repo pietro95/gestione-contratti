@@ -16,16 +16,39 @@ def _scelte_cluster(utente) -> list[tuple[str, str]]:
     return permessi.scelte_filtro(utente)
 
 
+def _valori(dati, chiave) -> list[str]:
+    valori = dati.getlist(chiave) if hasattr(dati, "getlist") else dati.get(chiave) or []
+    return [valori] if isinstance(valori, str) else list(valori)
+
+
 def _cluster_default(dati, utente) -> None:
-    """Di default ognuno vede i propri cluster (F9.2); la tendina lo mostra."""
-    if utente is not None and not dati.get("area"):
-        dati["area"] = permessi.scelta_filtro(utente, [])
+    """Di default ognuno vede i propri cluster (F9.2); la tendina lo mostra.
+
+    Più cluster insieme: «area» si ripete (``?area=IT&area=TLC``).
+    """
+    valori = _valori(dati, "area")
+    if utente is not None:
+        valori = permessi.selezione_filtro(utente, valori)
+    if hasattr(dati, "setlist"):
+        dati.setlist("area", valori)
+    else:
+        dati["area"] = valori
 
 
-def _codici(utente, valore) -> tuple[str, ...]:
+def _codici(utente, valori) -> tuple[str, ...]:
+    valori = [v for v in valori or [] if v]
     if utente is None:
-        return (valore,) if valore else ()
-    return tuple(permessi.codici_filtro(utente, [valore or ""]))
+        return tuple(valori)
+    return tuple(permessi.codici_filtro(utente, valori))
+
+
+def _campo_cluster():
+    return forms.MultipleChoiceField(
+        choices=[],
+        required=False,
+        label="Cluster",
+        widget=forms.SelectMultiple(attrs={"class": "form-select js-cluster"}),
+    )
 
 
 class FiltriBudgetForm(FormBase):
@@ -33,7 +56,7 @@ class FiltriBudgetForm(FormBase):
     natura = forms.ChoiceField(
         choices=[*m.Natura.choices, (ENTRAMBE, "OPEX e CAPEX, separati")], required=False
     )
-    area = forms.ChoiceField(choices=[], required=False, label="Cluster")
+    area = _campo_cluster()
     conto = forms.ModelChoiceField(
         queryset=m.ContoCoge.objects.order_by("codice"), required=False, empty_label="Tutti i conti"
     )
@@ -98,7 +121,7 @@ class FiltriBudgetForm(FormBase):
 
 class FiltriPianoForm(FormBase):
     anno = forms.IntegerField(min_value=2000, max_value=2100)
-    area = forms.ChoiceField(choices=[], required=False, label="Cluster")
+    area = _campo_cluster()
     categoria = forms.ModelChoiceField(
         queryset=m.Categoria.objects.all(), required=False, empty_label="Tutte le categorie"
     )
@@ -115,10 +138,14 @@ class FiltriPianoForm(FormBase):
     def codici_cluster(self) -> tuple[str, ...]:
         return _codici(self.utente, self.cleaned_data.get("area"))
 
-    def descrizione(self) -> str:
+    def voci(self) -> list[str]:
         d = self.cleaned_data
-        codici = self.codici_cluster()
-        parti = ["Cluster " + ", ".join(codici) if codici else "Tutti i cluster"]
-        parti.append(f"categoria {d['categoria']}" if d.get("categoria") else "tutte le categorie")
-        parti.append(d["natura"] if d.get("natura") else "OPEX e CAPEX")
-        return "; ".join(parti)
+        return [
+            f"Anno {d['anno']}",
+            permessi.descrivi_filtro(self.codici_cluster()),
+            f"categoria {d['categoria']}" if d.get("categoria") else "tutte le categorie",
+            d["natura"] if d.get("natura") else "OPEX e CAPEX",
+        ]
+
+    def descrizione(self) -> str:
+        return "; ".join(self.voci())

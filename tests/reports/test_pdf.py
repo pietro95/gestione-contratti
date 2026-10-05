@@ -116,3 +116,24 @@ def test_nel_pdf_solo_file_locali():
     with pytest.raises(ValueError):
         pdf._solo_statici(pdf._url("css/pdf.css").replace("css/pdf.css", "../config/settings"))
     assert pdf._solo_statici(pdf._url("css/pdf.css"))
+
+
+def test_cluster_in_evidenza_nel_pdf(dati, lettore, catturato):
+    """Il PDF dice sempre quali cluster comprende: sotto il titolo, in testata e nel nome."""
+    f.cluster("TLC")
+    url = reverse("reports:budget") + "?anno=2026&area=IT&area=TLC&formato=pdf"
+    r = _scarica(lettore, url)
+    assert r["Content-Disposition"].endswith('_Budget_2026_OPEX_IT-TLC.pdf"')
+    html = render_to_string(catturato["template"], catturato["contesto"])
+    assert '<span class="filtro">Cluster: IT, TLC</span>' in html
+    assert "Registro contratti ICTDINN · Cluster: IT, TLC" in html
+    r = _scarica(lettore, reverse("reports:budget") + "?anno=2026&area=tutti&formato=pdf")
+    assert r["Content-Disposition"].endswith('_Budget_2026_OPEX.pdf"')
+    assert '<span class="filtro">Cluster: tutti</span>' in render_to_string(
+        catturato["template"], catturato["contesto"]
+    )
+    url = reverse("reports:piano_ordini") + "?anno=2027&area=IT&formato=pdf"
+    assert _scarica(lettore, url)["Content-Disposition"].endswith('_Piano_ordini_2027_IT.pdf"')
+    assert '<span class="filtro">Cluster: IT</span>' in render_to_string(
+        catturato["template"], catturato["contesto"]
+    )

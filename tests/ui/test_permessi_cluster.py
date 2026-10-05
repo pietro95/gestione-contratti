@@ -3,6 +3,7 @@
 import datetime
 
 import pytest
+from django.http import QueryDict
 from django.test import Client
 from django.urls import reverse
 
@@ -130,7 +131,7 @@ def test_budget_e_piano_ordini_di_default_sui_propri_cluster(struttura, utente):
     assert form.is_valid() and form.filtri().area == ()
     form = FiltriPianoForm({}, anno_default=2027, utente=editor.utente)
     assert form.is_valid() and form.codici_cluster() == ("IT", "TLC")
-    assert form.descrizione().startswith("Cluster IT, TLC")
+    assert form.descrizione().startswith("Anno 2027; Cluster: IT, TLC;")
     risposta = editor.get(reverse("reports:piano_ordini"))
     assert risposta.status_code == 200
     assert {r.fabbisogno.cluster.codice for r in risposta.context["piano"].righe} <= {"IT", "TLC"}
@@ -220,3 +221,21 @@ def test_conto_senza_cluster_bloccato_dopo_la_struttura(struttura, utente):
     assert risposta.status_code == 200
     assert "non ha un cluster" in risposta.content.decode()
     assert c.voci.count() == 1
+
+
+def test_piu_cluster_nel_filtro(struttura, utente):
+    """F9.6: il filtro «Cluster» accetta più cluster (``?area=IT&area=OT``)."""
+    editor = utente("e.it", EDITOR, "IT", "TLC")
+    assert permessi.selezione_filtro(editor.utente, []) == [permessi.MIEI]
+    assert permessi.selezione_filtro(editor.utente, ["IT", "tutti"]) == [permessi.TUTTI]
+    assert permessi.selezione_filtro(editor.utente, ["IT", "OT", "IT"]) == ["IT", "OT"]
+    html = editor.get(reverse("contratti:contratti") + "?area=IT&area=OT").content.decode()
+    assert "580000" in html and "580002" in html and "580001" not in html
+    assert 'value="IT" selected' in html and 'value="OT" selected' in html
+    form = FiltriBudgetForm(QueryDict("area=IT&area=OT"), anno_default=2026, utente=editor.utente)
+    assert form.is_valid() and form.filtri().area == ("IT", "OT")
+    risposta = editor.get(reverse("reports:piano_ordini") + "?anno=2027&area=TLC&area=OT")
+    assert risposta.context["form"].codici_cluster() == ("TLC", "OT")
+    assert permessi.descrivi_filtro([]) == "Cluster: tutti"
+    m.Cluster.objects.filter(codice="OT").update(nome="Telecontrollo")
+    assert permessi.descrivi_filtro(["IT", "OT"]) == "Cluster: IT, OT (Telecontrollo)"

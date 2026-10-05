@@ -6,10 +6,11 @@
 <link rel="stylesheet" href="{{ pdf_css }}">
 </head>
 <body>
-<div class="testata"><img src="{{ pdf_logo }}" alt="Siciliacque"><div class="titolo"><b>{{ titolo }}</b><span>Registro contratti ICTDINN</span></div></div>
+<div class="testata"><img src="{{ pdf_logo }}" alt="Siciliacque"><div class="titolo"><b>{{ titolo }}</b><span>Registro contratti ICTDINN{% if cluster %} · {{ cluster }}{% endif %}</span></div></div>
 <div class="piede">{{ filtri }} · generato il {{ generato_il|date:"d/m/Y H:i" }}{% if request.user.is_authenticated %} da {{ request.user.get_username }}{% endif %}</div>
 <h1>{{ titolo }}</h1>
 <p class="sottotitolo">{% block sottotitolo %}{% endblock %}</p>
+{% if voci_filtri %}<div class="filtri-pdf"><span class="etichetta">Filtri</span>{% for v in voci_filtri %}<span class="filtro">{{ v }}</span>{% endfor %}</div>{% endif %}
 {% block contenuto %}{% endblock %}
 </body>
 </html>

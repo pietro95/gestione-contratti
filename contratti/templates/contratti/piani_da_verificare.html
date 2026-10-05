@@ -6,7 +6,7 @@
 {% block content %}
 <div class="alert alert-info small" style="max-width: 60rem"><i class="bi bi-info-circle" aria-hidden="true"></i> Il budget di riferimento è il fatturato, cioè le rate per data fattura. Per queste voci il piano non è noto (dati importati dagli Excel): il fatturato è stimato a pro-rata sui giorni del servizio, come facevano gli Excel. Imposta modalità e periodicità reali, poi genera lo scadenzario. Le voci più pesanti sono in cima.</div>
 <form method="get" class="filtri row g-3 align-items-end">
-  <div class="col-sm-5 col-xl-3"><label class="form-label" for="f-area">Cluster</label><select id="f-area" name="area" class="form-select">{% for v, t in aree %}<option value="{{ v }}" {% if area_scelta == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+  <div class="col-sm-5 col-xl-3"><label class="form-label" for="f-area">Cluster</label><select id="f-area" name="area" class="form-select js-cluster" multiple>{% for v, t in aree %}<option value="{{ v }}" {% if v in area_scelte %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
   <div class="col-auto"><button class="btn btn-primary" type="submit">Applica</button></div>
 </form>
 <div class="tabella-card"><div class="table-responsive">

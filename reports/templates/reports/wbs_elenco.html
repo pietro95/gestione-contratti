@@ -4,7 +4,7 @@
 {% block sottotitolo %}<div class="sottotitolo">WBS di cluster (CAPEX del cluster) e WBS a progetto (fuori dai budget dei cluster): apri una WBS per i contratti e gli importi anno per anno.</div>{% endblock %}
 {% block content %}
 <form method="get" class="filtri row g-3 align-items-end">
-  <div class="col-sm-4 col-xl-3"><label class="form-label" for="f-area">Cluster</label><select id="f-area" name="area" class="form-select">{% for v, t in aree %}<option value="{{ v }}" {% if area_scelta == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+  <div class="col-sm-4 col-xl-3"><label class="form-label" for="f-area">Cluster</label><select id="f-area" name="area" class="form-select js-cluster" multiple>{% for v, t in aree %}<option value="{{ v }}" {% if v in area_scelte %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
   <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-tipo">Tipo</label><select id="f-tipo" name="tipo" class="form-select"><option value="">Tutti</option>{% for v, t in tipi %}<option value="{{ v }}" {% if filtri.tipo == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
   <div class="col-auto"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="archiviate" value="1" id="f-arch" {% if filtri.archiviate %}checked{% endif %}><label class="form-check-label" for="f-arch">Non attive</label></div></div>
   <div class="col-auto"><button class="btn btn-primary" type="submit">Applica</button></div>

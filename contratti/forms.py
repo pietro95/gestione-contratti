@@ -151,6 +151,7 @@ class FornitoreForm(ModelFormBootstrap):
 
 
 class FabbisognoForm(ModelFormBootstrap):
+    solo_spesa = False  # True nelle scorciatoie della spesa senza contratto (sotto)
     sezioni = [
         ("Fabbisogno", ["descrizione", "cluster", "categoria", "impianto", "referente"]),
         ("Decisione sul rinnovo", ["decisione", "stima_prossimo_importo", "note"]),
@@ -165,7 +166,7 @@ class FabbisognoForm(ModelFormBootstrap):
             ],
         ),
         (
-            "Spesa ricorrente senza contratto (es. dominio DNS pagato ogni anno)",
+            "Spesa ricorrente senza contratto",
             [
                 "senza_contratto",
                 "spesa_fornitore",
@@ -227,10 +228,13 @@ class FabbisognoForm(ModelFormBootstrap):
             raise forms.ValidationError(
                 "Per il previsto manuale servono insieme avvio e durata, oppure nessuno dei due."
             )
+        cluster = dati.get("cluster")
+        if cluster is None and self.instance.cluster_id:
+            cluster = self.instance.cluster  # le scorciatoie della spesa non hanno il cluster
         verifica_natura_wbs(
-            self, dati.get("natura_previsti") or m.Natura.OPEX, "wbs_previsti", dati.get("cluster")
+            self, dati.get("natura_previsti") or m.Natura.OPEX, "wbs_previsti", cluster
         )
-        if dati.get("senza_contratto"):
+        if dati.get("senza_contratto") or self.solo_spesa:
             for campo in ("spesa_importo", "spesa_periodicita", "spesa_dal"):
                 if dati.get(campo) in (None, ""):
                     self.add_error(campo, "Obbligatorio per una spesa senza contratto.")
@@ -255,6 +259,67 @@ class FabbisognoForm(ModelFormBootstrap):
                         )
                         break
         return dati
+
+
+CAMPI_SPESA = ["spesa_fornitore", "spesa_importo", "spesa_periodicita", "spesa_dal", "spesa_al"]
+CAMPI_CLASSIFICAZIONE = ["natura_previsti", "conto_previsti", "wbs_previsti"]
+
+
+class _SpesaMixin:
+    """Scorciatoie per la spesa senza contratto: il fabbisogno si aggiorna da solo (§5.6).
+
+    Il fabbisogno diventa «senza contratto» con decisione «Rinnovare» (la spesa prosegue);
+    un previsto manuale si toglie, perché la spesa lo sostituisce.
+    """
+
+    solo_spesa = True
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for campo in ("spesa_importo", "spesa_periodicita", "spesa_dal"):
+            self.fields[campo].required = True
+        self.fields["natura_previsti"].label = "Natura"
+        self.fields["conto_previsti"].label = "Conto COGE"
+        self.fields["wbs_previsti"].label = "WBS"
+        self.fields["wbs_previsti"].help_text = "Obbligatoria se la spesa è CAPEX."
+
+    def save(self, commit=True):
+        f = super().save(commit=False)
+        f.senza_contratto = True
+        f.decisione = m.Fabbisogno.Decisione.RINNOVARE
+        f.previsto_data_avvio = f.previsto_durata_mesi = None
+        if commit:
+            f.save()
+        return f
+
+
+class SpesaForm(_SpesaMixin, FabbisognoForm):
+    """Spesa senza contratto su un fabbisogno esistente (anche «Rinnova senza contratto»)."""
+
+    sezioni = [
+        ("Spesa", CAMPI_SPESA),
+        ("Classificazione", CAMPI_CLASSIFICAZIONE),
+    ]
+
+    class Meta(FabbisognoForm.Meta):
+        fields = CAMPI_SPESA + CAMPI_CLASSIFICAZIONE
+
+
+class SpesaNuovaForm(_SpesaMixin, FabbisognoForm):
+    """Nuova spesa senza contratto: crea il fabbisogno con i soli dati necessari."""
+
+    sezioni = [
+        ("Fabbisogno", ["descrizione", "cluster", "categoria", "impianto", "referente"]),
+        ("Spesa", CAMPI_SPESA),
+        ("Classificazione", CAMPI_CLASSIFICAZIONE),
+    ]
+
+    class Meta(FabbisognoForm.Meta):
+        fields = (
+            ["descrizione", "cluster", "categoria", "impianto", "referente"]
+            + CAMPI_SPESA
+            + CAMPI_CLASSIFICAZIONE
+        )
 
 
 CAMPI_CONTRATTO = [

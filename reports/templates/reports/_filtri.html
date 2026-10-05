@@ -1,7 +1,7 @@
 <form method="get" class="filtri d-print-none">
   <div class="row g-3 align-items-end">
   {% for campo in form %}
-    <div class="col-sm-6 col-md-4 col-xl-{% if campo.name == 'anno' or campo.name == 'area' or campo.name == 'livello' %}2{% else %}3{% endif %}">
+    <div class="col-sm-6 col-md-4 col-xl-{% if campo.name == 'anno' or campo.name == 'livello' %}2{% else %}3{% endif %}">
       <label class="form-label" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
       {{ campo }}
     </div>
