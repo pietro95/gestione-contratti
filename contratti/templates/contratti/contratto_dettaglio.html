@@ -13,7 +13,7 @@
 {% endblock %}
 {% block azioni %}
 {% if puo_modificare %}
-  {% if not successore %}<a class="btn btn-primary" href="{% url 'contratti:contratto_rinnovo' c.pk %}"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Registra rinnovo</a>{% endif %}
+  {% if not successore and not sostituito_da_spesa %}<a class="btn btn-primary" href="{% url 'contratti:contratto_rinnovo' c.pk %}"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Registra rinnovo</a>{% if not c.fabbisogno.senza_contratto %}<a class="btn btn-outline-primary" href="{% url 'contratti:contratto_rinnovo_spesa' c.pk %}"><i class="bi bi-receipt" aria-hidden="true"></i> Rinnova senza contratto</a>{% endif %}{% endif %}
   <a class="btn btn-outline-primary" href="{% url 'contratti:contratto_modifica' c.pk %}"><i class="bi bi-pencil" aria-hidden="true"></i> Modifica</a>
   <div class="dropdown">
     <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Altre azioni</button>

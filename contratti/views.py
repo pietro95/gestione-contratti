@@ -1128,6 +1128,97 @@ def fabbisogno_modifica(request, pk=None):
     )
 
 
+def _form_spesa(request, f, form, titolo, annulla, nota):
+    if request.method == "POST" and form.is_valid():
+        f = form.save()
+        messages.success(request, "Spesa senza contratto registrata: il fabbisogno è aggiornato.")
+        return redirect("contratti:fabbisogno", pk=f.pk)
+    return render(
+        request,
+        "contratti/form.html",
+        {"form": form, "titolo": titolo, "annulla": annulla, "nota": nota},
+    )
+
+
+@editor_required
+def spesa_nuova(request):
+    """Nuova spesa senza contratto: crea il fabbisogno con i soli dati necessari (§5.6)."""
+    iniziali = {
+        "categoria": m.Categoria.objects.filter(nome="Da classificare").first(),
+        "spesa_periodicita": m.Periodicita.ANNUALE,
+    }
+    form = forms.SpesaNuovaForm(request.POST or None, initial=iniziali, utente=request.user)
+    return _form_spesa(
+        request,
+        None,
+        form,
+        "Nuova spesa senza contratto",
+        None,
+        "Si paga con una fattura diretta a ogni periodo: entra nel budget, senza pratica e "
+        "fuori dal piano ordini.",
+    )
+
+
+@editor_required
+def fabbisogno_spesa(request, pk):
+    """Spesa senza contratto su un fabbisogno esistente, senza il form completo."""
+    f = get_object_or_404(m.Fabbisogno, pk=pk)
+    permessi.verifica_oggetto(request.user, f)
+    form = forms.SpesaForm(request.POST or None, instance=f, utente=request.user)
+    return _form_spesa(
+        request,
+        f,
+        form,
+        "Modifica spesa senza contratto" if f.senza_contratto else "Spesa senza contratto",
+        f,
+        "La decisione del fabbisogno diventa «Rinnovare»; i contratti non archiviati devono "
+        "finire prima della prima spesa.",
+    )
+
+
+@editor_required
+def contratto_rinnovo_spesa(request, pk):
+    """Rinnova senza contratto: il fabbisogno prosegue con una spesa ricorrente (§5.6)."""
+    contratto = get_object_or_404(m.Contratto.objects.select_related("fabbisogno"), pk=pk)
+    f = contratto.fabbisogno
+    permessi.verifica_oggetto(request.user, f)
+    if adapters.ha_successore(contratto):
+        messages.error(request, "Il contratto ha già un successore registrato.")
+        return redirect("contratti:contratto", pk=pk)
+    if f.senza_contratto:
+        messages.info(request, "Il fabbisogno prosegue già con una spesa senza contratto.")
+        return redirect("contratti:fabbisogno_spesa", pk=f.pk)
+    fine = adapters.data_fine_effettiva(contratto)
+    voce = (
+        contratto.voci.filter(archiviato=False, proroga__isnull=True)
+        .select_related("piano_fatturazione")
+        .order_by("id")
+        .first()
+    )
+    iniziali = {"spesa_fornitore": contratto.fornitore_id}
+    if fine:
+        iniziali["spesa_dal"] = fine + datetime.timedelta(days=1)
+    piano = getattr(voce, "piano_fatturazione", None) if voce else None
+    periodicita = piano.periodicita if piano else ""
+    validi = {c for c, _ in m.Fabbisogno._meta.get_field("spesa_periodicita").choices}
+    iniziali["spesa_periodicita"] = periodicita if periodicita in validi else m.Periodicita.ANNUALE
+    if voce and not (f.natura_previsti or f.conto_previsti_id or f.wbs_previsti_id):
+        iniziali["natura_previsti"] = voce.natura_rinnovi or voce.natura
+        iniziali["conto_previsti"] = voce.conto_rinnovi_id or voce.conto_id
+        iniziali["wbs_previsti"] = voce.wbs_rinnovi_id or voce.wbs_id
+    form = forms.SpesaForm(request.POST or None, instance=f, initial=iniziali, utente=request.user)
+    return _form_spesa(
+        request,
+        f,
+        form,
+        "Rinnova senza contratto",
+        contratto,
+        (f"{contratto} · finisce il {fine:%d/%m/%Y}. " if fine else f"{contratto}. ")
+        + "Il fabbisogno prosegue con una spesa ricorrente: il contratto resta nello storico e "
+        "non va più in alert; la decisione del fabbisogno diventa «Rinnovare».",
+    )
+
+
 # --- Fornitori -----------------------------------------------------------------------
 
 

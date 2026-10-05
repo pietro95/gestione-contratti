@@ -75,6 +75,9 @@ def _pagine(dati):
         f"/report/wbs/{wbs.pk}/",
         f"/fabbisogni/{dns.pk}/",
         f"/fabbisogni/{dns.pk}/modifica/",
+        f"/fabbisogni/{dns.pk}/spesa/",
+        "/fabbisogni/nuova-spesa/",
+        f"/contratti/{c.pk}/rinnovo-senza-contratto/",
         "/cerca/?q=prova",
         "/proposte/",
     ]
