@@ -36,6 +36,10 @@ h1 { font-size: 15pt; color: #003f6b; margin: 0 0 1mm; font-weight: 700; }
 h2 { font-size: 12pt; color: #003f6b; margin: 5mm 0 2mm; font-weight: 700; break-after: avoid; }
 h3 { font-size: 9pt; margin: 4mm 0 1.5mm; font-weight: 600; break-after: avoid; }
 .nuova-pagina { break-before: page; }
+.filtri-pdf { margin: -2mm 0 4mm; }
+.filtri-pdf .etichetta { font-size: 7pt; color: #5b6b7b; text-transform: uppercase; margin-right: 2mm; }
+.filtri-pdf .filtro { display: inline-block; background: #e8f1f8; color: #003f6b; font-weight: 600;
+  border-radius: 1mm; padding: .6mm 2mm; margin: 0 1.5mm 1mm 0; }
 .nota { color: #5b6b7b; font-size: 7pt; }
 
 /* Riquadri dei totali: tabella, non flex, per un'impaginazione stabile. */

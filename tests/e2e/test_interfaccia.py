@@ -25,7 +25,7 @@ def _pagine(dati):
     vecchio = f.contratto(fabbisogno=interrotto, data_inizio=datetime.date(2025, 3, 1))
     f.contratto(fabbisogno=interrotto, data_inizio=datetime.date(2026, 1, 1))
     wbs = m.WBS.objects.create(codice_wbs="X.0001.00.000", descrizione="WBS di prova")
-    # F9.5.3: rinnovo senza contratto, anello della catena.
+    # F9.5.5: rinnovo senza contratto, anello della catena.
     dns = f.contratto(
         fabbisogno=f.fabbisogno("Dominio di prova", decisione="rinnovare"),
         senza_contratto=True,
@@ -293,3 +293,32 @@ def test_stampa_dei_report_senza_colonne_tagliate(pagina, dati):
         )
         assert all(d == "table-row-group" for d in piede), (url, piede)
         pagina.emulate_media(media="screen")
+
+
+def test_filtro_con_piu_cluster(pagina, dati):
+    """F9.6: più cluster nel filtro; «Tutti i cluster» esclude gli altri e viceversa."""
+    for codice in ("TLC", "OT"):
+        f.cluster(codice)
+    pagina.goto(f"{pagina.base}/report/budget/?anno=2026")
+    wrapper = pagina.locator("select#id_area ~ .ts-wrapper")
+    scelti = wrapper.locator(".ts-control .item")
+    expect(scelti).to_have_count(1)
+    expect(scelti.first).to_contain_text("Tutti i cluster")
+
+    def scegli(codice):
+        # Clic sull'area libera del controllo: sulla voce già scelta il clic la seleziona.
+        controllo = wrapper.locator(".ts-control")
+        box = controllo.bounding_box()
+        controllo.click(position={"x": box["width"] - 8, "y": box["height"] / 2})
+        pagina.locator(f".ts-dropdown .option[data-value='{codice}']").click()
+
+    scegli("IT")
+    scegli("TLC")
+    expect(scelti).to_have_count(2)  # «Tutti» tolto scegliendo un cluster
+    pagina.locator("form.filtri button[type=submit]").click()
+    pagina.wait_for_url("**area=IT&area=TLC**")
+    expect(wrapper.locator(".ts-control .item")).to_have_count(2)
+    scegli("tutti")
+    expect(scelti).to_have_count(1)
+    expect(scelti.first).to_contain_text("Tutti i cluster")
+    assert not pagina.errori

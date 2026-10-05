@@ -324,7 +324,7 @@ class RinnovoForm(ContrattoForm):
         fields = CAMPI_CONTRATTO
 
 
-# Dati del solo documento contrattuale: un rinnovo senza contratto non li ha (F9.5.3).
+# Dati del solo documento contrattuale: un rinnovo senza contratto non li ha (F9.5.5).
 CAMPI_SOLO_CONTRATTO = (
     "senza_contratto",
     "numero_contratto",

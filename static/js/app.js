@@ -23,6 +23,33 @@
     });
   }
 
+  // Filtro «Cluster»: più cluster insieme. «I miei cluster» e «Tutti i cluster» escludono il
+  // resto; scegliendo un cluster si tolgono. Senza JavaScript resta una select multipla.
+  var SPECIALI = ["miei", "tutti"];
+  function cluster(radice) {
+    if (typeof TomSelect === "undefined") return;
+    radice.querySelectorAll("select.js-cluster[multiple]").forEach(function (el) {
+      if (el.tomselect) return;
+      var etichetta = el.id && document.querySelector('label[for="' + el.id + '"]');
+      if (etichetta && !el.getAttribute("aria-label")) el.setAttribute("aria-label", etichetta.textContent.trim());
+      var ts = new TomSelect(el, {
+        plugins: { remove_button: { title: "Togli" } },
+        placeholder: "Tutti i cluster",
+        hidePlaceholder: true,
+        onItemAdd: function (valore) {
+          var altri = ts.items.filter(function (v) { return v !== valore; });
+          var via = SPECIALI.indexOf(valore) >= 0 ? altri
+            : altri.filter(function (v) { return SPECIALI.indexOf(v) >= 0; });
+          via.forEach(function (v) { ts.removeItem(v, true); });
+          // Chiusa e senza fuoco: il controllo non cambia altezza al clic successivo (su
+          // «Aggiorna» il pulsante si spostava tra pressione e rilascio e il clic andava perso).
+          ts.close();
+          ts.blur();
+        },
+      });
+    });
+  }
+
   // Date: calendario italiano, valore gg/mm/aaaa (il server accetta anche aaaa-mm-gg).
   function date(radice) {
     if (typeof flatpickr === "undefined") return;
@@ -106,6 +133,7 @@
 
   function inizializza(radice) {
     tendine(radice);
+    cluster(radice);
     date(radice);
     righe(radice);
     scorrimenti(radice);

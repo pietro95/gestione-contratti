@@ -3,6 +3,7 @@
 import datetime
 
 from contratti import models as m
+from contratti import permessi
 from contratti.engine.importi import ZERO, arrotonda
 from contratti.engine.tipi import Livello
 from contratti.selettori import codici_cluster
@@ -26,11 +27,14 @@ def _generato(oggi: datetime.date) -> str:
     return f"Generato il {datetime.date.today():%d/%m/%Y}; data di riferimento {oggi:%d/%m/%Y}."
 
 
-def descrivi_filtri(budget: Budget) -> str:
+def voci_filtri(budget: Budget) -> list[str]:
+    """I filtri del budget, uno per voce: il cluster sempre, anche quando sono tutti."""
     f = budget.filtri
-    parti = [f"Anno {f.anno}", f"natura {f.natura}" if f.natura else "OPEX e CAPEX separati"]
-    if codici := codici_cluster(f.area):
-        parti.append("cluster " + ", ".join(codici))
+    parti = [
+        f"Anno {f.anno}",
+        permessi.descrivi_filtro(codici_cluster(f.area)),
+        f"natura {f.natura}" if f.natura else "OPEX e CAPEX separati",
+    ]
     if f.conto:
         parti.append(f"conto {m.ContoCoge.objects.filter(pk=f.conto).first()}")
     if f.fornitore:
@@ -44,7 +48,16 @@ def descrivi_filtri(budget: Budget) -> str:
     if f.wbs:
         parti.append(f"WBS {m.WBS.objects.filter(pk=f.wbs).first()}")
     parti.append("previsti inclusi" if f.previsionali else "solo consolidato")
-    return "; ".join(parti)
+    return parti
+
+
+def descrivi_filtri(budget: Budget) -> str:
+    return "; ".join(voci_filtri(budget))
+
+
+def suffisso_cluster(codici) -> str:
+    """Per il nome del file: ``_IT-TLC`` con il filtro sui cluster, niente se sono tutti."""
+    return "_" + "-".join(codici) if codici else ""
 
 
 def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):

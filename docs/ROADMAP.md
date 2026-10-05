@@ -385,21 +385,21 @@ Rev00: realizzata (v1.5.1). Richiesta di Pietro del 05/10/2026. Caso numerico: T
 - La spesa fa da successore dell'ultimo contratto: niente alert, niente previsti; il
   contratto resta nello storico e nel budget dei suoi anni. Nota sulla pagina del contratto.
 
-## F9.5.3 — Rinnovo senza contratto come anello della catena
+## F9.5.3 — Scorciatoie per la spesa senza contratto
 
-Rev00: realizzata. Richiesta e decisioni di Pietro del 05/10/2026 (SPEC Rev09, TC-14).
+Rev00: realizzata (v1.5.2). Richiesta di Pietro del 05/10/2026: registrare una spesa senza contratto
+senza passare dal form completo del fabbisogno.
 
-- Tolta la spesa ricorrente sul fabbisogno (F9.5, F9.5.1): non gestiva la scadenza, il
-  rinnovo si dava per scontato. I dati eventualmente inseriti restano nelle note del
-  fabbisogno (migration 0022).
-- Contratto segnato **«senza contratto»**: stesse scadenze, data limite, pratica, alert,
-  previsti e budget di un contratto; fuori dal piano ordini, anche i suoi previsti.
-- «Rinnova senza contratto» sulla pagina del contratto senza successore: form del rinnovo
-  senza i dati del documento contrattuale, inizio il giorno dopo la fine, durata 12 mesi.
-- «Nuovo senza contratto» nell'elenco dei contratti e nella pagina del fabbisogno.
-- Etichetta «senza contratto» in elenchi, cruscotto, pagina del contratto, budget (anche PDF
-  ed export).
-- Tolto l'esempio dal titolo della sezione nel form del fabbisogno (la sezione non c'è più).
+- «Nuova spesa senza contratto» nell'elenco dei fabbisogni: crea il fabbisogno con i soli
+  dati necessari (descrizione, cluster, categoria, spesa, classificazione).
+- «Rinnova senza contratto» sulla pagina del contratto senza successore: form della sola
+  spesa, precompilato (fornitore, prima spesa il giorno dopo la fine, periodicità del piano
+  di fatturazione, natura/conto/WBS della prima voce); aggiorna il fabbisogno.
+- «Spesa senza contratto» / «Modifica spesa» sulla pagina del fabbisogno.
+- Le scorciatoie mettono il fabbisogno «senza contratto» con decisione «Rinnovare» e tolgono
+  l'eventuale previsto manuale. Valgono le regole di SPEC §4 e §5.6 (contratti finiti prima
+  della prima spesa).
+- Tolto l'esempio dal titolo della sezione nel form del fabbisogno.
 
 ## F9.5.2 — PDF dei report generati dal server
 
@@ -415,3 +415,31 @@ in A4 verticale con la pagina ruotata e parti mancanti (dialogo di stampa di mac
 - Template dedicati (`reports/templates/reports/pdf/`, `static/css/pdf.css`), senza Bootstrap;
   solo file locali di `static/` (nessuna risorsa esterna). Logo in PNG per il PDF.
 - La stampa dal browser (Ctrl+P) resta, con il CSS di stampa di F9.5.
+
+## F9.5.4 — Più cluster nel filtro, cluster in evidenza nel PDF
+
+Rev00: realizzata (v1.5.2). Richiesta di Pietro del 05/10/2026.
+
+- Il filtro «Cluster» (budget, piano ordini, spese per WBS, contratti, fabbisogni, cruscotto,
+  piani da verificare) accetta più cluster insieme (`?area=IT&area=TLC`). «I miei cluster» e
+  «Tutti i cluster» restano e escludono le altre scelte.
+- PDF ed export XLSX dicono sempre quali cluster comprendono, anche «Cluster: tutti». Nel
+  PDF: i filtri in evidenza sotto il titolo, il cluster nella testata di ogni pagina e nel
+  nome del file (`…_Budget_2026_OPEX_IT-TLC.pdf`).
+
+## F9.5.5 — Rinnovo senza contratto come anello della catena
+
+Rev00: realizzata. Richiesta e decisioni di Pietro del 05/10/2026 (SPEC Rev09, TC-14):
+anche senza contratto ogni rinnovo va gestito con scadenza e alert.
+
+- Tolta la spesa ricorrente sul fabbisogno (F9.5, F9.5.1): non gestiva la scadenza, il
+  rinnovo si dava per scontato. I dati eventualmente inseriti restano nelle note del
+  fabbisogno (migration 0022).
+- Contratto segnato **«senza contratto»**: stesse scadenze, data limite, pratica, alert,
+  previsti e budget di un contratto; fuori dal piano ordini, anche i suoi previsti.
+- «Rinnova senza contratto» sulla pagina del contratto senza successore: form del rinnovo
+  senza i dati del documento contrattuale, inizio il giorno dopo la fine, durata 12 mesi.
+- «Nuovo senza contratto» nell'elenco dei contratti e nella pagina del fabbisogno.
+- Etichetta «senza contratto» in elenchi, cruscotto, pagina del contratto, budget (anche PDF
+  ed export).
+- Tolte le scorciatoie della spesa di F9.5.3 (v1.5.2), sostituite da quelle qui sopra.

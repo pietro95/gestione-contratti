@@ -1,4 +1,4 @@
-"""F9.5.3: la migration che toglie la spesa ricorrente ne conserva i dati nelle note."""
+"""F9.5.5: la migration che toglie la spesa ricorrente ne conserva i dati nelle note."""
 
 import datetime
 from decimal import Decimal
@@ -41,7 +41,7 @@ def test_spesa_ricorrente_conservata_nelle_note():
     apps = executor.loader.project_state(DOPO).apps
     Fabbisogno = apps.get_model("contratti", "Fabbisogno")
     assert Fabbisogno.objects.get(pk=f.pk).note == (
-        "Nota esistente.\n\nSpesa ricorrente senza contratto (rimossa in F9.5.3): fornitore "
+        "Nota esistente.\n\nSpesa ricorrente senza contratto (rimossa in F9.5.5): fornitore "
         "Registrar di prova, 25.00 € annuale, prima spesa 15/03/2025"
     )
     assert Fabbisogno.objects.get(pk=altro.pk).note == ""

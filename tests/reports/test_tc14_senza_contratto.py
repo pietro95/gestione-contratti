@@ -1,4 +1,4 @@
-"""TC-14 (F9.5.3): rinnovo senza contratto, anello della catena come un contratto."""
+"""TC-14 (F9.5.5): rinnovo senza contratto, anello della catena come un contratto."""
 
 import datetime
 from decimal import Decimal

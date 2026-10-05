@@ -4,7 +4,7 @@ from django.db import migrations, models
 
 
 def conserva_spese_nelle_note(apps, schema_editor):
-    """La spesa ricorrente sul fabbisogno sparisce (F9.5.3): i suoi dati restano nelle note.
+    """La spesa ricorrente sul fabbisogno sparisce (F9.5.5): i suoi dati restano nelle note.
 
     Nessuna cancellazione fisica di dati di dominio: chi l'aveva usata ritrova importo,
     periodicità e date e può registrare il periodo come contratto «senza contratto».
@@ -17,7 +17,7 @@ def conserva_spese_nelle_note(apps, schema_editor):
             f"prima spesa {f.spesa_dal:%d/%m/%Y}" if f.spesa_dal else "",
             f"fino al {f.spesa_al:%d/%m/%Y}" if f.spesa_al else "",
         ]
-        nota = "Spesa ricorrente senza contratto (rimossa in F9.5.3): " + ", ".join(
+        nota = "Spesa ricorrente senza contratto (rimossa in F9.5.5): " + ", ".join(
             p for p in parti if p
         )
         f.note = f"{f.note}\n\n{nota}".strip()

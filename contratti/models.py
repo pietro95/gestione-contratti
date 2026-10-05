@@ -550,7 +550,7 @@ class Contratto(Archiviabile):
     )
     fornitore = models.ForeignKey(Fornitore, on_delete=models.PROTECT, related_name="contratti")
     descrizione = models.CharField(max_length=250, blank=True)
-    # F9.5.3: acquisto rinnovato senza documento contrattuale (es. fattura diretta). È un
+    # F9.5.5: acquisto rinnovato senza documento contrattuale (es. fattura diretta). È un
     # anello della catena come un contratto: stesse scadenze, alert, pratica e previsti; solo
     # fuori dal piano ordini (SPEC §5.6).
     senza_contratto = models.BooleanField(
