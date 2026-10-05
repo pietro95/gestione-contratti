@@ -344,7 +344,10 @@ Si carica dall'app, solo come Admin: menu "Import" → "Struttura ICTDINN".
    - `WBS_SU_OPEX`: voci OPEX con una WBS a testo, da correggere a mano.
 4. Effetti:
    - dal primo responsabile caricato, ogni Editor modifica solo i fabbisogni dei suoi
-     cluster (o di tutti con `TUTTI`). Prima del caricamento gli Editor modificano tutto;
+     cluster (o di tutti con `TUTTI`), anche se in seguito le assegnazioni si archiviano.
+     Prima del caricamento gli Editor modificano tutto;
+   - dopo il caricamento ogni conto deve avere un cluster: le voci non accettano conti senza
+     cluster (il report li elenca come `CONTO_SENZA_CLUSTER`);
    - un responsabile tolto dal foglio perde le assegnazioni, che restano archiviate. Se il
      foglio Responsabili è vuoto, le assegnazioni non cambiano;
    - le assegnazioni si correggono anche in "Amministrazione" → "Assegnazioni di cluster".

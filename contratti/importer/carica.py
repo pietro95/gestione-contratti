@@ -99,6 +99,8 @@ class _Caricamento:
         self.categoria = m.Categoria.objects.get(nome="Da classificare")
         conti = m.ContoCoge.objects.select_related("cluster").order_by("valido_dal")
         self.conti = {c.codice: c for c in conti}
+        # Struttura caricata: un conto senza cluster va completato (SPEC §4).
+        self.conti_con_cluster = any(c.cluster_id for c in self.conti.values())
         self.fornitori = {chiave_nome(f.ragione_sociale): f for f in m.Fornitore.objects.all()}
         self.creati_ora: set[str] = set()
         self._wbs: m.WBS | None = None  # WBS del contratto in corso di creazione
@@ -273,6 +275,11 @@ class _Caricamento:
                 r.foglio, r.numero, "CONTO_ALTRO_CLUSTER", "conto", r.conto,
                 f"Il conto è del cluster {conto.cluster.codice}, non di {self.cluster.codice}: "
                 "verifica il cluster del contratto o il conto.",
+            )  # fmt: skip
+        elif conto is not None and conto.cluster_id is None and self.conti_con_cluster:
+            self.report.anomalia(
+                r.foglio, r.numero, "CONTO_SENZA_CLUSTER", "conto", r.conto,
+                "Il conto non ha un cluster: completalo con l'import della struttura.",
             )  # fmt: skip
         voce = m.VoceContratto.objects.create(
             contratto=contratto,

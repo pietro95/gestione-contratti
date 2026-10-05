@@ -404,11 +404,20 @@ class VoceForm(ModelFormBootstrap):
         dati = super().clean()
         natura = dati.get("natura") or m.Natura.OPEX
         verifica_natura_wbs(self, natura, "wbs", self.cluster)
+        con_cluster = permessi.conti_per_cluster()
         for campo in ("conto", "conto_rinnovi"):
             conto = dati.get(campo)
-            if conto and conto.cluster_id and self.cluster and conto.cluster_id != self.cluster.pk:
+            if conto is None:
+                continue
+            if conto.cluster_id and self.cluster and conto.cluster_id != self.cluster.pk:
                 self.add_error(
                     campo, f"Il conto {conto.codice} è del cluster {conto.cluster.codice}."
+                )
+            elif conto.cluster_id is None and con_cluster:
+                self.add_error(
+                    campo,
+                    f"Il conto {conto.codice} non ha un cluster: completalo con l'import "
+                    "della struttura o in amministrazione.",
                 )
         rinnovi = dati.get("natura_rinnovi") or natura
         wbs_rinnovi = dati.get("wbs_rinnovi")

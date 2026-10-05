@@ -1,5 +1,6 @@
 """Admin come strumento di back-office. Nessuna cancellazione fisica: si archivia."""
 
+from django import forms
 from django.contrib import admin, messages
 from simple_history.admin import SimpleHistoryAdmin
 
@@ -105,8 +106,21 @@ class WBSAdmin(ArchiviabileAdmin):
     autocomplete_fields = ("cluster",)
 
 
+class ContoCogeForm(forms.ModelForm):
+    """Ogni conto appartiene a un cluster (SPEC §4): obbligatorio in amministrazione."""
+
+    class Meta:
+        model = m.ContoCoge
+        fields = ["codice", "descrizione", "cluster", "valido_dal", "valido_al", "sostituito_da"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["cluster"].required = True
+
+
 @admin.register(m.ContoCoge)
 class ContoCogeAdmin(BaseAdmin):
+    form = ContoCogeForm
     list_display = ("codice", "descrizione", "cluster", "valido_dal", "valido_al", "sostituito_da")
     list_filter = ("cluster",)
     search_fields = ("codice", "descrizione")
