@@ -189,11 +189,11 @@ jobs:
           ritorno=http://127.0.0.1:8765/callback
           parametri="client_id=$client_id&response_type=code&redirect_uri=$ritorno&scope=registro.lettura&state=ci&code_challenge=$challenge&code_challenge_method=S256"
           url_aut="https://$HOST_APP/oauth/authorize/?$parametri"
-          $ci "$url_aut" | grep -q "Collega il connettore MCP"
+          $ci "$url_aut" | grep "Collega il connettore MCP" >/dev/null
           csrf=$(awk '$6 == "csrftoken" {print $7}' /tmp/cj)
           location=$($ci -o /dev/null -w '%{redirect_url}' -H "Referer: $url_aut" \
             --data "csrfmiddlewaretoken=$csrf&$parametri&allow=Autorizza" "$url_aut")
-          echo "$location" | grep -q "^$ritorno?"
+          [[ "$location" == "$ritorno?"* ]]
           code=$(python3 -c "import sys,urllib.parse as u; print(u.parse_qs(u.urlparse(sys.argv[1]).query)['code'][0])" "$location")
           $cm --data "grant_type=authorization_code&code=$code&redirect_uri=$ritorno&client_id=$client_id&code_verifier=$verifier" \
             "https://$HOST_MCP/oauth/token/" > /tmp/token.json

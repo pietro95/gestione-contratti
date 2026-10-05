@@ -446,8 +446,14 @@ anche senza contratto ogni rinnovo va gestito con scadenza e alert.
 
 ## F10 — Connettore MCP in sola lettura
 
-Rev00: da realizzare. Decisioni di Pietro del 05/10/2026 (SPEC Rev10, `docs/SPEC_MCP.md`
+Rev01: in corso. Decisioni di Pietro del 05/10/2026 (SPEC Rev10, `docs/SPEC_MCP.md`
 Rev03). Claude interroga il registro con gli stessi numeri dell'interfaccia.
+
+**Parte 1 (v1.7.0), realizzata**: OAuth con login interno, `/mcp`, container `mcp` con
+utente PostgreSQL limitato, registro e limite, tool `riferimenti`, `cerca`, `scadenze`,
+`crea_client_mcp`, `verifica_mcp.sh`, RUNBOOK §12. Serve alla prova D8 in produzione.
+**Parte 2, dopo la prova**: gli altri otto tool, pagina «Connettore MCP» dell'utente,
+limite di dimensione della risposta.
 
 - **Primo passo, prima del resto**: prova con claude.ai di un flusso OAuth con la pagina di
   autorizzazione sull'host interno e i metadati e il token endpoint sull'host pubblico
