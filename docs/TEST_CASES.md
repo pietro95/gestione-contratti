@@ -2,7 +2,7 @@
 
 Ogni caso descrive: input, output atteso, regola della SPEC che verifica.
 
-Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (scritto da Claude su richiesta di Pietro del 02/10/2026).
+Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (scritto da Claude su richiesta di Pietro del 02/10/2026). F9.4: aggiunto TC-13 (scritto da Claude su richiesta di Pietro del 05/10/2026).
 
 I valori sono stati calcolati a mano e verificati con uno script indipendente. **Se un test non passa, l'errore è nel codice, non nel caso.** Un caso si modifica solo con l'approvazione di Pietro e insieme a una nuova revisione della SPEC.
 
@@ -309,4 +309,56 @@ Regole:
 - si confluisce solo in un contratto dello stesso fabbisogno (prima si accorpa) che inizia dopo
   l'inizio del contratto confluito;
 - togliere il collegamento (M non più confluito in N) riporta M senza successore: 🔴.
+
+## TC-13 — Quota OPEX e quota CAPEX nello stesso contratto
+
+SPEC §4 (natura e WBS sulla voce), §5.2 (OPEX e CAPEX mai sommati, CAPEX per WBS), §5.3
+(classificazione dei previsti), §5.4 (previsto misto).
+
+Parametri: adeguamento 3%.
+
+Input:
+- fabbisogno «Piattaforma di virtualizzazione», cluster IT, decisione `Rinnovare`;
+- contratto C dal 01/01/2026, 12 mesi (fine 31/12/2026), senza data di emissione, con due voci:
+  - V1 «Supporto annuale»: OPEX, conto O, 6.000,00 € fissi, `Anticipata` annuale;
+  - V2 «Licenze perpetue»: CAPEX, WBS di cluster W (cluster IT), conto K, 10.000,00 € fissi,
+    `Una tantum`;
+- natura del contratto: `OPEX e CAPEX` (si ricava dalle voci).
+
+**Budget 2026** (contratto reale, livello fisso):
+
+| Sezione | Raggruppamento | Fatturato | Ordinato | Competenza |
+|---|---|---|---|---|
+| OPEX | conto O | 6.000,00 | 6.000,00 | 6.000,00 |
+| CAPEX | WBS W → conto K | 10.000,00 | 10.000,00 | 10.000,00 |
+
+Le due sezioni non si sommano: nessun totale di 16.000,00 compare nel budget.
+
+**Previsto P1** (01/01/2027–31/12/2027), due varianti:
+
+(a) senza classificazione dei rinnovi: ogni voce resta com'è.
+
+| Voce prevista | Natura | Conto / WBS | Importo |
+|---|---|---|---|
+| da V1 | OPEX | conto O | 6.180,00 |
+| da V2 | CAPEX | WBS W, conto K | 10.300,00 |
+
+- budget 2027, previsionale, fatturato: OPEX 6.180,00 (rata 01/01/2027); CAPEX 10.300,00
+  (rata 01/01/2027);
+- piano ordini 2027: una riga, natura `OPEX e CAPEX`, quote OPEX 6.180,00 e CAPEX 10.300,00;
+  totali per natura: OPEX 6.180,00, CAPEX 10.300,00; filtro CAPEX: la riga resta (è un unico
+  ordine) e il totale è solo CAPEX, 10.300,00.
+
+(b) V2 con «natura nei rinnovi» OPEX e «conto nei rinnovi» O2 (licenze rinnovate come
+abbonamento):
+
+| Voce prevista | Natura | Conto / WBS | Importo |
+|---|---|---|---|
+| da V1 | OPEX | conto O | 6.180,00 |
+| da V2 | OPEX | conto O2, nessuna WBS | 10.300,00 |
+
+- budget 2027, previsionale, fatturato: OPEX 16.480,00 (conto O 6.180,00, conto O2
+  10.300,00); CAPEX 0,00;
+- piano ordini 2027: una riga, natura `OPEX`, 16.480,00;
+- il contratto reale C resta `OPEX e CAPEX`: nel budget 2026 nulla cambia.
 
