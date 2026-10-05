@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404, render
 from contratti import models as m
 from contratti import permessi
 from contratti.engine.tipi import Livello
+from contratti.selettori import codici_cluster
 from contratti.views import oggi_richiesta
 from reports import pdf, xlsx
 from reports.budget import (
@@ -17,7 +18,7 @@ from reports.budget import (
     VISTE,
     calcola_budget,
 )
-from reports.export import budget_xlsx, descrivi_filtri, piano_xlsx
+from reports.export import budget_xlsx, descrivi_filtri, piano_xlsx, suffisso_cluster, voci_filtri
 from reports.forms import FiltriBudgetForm, FiltriPianoForm
 from reports.piano_ordini import calcola_piano
 from reports.wbs import elenco_wbs, spese_wbs
@@ -80,12 +81,15 @@ def budget(request):
     if request.GET.get("formato") == "pdf":
         natura = b.filtri.natura or "OPEX_CAPEX"
         titolo = f"Budget {b.filtri.anno}" + (f" · {b.filtri.natura}" if b.filtri.natura else "")
+        codici = codici_cluster(b.filtri.area)
         contesto |= {
             "titolo": titolo,
             "filtri": descrivi_filtri(b),
+            "voci_filtri": voci_filtri(b),
+            "cluster": permessi.descrivi_filtro(codici),
             "dettaglio": bool(request.GET.get("dettaglio")),
         }
-        nome = f"{oggi:%Y.%m.%d}_Budget_{b.filtri.anno}_{natura}.pdf"
+        nome = f"{oggi:%Y.%m.%d}_Budget_{b.filtri.anno}_{natura}{suffisso_cluster(codici)}.pdf"
         return pdf.risposta("reports/pdf/budget.html", contesto, nome, request)
     return render(request, "reports/budget.html", contesto)
 
@@ -120,8 +124,14 @@ def piano_ordini(request):
         "livelli": LIVELLI,
     }
     if request.GET.get("formato") == "pdf":
-        contesto |= {"titolo": f"Piano ordini {piano.anno}", "filtri": form.descrizione()}
-        nome = f"{oggi:%Y.%m.%d}_Piano_ordini_{piano.anno}.pdf"
+        codici = form.codici_cluster()
+        contesto |= {
+            "titolo": f"Piano ordini {piano.anno}",
+            "filtri": form.descrizione(),
+            "voci_filtri": form.voci(),
+            "cluster": permessi.descrivi_filtro(codici),
+        }
+        nome = f"{oggi:%Y.%m.%d}_Piano_ordini_{piano.anno}{suffisso_cluster(codici)}.pdf"
         return pdf.risposta("reports/pdf/piano_ordini.html", contesto, nome, request)
     return render(request, "reports/piano_ordini.html", contesto)
 
@@ -138,7 +148,7 @@ def wbs_elenco(request):
         {
             "elenco": elenco_wbs(codici, tipo, archiviate=bool(g.get("archiviate"))),
             "aree": permessi.scelte_filtro(request.user),
-            "area_scelta": permessi.scelta_filtro(request.user, g.getlist("area")),
+            "area_scelte": permessi.selezione_filtro(request.user, g.getlist("area")),
             "tipi": m.WBS.Tipo.choices,
             "filtri": g,
         },

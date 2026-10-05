@@ -76,7 +76,7 @@ def _cluster_richiesti(request) -> list[str]:
 def _contesto_cluster(request) -> dict:
     return {
         "aree": permessi.scelte_filtro(request.user),
-        "area_scelta": permessi.scelta_filtro(request.user, request.GET.getlist("area")),
+        "area_scelte": permessi.selezione_filtro(request.user, request.GET.getlist("area")),
     }
 
 
