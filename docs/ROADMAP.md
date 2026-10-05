@@ -483,7 +483,13 @@ container `mcp` limitata ai quattro endpoint; prova in produzione da claude.ai e
 
 ## F10.1 — Scrittura dal connettore MCP
 
-Rev00: da realizzare dopo F10. Decisione di Pietro del 05/10/2026 (SPEC Rev12,
+Rev01: in corso. **Parte 1 (v1.9.0), realizzata**: infrastruttura (scope e consenso,
+anteprima in transazione annullata con modifiche ed effetti, conferma con versioni,
+idempotenza, interruttore, storia `MCP …`, privilegi PostgreSQL) e tool dei gruppi A, B, D,
+`archivia` e `ripristina`, con i test di equivalenza con l'interfaccia. **Parte 2**: gruppo C
+(nuovo contratto, modifica, rinnovo, proroga, voci) con TC-12 e TC-14 ricostruiti via MCP.
+
+Decisione di Pietro del 05/10/2026 (SPEC Rev12,
 `docs/SPEC_MCP.md` Rev05 §8): perimetro gruppi A–E (D11), conferma nella chat (D12), nessun limite
 giornaliero (D13).
 

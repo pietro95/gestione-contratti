@@ -114,7 +114,12 @@ def endpoint(request):
         errore = protocollo._errore(None, protocollo.PARSE_ERROR, "JSON non valido.")
         return JsonResponse(errore, status=400)
 
-    ctx = Contesto(utente=utente, oggi=timezone.localdate(adesso))
+    ctx = Contesto(
+        utente=utente,
+        oggi=timezone.localdate(adesso),
+        scrittura=token.allow_scopes([settings.MCP_SCOPE_SCRITTURA]),
+        client_id=comuni["client_id"],
+    )
     try:
         risposta, esito = protocollo.gestisci(messaggio, ctx)
     except Exception:

@@ -196,3 +196,39 @@ def test_tool_con_link_dal_container_pubblico(mcp_post, utente_reader, crea_toke
         risultato = r.json()["result"]
         assert not risultato.get("isError"), (nome, risultato)
         assert risultato["structuredContent"]["link"].startswith("https://contratti.esempio.test/")
+
+
+def test_scrittura_via_http_solo_con_lo_scope(mcp_post, make_user, crea_token):
+    """Lo scope del token decide: senza «registro.scrittura» niente tool di scrittura."""
+    editor = make_user("redattore", role="Editor")
+    elenco = {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+
+    def nomi(token):
+        return {t["name"] for t in mcp_post(elenco, token=token).json()["result"]["tools"]}
+
+    solo_lettura = crea_token(editor)
+    con_scrittura = crea_token(editor, scope="registro.lettura registro.scrittura")
+    assert "crea_fornitore" not in nomi(solo_lettura)
+    assert {"crea_fornitore", "conferma_operazione"} <= nomi(con_scrittura)
+    r = mcp_post(chiama("crea_fornitore", {"ragione_sociale": "Via HTTP"}), token=solo_lettura)
+    assert r.json()["result"]["isError"] is True
+    anteprima = mcp_post(
+        chiama("crea_fornitore", {"ragione_sociale": "Via HTTP"}), token=con_scrittura
+    ).json()["result"]["structuredContent"]
+    esito = mcp_post(
+        chiama("conferma_operazione", {"id_operazione": anteprima["id_operazione"]}),
+        token=con_scrittura,
+    ).json()["result"]["structuredContent"]
+    assert esito["esito"] == "eseguita"
+    from contratti.models import Fornitore
+
+    assert Fornitore.objects.get(ragione_sociale="Via HTTP").history.get().history_user == editor
+    assert list(
+        RegistroChiamata.objects.filter(tool__in=["crea_fornitore", "conferma_operazione"])
+        .order_by("timestamp")
+        .values_list("tool", "esito")
+    ) == [
+        ("crea_fornitore", "errore_tool"),
+        ("crea_fornitore", "ok"),
+        ("conferma_operazione", "ok"),
+    ]

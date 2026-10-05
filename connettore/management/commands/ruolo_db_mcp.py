@@ -1,8 +1,11 @@
-"""Utente PostgreSQL del container ``mcp`` (SPEC_MCP §2.2, punto 5).
+"""Utente PostgreSQL del container ``mcp`` (SPEC_MCP §2.2 punto 5, §8.3).
 
 Legge utente e password da ``MCP_DATABASE_URL`` e li crea (o aggiorna la password), poi
-riassegna i privilegi da zero: ``SELECT`` su tutte le tabelle; scrittura solo sui token OAuth
-e sul registro delle chiamate. Una falla di lettura non diventa una falla di scrittura.
+riassegna i privilegi da zero: ``SELECT`` su tutte le tabelle; ``INSERT`` e ``UPDATE`` solo
+sulle tabelle di dominio che la scrittura dal connettore tocca (e sulle loro storie), sui
+token OAuth e sui registri del connettore; ``DELETE`` solo sulle rate (rigenerazione dello
+scadenzario) e sui token. Configurazione, utenti e sessioni restano in sola lettura: la
+regola «nessuna cancellazione fisica» è imposta anche dal database.
 Si esegue a ogni deploy, dopo le migration, così le tabelle nuove ricevono i privilegi.
 """
 
@@ -20,7 +23,34 @@ SCRITTURA = {
     ("oauth2_provider", "RefreshToken"): "INSERT, UPDATE, DELETE",
     ("oauth2_provider", "IDToken"): "INSERT, UPDATE, DELETE",
     ("connettore", "RegistroChiamata"): "INSERT",
+    ("connettore", "OperazioneMCP"): "INSERT, UPDATE",
 }
+# Dominio scritto dai tool del connettore (F10.1): con la storia di ciascuno.
+DOMINIO = {
+    "Fornitore": "INSERT, UPDATE",
+    "Fabbisogno": "INSERT, UPDATE",
+    "Contratto": "INSERT, UPDATE",
+    "OpzioneContratto": "INSERT, UPDATE",
+    "Proroga": "INSERT, UPDATE",
+    "VoceContratto": "INSERT, UPDATE",
+    "QuotaPeriodo": "INSERT, UPDATE",
+    "PianoFatturazione": "INSERT, UPDATE",
+    "Rata": "INSERT, UPDATE, DELETE",
+    "StatoPratica": "INSERT, UPDATE",
+}
+
+
+def privilegi() -> dict[str, str]:
+    """Tabella → privilegi di scrittura dell'utente del connettore."""
+    tabelle = {
+        apps.get_model(app_label, nome)._meta.db_table: priv
+        for (app_label, nome), priv in SCRITTURA.items()
+    }
+    for nome, priv in DOMINIO.items():
+        modello = apps.get_model("contratti", nome)
+        tabelle[modello._meta.db_table] = priv
+        tabelle[modello.history.model._meta.db_table] = "INSERT"
+    return tabelle
 
 
 def istruzioni(ruolo: str, password: str, esiste: bool, database: str) -> list[sql.Composable]:
@@ -36,20 +66,22 @@ def istruzioni(ruolo: str, password: str, esiste: bool, database: str) -> list[s
         sql.SQL("REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM {}").format(r),
         sql.SQL("GRANT SELECT ON ALL TABLES IN SCHEMA public TO {}").format(r),
     ]
-    for (app_label, nome), privilegi in SCRITTURA.items():
-        tabella = apps.get_model(app_label, nome)._meta.db_table
+    for tabella, priv in privilegi().items():
         passi.append(
-            sql.SQL("GRANT {} ON TABLE {} TO {}").format(
-                sql.SQL(privilegi), sql.Identifier(tabella), r
-            )
+            sql.SQL("GRANT {} ON TABLE {} TO {}").format(sql.SQL(priv), sql.Identifier(tabella), r)
         )
         passi.append(
             sql.SQL(
                 "SELECT format('GRANT USAGE ON SEQUENCE %s TO %I', "
-                "pg_get_serial_sequence({}, 'id'), {})"
-            ).format(sql.Literal(tabella), sql.Literal(ruolo))
+                "pg_get_serial_sequence({}, {}), {})"
+            ).format(sql.Literal(tabella), sql.Literal(_chiave(tabella)), sql.Literal(ruolo))
         )
     return passi
+
+
+def _chiave(tabella: str) -> str:
+    """Colonna con la sequenza: ``id``, o ``history_id`` per le tabelle di storia."""
+    return "history_id" if tabella.split("_", 1)[1].startswith("historical") else "id"
 
 
 class Command(BaseCommand):
@@ -81,4 +113,7 @@ class Command(BaseCommand):
                 if testo.startswith("SELECT format("):
                     cursor.execute(cursor.fetchone()[0])
         azione = "aggiornato" if esiste else "creato"
-        self.stdout.write(f"Utente PostgreSQL {ruolo} {azione}: lettura, scrittura solo sui token.")
+        self.stdout.write(
+            f"Utente PostgreSQL {ruolo} {azione}: lettura; scrittura solo su dominio del "
+            "connettore, token e registri; cancellazione solo di rate e token."
+        )
