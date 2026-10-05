@@ -1058,6 +1058,23 @@ def fabbisogni_elenco(request):
     )
 
 
+def _spesa_ricorrente(f: m.Fabbisogno, oggi: datetime.date) -> dict | None:
+    """Spesa senza contratto: prossime spese (calcolate) e promemoria (SPEC §5.6)."""
+    from contratti.engine import spese
+
+    s = adapters.spesa_ricorrente(f, oggi)
+    if s is None:
+        return None
+    colore, prossima = adapters.promemoria_spesa(f, oggi)
+    tutte = spese.occorrenze(s, datetime.date(oggi.year + 3, 12, 31))
+    return {
+        "alert": colore,
+        "prossima": prossima,
+        "prossime": [d for d in tutte if d >= oggi][:3],
+        "ultime": [d for d in tutte if d < oggi][-3:],
+    }
+
+
 @login_required
 def fabbisogno_dettaglio(request, pk):
     oggi = oggi_richiesta(request)
@@ -1074,6 +1091,7 @@ def fabbisogno_dettaglio(request, pk):
             "contratti": contratti,
             "previsti": [(p, sum((valore(v) for v in p.voci), Decimal("0.00"))) for p in previsti],
             "natura_previsti": adapters.natura_previsti(f, adapters.contratto_base_previsti(f)),
+            "spesa": _spesa_ricorrente(f, oggi),
             "doppioni": servizi.doppioni_del_fabbisogno(f),
             "collegamenti": [
                 (p, s, adapters.data_fine_effettiva(p))

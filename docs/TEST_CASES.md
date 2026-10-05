@@ -2,7 +2,7 @@
 
 Ogni caso descrive: input, output atteso, regola della SPEC che verifica.
 
-Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (scritto da Claude su richiesta di Pietro del 02/10/2026). F9.4: aggiunto TC-13 (scritto da Claude su richiesta di Pietro del 05/10/2026).
+Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (scritto da Claude su richiesta di Pietro del 02/10/2026). F9.4: aggiunto TC-13 (scritto da Claude su richiesta di Pietro del 05/10/2026). F9.5: aggiunto TC-14 (scritto da Claude su richiesta di Pietro del 05/10/2026, da approvare).
 
 I valori sono stati calcolati a mano e verificati con uno script indipendente. **Se un test non passa, l'errore è nel codice, non nel caso.** Un caso si modifica solo con l'approvazione di Pietro e insieme a una nuova revisione della SPEC.
 
@@ -362,3 +362,41 @@ abbonamento):
 - piano ordini 2027: una riga, natura `OPEX`, 16.480,00;
 - il contratto reale C resta `OPEX e CAPEX`: nel budget 2026 nulla cambia.
 
+## TC-14 — Spesa ricorrente senza contratto (dominio DNS)
+
+SPEC §4 (spesa ricorrente sul fabbisogno), §5.1 (promemoria), §5.4, §5.6.
+
+Parametri: finestra dell'alert giallo 3 mesi.
+
+Input: fabbisogno «Dominio di prova», decisione `Rinnovare`, nessun contratto, spesa senza
+contratto: 25,00 € annuali, prima spesa 15/03/2025.
+
+**Date delle spese**: 15/03/2025, 15/03/2026, 15/03/2027, … Variante mensile con prima spesa
+31/01/2026: 31/01, 28/02, 31/03, 30/04/2026 (fine mese resta fine mese).
+
+**Budget 2026** (consolidato, tutti i livelli uguali):
+
+| Vista | Importo | Da |
+|---|---|---|
+| Fatturato | 25,00 | spesa del 15/03/2026 |
+| Ordinato | 25,00 | spesa del 15/03/2026 |
+| Competenza | 25,00 | 5,00 (73/365 del periodo 15/03/2025–14/03/2026) + 20,00 (292/365 del periodo 15/03/2026–14/03/2027) |
+
+Competenza 2025: 20,00 (292/365). Nessun contratto previsto; il piano ordini è vuoto.
+
+**Promemoria** (prossima spesa 15/03/2027, inizio finestra 15/12/2026):
+
+| Oggi | Alert | Prossima spesa |
+|---|---|---|
+| 01/12/2026 | 🟢 | 15/03/2027 |
+| 20/12/2026 | 🟡 | 15/03/2027 |
+| 15/03/2027 | 🟡 | 15/03/2027 |
+| 16/03/2027 | 🟢 | 15/03/2028 |
+| 20/12/2026, decisione `Dismettere` | nessuno | — |
+
+**Spesa terminata** (valida fino al 31/12/2026): spese 15/03/2025 e 15/03/2026; al 01/01/2027
+nessun alert; fatturato 2027 0,00.
+
+**Spesa dismessa** (decisione `Dismettere`, senza data di fine): contano solo le spese prima di
+oggi. Al 01/12/2026: fatturato 2026 25,00 (spesa del 15/03/2026), fatturato 2027 0,00, nessun
+alert. Al 01/03/2026: fatturato 2026 0,00.

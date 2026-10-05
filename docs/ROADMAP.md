@@ -361,3 +361,17 @@ Rev00: richiesta di Pietro del 05/10/2026.
     segnala (`CONTO_SENZA_CLUSTER`); l'import del piano dei conti legge la colonna `cluster`.
 - **TC-13**: natura per voce (contratto con una voce OPEX e una CAPEX).
 
+## F9.5 — Stampa dei report e spese senza contratto
+
+Rev00: richiesta di Pietro del 05/10/2026. Caso numerico: TC-14.
+
+- **Stampa**: A4 orizzontale; dimensioni di base sull'elemento `html` (Bootstrap usa i rem);
+  tabelle a tutta pagina, testo a capo, nessuna colonna tagliata; intestazioni ripetute su ogni
+  pagina, totali una volta sola in fondo; titoli non separati dalla tabella. Test nel browser
+  con il media di stampa.
+- **Spesa ricorrente senza contratto** sul fabbisogno (SPEC §5.6): fornitore, importo,
+  periodicità, prima spesa e fine facoltativa.
+  - entra nel budget come consolidato, nelle tre viste, filtrabile per fornitore;
+  - solo promemoria 🟡 nel cruscotto, prima della prossima spesa;
+  - fuori dal piano ordini, nessun contratto previsto;
+  - scheda del fabbisogno con prossime e ultime spese.

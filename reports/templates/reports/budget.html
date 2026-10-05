@@ -77,7 +77,7 @@
         <tbody>
         {% for v, importi in g.voci %}
           <tr>
-            <td class="text-start">{% if v.previsionale %}<span class="stato stato-blu">previsto {{ v.numero_previsto }}</span>{% else %}<span class="stato stato-verde">contratto</span>{% endif %}</td>
+            <td class="text-start">{% if v.previsionale %}<span class="stato stato-blu">previsto {{ v.numero_previsto }}</span>{% elif v.spesa_ricorrente %}<span class="stato stato-grigio">spesa senza contratto</span>{% else %}<span class="stato stato-verde">contratto</span>{% endif %}</td>
             <td class="text-start">{% if v.contratto and not v.previsionale %}<a href="{% url 'contratti:contratto' v.contratto.pk %}">{{ v.fabbisogno.descrizione }}</a>{% else %}<a href="{% url 'contratti:fabbisogno' v.fabbisogno.pk %}">{{ v.fabbisogno.descrizione }}</a>{% endif %} — {{ v.descrizione }}</td>
             <td class="text-start text-nowrap">{{ v.inizio|date:"d/m/Y" }} – {{ v.fine|date:"d/m/Y" }}</td>
             {% for i in importi %}<td>{{ i|euro }}</td>{% endfor %}

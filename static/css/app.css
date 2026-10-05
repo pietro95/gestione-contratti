@@ -191,6 +191,8 @@ th a.ordina .bi { font-size: .75rem; opacity: .7; }
 .pagination { margin: 0; }
 
 .vuoto { text-align: center; padding: 2.5rem 1rem; color: var(--sa-testo-2); }
+/* Link dentro un testo: sottolineati, non solo colorati (WCAG 1.4.1, axe link-in-text-block). */
+.vuoto a, .list-group-item a { text-decoration: underline; text-underline-offset: 2px; }
 .vuoto .bi { font-size: 2rem; color: #9fb0c2; display: block; margin-bottom: .5rem; }
 
 /* --- Filtri --------------------------------------------------------------------------- */

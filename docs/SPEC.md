@@ -1,6 +1,6 @@
 # Istruzioni di progetto — Registro contratti ICTDINN
 
-Rev06 — 05/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
+Rev07 — 05/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
@@ -10,6 +10,7 @@ Storico revisioni:
 - Rev04 (01/10/2026): quote per periodo sulla voce (§4, §5.2, §5.3): importi fissi diversi per sotto-periodi, tipicamente annuali, facoltativi. Nuovo caso TC-11.
 - Rev05 (01/10/2026): nuovo stato pratica `RDA richiesta` (§4); regole di dettaglio dell'import Excel (§7): mappatura di colonne e stati, contratti finanziati e dissalatori, valori di attesa per i dati mancanti, proposte da confermare.
 - Rev06 (05/10/2026): allineamento alle fasi F8–F9.3, già in produzione. Ufficio ICTDINN con i cluster al posto dell'area (§1, §4); numero e data di emissione del contratto al posto dell'OdA (§4); natura, conto e WBS sulla voce, WBS di cluster e a progetto (§4); un contratto può rinnovare più contratti (§4, §5.1, §5.3, TC-12); fatturato come riferimento del budget, OPEX e CAPEX mai sommati, CAPEX per WBS (§5.2); Spese per WBS (§5.5); import dall'interfaccia, incrementale, struttura dell'ufficio (§7); permessi e visibilità per cluster (§8.1); decisioni aperte aggiornate (§9).
+- Rev07 (05/10/2026): spese ricorrenti senza contratto sul fabbisogno (§4, §5.6, TC-14), per gli acquisti piccoli e periodici pagati con fattura diretta (es. dominio DNS): entrano nel budget, hanno solo un promemoria 🟡 (§5.1) e restano fuori dal piano ordini (§5.4).
 
 ## 1. Obiettivo
 
@@ -73,6 +74,7 @@ Struttura: una riga per ogni istanza contrattuale (ogni rinnovo = nuova riga), f
 - decisione di continuità: `Rinnovare` / `Da valutare` / `Sostituire` / `Dismettere`;
 - stima del prossimo importo e note;
 - **previsto manuale** (solo per un fabbisogno nuovo, senza contratti): data di avvio prevista, durata, procedura presunta, modalità e periodicità di fatturazione previste, natura, conto e WBS previsti. Sono dati decisi e si salvano; il contratto previsto che ne deriva si calcola (§5.3). Avvio e durata vanno indicati insieme; CAPEX ⇔ WBS come sulla voce.
+- **spesa ricorrente senza contratto** (facoltativa, solo per un fabbisogno senza contratti attivi): fornitore, importo per periodo, periodicità (mensile … annuale), data della prima spesa e, se la spesa è terminata, data fino alla quale vale. Importo, periodicità e prima spesa sono obbligatori insieme; esclude il previsto manuale. Natura, conto e WBS sono quelli del previsto manuale. Le spese dei singoli periodi si calcolano (§5.6).
 
 **Contratto** (istanza):
 - chiave: fabbisogno, contratto predecessore (dello stesso fabbisogno);
@@ -161,6 +163,8 @@ Nessun dato di dominio si cancella fisicamente: si archivia, e la storia delle m
 
   I casi di verifica sono in `docs/TEST_CASES.md`, TC-06.
 
+- Una **spesa ricorrente senza contratto** ha solo un promemoria: 🟡 da (prossima spesa − finestra parametrica) fino al giorno della spesa compreso, altrimenti 🟢; mai 🟠 o 🔴. Nessun alert se la decisione è `Dismettere` o la spesa è terminata (§5.6, TC-14).
+
 ### 5.2 Tre viste di budget (tutte per anno, cluster, conto, WBS, fornitore)
 
 | Vista | Domanda a cui risponde | Regola |
@@ -214,6 +218,8 @@ Report annuale "Piano ordini anno X". Una riga per ogni contratto previsto o da 
 
 Di default il piano mostra i propri cluster (§8.1).
 
+Le spese ricorrenti senza contratto non entrano nel piano ordini: non c'è un ordine da emettere (§5.6).
+
 Include un avviso quando più fabbisogni della stessa categoria o dello stesso fornitore, sommati, superano una soglia. Serve a valutare l'accorpamento ed evitare il frazionamento. L'applicabilità concreta delle soglie per Siciliacque (settori speciali) va confermata con Procurement/Legale.
 
 Export in XLSX, oltre al PDF quando serve da allegare.
@@ -221,6 +227,18 @@ Export in XLSX, oltre al PDF quando serve da allegare.
 ### 5.5 Spese per WBS
 
 Per una WBS, di cluster o a progetto: i contratti con voci sulla WBS e gli importi anno per anno, nella vista (fatturato, ordinato, competenza) e al livello scelti. Solo contratti registrati, niente previsti: è la spesa sostenuta o impegnata sulla WBS, anche fuori dai budget dei cluster. Export in XLSX. Di default l'elenco mostra le WBS dei propri cluster e tutte le WBS a progetto.
+
+### 5.6 Spese ricorrenti senza contratto
+
+Un fabbisogno può essere soddisfatto senza contratto, con una fattura diretta a ogni periodo (tipicamente importi piccoli, es. il rinnovo annuale di un dominio DNS). Sul fabbisogno si indicano fornitore, importo, periodicità e prima spesa (§4).
+- **Date delle spese**: prima spesa + k × periodicità (k = 0, 1, …), sempre contate dalla prima spesa con l'aritmetica dei mesi di §5.1, così non scivolano (31/01 mensile → 28/02, 31/03, 30/04). Si fermano alla data di fine, se indicata.
+- Ogni spesa è una voce `Una tantum` fatturata il giorno della spesa, con periodo di servizio fino al giorno prima della spesa successiva:
+  - **fatturato**: l'importo nell'anno della spesa;
+  - **ordinato**: l'importo nell'anno della spesa;
+  - **competenza**: pro-rata a giorni sul periodo di servizio.
+- Entrano nel budget come dato **consolidato** (non previsionale), con cluster, fornitore e la classificazione del fabbisogno; non generano contratti previsti.
+- Alert: solo promemoria 🟡 (§5.1). Fuori dal piano ordini (§5.4).
+- Con decisione `Dismettere` la spesa si ferma: contano solo le spese prima di oggi, che restano nel budget. Con la data di fine contano le spese fino a quella data.
 
 ## 6. Perimetro funzionale
 
@@ -326,6 +344,7 @@ Import dall'interfaccia (Gestione → Import), con lo stesso codice dei comandi 
 - **Anno di imputazione dell'impegno per i contratti previsti**: il default è l'anno di inizio del servizio. Da confermare con il Procurement se preferisce l'anno della data limite di avvio.
 - **IVA**: gli importi sono sempre imponibile. Da verificare se il Procurement vuole anche l'IVA nel piano ordini.
 - **Mappatura dei gruppi AD e account di servizio**: da creare sul dominio.
+- **Spese ricorrenti nel budget**: entrano come consolidato (proposta di Claude, F9.5). Le spese degli anni futuri sono in realtà una stima: da confermare se vanno mostrate come previsionale.
 
 ## 10. Regole di lavoro per Claude in questo progetto
 

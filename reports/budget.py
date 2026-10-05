@@ -13,7 +13,7 @@ from decimal import Decimal
 
 from contratti import adapters
 from contratti import models as m
-from contratti.engine import budget
+from contratti.engine import budget, spese
 from contratti.engine.importi import ZERO
 from contratti.engine.tipi import Esito, Livello, Voce
 from contratti.selettori import codici_cluster
@@ -97,6 +97,8 @@ class VoceBudget:
     classe: adapters.Classificazione = field(
         default_factory=lambda: adapters.Classificazione(m.Natura.OPEX, None, None)
     )
+    # Spesa ricorrente senza contratto (F9.5): nessun contratto, il fornitore è sul fabbisogno.
+    spesa_ricorrente: bool = False
 
     @property
     def area(self) -> str:
@@ -116,6 +118,8 @@ class VoceBudget:
 
     @property
     def fornitore(self) -> m.Fornitore | None:
+        if self.spesa_ricorrente:
+            return self.fabbisogno.spesa_fornitore
         return self.contratto.fornitore if self.contratto else None
 
     @property
@@ -284,6 +288,8 @@ def _calcola_budget(filtri: Filtri, oggi: datetime.date) -> Budget:
             )
             voci.append(vb)
 
+    voci += _voci_spese(filtri, oggi)
+
     rinnovi_mancanti: list[RinnovoMancante] = []
     if filtri.previsionali:
         voci_prev, rinnovi_mancanti = _voci_previste(filtri, oggi)
@@ -293,6 +299,43 @@ def _calcola_budget(filtri: Filtri, oggi: datetime.date) -> Budget:
         for e in vb.esiti:
             avvisi[e.messaggio].append(f"{vb.fabbisogno} — {vb.descrizione}")
     return Budget(filtri, oggi, voci, rinnovi_mancanti, dict(avvisi), senza_data)
+
+
+def _voci_spese(filtri: Filtri, oggi: datetime.date) -> list[VoceBudget]:
+    """Spese ricorrenti senza contratto (SPEC §5.6): consolidate, una voce per spesa."""
+    fabbisogni = m.Fabbisogno.objects.filter(archiviato=False, senza_contratto=True).select_related(
+        "cluster", "spesa_fornitore", "conto_previsti", "wbs_previsti"
+    )
+    if codici := codici_cluster(filtri.area):
+        fabbisogni = fabbisogni.filter(cluster__codice__in=codici)
+    if filtri.fornitore:
+        fabbisogni = fabbisogni.filter(spesa_fornitore_id=filtri.fornitore)
+    fine_anno = datetime.date(filtri.anno, 12, 31)
+    voci: list[VoceBudget] = []
+    for f in fabbisogni.order_by("pk"):
+        classe = adapters.classificazione_prevista(f, None)
+        if not filtri.ammette(classe):
+            continue
+        for ve in spese.voci(adapters.spesa_ricorrente(f, oggi), fine_anno):
+            importi, esiti = importi_anno(ve, filtri.anno)
+            if not _non_nulla(importi):
+                continue
+            voci.append(
+                VoceBudget(
+                    previsionale=False,
+                    fabbisogno=f,
+                    contratto=None,
+                    voce=None,
+                    descrizione=f"Spesa del {ve.inizio:%d/%m/%Y}",
+                    inizio=ve.inizio,
+                    fine=ve.fine,
+                    importi=importi,
+                    esiti=esiti,
+                    classe=classe,
+                    spesa_ricorrente=True,
+                )
+            )
+    return voci
 
 
 def _voci_previste(filtri: Filtri, oggi: datetime.date):
