@@ -384,3 +384,18 @@ Rev00: realizzata (v1.5.1). Richiesta di Pietro del 05/10/2026. Caso numerico: T
   finiscono prima della prima spesa; prima andava creato un fabbisogno nuovo.
 - La spesa fa da successore dell'ultimo contratto: niente alert, niente previsti; il
   contratto resta nello storico e nel budget dei suoi anni. Nota sulla pagina del contratto.
+
+## F9.5.2 — PDF dei report generati dal server
+
+Rev00: realizzata (v1.5.1). Richiesta di Pietro del 05/10/2026: la stampa dal browser usciva
+in A4 verticale con la pagina ruotata e parti mancanti (dialogo di stampa di macOS, che ignora
+`@page`).
+
+- «Scarica PDF» su budget, piano ordini e spese per WBS al posto di «Stampa / PDF»: il PDF lo
+  genera il server con WeasyPrint, uguale su ogni browser e sistema operativo.
+- A4 orizzontale; intestazione con logo, titolo e numero di pagina su ogni pagina; piede con i
+  filtri, data e utente; intestazioni delle colonne ripetute, totali una volta sola.
+- Budget: OPEX e CAPEX su pagine separate; «PDF con il dettaglio delle voci» a richiesta.
+- Template dedicati (`reports/templates/reports/pdf/`, `static/css/pdf.css`), senza Bootstrap;
+  solo file locali di `static/` (nessuna risorsa esterna). Logo in PNG per il PDF.
+- La stampa dal browser (Ctrl+P) resta, con il CSS di stampa di F9.5.

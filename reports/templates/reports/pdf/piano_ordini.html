@@ -1,0 +1,46 @@
+{% extends "reports/pdf/base.html" %}
+{% load registro %}
+{% block sottotitolo %}Al {{ oggi|date:"d/m/Y" }} · contratti previsti con avvio del servizio nell'anno · importi imponibili sull'intera durata{% endblock %}
+{% block contenuto %}
+<table class="kpi"><tr>
+  <td><div class="etichetta">Ordini da emettere</div><div class="valore">{{ piano.righe|length }}</div><div class="nota">contratti previsti nell'anno</div></td>
+  {% for natura, totali in per_natura.items %}
+  <td><div class="etichetta">{{ natura }} · valore probabile</div><div class="valore">{{ totali.probabile|euro }}</div><div class="nota">fisso {{ totali.fisso|euro }} · massimo {{ totali.massimo|euro }}</div></td>
+  {% endfor %}
+  <td><div class="etichetta">Possibile frazionamento</div><div class="valore">{{ piano.avvisi|length }}</div><div class="nota">{% for s in piano.soglie %}soglia {{ s.importo|euro }}{% if s.provvisorio %} (provvisoria){% endif %}{% endfor %}</div></td>
+</tr></table>
+
+{% if piano.avvisi %}
+<div class="avvisi">
+  <p><b>Possibile frazionamento</b>: gruppi di previsti che, sommati al livello massimo, raggiungono la soglia. Valutare l'accorpamento.</p>
+  <ul>{% for a in piano.avvisi %}<li>{{ a.tipo|capfirst }} <b>{{ a.nome }}</b>: {{ a.righe|length }} previsti, totale {{ a.totale_massimo|euro }} ≥ {{ a.soglia.importo|euro }} ({% for r in a.righe %}{{ r.fabbisogno.descrizione }}{% if not forloop.last %}; {% endif %}{% endfor %})</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<table class="dati" id="piano">
+  <thead>
+    <tr><th class="sx">Fabbisogno</th><th class="sx">Fornitore uscente</th><th class="sx">Procedura</th><th>Data limite</th><th>Avvio</th><th>Durata</th><th class="sx">Pratica</th>{% for liv in livelli %}<th class="num">{{ liv.value|capfirst }}</th>{% endfor %}</tr>
+  </thead>
+  <tbody>
+  {% for r in piano.righe %}
+    <tr>
+      <td class="sx"><b>{{ r.fabbisogno.descrizione }}</b><div class="tenue">{{ r.natura }}{% if r.a_progetto %} · WBS a progetto{% endif %} · {{ r.fabbisogno.area }} · {{ r.categoria }}{% if not r.contratto_uscente %} · nuovo{% endif %}{% if r.sopra_soglia %} · oltre soglia{% endif %}</div></td>
+      <td class="sx">{{ r.fornitore_uscente|default:"—" }}</td>
+      <td class="sx">{{ r.procedura|default:"—" }}<div class="tenue">{{ r.lead_time_mesi }} mesi di lead time</div></td>
+      <td class="num">{{ r.data_limite|date:"d/m/Y" }}</td>
+      <td class="num">{{ r.avvio|date:"d/m/Y" }}</td>
+      <td class="num">{{ r.durata_mesi }} mesi</td>
+      <td class="sx">{{ r.stato_pratica_label }}</td>
+      <td class="num">{{ r.importi.fisso|euro }}</td>
+      <td class="num">{{ r.importi.probabile|euro }}</td>
+      <td class="num">{{ r.importi.massimo|euro }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="10" class="vuoto">Nessun contratto previsto con avvio nell'anno.</td></tr>
+  {% endfor %}
+  {% for natura, totali in per_natura.items %}
+    <tr class="totale"><td class="sx" colspan="7">Totale {{ natura }}</td><td class="num">{{ totali.fisso|euro }}</td><td class="num">{{ totali.probabile|euro }}</td><td class="num">{{ totali.massimo|euro }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

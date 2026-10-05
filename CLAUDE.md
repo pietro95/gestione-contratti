@@ -19,6 +19,7 @@ Se la SPEC è ambigua o in conflitto con la richiesta, fermati e chiedi. Non sce
 - Interfaccia (F7): Bootstrap Icons, Tom Select (tendine con ricerca), flatpickr (calendario), font Maven Pro; tema in `static/css/app.css`, comportamenti in `static/js/app.js`. Identità: `static/img/logo/`, `docs/design/`.
 - File statici serviti dall'app con `whitenoise` (dietro Nginx Proxy Manager), raccolti nell'immagine Docker.
 - `django-auth-ldap` (Active Directory), `django-simple-history`, `openpyxl`, `django-environ`.
+- PDF dei report: `weasyprint` (richiede Pango nell'immagine Docker), template in `reports/templates/reports/pdf/`.
 - Test: `pytest`, `pytest-django`, `playwright` (test nel browser in `tests/e2e`, con axe-core per l'accessibilità). Lint e format: `ruff`. Dipendenze con `uv`, lock file `uv.lock` versionato.
 - Produzione: Docker Compose (gunicorn + postgres + backup) sul server Docker aziendale, tutto in `/appdata/gestione-contratti`, dietro il Nginx Proxy Manager esistente. Deploy manuale con `deploy/deploy.sh <tag>` (`docs/RUNBOOK.md`).
 

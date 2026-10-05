@@ -15,6 +15,7 @@ dependencies = [
     "python-dateutil>=2.9,<3",
     "openpyxl>=3.1,<4",
     "whitenoise>=6.9,<7",
+    "weasyprint>=66,<67",
 ]
 
 [dependency-groups]

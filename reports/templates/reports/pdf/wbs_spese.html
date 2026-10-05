@@ -1,0 +1,20 @@
+{% extends "reports/pdf/base.html" %}
+{% load registro %}
+{% block sottotitolo %}{{ s.wbs.descrizione }} · {{ s.wbs.get_tipo_display }}{% if s.wbs.cluster %} · cluster {{ s.wbs.cluster.codice }}{% endif %} · solo contratti registrati, importi imponibili{% endblock %}
+{% block contenuto %}
+<table class="kpi"><tr>
+  <td><div class="etichetta">Voci sulla WBS</div><div class="valore">{{ s.righe|length }}</div></td>
+  <td><div class="etichetta">Totale {{ s.livello.value }}</div><div class="valore">{{ s.totale|euro }}</div><div class="nota">tutti gli anni</div></td>
+  <td class="vuota"></td>
+</tr></table>
+{% for e in s.esclusi %}<div class="avvisi">{{ e }}: senza data di inizio, escluso.</div>{% endfor %}
+<table class="dati" id="wbs-spese">
+  <thead><tr><th class="sx">Contratto — voce</th><th class="sx">Conto</th><th class="sx">Servizio</th>{% for a in anni %}<th class="num">{{ a|stringformat:"d" }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for r, celle in righe %}
+    <tr><td class="sx">{{ r.contratto.fabbisogno.descrizione }} <span class="tenue">{{ r.contratto.numero_contratto|default:r.contratto.fornitore }}</span> — {{ r.voce.descrizione }}</td><td class="sx">{{ r.voce.conto.codice|default:"—" }}</td><td class="sx" style="white-space: nowrap">{{ r.inizio|date:"d/m/Y" }} – {{ r.fine|date:"d/m/Y" }}</td>{% for c in celle %}<td class="num">{% if c %}{{ c|euro }}{% else %}—{% endif %}</td>{% endfor %}</tr>
+  {% empty %}<tr><td colspan="3" class="vuoto">Nessun contratto su questa WBS.</td></tr>{% endfor %}
+  {% if righe %}<tr class="totale"><td class="sx" colspan="3">Totale</td>{% for t in totali %}<td class="num">{{ t|euro }}</td>{% endfor %}</tr>{% endif %}
+  </tbody>
+</table>
+{% endblock %}

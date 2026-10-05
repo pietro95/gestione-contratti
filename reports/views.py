@@ -7,7 +7,7 @@ from contratti import models as m
 from contratti import permessi
 from contratti.engine.tipi import Livello
 from contratti.views import oggi_richiesta
-from reports import xlsx
+from reports import pdf, xlsx
 from reports.budget import (
     ETICHETTE_VISTE,
     LIVELLI,
@@ -17,7 +17,7 @@ from reports.budget import (
     VISTE,
     calcola_budget,
 )
-from reports.export import budget_xlsx, piano_xlsx
+from reports.export import budget_xlsx, descrivi_filtri, piano_xlsx
 from reports.forms import FiltriBudgetForm, FiltriPianoForm
 from reports.piano_ordini import calcola_piano
 from reports.wbs import elenco_wbs, spese_wbs
@@ -77,6 +77,16 @@ def budget(request):
         "n_avvisi": len(b.rinnovi_mancanti) + len(b.avvisi) + (1 if b.senza_data else 0),
         "livello": livello,
     }
+    if request.GET.get("formato") == "pdf":
+        natura = b.filtri.natura or "OPEX_CAPEX"
+        titolo = f"Budget {b.filtri.anno}" + (f" · {b.filtri.natura}" if b.filtri.natura else "")
+        contesto |= {
+            "titolo": titolo,
+            "filtri": descrivi_filtri(b),
+            "dettaglio": bool(request.GET.get("dettaglio")),
+        }
+        nome = f"{oggi:%Y.%m.%d}_Budget_{b.filtri.anno}_{natura}.pdf"
+        return pdf.risposta("reports/pdf/budget.html", contesto, nome, request)
     return render(request, "reports/budget.html", contesto)
 
 
@@ -109,6 +119,10 @@ def piano_ordini(request):
         else piano.totali_per_natura(),
         "livelli": LIVELLI,
     }
+    if request.GET.get("formato") == "pdf":
+        contesto |= {"titolo": f"Piano ordini {piano.anno}", "filtri": form.descrizione()}
+        nome = f"{oggi:%Y.%m.%d}_Piano_ordini_{piano.anno}.pdf"
+        return pdf.risposta("reports/pdf/piano_ordini.html", contesto, nome, request)
     return render(request, "reports/piano_ordini.html", contesto)
 
 
@@ -146,15 +160,19 @@ def wbs_spese(request, pk):
 
         nome = f"{oggi_richiesta(request):%Y.%m.%d}_Spese_WBS_{wbs.codice_wbs}.xlsx"
         return xlsx.risposta(wbs_xlsx(spese, oggi_richiesta(request)), nome)
-    return render(
-        request,
-        "reports/wbs_spese.html",
-        {
-            "s": spese,
-            "anni": spese.anni,
-            "righe": [(r, [r.per_anno.get(a) for a in spese.anni]) for r in spese.righe],
-            "totali": [spese.totali()[a] for a in spese.anni],
-            "viste": [(v, ETICHETTE_VISTE[v]) for v in VISTE],
-            "livelli": LIVELLI,
-        },
-    )
+    contesto = {
+        "s": spese,
+        "anni": spese.anni,
+        "righe": [(r, [r.per_anno.get(a) for a in spese.anni]) for r in spese.righe],
+        "totali": [spese.totali()[a] for a in spese.anni],
+        "viste": [(v, ETICHETTE_VISTE[v]) for v in VISTE],
+        "livelli": LIVELLI,
+    }
+    if request.GET.get("formato") == "pdf":
+        contesto |= {
+            "titolo": f"Spese WBS {wbs.codice_wbs}",
+            "filtri": f"{ETICHETTE_VISTE[vista]} · livello {livello.value}",
+        }
+        nome = f"{oggi_richiesta(request):%Y.%m.%d}_Spese_WBS_{wbs.codice_wbs}.pdf"
+        return pdf.risposta("reports/pdf/wbs_spese.html", contesto, nome, request)
+    return render(request, "reports/wbs_spese.html", contesto)

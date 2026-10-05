@@ -147,6 +147,9 @@ jobs:
             https://$HOST_APP/accounts/login/)
           test "$codice" = 302
           $c -b /tmp/cj https://$HOST_APP/report/budget/ | grep -q "Budget"
+          # PDF generato dal server nel container (WeasyPrint con Pango e font dell'immagine).
+          $c -b /tmp/cj -o /tmp/budget.pdf "https://$HOST_APP/report/budget/?formato=pdf"
+          test "$(head -c 5 /tmp/budget.pdf)" = "%PDF-"
           $c -b /tmp/cj https://$HOST_APP/ | grep -q "versione"
       - name: Import, backup e verifica di ripristino
         run: |
