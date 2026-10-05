@@ -179,3 +179,20 @@ def test_errore_interno_non_espone_dettagli(mcp_post, utente_reader, crea_token,
     assert r.status_code == 200
     assert r.json()["error"] == {"code": -32603, "message": "Errore interno."}
     assert "dettaglio" not in r.content.decode()
+
+
+def test_tool_con_link_dal_container_pubblico(mcp_post, utente_reader, crea_token, archivio):
+    """I link si costruiscono con la URLconf interna anche sull'host pubblico."""
+    token = crea_token(utente_reader)
+    for nome, argomenti in [
+        ("contratto", {"id": archivio.pk}),
+        ("fabbisogno", {"id": archivio.fabbisogno_id}),
+        ("budget", {"anno": 2027, "cluster": ["tutti"]}),
+        ("piano_ordini", {"anno": 2027, "cluster": ["tutti"]}),
+        ("spese_wbs", {"codice_wbs": "WBS-PROVA"}),
+        ("scadenzario", {"contratto_id": archivio.pk}),
+    ]:
+        r = mcp_post(chiama(nome, argomenti), token=token)
+        risultato = r.json()["result"]
+        assert not risultato.get("isError"), (nome, risultato)
+        assert risultato["structuredContent"]["link"].startswith("https://contratti.esempio.test/")

@@ -45,7 +45,18 @@ def test_ping(ctx):
 def test_tools_list_sola_lettura(ctx):
     risposta, _ = protocollo.gestisci(richiesta("tools/list"), ctx)
     tools = risposta["result"]["tools"]
-    assert [t["name"] for t in tools] == ["riferimenti", "cerca", "scadenze"]
+    # Reader: niente «fornitore» e «piani_da_verificare», come le pagine dell'interfaccia.
+    assert [t["name"] for t in tools] == [
+        "riferimenti",
+        "cerca",
+        "scadenze",
+        "contratto",
+        "fabbisogno",
+        "scadenzario",
+        "budget",
+        "piano_ordini",
+        "spese_wbs",
+    ]
     for t in tools:
         assert t["annotations"]["readOnlyHint"] is True
         assert t["inputSchema"]["type"] == "object"

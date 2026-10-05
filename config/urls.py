@@ -12,6 +12,7 @@ urlpatterns = [
     path("", include("contratti.urls")),
     path("report/", include("reports.urls")),
     path("admin/", admin.site.urls),
+    path("connettore/", include("connettore.urls")),
     # Connettore MCP: login e consenso solo sull'host interno (SPEC_MCP §2.1).
     path(
         "oauth/",

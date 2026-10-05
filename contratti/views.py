@@ -321,29 +321,6 @@ def contratti_elenco(request):
     return render(request, template, contesto)
 
 
-def _catena(contratto) -> list:
-    """Contratti della catena dei rinnovi, dal più vecchio al più recente."""
-    prima, c, visti = [], contratto.predecessore, {contratto.pk}
-    while c is not None and c.pk not in visti and len(prima) < 20:
-        prima.insert(0, c)
-        visti.add(c.pk)
-        c = c.predecessore
-    dopo, c = [], m.Contratto.objects.filter(predecessore=contratto).first()
-    while c is not None and c.pk not in visti and len(dopo) < 20:
-        dopo.append(c)
-        visti.add(c.pk)
-        c = m.Contratto.objects.filter(predecessore=c).first()
-    return [*prima, contratto, *dopo]
-
-
-def _previsti_dopo(contratto, oggi):
-    """Rinnovi previsti, se questo è il contratto da cui partono."""
-    base = adapters.contratto_base_previsti(contratto.fabbisogno)
-    if base is None or base.pk != contratto.pk:
-        return []
-    return adapters.previsti_fabbisogno(contratto.fabbisogno, adapters.orizzonte_default(oggi))
-
-
 def _contratto(pk):
     return get_object_or_404(selettori.contratti_base(), pk=pk)
 
@@ -391,8 +368,8 @@ def contratto_dettaglio(request, pk):
             "pratica": contratto.stati_pratica.select_related("utente").order_by("-data", "-id"),
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
             "storico": storico(contratto),
-            "catena": _catena(contratto),
-            "previsti": _previsti_dopo(contratto, oggi),
+            "catena": selettori.catena(contratto),
+            "previsti": selettori.previsti_dopo(contratto, oggi),
             "puo_modificare": permessi.puo_modificare(
                 request.user, contratto.fabbisogno.cluster_id
             ),

@@ -128,6 +128,8 @@ WHITENOISE_MAX_AGE = 3600
 MCP_URL_PUBBLICO = env("MCP_URL_PUBBLICO", default="").rstrip("/")
 MCP_URL_INTERNO = env("MCP_URL_INTERNO", default="").rstrip("/")
 MCP_SCOPE_LETTURA = "registro.lettura"
+# Dimensione massima del risultato di un tool (SPEC_MCP §6): oltre, si chiede di filtrare.
+MCP_RISPOSTA_MAX_BYTES = env.int("MCP_RISPOSTA_MAX_BYTES", default=200_000)
 
 OAUTH2_PROVIDER = {
     "SCOPES": {MCP_SCOPE_LETTURA: "Lettura del registro contratti"},

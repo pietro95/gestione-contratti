@@ -78,7 +78,9 @@ def test_initialize_list_e_call_con_l_sdk(utente_reader, crea_token):
     iniziale, (tools, trovati, errore) = async_to_sync(_sessione)(token, azione)
     assert iniziale.protocolVersion == "2025-11-25"
     assert iniziale.serverInfo.name == "registro-contratti-ictdinn"
-    assert {t.name for t in tools.tools} == {"riferimenti", "cerca", "scadenze"}
+    assert {"riferimenti", "cerca", "scadenze", "contratto", "budget"} <= {
+        t.name for t in tools.tools
+    }
     assert all(t.annotations.readOnlyHint for t in tools.tools)
     assert trovati.isError is False
     contratti = trovati.structuredContent["contratti"]
