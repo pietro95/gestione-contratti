@@ -605,6 +605,12 @@ con il cruscotto dell'app.
 - **Chi**: solo Admin ed Editor, nei propri cluster, e solo se al collegamento hanno spuntato
   «Consenti anche la modifica» nella pagina di consenso. Il Reader non ottiene mai la scrittura.
   La colonna «Permessi» della pagina «Connettore MCP» dice se un collegamento può modificare.
+- **Tool**: pratica (`avanza_pratica`), rate e scadenzario (`modifica_rata`,
+  `genera_scadenzario`), fornitori e fabbisogni (`crea_*`, `modifica_*`), contratti
+  (`crea_contratto` con le voci, `modifica_contratto`, `registra_rinnovo` anche senza
+  contratto, `registra_proroga`, `crea_voce`, `modifica_voce`), `archivia` e `ripristina`, catena
+  (`collega_rinnovo`, `scollega_predecessore`, `confluisci`, `togli_confluenza`). Solo
+  dall'interfaccia: spostamento, accorpamento, doppioni, import, configurazione.
 - **Come**: ogni tool di scrittura restituisce un'anteprima (modifiche campo per campo, effetti
   su date, alert, previsti e budget) e un codice; si esegue solo con `conferma_operazione`, entro
   15 minuti (parametro `mcp_minuti_operazione`) e solo se nel frattempo nessuno ha modificato gli

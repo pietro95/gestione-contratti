@@ -10,7 +10,6 @@ from decimal import Decimal
 import pytest
 from django.db import transaction
 
-from accounts.roles import EDITOR
 from connettore import protocollo
 from connettore.strumenti import Contesto
 from contratti import forms, servizi
@@ -35,10 +34,37 @@ DOMINIO = [
 ESCLUSI = {"id", "registrato_il"}
 
 
-def stato() -> dict:
+def soglie() -> dict:
+    """Ultimo id di ogni tabella di dominio prima dell'operazione."""
+    return {
+        M: (M.objects.order_by("-pk").values_list("pk", flat=True).first() or 0) for M in DOMINIO
+    }
+
+
+def stato(soglia: dict | None = None) -> dict:
+    """Dati di dominio confrontabili. Gli oggetti creati dall'operazione (id oltre la soglia)
+    hanno id diversi tra esecuzione web annullata e connettore: si indicano con l'ordine di
+    creazione, anche nelle chiavi esterne che li riferiscono."""
+    soglia = soglia or soglie()
+    nuovi = {
+        M: {
+            pk: f"nuovo-{i}"
+            for i, pk in enumerate(
+                M.objects.filter(pk__gt=soglia[M]).order_by("pk").values_list("pk", flat=True)
+            )
+        }
+        for M in DOMINIO
+    }
+
+    def valore(o, c):
+        v = getattr(o, c.attname)
+        if c.is_relation and c.related_model in nuovi:
+            return repr(nuovi[c.related_model].get(v, v))
+        return repr(v)
+
     return {
         M._meta.label: sorted(
-            tuple(repr(getattr(o, c.attname)) for c in M._meta.fields if c.attname not in ESCLUSI)
+            tuple(valore(o, c) for c in M._meta.fields if c.attname not in ESCLUSI)
             for o in M.objects.all()
         )
         for M in DOMINIO
@@ -63,24 +89,18 @@ def mcp(utente, nome, argomenti) -> dict:
     return chiama("conferma_operazione", {"id_operazione": codice})
 
 
-@pytest.fixture
-def editor(make_user, client):
-    utente = make_user("redattore", role=EDITOR)
-    client.force_login(utente)
-    return utente
-
-
 def equivalente(client, editor, web, nome, argomenti):
-    iniziale = stato()
+    soglia = soglie()
+    iniziale = stato(soglia)
     with transaction.atomic():
         risposta = web(client)
         assert risposta.status_code in (200, 302), risposta.content[:300]
-        atteso = stato()
+        atteso = stato(soglia)
         transaction.set_rollback(True)
-    assert stato() == iniziale
+    assert stato(soglia) == iniziale
     assert atteso != iniziale, "la vista web non ha modificato niente"
     mcp(editor, nome, argomenti)
-    assert stato() == atteso
+    assert stato(soglia) == atteso
 
 
 @pytest.fixture

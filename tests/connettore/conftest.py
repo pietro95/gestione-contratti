@@ -82,3 +82,11 @@ def chiama(nome, argomenti=None, id_=1):
         "method": "tools/call",
         "params": {"name": nome, "arguments": argomenti or {}},
     }
+
+
+@pytest.fixture
+def editor(make_user, client):
+    """Editor collegato al client di test (le viste web) e usato dal connettore."""
+    utente = make_user("redattore", role=EDITOR)
+    client.force_login(utente)
+    return utente

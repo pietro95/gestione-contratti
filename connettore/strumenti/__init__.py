@@ -5,12 +5,18 @@ Ogni tool riceve argomenti già validati con il suo ``input_schema`` e restituis
 gli stessi selettori e report delle viste: il connettore non ha una logica sua.
 """
 
-from . import dettagli, modifiche, report, ricerca
+from . import dettagli, modifiche, modifiche_contratti, report, ricerca
 from .base import Contesto, ErroreTool, Strumento
 
 STRUMENTI: dict[str, Strumento] = {
     s.nome: s
-    for s in [*ricerca.STRUMENTI, *dettagli.STRUMENTI, *report.STRUMENTI, *modifiche.STRUMENTI]
+    for s in [
+        *ricerca.STRUMENTI,
+        *dettagli.STRUMENTI,
+        *report.STRUMENTI,
+        *modifiche.STRUMENTI,
+        *modifiche_contratti.STRUMENTI,
+    ]
 }
 
 

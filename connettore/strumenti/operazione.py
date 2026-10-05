@@ -115,7 +115,9 @@ def _verifica_permessi(ctx: Contesto, scrittura: Scrittura, oggetti: list) -> No
         return
     try:
         for o in oggetti:
-            permessi.verifica_oggetto(ctx.utente, o)
+            # Il piano di fatturazione appartiene alla sua voce.
+            soggetto = o.voce if isinstance(o, m.PianoFatturazione) else o
+            permessi.verifica_oggetto(ctx.utente, soggetto)
     except PermissionDenied:
         raise ErroreTool(
             "Non autorizzato: l'oggetto appartiene a un cluster che non puoi modificare."
