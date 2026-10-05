@@ -207,3 +207,42 @@ def voci_piano_da_verificare(codici: list[str] | None = None):
     if codici:
         qs = qs.filter(contratto__fabbisogno__cluster__codice__in=codici)
     return qs
+
+
+# Ricerca globale (barra superiore e connettore MCP): stessi criteri e stessi limiti.
+LIMITE_CERCA = {"contratti": 25, "fabbisogni": 15, "fornitori": 15}
+
+
+def cerca(q: str, oggi: datetime.date) -> dict[str, list]:
+    """Contratti (come righe calcolate), fabbisogni e fornitori che contengono ``q``.
+
+    Meno di 2 caratteri: nessun risultato. Gli archiviati in fondo.
+    """
+    risultati = {"contratti": [], "fabbisogni": [], "fornitori": []}
+    q = q.strip()
+    if len(q) < 2:
+        return risultati
+    contratti = contratti_base().filter(
+        Q(descrizione__icontains=q)
+        | Q(fabbisogno__descrizione__icontains=q)
+        | Q(numero_contratto__icontains=q)
+        | Q(cig__icontains=q)
+        | Q(numero_rda__icontains=q)
+        | Q(fornitore__ragione_sociale__icontains=q)
+    )
+    risultati["contratti"] = righe_contratti(
+        contratti.order_by("archiviato", "-data_inizio")[: LIMITE_CERCA["contratti"]], oggi
+    )
+    risultati["fabbisogni"] = list(
+        m.Fabbisogno.objects.filter(Q(descrizione__icontains=q) | Q(referente__icontains=q))
+        .select_related("categoria", "cluster")
+        .order_by("archiviato", "descrizione")[: LIMITE_CERCA["fabbisogni"]]
+    )
+    risultati["fornitori"] = list(
+        m.Fornitore.objects.filter(
+            Q(ragione_sociale__icontains=q)
+            | Q(partita_iva__icontains=q)
+            | Q(codice_sap__icontains=q)
+        ).order_by("archiviato", "ragione_sociale")[: LIMITE_CERCA["fornitori"]]
+    )
+    return risultati

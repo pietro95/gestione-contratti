@@ -26,9 +26,11 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "simple_history",
+    "oauth2_provider",
     "accounts",
     "contratti",
     "reports",
+    "connettore",
 ]
 
 MIDDLEWARE = [
@@ -118,6 +120,59 @@ STORAGES = {
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
 }
 WHITENOISE_MAX_AGE = 3600
+
+# --- Connettore MCP (F10, docs/SPEC_MCP.md) ------------------------------------------
+# URL pubblico dell'host dedicato al connettore (es. https://mcp-contratti.esempio.it) e URL
+# interno dell'applicazione, dove l'utente fa login e autorizza (SPEC_MCP §2.1). Con
+# MCP_URL_PUBBLICO vuoto il connettore è spento: /mcp e i metadati rispondono 404.
+MCP_URL_PUBBLICO = env("MCP_URL_PUBBLICO", default="").rstrip("/")
+MCP_URL_INTERNO = env("MCP_URL_INTERNO", default="").rstrip("/")
+MCP_SCOPE_LETTURA = "registro.lettura"
+
+OAUTH2_PROVIDER = {
+    "SCOPES": {MCP_SCOPE_LETTURA: "Lettura del registro contratti"},
+    "DEFAULT_SCOPES": [MCP_SCOPE_LETTURA],
+    "OAUTH2_VALIDATOR_CLASS": "connettore.oauth.Validatore",
+    # Durate: codice 60 secondi, access token 1 ora; il refresh non scade da solo, lo ferma
+    # la regola dei 7 giorni dall'ultimo login (SPEC_MCP §4.4, D3).
+    "AUTHORIZATION_CODE_EXPIRE_SECONDS": 60,
+    "ACCESS_TOKEN_EXPIRE_SECONDS": env.int("MCP_ACCESS_TOKEN_SECONDI", default=3600),
+    "REFRESH_TOKEN_EXPIRE_SECONDS": None,
+    "ROTATE_REFRESH_TOKEN": True,
+    "REFRESH_TOKEN_REUSE_PROTECTION": True,
+    # Claude ripete una richiesta andata in timeout: il refresh appena ruotato vale ancora
+    # per un minuto, poi il riuso revoca tutta la famiglia.
+    "REFRESH_TOKEN_GRACE_PERIOD_SECONDS": 60,
+    "PKCE_REQUIRED": True,
+    "REQUEST_APPROVAL_PROMPT": "force",
+    # http solo per il redirect loopback di Claude Code, su qualunque porta (RFC 8252).
+    "ALLOWED_REDIRECT_URI_SCHEMES": ["https", "http"],
+    "ALLOW_LOCALHOST_LOOPBACK": True,
+    # Nessuna registrazione dinamica, nessun download di documenti di client: i client si
+    # creano a mano con ``manage.py crea_client_mcp`` (SPEC_MCP §4.3).
+    "DCR_ENABLED": False,
+    "CIMD_ENABLED": False,
+    "OAUTH2_RESPONSE_TYPES_SUPPORTED": ["code"],
+    "OAUTH2_GRANT_TYPES_SUPPORTED": ["authorization_code", "refresh_token"],
+    "OAUTH2_TOKEN_ENDPOINT_AUTH_METHODS_SUPPORTED": [
+        "client_secret_basic",
+        "client_secret_post",
+        "none",
+    ],
+    "OAUTH2_PROTECTED_RESOURCE_IDENTIFIER": f"{MCP_URL_PUBBLICO}/mcp" if MCP_URL_PUBBLICO else "",
+    "OAUTH2_PROTECTED_RESOURCE_AUTHORIZATION_SERVERS": [MCP_URL_PUBBLICO]
+    if MCP_URL_PUBBLICO
+    else [],
+    "OAUTH2_PROTECTED_RESOURCE_NAME": "Registro contratti ICTDINN",
+    "OIDC_ISS_ENDPOINT": MCP_URL_PUBBLICO,
+    # RFC 9700: solo S256, niente implicit e password, token solo nell'header, token salvati
+    # solo come hash.
+    "COMPLIANT_BCP_RFC9700_IMPLICIT_GRANT": True,
+    "COMPLIANT_BCP_RFC9700_PASSWORD_GRANT": True,
+    "COMPLIANT_BCP_RFC9700_PKCE_METHOD": True,
+    "COMPLIANT_BCP_RFC9700_ACCESS_TOKEN_TRANSPORT": True,
+    "COMPLIANT_BCP_RFC9700_TOKEN_STORAGE": True,
+}
 
 LOGGING = {
     "version": 1,

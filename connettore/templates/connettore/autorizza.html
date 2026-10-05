@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Collega il connettore{% endblock %}
+{% block titolo_pagina %}Collega il connettore MCP{% endblock %}
+{% block content %}
+<div class="card"><div class="card-body">
+{% if not error %}
+  <form id="authorizationForm" method="post">
+    {% csrf_token %}
+    {% for field in form %}{% if field.is_hidden %}{{ field }}{% endif %}{% endfor %}
+    <p><strong>{{ application.name }}</strong> chiede di accedere al registro contratti con il tuo utente
+      (<strong>{{ request.user.get_username }}</strong>) e con i tuoi permessi:</p>
+    <ul>
+      {% for scope in scopes_descriptions %}<li>{{ scope }}</li>{% endfor %}
+    </ul>
+    <p>Dopo il consenso il browser torna a <strong>{{ host_ritorno }}</strong>.</p>
+    {% if ritorno_locale %}
+      <div class="alert alert-warning small" role="alert">Il ritorno è su questo computer
+        (Claude Code). Conferma solo se hai avviato tu il collegamento da Claude Code.</div>
+    {% endif %}
+    <p class="small text-body-secondary">I dati letti dal connettore vanno al modello di Claude.
+      Il collegamento resta attivo se accedi all'applicazione almeno una volta ogni
+      {{ giorni_login }} giorni; l'amministratore può revocarlo in ogni momento.</p>
+    {{ form.non_field_errors }}
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary" name="allow" value="Autorizza">Autorizza</button>
+      <button type="submit" class="btn btn-outline-secondary">Annulla</button>
+    </div>
+  </form>
+{% else %}
+  <p class="mb-1"><strong>Richiesta non valida</strong> ({{ error.error }})</p>
+  <p class="mb-0">{{ error.description }}</p>
+{% endif %}
+</div></div>
+{% endblock %}

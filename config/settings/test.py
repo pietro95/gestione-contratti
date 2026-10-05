@@ -7,11 +7,14 @@ import os
 
 os.environ.setdefault("DJANGO_SECRET_KEY", "test-solo-locale-non-segreto")
 os.environ.setdefault("DATABASE_URL", "postgres://contratti:contratti@localhost:5432/contratti")
+# Connettore MCP acceso nei test, con host fittizi (SPEC_MCP §2.1).
+os.environ.setdefault("MCP_URL_PUBBLICO", "https://mcp.esempio.test")
+os.environ.setdefault("MCP_URL_INTERNO", "https://contratti.esempio.test")
 
 from .base import *
 
 DEBUG = False
-ALLOWED_HOSTS = ["testserver", "localhost"]
+ALLOWED_HOSTS = ["testserver", "localhost", "mcp.esempio.test", "contratti.esempio.test"]
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 AUTHENTICATION_BACKENDS = ["django.contrib.auth.backends.ModelBackend"]
 DATABASES["default"]["CONN_MAX_AGE"] = 0

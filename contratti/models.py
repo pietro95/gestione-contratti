@@ -119,6 +119,12 @@ class Parametro(ConfigurazioneProvvisoria):
         ADEGUAMENTO_PCT = "adeguamento_pct", "adeguamento dei rinnovi previsti (%)"
         FINESTRA_ALERT_MESI = "finestra_alert_mesi", "finestra dell'alert giallo (mesi)"
         ORIZZONTE_ANNI = "orizzonte_anni", "orizzonte della previsione rinnovi (anni)"
+        # Connettore MCP (SPEC_MCP §4.4, §6).
+        MCP_GIORNI_LOGIN = "mcp_giorni_login", "connettore MCP: giorni dall'ultimo login (D3)"
+        MCP_RICHIESTE_MINUTO = (
+            "mcp_richieste_minuto",
+            "connettore MCP: richieste al minuto per collegamento",
+        )
 
     chiave = models.CharField(max_length=40, choices=Chiave.choices)
     valore = models.DecimalField(max_digits=10, decimal_places=4)

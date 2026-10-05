@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Connettore non disponibile{% endblock %}
+{% block titolo_pagina %}Connettore non disponibile{% endblock %}
+{% block content %}
+<div class="card"><div class="vuoto"><i class="bi bi-shield-lock" aria-hidden="true"></i>
+  <p class="mb-3">Il tuo utente non può collegare il connettore MCP: serve un ruolo
+    dell'applicazione, e l'account di emergenza non è ammesso.</p>
+  <a class="btn btn-outline-primary" href="{% url 'home' %}">Torna al cruscotto</a>
+</div></div>
+{% endblock %}
