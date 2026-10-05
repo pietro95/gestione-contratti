@@ -426,3 +426,20 @@ Rev00: realizzata (v1.5.2). Richiesta di Pietro del 05/10/2026.
 - PDF ed export XLSX dicono sempre quali cluster comprendono, anche «Cluster: tutti». Nel
   PDF: i filtri in evidenza sotto il titolo, il cluster nella testata di ogni pagina e nel
   nome del file (`…_Budget_2026_OPEX_IT-TLC.pdf`).
+
+## F9.5.5 — Rinnovo senza contratto come anello della catena
+
+Rev00: realizzata. Richiesta e decisioni di Pietro del 05/10/2026 (SPEC Rev09, TC-14):
+anche senza contratto ogni rinnovo va gestito con scadenza e alert.
+
+- Tolta la spesa ricorrente sul fabbisogno (F9.5, F9.5.1): non gestiva la scadenza, il
+  rinnovo si dava per scontato. I dati eventualmente inseriti restano nelle note del
+  fabbisogno (migration 0022).
+- Contratto segnato **«senza contratto»**: stesse scadenze, data limite, pratica, alert,
+  previsti e budget di un contratto; fuori dal piano ordini, anche i suoi previsti.
+- «Rinnova senza contratto» sulla pagina del contratto senza successore: form del rinnovo
+  senza i dati del documento contrattuale, inizio il giorno dopo la fine, durata 12 mesi.
+- «Nuovo senza contratto» nell'elenco dei contratti e nella pagina del fabbisogno.
+- Etichetta «senza contratto» in elenchi, cruscotto, pagina del contratto, budget (anche PDF
+  ed export).
+- Tolte le scorciatoie della spesa di F9.5.3 (v1.5.2), sostituite da quelle qui sopra.

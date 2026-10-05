@@ -5,7 +5,7 @@
 {% block titolo_pagina %}{{ c.fabbisogno.descrizione }}{% endblock %}
 {% block sottotitolo %}
 <div class="sottotitolo">
-  {{ riga.stato|stato_badge }} {{ riga.alert|alert_badge }}{% if c.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}
+  {{ riga.stato|stato_badge }} {{ riga.alert|alert_badge }}{% if c.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}{% if c.senza_contratto %} <span class="stato stato-grigio">senza contratto</span>{% endif %}
   <span>· <a href="{% url 'contratti:fornitore' c.fornitore.pk %}">{{ c.fornitore }}</a></span>
   <span>· {{ c.fabbisogno.area }}</span>
   {% if c.numero_contratto %}<span>· N. {{ c.numero_contratto }}</span>{% endif %}
@@ -13,7 +13,7 @@
 {% endblock %}
 {% block azioni %}
 {% if puo_modificare %}
-  {% if not successore and not sostituito_da_spesa %}<a class="btn btn-primary" href="{% url 'contratti:contratto_rinnovo' c.pk %}"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Registra rinnovo</a>{% if not c.fabbisogno.senza_contratto %}<a class="btn btn-outline-primary" href="{% url 'contratti:contratto_rinnovo_spesa' c.pk %}"><i class="bi bi-receipt" aria-hidden="true"></i> Rinnova senza contratto</a>{% endif %}{% endif %}
+  {% if not successore %}<a class="btn btn-primary" href="{% url 'contratti:contratto_rinnovo' c.pk %}"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Registra rinnovo</a><a class="btn btn-outline-primary" href="{% url 'contratti:contratto_rinnovo_senza_contratto' c.pk %}"><i class="bi bi-receipt" aria-hidden="true"></i> Rinnova senza contratto</a>{% endif %}
   <a class="btn btn-outline-primary" href="{% url 'contratti:contratto_modifica' c.pk %}"><i class="bi bi-pencil" aria-hidden="true"></i> Modifica</a>
   <div class="dropdown">
     <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Altre azioni</button>
@@ -137,9 +137,6 @@
     <div class="alert alert-info small"><i class="bi bi-diagram-2" aria-hidden="true"></i> Confluito in <a class="alert-link" href="{% url 'contratti:contratto' c.confluito_in_id %}">{{ c.confluito_in }}</a>, che lo sostituisce insieme al suo predecessore: non va più in alert e i rinnovi previsti partono dal nuovo contratto.
       {% if puo_modificare %}<form method="post" action="{% url 'contratti:contratto_togli_confluenza' c.pk %}" class="d-inline" data-conferma="Il contratto torna senza successore (in rosso, se scaduto)." data-conferma-etichetta="Togli">{% csrf_token %}<button class="btn btn-link btn-sm p-0 align-baseline" type="submit">Togli il collegamento</button></form>{% endif %}
     </div>
-    {% endif %}
-    {% if sostituito_da_spesa %}
-    <div class="alert alert-info small"><i class="bi bi-receipt" aria-hidden="true"></i> Dopo la fine il fabbisogno continua <a class="alert-link" href="{% url 'contratti:fabbisogno' c.fabbisogno_id %}">senza contratto</a>, con una spesa ricorrente dal {{ c.fabbisogno.spesa_dal|date:"d/m/Y" }}: il contratto non va più in alert.</div>
     {% endif %}
     {% if confluiti %}
     <h2 class="h6 text-uppercase text-body-secondary">Sostituisce anche</h2>

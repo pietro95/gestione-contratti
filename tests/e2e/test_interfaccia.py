@@ -25,14 +25,13 @@ def _pagine(dati):
     vecchio = f.contratto(fabbisogno=interrotto, data_inizio=datetime.date(2025, 3, 1))
     f.contratto(fabbisogno=interrotto, data_inizio=datetime.date(2026, 1, 1))
     wbs = m.WBS.objects.create(codice_wbs="X.0001.00.000", descrizione="WBS di prova")
-    # F9.5: spesa ricorrente senza contratto.
-    dns = f.fabbisogno(
-        "Dominio di prova",
+    # F9.5.5: rinnovo senza contratto, anello della catena.
+    dns = f.contratto(
+        fabbisogno=f.fabbisogno("Dominio di prova", decisione="rinnovare"),
         senza_contratto=True,
-        spesa_importo=Decimal("25.00"),
-        spesa_periodicita="annuale",
-        spesa_dal=datetime.date(2025, 3, 15),
+        data_inizio=datetime.date(2025, 3, 15),
     )
+    f.piano(f.voce(dns, importo_fisso=Decimal("25.00")))
     # F9.3: un contratto nuovo che sostituisce anche un altro contratto.
     nuovo = f.contratto(
         fabbisogno=interrotto, predecessore=vecchio, data_inizio=datetime.date(2027, 1, 1)
@@ -73,11 +72,10 @@ def _pagine(dati):
         "/report/piano-ordini/?anno=2027",
         "/report/wbs/",
         f"/report/wbs/{wbs.pk}/",
-        f"/fabbisogni/{dns.pk}/",
-        f"/fabbisogni/{dns.pk}/modifica/",
-        f"/fabbisogni/{dns.pk}/spesa/",
-        "/fabbisogni/nuova-spesa/",
-        f"/contratti/{c.pk}/rinnovo-senza-contratto/",
+        f"/contratti/{dns.pk}/",
+        f"/fabbisogni/{dns.fabbisogno_id}/",
+        f"/contratti/{dns.pk}/rinnovo-senza-contratto/",
+        "/contratti/nuovo/?senza_contratto=1",
         "/cerca/?q=prova",
         "/proposte/",
     ]

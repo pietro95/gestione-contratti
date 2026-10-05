@@ -27,7 +27,7 @@
           {% if r.contratto %}{% url 'contratti:contratto' r.contratto.pk as link %}{% else %}{% url 'contratti:fabbisogno' r.previsto_manuale.pk as link %}{% endif %}
           <tr data-href="{{ link }}">
             <td><a href="{{ link }}">{% if r.contratto %}{{ r.contratto.fabbisogno.descrizione }}{% else %}{{ r.previsto_manuale.descrizione }}{% endif %}</a>
-              <div class="small text-body-secondary">{% if r.contratto %}{{ r.contratto.fornitore }} · {{ r.contratto.fabbisogno.area }}{% elif r.spesa_ricorrente %}spesa senza contratto · prossima spesa {{ r.fine|date:"d/m/Y" }}{% else %}nuovo fabbisogno{% endif %}{% if not r.spesa_ricorrente %} · pratica: {{ r.stato_pratica_label|lower }}{% endif %}</div></td>
+              <div class="small text-body-secondary">{% if r.contratto %}{{ r.contratto.fornitore }} · {{ r.contratto.fabbisogno.area }}{% if r.contratto.senza_contratto %} · senza contratto{% endif %}{% else %}nuovo fabbisogno{% endif %} · pratica: {{ r.stato_pratica_label|lower }}</div></td>
             <td class="text-nowrap">{{ r.data_limite|date:"d/m/Y" }}</td>
             <td>{{ r.alert|alert_badge }}</td>
           </tr>

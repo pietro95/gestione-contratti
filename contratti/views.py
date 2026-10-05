@@ -411,7 +411,6 @@ def contratto_dettaglio(request, pk):
             "successore": successore or contratto.confluito_in,
             "rinnovi_scollegati": rinnovi_scollegati,
             "confluiti": confluiti,
-            "sostituito_da_spesa": adapters.sostituito_da_spesa(contratto, riga.fine),
             "puo_confluire": bool(servizi.candidati_confluenza(contratto))
             and not contratto.archiviato,
             "pratica": contratto.stati_pratica.select_related("utente").order_by("-data", "-id"),
@@ -473,11 +472,21 @@ def contratto_guidata(request, pk):
     )
 
 
+NOTA_SENZA_CONTRATTO = (
+    "Acquisto senza documento contrattuale (es. fattura diretta): scadenza = inizio + durata "
+    "− 1 giorno, con data limite, pratica e alert come un contratto; al rinnovo si registra il "
+    "periodo successivo. Fuori dal piano ordini."
+)
+
+
 @editor_required
 def contratto_nuovo(request):
     iniziali = {}
     if f := request.GET.get("fabbisogno"):
         iniziali["fabbisogno"] = f
+    senza_contratto = request.GET.get("senza_contratto") == "1"
+    if senza_contratto:
+        iniziali["senza_contratto"] = True
     iniziali.setdefault(
         "procedura", m.Procedura.objects.filter(codice="affidamento_diretto").first()
     )
@@ -492,7 +501,12 @@ def contratto_nuovo(request):
     return render(
         request,
         "contratti/form.html",
-        {"form": form, "titolo": "Nuovo contratto", "avanti": "Avanti: voci e fatturazione"}
+        {
+            "form": form,
+            "titolo": "Nuovo senza contratto" if senza_contratto else "Nuovo contratto",
+            "nota": NOTA_SENZA_CONTRATTO if senza_contratto else "",
+            "avanti": "Avanti: voci e fatturazione",
+        }
         | _passo(1),
     )
 
@@ -724,7 +738,13 @@ def fabbisogno_accorpa(request, pk):
 
 
 @editor_required
-def contratto_rinnovo(request, pk):
+def contratto_rinnovo_senza_contratto(request, pk):
+    """Rinnovo senza documento contrattuale: stessa catena, scadenze e alert (SPEC §5.6)."""
+    return contratto_rinnovo(request, pk, senza_contratto=True)
+
+
+@editor_required
+def contratto_rinnovo(request, pk, senza_contratto=False):
     """Registra il rinnovo: nuovo contratto precompilato dal predecessore (SPEC §5.3)."""
     predecessore = get_object_or_404(m.Contratto, pk=pk)
     permessi.verifica_oggetto(request.user, predecessore)
@@ -745,6 +765,8 @@ def contratto_rinnovo(request, pk):
     }
     if fine:
         iniziali["data_inizio"] = fine + datetime.timedelta(days=1)
+    if senza_contratto and not predecessore.senza_contratto:
+        iniziali["durata_mesi"] = 12  # di solito si rinnova anno per anno
     voci_iniziali = [
         {
             "origine": v.pk,
@@ -755,7 +777,8 @@ def contratto_rinnovo(request, pk):
         }
         for v in predecessore.voci.filter(archiviato=False, proroga__isnull=True).order_by("id")
     ]
-    form = forms.RinnovoForm(request.POST or None, initial=iniziali)
+    classe_form = forms.RinnovoSenzaContrattoForm if senza_contratto else forms.RinnovoForm
+    form = classe_form(request.POST or None, initial=iniziali)
     formset = forms.VociRinnovoFormSet(request.POST or None, initial=voci_iniziali, prefix="voci")
     sostituibili = servizi.candidati_sostituiti(predecessore)
     if request.method == "POST" and form.is_valid() and formset.is_valid():
@@ -771,9 +794,10 @@ def contratto_rinnovo(request, pk):
         ]
         scelti = set(request.POST.getlist("sostituisce"))
         sostituisce = [c for c in sostituibili if str(c.pk) in scelti]
+        dati = form.cleaned_data | ({"senza_contratto": True} if senza_contratto else {})
         try:
             nuovo = servizi.registra_rinnovo(
-                predecessore, form.cleaned_data, voci, utente=request.user, sostituisce=sostituisce
+                predecessore, dati, voci, utente=request.user, sostituisce=sostituisce
             )
         except (servizi.OperazioneNonAmmessa, ValidationError) as exc:
             messages.error(request, "; ".join(getattr(exc, "messages", [str(exc)])))
@@ -790,6 +814,7 @@ def contratto_rinnovo(request, pk):
             "fine": fine,
             "sostituibili": sostituibili,
             "sostituisce_scelti": request.POST.getlist("sostituisce"),
+            "senza_contratto": senza_contratto,
         },
     )
 
@@ -1059,23 +1084,6 @@ def fabbisogni_elenco(request):
     )
 
 
-def _spesa_ricorrente(f: m.Fabbisogno, oggi: datetime.date) -> dict | None:
-    """Spesa senza contratto: prossime spese (calcolate) e promemoria (SPEC §5.6)."""
-    from contratti.engine import spese
-
-    s = adapters.spesa_ricorrente(f, oggi)
-    if s is None:
-        return None
-    colore, prossima = adapters.promemoria_spesa(f, oggi)
-    tutte = spese.occorrenze(s, datetime.date(oggi.year + 3, 12, 31))
-    return {
-        "alert": colore,
-        "prossima": prossima,
-        "prossime": [d for d in tutte if d >= oggi][:3],
-        "ultime": [d for d in tutte if d < oggi][-3:],
-    }
-
-
 @login_required
 def fabbisogno_dettaglio(request, pk):
     oggi = oggi_richiesta(request)
@@ -1092,7 +1100,6 @@ def fabbisogno_dettaglio(request, pk):
             "contratti": contratti,
             "previsti": [(p, sum((valore(v) for v in p.voci), Decimal("0.00"))) for p in previsti],
             "natura_previsti": adapters.natura_previsti(f, adapters.contratto_base_previsti(f)),
-            "spesa": _spesa_ricorrente(f, oggi),
             "doppioni": servizi.doppioni_del_fabbisogno(f),
             "collegamenti": [
                 (p, s, adapters.data_fine_effettiva(p))
@@ -1125,97 +1132,6 @@ def fabbisogno_modifica(request, pk=None):
         request,
         "contratti/form.html",
         {"form": form, "titolo": "Modifica fabbisogno" if f else "Nuovo fabbisogno", "annulla": f},
-    )
-
-
-def _form_spesa(request, f, form, titolo, annulla, nota):
-    if request.method == "POST" and form.is_valid():
-        f = form.save()
-        messages.success(request, "Spesa senza contratto registrata: il fabbisogno è aggiornato.")
-        return redirect("contratti:fabbisogno", pk=f.pk)
-    return render(
-        request,
-        "contratti/form.html",
-        {"form": form, "titolo": titolo, "annulla": annulla, "nota": nota},
-    )
-
-
-@editor_required
-def spesa_nuova(request):
-    """Nuova spesa senza contratto: crea il fabbisogno con i soli dati necessari (§5.6)."""
-    iniziali = {
-        "categoria": m.Categoria.objects.filter(nome="Da classificare").first(),
-        "spesa_periodicita": m.Periodicita.ANNUALE,
-    }
-    form = forms.SpesaNuovaForm(request.POST or None, initial=iniziali, utente=request.user)
-    return _form_spesa(
-        request,
-        None,
-        form,
-        "Nuova spesa senza contratto",
-        None,
-        "Si paga con una fattura diretta a ogni periodo: entra nel budget, senza pratica e "
-        "fuori dal piano ordini.",
-    )
-
-
-@editor_required
-def fabbisogno_spesa(request, pk):
-    """Spesa senza contratto su un fabbisogno esistente, senza il form completo."""
-    f = get_object_or_404(m.Fabbisogno, pk=pk)
-    permessi.verifica_oggetto(request.user, f)
-    form = forms.SpesaForm(request.POST or None, instance=f, utente=request.user)
-    return _form_spesa(
-        request,
-        f,
-        form,
-        "Modifica spesa senza contratto" if f.senza_contratto else "Spesa senza contratto",
-        f,
-        "La decisione del fabbisogno diventa «Rinnovare»; i contratti non archiviati devono "
-        "finire prima della prima spesa.",
-    )
-
-
-@editor_required
-def contratto_rinnovo_spesa(request, pk):
-    """Rinnova senza contratto: il fabbisogno prosegue con una spesa ricorrente (§5.6)."""
-    contratto = get_object_or_404(m.Contratto.objects.select_related("fabbisogno"), pk=pk)
-    f = contratto.fabbisogno
-    permessi.verifica_oggetto(request.user, f)
-    if adapters.ha_successore(contratto):
-        messages.error(request, "Il contratto ha già un successore registrato.")
-        return redirect("contratti:contratto", pk=pk)
-    if f.senza_contratto:
-        messages.info(request, "Il fabbisogno prosegue già con una spesa senza contratto.")
-        return redirect("contratti:fabbisogno_spesa", pk=f.pk)
-    fine = adapters.data_fine_effettiva(contratto)
-    voce = (
-        contratto.voci.filter(archiviato=False, proroga__isnull=True)
-        .select_related("piano_fatturazione")
-        .order_by("id")
-        .first()
-    )
-    iniziali = {"spesa_fornitore": contratto.fornitore_id}
-    if fine:
-        iniziali["spesa_dal"] = fine + datetime.timedelta(days=1)
-    piano = getattr(voce, "piano_fatturazione", None) if voce else None
-    periodicita = piano.periodicita if piano else ""
-    validi = {c for c, _ in m.Fabbisogno._meta.get_field("spesa_periodicita").choices}
-    iniziali["spesa_periodicita"] = periodicita if periodicita in validi else m.Periodicita.ANNUALE
-    if voce and not (f.natura_previsti or f.conto_previsti_id or f.wbs_previsti_id):
-        iniziali["natura_previsti"] = voce.natura_rinnovi or voce.natura
-        iniziali["conto_previsti"] = voce.conto_rinnovi_id or voce.conto_id
-        iniziali["wbs_previsti"] = voce.wbs_rinnovi_id or voce.wbs_id
-    form = forms.SpesaForm(request.POST or None, instance=f, initial=iniziali, utente=request.user)
-    return _form_spesa(
-        request,
-        f,
-        form,
-        "Rinnova senza contratto",
-        contratto,
-        (f"{contratto} · finisce il {fine:%d/%m/%Y}. " if fine else f"{contratto}. ")
-        + "Il fabbisogno prosegue con una spesa ricorrente: il contratto resta nello storico e "
-        "non va più in alert; la decisione del fabbisogno diventa «Rinnovare».",
     )
 
 

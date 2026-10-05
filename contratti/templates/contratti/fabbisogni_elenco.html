@@ -3,7 +3,7 @@
 {% block title %}Fabbisogni{% endblock %}
 {% block titolo_pagina %}Fabbisogni{% endblock %}
 {% block sottotitolo %}<div class="sottotitolo">Il fabbisogno è l'esigenza stabile (es. "licenze gestionale"); i contratti ne sono le istanze nel tempo.</div>{% endblock %}
-{% block azioni %}{% if puo_modificare %}<a class="btn btn-primary" href="{% url 'contratti:fabbisogno_nuovo' %}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuovo fabbisogno</a><a class="btn btn-outline-primary" href="{% url 'contratti:spesa_nuova' %}"><i class="bi bi-receipt" aria-hidden="true"></i> Nuova spesa senza contratto</a>{% endif %}{% endblock %}
+{% block azioni %}{% if puo_modificare %}<a class="btn btn-primary" href="{% url 'contratti:fabbisogno_nuovo' %}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuovo fabbisogno</a>{% endif %}{% endblock %}
 {% block content %}
 <form method="get" class="filtri row g-3 align-items-end">
   <div class="col-md-6 col-xl-4"><label class="form-label" for="f-q">Cerca</label><input id="f-q" type="search" name="q" value="{{ filtri.q }}" class="form-control" placeholder="Descrizione, referente, note"></div>
@@ -19,7 +19,7 @@
   <thead><tr><th>{% ordina 'descrizione' 'Descrizione' %}</th><th>{% ordina 'area' 'Cluster' %}</th><th>{% ordina 'categoria' 'Categoria' %}</th><th>{% ordina 'decisione' 'Decisione' %}</th><th class="text-end">{% ordina 'contratti' 'Contratti' %}</th></tr></thead>
   <tbody>
   {% for f in pagina %}{% url 'contratti:fabbisogno' f.pk as link %}
-    <tr data-href="{{ link }}"><td><a href="{{ link }}" class="fw-semibold">{{ f.descrizione }}</a>{% if f.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}{% if f.senza_contratto %} <span class="stato stato-grigio">spesa senza contratto</span>{% endif %}</td><td>{{ f.area }}</td><td>{{ f.categoria }}</td><td>{{ f.get_decisione_display }}</td><td class="text-end">{{ f.n_contratti }}</td></tr>
+    <tr data-href="{{ link }}"><td><a href="{{ link }}" class="fw-semibold">{{ f.descrizione }}</a>{% if f.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}</td><td>{{ f.area }}</td><td>{{ f.categoria }}</td><td>{{ f.get_decisione_display }}</td><td class="text-end">{{ f.n_contratti }}</td></tr>
   {% empty %}<tr><td colspan="5"><div class="vuoto"><i class="bi bi-inbox" aria-hidden="true"></i>Nessun fabbisogno con questi filtri.</div></td></tr>{% endfor %}
   </tbody>
 </table></div>

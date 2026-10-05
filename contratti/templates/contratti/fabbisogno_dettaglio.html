@@ -7,25 +7,13 @@
 {% block azioni %}
 {% if puo_modificare %}
   <a class="btn btn-primary" href="{% url 'contratti:contratto_nuovo' %}?fabbisogno={{ f.pk|stringformat:"d" }}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuovo contratto</a>
-  <a class="btn btn-outline-primary" href="{% url 'contratti:fabbisogno_spesa' f.pk %}"><i class="bi bi-receipt" aria-hidden="true"></i> {% if f.senza_contratto %}Modifica spesa{% else %}Spesa senza contratto{% endif %}</a>
+  <a class="btn btn-outline-primary" href="{% url 'contratti:contratto_nuovo' %}?fabbisogno={{ f.pk|stringformat:"d" }}&amp;senza_contratto=1"><i class="bi bi-receipt" aria-hidden="true"></i> Nuovo senza contratto</a>
   <a class="btn btn-outline-primary" href="{% url 'contratti:fabbisogno_modifica' f.pk %}"><i class="bi bi-pencil" aria-hidden="true"></i> Modifica</a>
   {% if not f.archiviato %}<a class="btn btn-outline-primary" href="{% url 'contratti:fabbisogno_accorpa' f.pk %}"><i class="bi bi-intersect" aria-hidden="true"></i> Accorpa in…</a>{% endif %}
   <a class="btn btn-outline-danger" href="{% url 'contratti:archivia' 'fabbisogno' f.pk %}"><i class="bi bi-archive" aria-hidden="true"></i> {% if f.archiviato %}Ripristina{% else %}Archivia{% endif %}</a>
 {% endif %}
 {% endblock %}
 {% block content %}
-{% if spesa %}
-<div class="card mb-4"><div class="card-header"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Spesa ricorrente senza contratto {{ spesa.alert|alert_badge }}</div><div class="card-body"><dl class="dati">
-  <dt>Fornitore</dt><dd>{{ f.spesa_fornitore|default:"—" }}</dd>
-  <dt>Importo</dt><dd>{{ f.spesa_importo|euro }} · {{ f.get_spesa_periodicita_display|lower }}</dd>
-  <dt>Dal</dt><dd>{{ f.spesa_dal|date:"d/m/Y" }}{% if f.spesa_al %} fino al {{ f.spesa_al|date:"d/m/Y" }}{% endif %}</dd>
-  <dt>Prossima spesa</dt><dd>{{ spesa.prossima|date:"d/m/Y"|default:"nessuna (terminata o dismessa)" }}</dd>
-  <dt>Prossime</dt><dd>{% for d in spesa.prossime %}{{ d|date:"d/m/Y" }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</dd>
-  {% if spesa.ultime %}<dt>Ultime</dt><dd>{% for d in spesa.ultime %}{{ d|date:"d/m/Y" }}{% if not forloop.last %}, {% endif %}{% endfor %}</dd>{% endif %}
-</dl>
-<p class="small text-body-secondary mb-0">Le spese si calcolano dalla prima e dalla periodicità: entrano nel budget ogni periodo (fattura il giorno della spesa), senza contratto e senza pratica. Fuori dal piano ordini; solo un promemoria 🟡 prima della scadenza.</p>
-</div></div>
-{% endif %}
 {% if f.stima_prossimo_importo or f.note or f.natura_previsti or f.conto_previsti or f.wbs_previsti %}
 <div class="card mb-4"><div class="card-body"><dl class="dati">
   {% if f.natura_previsti %}<dt>Natura del previsto</dt><dd>{{ f.natura_previsti }}</dd>{% endif %}
@@ -70,7 +58,7 @@
   <thead><tr><th>Contratto</th><th>Fornitore</th><th>Inizio</th><th>Fine</th><th>Stato</th><th>Alert</th></tr></thead>
   <tbody>
   {% for r in contratti %}{% url 'contratti:contratto' r.contratto.pk as link %}
-    <tr data-href="{{ link }}"><td><a href="{{ link }}">{{ r.contratto.numero_contratto|default:r.contratto.cig|default:r.contratto.pk }}</a>{% if r.contratto.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}</td><td>{{ r.contratto.fornitore }}</td><td class="text-nowrap">{{ r.contratto.data_inizio|date:"d/m/Y"|default:"—" }}</td><td class="text-nowrap">{{ r.fine|date:"d/m/Y"|default:"—" }}</td><td>{{ r.stato|stato_badge }}</td><td>{{ r.alert|alert_badge }}</td></tr>
+    <tr data-href="{{ link }}"><td><a href="{{ link }}">{{ r.contratto.numero_contratto|default:r.contratto.cig|default:r.contratto.pk }}</a>{% if r.contratto.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}{% if r.contratto.senza_contratto %} <span class="stato stato-grigio">senza contratto</span>{% endif %}</td><td>{{ r.contratto.fornitore }}</td><td class="text-nowrap">{{ r.contratto.data_inizio|date:"d/m/Y"|default:"—" }}</td><td class="text-nowrap">{{ r.fine|date:"d/m/Y"|default:"—" }}</td><td>{{ r.stato|stato_badge }}</td><td>{{ r.alert|alert_badge }}</td></tr>
   {% empty %}<tr><td colspan="6"><div class="vuoto py-4">Nessun contratto.{% if puo_modificare %} <a href="{% url 'contratti:contratto_nuovo' %}?fabbisogno={{ f.pk|stringformat:"d" }}">Inserisci il primo</a>.{% endif %}</div></td></tr>{% endfor %}
   </tbody>
 </table></div></div>

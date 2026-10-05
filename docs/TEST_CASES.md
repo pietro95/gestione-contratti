@@ -2,7 +2,7 @@
 
 Ogni caso descrive: input, output atteso, regola della SPEC che verifica.
 
-Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (scritto da Claude su richiesta di Pietro del 02/10/2026). F9.4: aggiunto TC-13 (scritto da Claude su richiesta di Pietro del 05/10/2026). F9.5: aggiunto TC-14 (scritto da Claude su richiesta di Pietro del 05/10/2026, da approvare).
+Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (scritto da Claude su richiesta di Pietro del 02/10/2026). F9.4: aggiunto TC-13 (scritto da Claude su richiesta di Pietro del 05/10/2026). F9.5: aggiunto TC-14 (scritto da Claude su richiesta di Pietro del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (scritto da Claude su decisione di Pietro del 05/10/2026, da approvare).
 
 I valori sono stati calcolati a mano e verificati con uno script indipendente. **Se un test non passa, l'errore è nel codice, non nel caso.** Un caso si modifica solo con l'approvazione di Pietro e insieme a una nuova revisione della SPEC.
 
@@ -362,49 +362,40 @@ abbonamento):
 - piano ordini 2027: una riga, natura `OPEX`, 16.480,00;
 - il contratto reale C resta `OPEX e CAPEX`: nel budget 2026 nulla cambia.
 
-## TC-14 — Spesa ricorrente senza contratto (dominio DNS)
+## TC-14 — Rinnovo senza contratto (dominio)
 
-SPEC §4 (spesa ricorrente sul fabbisogno), §5.1 (promemoria), §5.4, §5.6.
+SPEC §4 (contratto «senza contratto»), §5.1, §5.2, §5.3, §5.4, §5.6.
 
-Parametri: finestra dell'alert giallo 3 mesi.
+Parametri: procedura `Affidamento diretto`, lead time 2 mesi; finestra dell'alert giallo 3
+mesi.
 
-Input: fabbisogno «Dominio di prova», decisione `Rinnovare`, nessun contratto, spesa senza
-contratto: 25,00 € annuali, prima spesa 15/03/2025.
+Input: fabbisogno «Dominio di prova», decisione `Rinnovare`. Contratto C1 dal 15/03/2024, 12
+mesi (fine 14/03/2025), voce 300,00 € `Anticipata` annuale. Rinnovo senza contratto C2
+registrato da C1: inizio 15/03/2025, 12 mesi, voce riportata con importo 25,00 €.
 
-**Date delle spese**: 15/03/2025, 15/03/2026, 15/03/2027, … Variante mensile con prima spesa
-31/01/2026: 31/01, 28/02, 31/03, 30/04/2026 (fine mese resta fine mese).
+**Catena e scadenza**: C2 ha C1 come predecessore e nessun numero di contratto; fine 14/03/2026,
+data limite 14/01/2026. C1 non ha alert; la sua pratica passa a «Contratto attivo».
 
-**Budget 2026** (consolidato, tutti i livelli uguali):
+**Alert di C2** (pratica non avviata):
 
-| Vista | Importo | Da |
-|---|---|---|
-| Fatturato | 25,00 | spesa del 15/03/2026 |
-| Ordinato | 25,00 | spesa del 15/03/2026 |
-| Competenza | 25,00 | 5,00 (73/365 del periodo 15/03/2025–14/03/2026) + 20,00 (292/365 del periodo 15/03/2026–14/03/2027) |
+| Oggi | Alert |
+|---|---|
+| 13/10/2025 | 🟢 |
+| 14/10/2025 | 🟡 (data limite − 3 mesi) |
+| 14/01/2026 | 🟡 |
+| 15/01/2026 | 🟠 (data limite superata) |
+| 14/03/2026 | 🟠 |
+| 15/03/2026 | 🔴 (scaduto senza rinnovo) |
 
-Competenza 2025: 20,00 (292/365). Nessun contratto previsto; il piano ordini è vuoto.
+**Budget** (al 01/06/2025, consolidato, OPEX):
 
-**Promemoria** (prossima spesa 15/03/2027, inizio finestra 15/12/2026):
+| Anno | Fatturato | Ordinato | Competenza |
+|---|---|---|---|
+| 2024 | 300,00 (C1) | | |
+| 2025 | 25,00 (C2) | 25,00 (C2) | 80,00 = 60,00 (C1, 73/365 di 300,00) + 20,00 (C2, 292/365 di 25,00) |
+| 2026 | | | 5,00 (C2, 73/365 di 25,00) |
 
-| Oggi | Alert | Prossima spesa |
-|---|---|---|
-| 01/12/2026 | 🟢 | 15/03/2027 |
-| 20/12/2026 | 🟡 | 15/03/2027 |
-| 15/03/2027 | 🟡 | 15/03/2027 |
-| 16/03/2027 | 🟢 | 15/03/2028 |
-| 20/12/2026, decisione `Dismettere` | nessuno | — |
+Il rinnovo previsto dal 15/03/2026 entra nel budget 2026 come previsionale.
 
-**Spesa terminata** (valida fino al 31/12/2026): spese 15/03/2025 e 15/03/2026; al 01/01/2027
-nessun alert; fatturato 2027 0,00.
-
-**Spesa dismessa** (decisione `Dismettere`, senza data di fine): contano solo le spese prima di
-oggi. Al 01/12/2026: fatturato 2026 25,00 (spesa del 15/03/2026), fatturato 2027 0,00, nessun
-alert. Al 01/03/2026: fatturato 2026 0,00.
-
-**Rinnovo senza contratto** (v1.5.1): lo stesso fabbisogno ha un contratto dal 15/03/2024, 12
-mesi (fine 14/03/2025), voce 300,00 € `Anticipata` annuale; la spesa parte il 15/03/2025.
-- prima spesa 14/03/2025: rifiutata (il contratto finisce il 14/03/2025);
-- al 20/12/2026: nessun alert sul contratto (nessun 🔴 «Senza rinnovo»), solo il promemoria
-  🟡 della spesa;
-- fatturato 2024: 300,00 (contratto); fatturato 2025: 25,00 (spesa del 15/03/2025);
-- nessun rinnovo mancante, nessun previsto, piano ordini vuoto.
+**Piano ordini 2026**: vuoto (C2 e i suoi previsti sono senza contratto). Controllo: con C2
+registrato come contratto, il piano 2026 ha una riga con avvio 15/03/2026.
