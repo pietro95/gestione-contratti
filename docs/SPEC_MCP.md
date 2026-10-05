@@ -1,10 +1,11 @@
 # Connettore MCP — specifica (bozza)
 
-Rev01 — 05/10/2026 — proposta scritta da Claude, da approvare da Pietro Verro. Nulla di quanto segue è deciso finché non entra in `docs/SPEC.md` (nuova revisione) e in `docs/ROADMAP.md` (nuova fase).
+Rev02 — 05/10/2026 — proposta scritta da Claude, da approvare da Pietro Verro. Nulla di quanto segue è deciso finché non entra in `docs/SPEC.md` (nuova revisione) e in `docs/ROADMAP.md` (nuova fase).
 
 Storico revisioni:
 - Rev00 (05/10/2026): prima bozza, raccomandata l'opzione «solo rete interna con ponte locale».
 - Rev01 (05/10/2026): decisioni di Pietro. **Deroga alla SPEC §8.2**: si espone su Internet solo il connettore MCP (§2). D3: il token vale se l'utente ha fatto login negli ultimi 7 giorni (§4.4). D4: il connettore è disponibile a tutti i ruoli. Autenticazione OAuth 2.1 con login AD solo dalla rete interna (§4).
+- Rev02 (05/10/2026): decisioni di Pietro. D1 chiusa: i dati possono andare al fornitore del modello. D7: dipendenze approvate. D9 e organizzazione Claude: le gestisce Pietro. D5 spiegata meglio, con proposta.
 
 ## 1. Obiettivo
 
@@ -48,9 +49,9 @@ Confidenza media che Claude accetti un `authorization_endpoint` su un host diver
 6. **Limiti di frequenza** per token e per IP, risposta massima, timeout (§6).
 7. **Verifica esterna** dopo ogni deploy (script in `deploy/`, documentato nel RUNBOOK): da un IP fuori allowlist tutto risponde 403; dall'allowlist ogni percorso fuori elenco risponde 404; `/mcp` senza token risponde 401.
 
-### 2.3 Dati verso il fornitore del modello (D1, aperta)
+### 2.3 Dati verso il fornitore del modello (D1, chiusa)
 
-I risultati dei tool entrano nel contesto del modello e transitano dai server di Anthropic. La deroga di rete non cambia questo fatto, ma lo rende operativo. Prima di andare in produzione serve verificare il piano Claude aziendale (conservazione, uso per addestramento) e decidere se escludere categorie di dati (§5, «non esposti»).
+I risultati dei tool entrano nel contesto del modello e transitano dai server di Anthropic. Decisione di Pietro (Rev02): ammesso, nessuna categoria di dati esclusa per questo motivo. Le esclusioni di §5 restano per minimizzazione.
 
 ## 3. Architettura
 
@@ -133,7 +134,7 @@ Convenzioni comuni:
 | `fornitore` | `id` | anagrafica, contratti attivi e storici, totali per anno | viste fornitore |
 | `riferimenti` | — | cluster visibili e propri, categorie, procedure con lead time, soglie valide | tabelle di configurazione |
 
-Non esposti, salvo decisione contraria (D1): referente (dato personale), note libere di contratti e fabbisogni (possono contenere dati imprevisti), utenti e assegnazioni, registro degli import.
+Non esposti (minimizzazione, non serve all'uso previsto): referente (dato personale), note libere di contratti e fabbisogni (possono contenere dati imprevisti), utenti e assegnazioni, registro degli import.
 
 Vincolo verificabile: **per gli stessi filtri e la stessa data, `budget` e `piano_ordini` restituiscono gli stessi totali al centesimo della vista web e dell'export XLSX.** Una differenza è un difetto.
 
@@ -170,15 +171,18 @@ Regole per qualunque tool di scrittura: scope OAuth separato (`registro.scrittur
 
 ## 9. Decisioni
 
-Prese (Rev01): D2 esposizione su Internet in deroga, solo connettore; D3 login negli ultimi 7 giorni; D4 tutti i ruoli. D6 (ponte locale per Desktop) decade: con l'esposizione pubblica Desktop usa il connettore come claude.ai.
+Prese:
+- D1 (Rev02): i dati possono andare al fornitore del modello (§2.3).
+- D2 (Rev01): esposizione su Internet in deroga, solo connettore (§2).
+- D3 (Rev01): rinnovo del token solo con login negli ultimi 7 giorni (§4.4).
+- D4 (Rev01): tutti i ruoli (§4.5).
+- D6 decade: con l'esposizione pubblica Desktop usa il connettore come claude.ai.
+- D7 (Rev02): `django-oauth-toolkit` (runtime) e SDK `mcp` (solo `dev`) approvati.
+- D9 (Rev02): host pubblico, DNS, firewall perimetrale e organizzazione Claude (aggiunta del connettore da parte dell'Owner) li gestisce Pietro. Il RUNBOOK descrive cosa configurare.
 
 Aperte:
-- **D1 — Dati verso il fornitore del modello** (§2.3). Blocca l'apertura in produzione, non lo sviluppo.
-- **D5 — Data di calcolo**: sempre oggi, oppure parametro `alla_data` per tutti (utile per «come sarà il cruscotto a gennaio?»).
-- **D7 — Dipendenze**: `django-oauth-toolkit` (runtime) e SDK `mcp` (solo `dev`, test di conformità).
-- **D8 — Piano B se Claude non accetta l'authorize su host interno** (§2.1): pubblicare anche `/oauth/authorize` e il login (esposizione del login AD su Internet, sconsigliata), oppure delegare il login a un IdP già pubblico, se Siciliacque ne ha uno (Entra ID/ADFS): da verificare.
-- **D9 — Nome dell'host pubblico** e dominio su cui crearlo; chi in azienda gestisce DNS pubblico e firewall perimetrale.
-- **Organizzazione Claude**: il connettore personalizzato lo aggiunge un Owner dell'organizzazione Claude di Siciliacque. Da verificare chi è e su quale piano.
+- **D5 — Data di riferimento dei calcoli.** Alert, data limite, stato temporale («attivo», «scaduto»), previsti e orizzonte del budget dipendono dalla data di oggi. Nell'interfaccia solo l'Admin può simulare un'altra data (`?oggi=`). Domanda: il connettore deve permettere a tutti di chiedere «come sarà la situazione al 01/01/2027?», ricalcolando tutto a quella data? Proposta: **no in prima fase**, sempre la data di oggi, come vede l'utente nell'interfaccia; la domanda pratica «cosa scade o va avviato entro il …» è già coperta dal filtro `entro` di `scadenze` e dal `piano_ordini` per anno.
+- **D8 — Piano B se Claude non accetta l'authorize su host interno** (§2.1): pubblicare anche `/oauth/authorize` e il login (sconsigliato), oppure delegare il login a un IdP aziendale già pubblico (Entra ID/ADFS), se esiste.
 
 ## 10. Stima
 
