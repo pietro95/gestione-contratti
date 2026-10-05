@@ -324,13 +324,26 @@ Rev02: realizzata (v1.3.0). Rev01: risposte di Pietro del 02/10/2026.
 
 **Un contratto che rinnova più contratti (nota del 02/10/2026, da decidere; F9.3)**
 - Caso: SIM voce e SIM M2M accorpati in un unico contratto nuovo, con un unico fabbisogno.
-- Proposta: un contratto può avere più predecessori, ognuno con un solo successore. I
-  fabbisogni di partenza si accorpano in quello del contratto nuovo ("Accorpa in…"): la storia
-  dei costi resta in un solo fabbisogno.
-- Effetti: i contratti accorpati non vanno in alert (hanno un successore); i previsti partono
-  dal contratto nuovo. "Registra rinnovo" chiede quali altri contratti sostituisce.
-- Serve un caso numerico in TEST_CASES (lo scrive Pietro).
+- Realizzato in F9.3 (sotto).
 
 **Da avere prima di iniziare**
 - Elenco iniziale dei cluster, dei conti e delle WBS di ciascun cluster, nel modello (dati
   reali: si caricano sul server dall'import, non nel repository).
+
+## F9.3 — Un contratto che rinnova più contratti
+
+Rev00: realizzata (v1.4.0). Caso numerico: TC-12 (SIM voce e SIM M2M).
+
+- Il rinnovo principale resta il predecessore; gli altri contratti sostituiti «confluiscono»
+  nel contratto nuovo (campo `confluito_in`). Ogni contratto ha al massimo un successore: o è
+  il predecessore di uno, o confluisce in uno.
+- Si confluisce solo in un contratto dello stesso fabbisogno (prima «Accorpa in…») che inizia
+  dopo il contratto confluito.
+- Effetti: i contratti confluiti non vanno in alert e i rinnovi previsti partono solo dal
+  contratto nuovo; la loro pratica passa a «Contratto attivo».
+- «Registra rinnovo» chiede quali altri contratti del fabbisogno il nuovo sostituisce.
+- Scheda Rinnovi del contratto: «Sostituisce anche» (elenco, con «Togli») e, sul contratto
+  confluito, «Confluito in …» con «Togli il collegamento»; dal menu «Sostituisce anche altri
+  contratti» per collegarli dopo.
+- Spostare un contratto confluito (o in cui altri confluiscono) è rifiutato: prima si toglie
+  il collegamento. I doppioni passano la confluenza al contratto tenuto.

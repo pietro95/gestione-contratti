@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Sostituisce anche altri contratti{% endblock %}
+{% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'contratti:fabbisogno' c.fabbisogno.pk %}">{{ c.fabbisogno.descrizione }}</a></li><li class="breadcrumb-item"><a href="{% url 'contratti:contratto' c.pk %}">{{ c.numero_contratto|default:c.cig|default:"contratto" }}</a></li><li class="breadcrumb-item active" aria-current="page">Sostituisce anche</li></ol></nav>{% endblock %}
+{% block titolo_pagina %}Sostituisce anche altri contratti{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">{% include "contratti/_contratto_breve.html" with x=c %}</div>{% endblock %}
+{% block content %}
+<p class="text-body-secondary" style="max-width: 48rem">Per un contratto che rinnova più contratti (es. SIM voce e SIM M2M in uno solo). I contratti scelti confluiscono in questo: non vanno più in alert e i rinnovi previsti partono solo da questo. Si scelgono contratti dello stesso fabbisogno, senza successore, iniziati prima; un contratto di un altro fabbisogno va prima accorpato qui («Accorpa in…»).</p>
+{% if not candidati %}
+<div class="vuoto"><i class="bi bi-inbox" aria-hidden="true"></i>Nessun contratto del fabbisogno può confluire in questo.</div>
+{% else %}
+<form method="post">
+  {% csrf_token %}
+  <fieldset class="card mb-3"><legend class="card-header fs-6 mb-0">Contratti sostituiti</legend><div class="card-body">
+    {% for x, fine in candidati %}
+    <div class="form-check"><input class="form-check-input" type="checkbox" name="confluiti" id="conf-{{ forloop.counter }}" value="{{ x.pk|stringformat:"d" }}"><label class="form-check-label" for="conf-{{ forloop.counter }}">{% include "contratti/_contratto_breve.html" with x=x %}{% if fine %} · fine {{ fine|date:"d/m/Y" }}{% endif %}</label></div>
+    {% endfor %}
+  </div></fieldset>
+  <div class="form-azioni">
+    <button type="submit" class="btn btn-primary"><i class="bi bi-diagram-2" aria-hidden="true"></i> Confluiscono in questo</button>
+    <a class="btn btn-outline-secondary" href="{% url 'contratti:contratto' c.pk %}">Annulla</a>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

@@ -49,7 +49,7 @@ PREFETCH_FABBISOGNO = (
     Prefetch(
         "contratti",
         queryset=m.Contratto.objects.select_related(
-            "procedura", "fornitore", "successore"
+            "procedura", "fornitore", "successore", "confluito_in"
         ).prefetch_related(*PREFETCH_CALCOLO),
     ),
 )
@@ -223,7 +223,14 @@ def stato_pratica_corrente(contratto: m.Contratto) -> str | None:
     return ultimo.stato if ultimo else None
 
 
+def confluito(contratto: m.Contratto) -> bool:
+    """Confluito in un contratto nuovo non archiviato (F9.3): ha un successore."""
+    return contratto.confluito_in_id is not None and not contratto.confluito_in.archiviato
+
+
 def ha_successore(contratto: m.Contratto) -> bool:
+    if confluito(contratto):
+        return True
     return m.Contratto.objects.filter(predecessore=contratto, archiviato=False).exists()
 
 
@@ -248,6 +255,8 @@ def orizzonte_default(oggi: datetime.date) -> datetime.date:
 
 
 def _successore_attivo(contratto: m.Contratto) -> bool:
+    if confluito(contratto):
+        return True
     try:
         return not contratto.successore.archiviato
     except m.Contratto.DoesNotExist:
@@ -272,6 +281,7 @@ def contratti_terminali(fabbisogno: m.Fabbisogno):
     return (
         fabbisogno.contratti.filter(archiviato=False, data_inizio__isnull=False)
         .exclude(successore__archiviato=False)
+        .exclude(confluito_in__archiviato=False)
         .select_related("procedura", "fornitore")
         .prefetch_related(*PREFETCH_CALCOLO)
     )

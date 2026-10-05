@@ -534,6 +534,19 @@ class Contratto(Archiviabile):
         related_name="successore",
         help_text="Contratto di cui questo è il rinnovo.",
     )
+    # F9.3: un contratto che rinnova più contratti (es. SIM voce e SIM M2M in uno solo). Il
+    # rinnovo principale resta ``predecessore``; gli altri contratti sostituiti puntano qui al
+    # nuovo. Ogni contratto ha al massimo un successore: o è il predecessore di uno, o
+    # confluisce in uno.
+    confluito_in = models.ForeignKey(
+        "self",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="confluiti",
+        verbose_name="confluito in",
+        help_text="Contratto nuovo che sostituisce anche questo (oltre al suo predecessore).",
+    )
     fornitore = models.ForeignKey(Fornitore, on_delete=models.PROTECT, related_name="contratti")
     descrizione = models.CharField(max_length=250, blank=True)
 
@@ -583,6 +596,9 @@ class Contratto(Archiviabile):
             ),
             models.CheckConstraint(
                 condition=~Q(predecessore=F("id")), name="contratti_contratto_non_precede_se"
+            ),
+            models.CheckConstraint(
+                condition=~Q(confluito_in=F("id")), name="contratti_contratto_non_confluisce_in_se"
             ),
             models.CheckConstraint(
                 condition=Q(tacito_rinnovo=False) | Q(preavviso_disdetta_giorni__isnull=False),
@@ -637,6 +653,24 @@ class Contratto(Archiviabile):
             raise ValidationError(
                 {"predecessore": "Il predecessore deve appartenere allo stesso fabbisogno."}
             )
+        if self.predecessore_id and self.predecessore.confluito_in_id:
+            raise ValidationError(
+                {"predecessore": "Il predecessore è già confluito in un altro contratto."}
+            )
+        if self.confluito_in_id:
+            nuovo = self.confluito_in
+            if self.fabbisogno_id and nuovo.fabbisogno_id != self.fabbisogno_id:
+                raise ValidationError(
+                    {"confluito_in": "Si confluisce in un contratto dello stesso fabbisogno."}
+                )
+            if self.data_inizio and nuovo.data_inizio and nuovo.data_inizio <= self.data_inizio:
+                raise ValidationError(
+                    {"confluito_in": "Il contratto nuovo deve iniziare dopo questo."}
+                )
+            if self.pk and Contratto.objects.filter(predecessore_id=self.pk).exists():
+                raise ValidationError(
+                    {"confluito_in": "Il contratto ha già un successore: un solo successore."}
+                )
 
 
 class OpzioneContratto(models.Model):

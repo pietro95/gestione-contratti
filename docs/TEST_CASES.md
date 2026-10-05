@@ -2,7 +2,7 @@
 
 Ogni caso descrive: input, output atteso, regola della SPEC che verifica.
 
-Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11.
+Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (scritto da Claude su richiesta di Pietro del 02/10/2026).
 
 I valori sono stati calcolati a mano e verificati con uno script indipendente. **Se un test non passa, l'errore è nel codice, non nel caso.** Un caso si modifica solo con l'approvazione di Pietro e insieme a una nuova revisione della SPEC.
 
@@ -260,3 +260,53 @@ Output atteso:
 Controllo: senza quote, la stessa voce darebbe in competenza 5.288,32 / 10.490,42 / 10.519,16 / 5.202,10 (pro-rata uniforme sul totale).
 
 Quote incoerenti (non contigue, fuori dal periodo della voce o con somma diversa dal fisso): si ignorano, il calcolo usa l'intera voce e segnala l'anomalia `QUOTE_INCOERENTI`.
+
+## TC-12 — Un contratto che rinnova più contratti (SIM voce e SIM M2M)
+
+ROADMAP F9.3; SPEC §5.1 (alert) e §5.3 (previsti).
+
+Parametri: adeguamento 3%; affidamento diretto, lead time 4 mesi; finestra 🟡 = 3 mesi.
+
+Input:
+- fabbisogno A «SIM voce», decisione `Rinnovare`: contratto V dal 01/01/2025, 24 mesi (fine
+  31/12/2026), 4.800,00 € fissi, `Anticipata` annuale;
+- fabbisogno B «SIM M2M», decisione `Rinnovare`: contratto M dal 01/11/2025, 12 mesi (fine
+  31/10/2026), 1.200,00 € fissi, `Anticipata` annuale;
+- nessuna pratica avviata, nessuna stima manuale.
+
+**Prima** (oggi 15/11/2026, orizzonte 31/12/2027):
+
+| Contratto | Data limite | Alert | Previsti |
+|---|---|---|---|
+| V | 31/08/2026 | 🟠 | P1 01/01/2027–31/12/2028: 4.944,00 |
+| M | 30/06/2026 | 🔴 (scaduto senza rinnovo) | P1 01/11/2026–31/10/2027: 1.236,00; P2 01/11/2027–31/10/2028: 1.273,08 |
+
+**Operazioni**:
+1. B si accorpa in A («Accorpa in…»): M passa ad A, B si archivia;
+2. si registra il rinnovo di V: contratto N «SIM voce e M2M» dal 01/01/2027, 24 mesi (fine
+   31/12/2028), 9.600,00 € fissi, `Anticipata` annuale, che **sostituisce anche** M.
+
+**Dopo** (oggi 15/11/2026, orizzonte 31/12/2029):
+- predecessori di N: V (rinnovo) e M (confluito); successore di V e di M: N;
+- alert di V e di M: nessuno (hanno un successore); alert di N: 🟢 (data limite 31/08/2028);
+- previsti del fabbisogno A: solo P1 01/01/2029–31/12/2030: 9.888,00 (9.600,00 × 1,03),
+  rata 01/01/2029. Nessun previsto parte da V o da M;
+- scadenzario di N: 01/01/2027 = 4.800,00; 01/01/2028 = 4.800,00;
+- impegno di N (senza data di emissione: anno di inizio): 2027 = 9.600,00.
+
+Cassa per anno del fabbisogno A dopo l'accorpamento (solo contratti reali):
+
+| Anno | V | M | N | Totale |
+|---|---|---|---|---|
+| 2025 | 2.400,00 | 1.200,00 | — | 3.600,00 |
+| 2026 | 2.400,00 | — | — | 2.400,00 |
+| 2027 | — | — | 4.800,00 | 4.800,00 |
+| 2028 | — | — | 4.800,00 | 4.800,00 |
+
+Regole:
+- un contratto ha al massimo un successore: M confluito in N non può essere anche predecessore
+  di un altro contratto, né confluire in un secondo;
+- si confluisce solo in un contratto dello stesso fabbisogno (prima si accorpa) che inizia dopo
+  l'inizio del contratto confluito;
+- togliere il collegamento (M non più confluito in N) riporta M senza successore: 🔴.
+

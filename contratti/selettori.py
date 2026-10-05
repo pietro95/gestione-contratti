@@ -45,7 +45,12 @@ def _stato_temporale(contratto, fine, oggi) -> str:
 def contratti_base():
     return (
         m.Contratto.objects.select_related(
-            "fabbisogno", "fabbisogno__categoria", "fabbisogno__cluster", "fornitore", "procedura"
+            "fabbisogno",
+            "fabbisogno__categoria",
+            "fabbisogno__cluster",
+            "fornitore",
+            "procedura",
+            "confluito_in",
         )
         .prefetch_related(
             "proroghe",
@@ -72,7 +77,7 @@ def riga_contratto(c: m.Contratto, oggi: datetime.date, finestra: int) -> RigaCo
         oggi,
         decisione=c.fabbisogno.decisione,
         stato_pratica=stato_pratica,
-        ha_successore=getattr(c, "n_successori", 0) > 0,
+        ha_successore=getattr(c, "n_successori", 0) > 0 or adapters.confluito(c),
         finestra_mesi=finestra,
     )
     return RigaContratto(
@@ -155,6 +160,7 @@ def contratti_terminali():
         contratti_base()
         .filter(archiviato=False, data_inizio__isnull=False)
         .exclude(successore__archiviato=False)
+        .exclude(confluito_in__archiviato=False)
     )
 
 

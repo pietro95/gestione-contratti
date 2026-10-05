@@ -24,6 +24,13 @@ def _pagine(dati):
     vecchio = f.contratto(fabbisogno=interrotto, data_inizio=datetime.date(2025, 3, 1))
     f.contratto(fabbisogno=interrotto, data_inizio=datetime.date(2026, 1, 1))
     wbs = m.WBS.objects.create(codice_wbs="X.0001.00.000", descrizione="WBS di prova")
+    # F9.3: un contratto nuovo che sostituisce anche un altro contratto.
+    nuovo = f.contratto(
+        fabbisogno=interrotto, predecessore=vecchio, data_inizio=datetime.date(2027, 1, 1)
+    )
+    confluito = f.contratto(fabbisogno=interrotto, data_inizio=datetime.date(2025, 6, 1))
+    confluito.confluito_in = nuovo
+    confluito.save()
     return [
         "/",
         "/cruscotto/",
@@ -47,6 +54,9 @@ def _pagine(dati):
         f"/fabbisogni/{interrotto.pk}/",
         f"/contratti/{vecchio.pk}/",
         f"/contratti/{vecchio.pk}/collega/",
+        f"/contratti/{nuovo.pk}/",
+        f"/contratti/{nuovo.pk}/confluiti/",
+        f"/contratti/{confluito.pk}/",
         "/piani-da-verificare/",
         "/import/",
         "/report/budget/?anno=2026",
