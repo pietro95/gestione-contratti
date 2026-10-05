@@ -480,38 +480,6 @@ class Fabbisogno(Archiviabile):
         help_text="Obbligatoria se il previsto è CAPEX.",
     )
 
-    # F9.5: fabbisogno soddisfatto senza contratto (es. dominio DNS pagato ogni anno con una
-    # fattura diretta). Dati decisi; le spese di ogni periodo si calcolano (SPEC §5.6).
-    # Natura, conto e WBS sono quelli «del previsto» qui sopra.
-    senza_contratto = models.BooleanField(
-        "spesa ricorrente senza contratto",
-        default=False,
-        help_text="Si paga senza contratto: il budget conta la spesa ogni periodo da sola.",
-    )
-    spesa_fornitore = models.ForeignKey(
-        "Fornitore",
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name="spese_ricorrenti",
-        verbose_name="fornitore",
-    )
-    spesa_importo = importo("importo per periodo", null=True, blank=True)
-    spesa_periodicita = models.CharField(
-        "periodicità",
-        max_length=20,
-        choices=[c for c in Periodicita.choices if c[0] != Periodicita.INTERA_DURATA],
-        blank=True,
-    )
-    spesa_dal = models.DateField(
-        "prima spesa", null=True, blank=True, help_text="Data della prima spesa (o fattura)."
-    )
-    spesa_al = models.DateField(
-        "fino al",
-        null=True,
-        blank=True,
-        help_text="Vuoto: continua finché la decisione non è «Dismettere».",
-    )
     history = HistoricalRecords()
 
     class Meta:
@@ -532,25 +500,6 @@ class Fabbisogno(Archiviabile):
                 condition=Q(previsto_data_avvio__isnull=True, previsto_durata_mesi__isnull=True)
                 | Q(previsto_data_avvio__isnull=False, previsto_durata_mesi__isnull=False),
                 name="contratti_fabbisogno_previsto_completo",
-            ),
-            # Spesa ricorrente: importo, periodicità e prima spesa obbligatori.
-            models.CheckConstraint(
-                condition=Q(senza_contratto=False)
-                | (
-                    Q(spesa_importo__isnull=False, spesa_dal__isnull=False)
-                    & ~Q(spesa_periodicita="")
-                ),
-                name="contratti_fabbisogno_spesa_completa",
-            ),
-            models.CheckConstraint(
-                condition=Q(spesa_importo__isnull=True) | Q(spesa_importo__gte=0),
-                name="contratti_fabbisogno_spesa_non_negativa",
-            ),
-            models.CheckConstraint(
-                condition=Q(spesa_al__isnull=True)
-                | Q(spesa_dal__isnull=True)
-                | Q(spesa_al__gte=F("spesa_dal")),
-                name="contratti_fabbisogno_spesa_periodo_coerente",
             ),
         ]
 
@@ -601,6 +550,15 @@ class Contratto(Archiviabile):
     )
     fornitore = models.ForeignKey(Fornitore, on_delete=models.PROTECT, related_name="contratti")
     descrizione = models.CharField(max_length=250, blank=True)
+    # F9.5.3: acquisto rinnovato senza documento contrattuale (es. fattura diretta). È un
+    # anello della catena come un contratto: stesse scadenze, alert, pratica e previsti; solo
+    # fuori dal piano ordini (SPEC §5.6).
+    senza_contratto = models.BooleanField(
+        "senza contratto",
+        default=False,
+        help_text="Acquisto senza documento contrattuale: scadenze e alert come un contratto, "
+        "fuori dal piano ordini.",
+    )
 
     # Riferimenti SAP e ANAC: conservati come arrivano, le anomalie vanno nel report d'import.
     # NULL e non stringa vuota: TC-08 normalizza n/a, n/d, vuoto a NULL.

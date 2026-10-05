@@ -24,7 +24,6 @@ class RigaContratto:
     stato_pratica: str | None
     giorni_al_limite: int | None
     previsto_manuale: m.Fabbisogno | None = None  # fabbisogno della riga, senza contratto
-    spesa_ricorrente: bool = False  # promemoria di una spesa senza contratto (F9.5)
 
     @property
     def stato_pratica_label(self):
@@ -78,9 +77,7 @@ def riga_contratto(c: m.Contratto, oggi: datetime.date, finestra: int) -> RigaCo
         oggi,
         decisione=c.fabbisogno.decisione,
         stato_pratica=stato_pratica,
-        ha_successore=getattr(c, "n_successori", 0) > 0
-        or adapters.confluito(c)
-        or adapters.sostituito_da_spesa(c, fine),
+        ha_successore=getattr(c, "n_successori", 0) > 0 or adapters.confluito(c),
         finestra_mesi=finestra,
     )
     return RigaContratto(
@@ -116,7 +113,6 @@ def righe_previsti_manuali(oggi: datetime.date, filtri: dict) -> list[RigaContra
     qs = (
         m.Fabbisogno.objects.filter(
             archiviato=False,
-            senza_contratto=False,
             previsto_data_avvio__isnull=False,
             contratti__isnull=True,
         )
@@ -160,34 +156,6 @@ def righe_previsti_manuali(oggi: datetime.date, filtri: dict) -> list[RigaContra
     return righe
 
 
-def righe_spese_ricorrenti(oggi: datetime.date, filtri: dict) -> list[RigaContratto]:
-    """Promemoria delle spese senza contratto: solo 🟡 prima della prossima spesa (§5.6)."""
-    qs = m.Fabbisogno.objects.filter(archiviato=False, senza_contratto=True)
-    if codici := codici_cluster(filtri.get("area")):
-        qs = qs.filter(cluster__codice__in=codici)
-    if filtri.get("categoria"):
-        qs = qs.filter(categoria_id=filtri["categoria"])
-    righe = []
-    for f in qs.select_related("spesa_fornitore"):
-        colore, prossima = adapters.promemoria_spesa(f, oggi)
-        if colore is None:
-            continue
-        righe.append(
-            RigaContratto(
-                contratto=None,
-                fine=prossima,
-                data_limite=prossima,
-                alert=colore,
-                stato="attivo",
-                stato_pratica=None,
-                giorni_al_limite=(prossima - oggi).days,
-                previsto_manuale=f,
-                spesa_ricorrente=True,
-            )
-        )
-    return righe
-
-
 def contratti_terminali():
     """Contratti senza successore attivo: sono quelli che possono avere un alert."""
     return (
@@ -209,11 +177,7 @@ def cruscotto(oggi: datetime.date, filtri: dict) -> dict[Alert, list[RigaContrat
         Alert.ARANCIONE: [],
         Alert.GIALLO: [],
     }
-    righe = (
-        righe_contratti(qs, oggi)
-        + righe_previsti_manuali(oggi, filtri)
-        + righe_spese_ricorrenti(oggi, filtri)
-    )
+    righe = righe_contratti(qs, oggi) + righe_previsti_manuali(oggi, filtri)
     for riga in righe:
         if riga.alert in gruppi:
             gruppi[riga.alert].append(riga)

@@ -2,7 +2,8 @@
 
 Una riga per ogni contratto previsto (automatico o manuale) con avvio del servizio
 nell'anno X: è lo stesso criterio dell'impegno dei previsti, quindi il totale del piano
-coincide con l'impegno previsionale dell'anno. Il Procurement ordina sia OPEX sia CAPEX:
+coincide con l'impegno previsionale dell'anno, esclusi i rinnovi senza contratto (non si
+ordinano tramite il Procurement, SPEC §5.6). Il Procurement ordina sia OPEX sia CAPEX:
 il piano li contiene entrambi, con i totali per natura.
 """
 
@@ -188,6 +189,8 @@ def _calcola_piano(anno: int, oggi: datetime.date, area, categoria: int | None, 
         if not previsti:
             continue
         base = adapters.contratto_base_previsti(f)
+        if base is not None and base.senza_contratto:
+            continue  # rinnovi senza contratto: nessun ordine al Procurement (SPEC §5.4, §5.6)
         durata = base.durata_mesi if base is not None else f.previsto_durata_mesi
         righe += [_riga(f, base, p, durata, procedura_default) for p in previsti]
     if natura:

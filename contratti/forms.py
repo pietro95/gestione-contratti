@@ -4,9 +4,8 @@ from django import forms
 from django.db.models import Q
 from django.forms import inlineformset_factory
 
-from contratti import adapters, permessi
 from contratti import models as m
-from contratti.engine import scadenze
+from contratti import permessi
 
 # Date scritte gg/mm/aaaa (calendario flatpickr nel browser); si accetta anche aaaa-mm-gg.
 FORMATI_DATA = ["%d/%m/%Y", "%Y-%m-%d", "%d/%m/%y"]
@@ -151,7 +150,6 @@ class FornitoreForm(ModelFormBootstrap):
 
 
 class FabbisognoForm(ModelFormBootstrap):
-    solo_spesa = False  # True nelle scorciatoie della spesa senza contratto (sotto)
     sezioni = [
         ("Fabbisogno", ["descrizione", "cluster", "categoria", "impianto", "referente"]),
         ("Decisione sul rinnovo", ["decisione", "stima_prossimo_importo", "note"]),
@@ -163,22 +161,10 @@ class FabbisognoForm(ModelFormBootstrap):
                 "previsto_procedura",
                 "previsto_modalita",
                 "previsto_periodicita",
+                "natura_previsti",
+                "conto_previsti",
+                "wbs_previsti",
             ],
-        ),
-        (
-            "Spesa ricorrente senza contratto",
-            [
-                "senza_contratto",
-                "spesa_fornitore",
-                "spesa_importo",
-                "spesa_periodicita",
-                "spesa_dal",
-                "spesa_al",
-            ],
-        ),
-        (
-            "Classificazione del previsto manuale o della spesa senza contratto",
-            ["natura_previsti", "conto_previsti", "wbs_previsti"],
         ),
     ]
 
@@ -201,12 +187,6 @@ class FabbisognoForm(ModelFormBootstrap):
             "natura_previsti",
             "conto_previsti",
             "wbs_previsti",
-            "senza_contratto",
-            "spesa_fornitore",
-            "spesa_importo",
-            "spesa_periodicita",
-            "spesa_dal",
-            "spesa_al",
         ]
 
     def __init__(self, *args, utente=None, **kwargs):
@@ -219,7 +199,6 @@ class FabbisognoForm(ModelFormBootstrap):
         _solo_attivi(self, "impianto", m.Impianto.objects.filter(archiviato=False))
         _solo_attivi(self, "previsto_procedura", m.Procedura.objects.filter(attiva=True))
         _solo_attivi(self, "wbs_previsti", m.WBS.objects.filter(archiviato=False))
-        _solo_attivi(self, "spesa_fornitore", m.Fornitore.objects.filter(archiviato=False))
 
     def clean(self):
         dati = super().clean()
@@ -228,103 +207,16 @@ class FabbisognoForm(ModelFormBootstrap):
             raise forms.ValidationError(
                 "Per il previsto manuale servono insieme avvio e durata, oppure nessuno dei due."
             )
-        cluster = dati.get("cluster")
-        if cluster is None and self.instance.cluster_id:
-            cluster = self.instance.cluster  # le scorciatoie della spesa non hanno il cluster
         verifica_natura_wbs(
-            self, dati.get("natura_previsti") or m.Natura.OPEX, "wbs_previsti", cluster
+            self, dati.get("natura_previsti") or m.Natura.OPEX, "wbs_previsti", dati.get("cluster")
         )
-        if dati.get("senza_contratto") or self.solo_spesa:
-            for campo in ("spesa_importo", "spesa_periodicita", "spesa_dal"):
-                if dati.get(campo) in (None, ""):
-                    self.add_error(campo, "Obbligatorio per una spesa senza contratto.")
-            if avvio:
-                self.add_error(
-                    "previsto_data_avvio",
-                    "Una spesa senza contratto non ha previsto manuale: lascia vuoto.",
-                )
-            if self.instance.pk and (dal := dati.get("spesa_dal")):
-                for c in self.instance.contratti.filter(archiviato=False).prefetch_related(
-                    "proroghe"
-                ):
-                    s = adapters.scadenza(c)
-                    fine = scadenze.data_fine_effettiva(s) if s else None
-                    if fine is None or fine >= dal:
-                        self.add_error(
-                            "spesa_dal",
-                            f"Il contratto {c} finisce il "
-                            f"{fine:%d/%m/%Y}: la prima spesa deve essere dopo."
-                            if fine
-                            else f"Il contratto {c} non ha date: completalo o archivialo.",
-                        )
-                        break
         return dati
-
-
-CAMPI_SPESA = ["spesa_fornitore", "spesa_importo", "spesa_periodicita", "spesa_dal", "spesa_al"]
-CAMPI_CLASSIFICAZIONE = ["natura_previsti", "conto_previsti", "wbs_previsti"]
-
-
-class _SpesaMixin:
-    """Scorciatoie per la spesa senza contratto: il fabbisogno si aggiorna da solo (§5.6).
-
-    Il fabbisogno diventa «senza contratto» con decisione «Rinnovare» (la spesa prosegue);
-    un previsto manuale si toglie, perché la spesa lo sostituisce.
-    """
-
-    solo_spesa = True
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for campo in ("spesa_importo", "spesa_periodicita", "spesa_dal"):
-            self.fields[campo].required = True
-        self.fields["natura_previsti"].label = "Natura"
-        self.fields["conto_previsti"].label = "Conto COGE"
-        self.fields["wbs_previsti"].label = "WBS"
-        self.fields["wbs_previsti"].help_text = "Obbligatoria se la spesa è CAPEX."
-
-    def save(self, commit=True):
-        f = super().save(commit=False)
-        f.senza_contratto = True
-        f.decisione = m.Fabbisogno.Decisione.RINNOVARE
-        f.previsto_data_avvio = f.previsto_durata_mesi = None
-        if commit:
-            f.save()
-        return f
-
-
-class SpesaForm(_SpesaMixin, FabbisognoForm):
-    """Spesa senza contratto su un fabbisogno esistente (anche «Rinnova senza contratto»)."""
-
-    sezioni = [
-        ("Spesa", CAMPI_SPESA),
-        ("Classificazione", CAMPI_CLASSIFICAZIONE),
-    ]
-
-    class Meta(FabbisognoForm.Meta):
-        fields = CAMPI_SPESA + CAMPI_CLASSIFICAZIONE
-
-
-class SpesaNuovaForm(_SpesaMixin, FabbisognoForm):
-    """Nuova spesa senza contratto: crea il fabbisogno con i soli dati necessari."""
-
-    sezioni = [
-        ("Fabbisogno", ["descrizione", "cluster", "categoria", "impianto", "referente"]),
-        ("Spesa", CAMPI_SPESA),
-        ("Classificazione", CAMPI_CLASSIFICAZIONE),
-    ]
-
-    class Meta(FabbisognoForm.Meta):
-        fields = (
-            ["descrizione", "cluster", "categoria", "impianto", "referente"]
-            + CAMPI_SPESA
-            + CAMPI_CLASSIFICAZIONE
-        )
 
 
 CAMPI_CONTRATTO = [
     "fornitore",
     "descrizione",
+    "senza_contratto",
     "numero_contratto",
     "data_emissione",
     "numero_rda",
@@ -344,7 +236,7 @@ CAMPI_CONTRATTO = [
 
 class ContrattoForm(ModelFormBootstrap):
     sezioni = [
-        ("Oggetto e fornitore", ["fabbisogno", "fornitore", "descrizione"]),
+        ("Oggetto e fornitore", ["fabbisogno", "fornitore", "descrizione", "senza_contratto"]),
         (
             "Ordine e procedura",
             [
@@ -430,6 +322,40 @@ class RinnovoForm(ContrattoForm):
 
     class Meta(ContrattoForm.Meta):
         fields = CAMPI_CONTRATTO
+
+
+# Dati del solo documento contrattuale: un rinnovo senza contratto non li ha (F9.5.3).
+CAMPI_SOLO_CONTRATTO = (
+    "senza_contratto",
+    "numero_contratto",
+    "data_emissione",
+    "data_stipula",
+    "data_fine_override",
+    "tacito_rinnovo",
+    "preavviso_disdetta_giorni",
+)
+
+
+class RinnovoSenzaContrattoForm(RinnovoForm):
+    """Rinnovo senza contratto: stessa catena, scadenze e alert, senza dati del documento."""
+
+    sezioni = [
+        ("Oggetto e fornitore", ["fornitore", "descrizione"]),
+        ("Periodo", ["data_inizio", "durata_mesi"]),
+        ("Procedura", ["procedura", "lead_time_mesi_override", "numero_rda", "cig"]),
+        ("Documenti e note", ["link_documenti", "note"]),
+    ]
+
+    class Meta(ContrattoForm.Meta):
+        fields = [c for c in CAMPI_CONTRATTO if c not in CAMPI_SOLO_CONTRATTO]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["data_inizio"].required = True
+        self.fields["durata_mesi"].help_text = (
+            "12 = annuale. Scadenza = inizio + durata − 1 giorno; da qui data limite (scadenza "
+            "− lead time della procedura) e alert, come per un contratto."
+        )
 
 
 class VoceRinnovoForm(FormBase):

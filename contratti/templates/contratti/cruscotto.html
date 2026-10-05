@@ -23,16 +23,16 @@
       {% if r.contratto %}{% url 'contratti:contratto' r.contratto.pk as link %}{% else %}{% url 'contratti:fabbisogno' r.previsto_manuale.pk as link %}{% endif %}
       <tr data-href="{{ link }}">
         {% if r.contratto %}
-          <td><a href="{{ link }}">{{ r.contratto.fabbisogno.descrizione }}</a> <span class="small text-body-secondary">{{ r.contratto.fabbisogno.area }}</span></td>
+          <td><a href="{{ link }}">{{ r.contratto.fabbisogno.descrizione }}</a> <span class="small text-body-secondary">{{ r.contratto.fabbisogno.area }}</span>{% if r.contratto.senza_contratto %} <span class="stato stato-grigio">senza contratto</span>{% endif %}</td>
           <td>{{ r.contratto.fornitore }}</td>
         {% else %}
-          <td><a href="{{ link }}">{{ r.previsto_manuale.descrizione }}</a> {% if r.spesa_ricorrente %}<span class="stato stato-grigio">spesa senza contratto</span>{% else %}<span class="stato stato-blu">nuovo</span>{% endif %}</td>
-          <td class="text-body-secondary">{{ r.previsto_manuale.spesa_fornitore|default:"—" }}</td>
+          <td><a href="{{ link }}">{{ r.previsto_manuale.descrizione }}</a> <span class="stato stato-blu">nuovo</span></td>
+          <td class="text-body-secondary">—</td>
         {% endif %}
         <td class="text-nowrap">{{ r.fine|date:"d/m/Y" }}</td>
         <td class="text-nowrap">{{ r.data_limite|date:"d/m/Y" }}</td>
         <td class="text-end">{{ r.giorni_al_limite }}</td>
-        <td>{% if r.spesa_ricorrente %}<span class="text-body-secondary">nessuna pratica</span>{% else %}{{ r.stato_pratica_label }}{% endif %}</td>
+        <td>{{ r.stato_pratica_label }}</td>
       </tr>
     {% endfor %}
     </tbody>

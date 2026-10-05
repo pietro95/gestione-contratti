@@ -20,7 +20,7 @@
       <td class="small">{{ r.contratto.numero_contratto|default:"—" }}<div class="text-body-secondary">{{ r.contratto.cig|default:"—" }}</div></td>
       <td class="text-nowrap">{{ r.contratto.data_inizio|date:"d/m/Y"|default:"—" }}</td>
       <td class="text-nowrap">{{ r.fine|date:"d/m/Y"|default:"—" }}</td>
-      <td>{{ r.stato|stato_badge }}{% if r.contratto.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}</td>
+      <td>{{ r.stato|stato_badge }}{% if r.contratto.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}{% if r.contratto.senza_contratto %} <span class="stato stato-grigio">senza contratto</span>{% endif %}</td>
       <td>{{ r.alert|alert_badge }}</td>
     </tr>
   {% empty %}<tr><td colspan="7"><div class="vuoto"><i class="bi bi-inbox" aria-hidden="true"></i>Nessun contratto con questi filtri.</div></td></tr>{% endfor %}

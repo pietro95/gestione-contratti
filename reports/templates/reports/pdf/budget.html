@@ -52,7 +52,7 @@
   {% for g in s.gruppi %}
     <tr class="gruppo"><td class="sx" colspan="3">{{ g.etichetta }}</td>{% for c in g.celle %}<td class="num">{{ c.2|euro }}</td>{% endfor %}</tr>
     {% for v, importi in g.voci %}
-    <tr><td class="sx"><span class="stato">{% if v.previsionale %}previsto {{ v.numero_previsto }}{% elif v.spesa_ricorrente %}senza contratto{% else %}contratto{% endif %}</span></td><td class="sx">{{ v.fabbisogno.descrizione }} — {{ v.descrizione }}{% if v.fornitore %} <span class="tenue">· {{ v.fornitore }}</span>{% endif %}</td><td class="sx" style="white-space: nowrap">{{ v.inizio|date:"d/m/Y" }} – {{ v.fine|date:"d/m/Y" }}</td>{% for i in importi %}<td class="num">{{ i|euro }}</td>{% endfor %}</tr>
+    <tr><td class="sx"><span class="stato">{% if v.previsionale %}previsto {{ v.numero_previsto }}{% elif v.senza_contratto %}senza contratto{% else %}contratto{% endif %}</span></td><td class="sx">{{ v.fabbisogno.descrizione }} — {{ v.descrizione }}{% if v.fornitore %} <span class="tenue">· {{ v.fornitore }}</span>{% endif %}</td><td class="sx" style="white-space: nowrap">{{ v.inizio|date:"d/m/Y" }} – {{ v.fine|date:"d/m/Y" }}</td>{% for i in importi %}<td class="num">{{ i|euro }}</td>{% endfor %}</tr>
     {% endfor %}
   {% endfor %}
   </tbody>

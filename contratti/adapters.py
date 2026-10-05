@@ -12,10 +12,9 @@ from decimal import Decimal
 from django.db.models import Prefetch
 
 from contratti import models as m
-from contratti.engine import previsioni, scadenze, spese
+from contratti.engine import previsioni, scadenze
 from contratti.engine.date import UN_GIORNO
 from contratti.engine.tipi import (
-    MESI_PERIODICITA,
     Alert,
     ContrattoBase,
     ContrattoPrevisto,
@@ -235,15 +234,6 @@ def ha_successore(contratto: m.Contratto) -> bool:
     return m.Contratto.objects.filter(predecessore=contratto, archiviato=False).exists()
 
 
-def sostituito_da_spesa(contratto: m.Contratto, fine: datetime.date | None) -> bool:
-    """Il fabbisogno continua con una spesa senza contratto dopo la fine (SPEC §5.6).
-
-    La spesa fa da successore: il contratto finito prima della prima spesa non va in alert.
-    """
-    f = contratto.fabbisogno
-    return bool(f.senza_contratto and f.spesa_dal and fine is not None and fine < f.spesa_dal)
-
-
 def alert_contratto(contratto: m.Contratto, oggi: datetime.date) -> Alert | None:
     s = scadenza(contratto)
     if s is None:
@@ -253,8 +243,7 @@ def alert_contratto(contratto: m.Contratto, oggi: datetime.date) -> Alert | None
         oggi,
         decisione=contratto.fabbisogno.decisione,
         stato_pratica=stato_pratica_corrente(contratto),
-        ha_successore=ha_successore(contratto)
-        or sostituito_da_spesa(contratto, scadenze.data_fine_effettiva(s)),
+        ha_successore=ha_successore(contratto),
         finestra_mesi=int(parametro(Chiave.FINESTRA_ALERT_MESI, oggi)),
     )
 
@@ -314,8 +303,8 @@ def previsti_fabbisogno(
     fabbisogno: m.Fabbisogno, orizzonte: datetime.date
 ) -> list[ContrattoPrevisto]:
     """Contratti previsti del fabbisogno fino all'orizzonte (SPEC §5.3)."""
-    if fabbisogno.archiviato or fabbisogno.senza_contratto:
-        return []  # una spesa ricorrente non ha rinnovi previsti: si conta da sola (§5.6)
+    if fabbisogno.archiviato:
+        return []
     contratto = contratto_base_previsti(fabbisogno)
     if contratto is None:
         if any(not c.archiviato for c in fabbisogno.contratti.all()):
@@ -444,40 +433,3 @@ def natura_previsti(fabbisogno: m.Fabbisogno, base: m.Contratto | None) -> str:
     if len(nature) > 1:
         return m.Contratto.MISTA
     return nature.pop() if nature else m.Natura.OPEX
-
-
-# --- Spese ricorrenti senza contratto (F9.5) ---------------------------------------------
-
-
-def spesa_ricorrente(fabbisogno: m.Fabbisogno, oggi: datetime.date) -> spese.SpesaRicorrente | None:
-    """La spesa ricorrente del fabbisogno per il motore; ``None`` se non lo è.
-
-    Con decisione `Dismettere` la spesa si ferma: valgono solo le spese prima di oggi.
-    """
-    if not fabbisogno.senza_contratto or fabbisogno.archiviato:
-        return None
-    al = fabbisogno.spesa_al
-    if fabbisogno.decisione == m.Fabbisogno.Decisione.DISMETTERE:
-        al = min(al, oggi - UN_GIORNO) if al else oggi - UN_GIORNO
-    return spese.SpesaRicorrente(
-        importo=fabbisogno.spesa_importo,
-        dal=fabbisogno.spesa_dal,
-        mesi=MESI_PERIODICITA[fabbisogno.spesa_periodicita],
-        al=al,
-        riferimento=fabbisogno.pk,
-    )
-
-
-def promemoria_spesa(
-    fabbisogno: m.Fabbisogno, oggi: datetime.date
-) -> tuple[Alert | None, datetime.date | None]:
-    """🟡 nella finestra prima della prossima spesa; nessun alert se dismessa (SPEC §5.6)."""
-    s = spesa_ricorrente(fabbisogno, oggi)
-    if s is None:
-        return None, None
-    return spese.promemoria(
-        s,
-        oggi,
-        finestra_mesi=int(parametro(Chiave.FINESTRA_ALERT_MESI, oggi)),
-        dismessa=fabbisogno.decisione == m.Fabbisogno.Decisione.DISMETTERE,
-    )

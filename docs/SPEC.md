@@ -1,6 +1,6 @@
 # Istruzioni di progetto — Registro contratti ICTDINN
 
-Rev08 — 05/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
+Rev09 — 05/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
@@ -12,6 +12,7 @@ Storico revisioni:
 - Rev06 (05/10/2026): allineamento alle fasi F8–F9.3, già in produzione. Ufficio ICTDINN con i cluster al posto dell'area (§1, §4); numero e data di emissione del contratto al posto dell'OdA (§4); natura, conto e WBS sulla voce, WBS di cluster e a progetto (§4); un contratto può rinnovare più contratti (§4, §5.1, §5.3, TC-12); fatturato come riferimento del budget, OPEX e CAPEX mai sommati, CAPEX per WBS (§5.2); Spese per WBS (§5.5); import dall'interfaccia, incrementale, struttura dell'ufficio (§7); permessi e visibilità per cluster (§8.1); decisioni aperte aggiornate (§9).
 - Rev07 (05/10/2026): spese ricorrenti senza contratto sul fabbisogno (§4, §5.6, TC-14), per gli acquisti piccoli e periodici pagati con fattura diretta (es. dominio DNS): entrano nel budget, hanno solo un promemoria 🟡 (§5.1) e restano fuori dal piano ordini (§5.4).
 - Rev08 (05/10/2026): la spesa senza contratto può proseguire un fabbisogno con contratti, se tutti finiscono prima della prima spesa: la spesa fa da successore dell'ultimo contratto (§4, §5.1, §5.6, TC-14).
+- Rev09 (05/10/2026): decisione di Pietro, testo scritto da Claude, da approvare. Tolta la spesa ricorrente sul fabbisogno (Rev07–Rev08): anche senza contratto ogni rinnovo va gestito, con scadenza, data limite, pratica e alert. Il **rinnovo senza contratto** è un contratto segnato «senza contratto», anello della catena come gli altri: stesse regole di scadenze, alert, previsti e budget; fuori dal piano ordini (§4, §5.1, §5.4, §5.6, TC-14). Chiusa la decisione aperta sulle spese ricorrenti nel budget (§9).
 
 ## 1. Obiettivo
 
@@ -75,7 +76,6 @@ Struttura: una riga per ogni istanza contrattuale (ogni rinnovo = nuova riga), f
 - decisione di continuità: `Rinnovare` / `Da valutare` / `Sostituire` / `Dismettere`;
 - stima del prossimo importo e note;
 - **previsto manuale** (solo per un fabbisogno nuovo, senza contratti): data di avvio prevista, durata, procedura presunta, modalità e periodicità di fatturazione previste, natura, conto e WBS previsti. Sono dati decisi e si salvano; il contratto previsto che ne deriva si calcola (§5.3). Avvio e durata vanno indicati insieme; CAPEX ⇔ WBS come sulla voce.
-- **spesa ricorrente senza contratto** (facoltativa; i contratti non archiviati del fabbisogno devono finire tutti prima della prima spesa): fornitore, importo per periodo, periodicità (mensile … annuale), data della prima spesa e, se la spesa è terminata, data fino alla quale vale. Importo, periodicità e prima spesa sono obbligatori insieme; esclude il previsto manuale. Natura, conto e WBS sono quelli del previsto manuale. Le spese dei singoli periodi si calcolano (§5.6).
 
 **Contratto** (istanza):
 - chiave: fabbisogno, contratto predecessore (dello stesso fabbisogno);
@@ -87,7 +87,8 @@ Struttura: una riga per ogni istanza contrattuale (ogni rinnovo = nuova riga), f
 - proroghe esercitate: zero o più (vedi **Proroga**);
 - tacito rinnovo con termine di disdetta in giorni (obbligatorio se c'è tacito rinnovo);
 - classificazione: natura e WBS stanno sulle voci. La natura del contratto si ricava dalle voci (OPEX, CAPEX o mista); il contratto è **finanziato** se ha almeno una voce su una WBS a progetto;
-- documenti: link al protocollo o a SharePoint, senza caricare file.
+- documenti: link al protocollo o a SharePoint, senza caricare file;
+- **senza contratto** (sì/no): acquisto senza documento contrattuale, per esempio con fattura diretta (§5.6). Numero di contratto, data di emissione e tacito rinnovo non servono; tutto il resto vale come per un contratto.
 
 **Proroga** (0..n per contratto): proroga effettivamente esercitata, anche più volte sullo stesso contratto.
 - data dell'atto, nuova data di fine, riferimento (protocollo, contratto integrativo o atto aggiuntivo), note;
@@ -156,7 +157,7 @@ Nessun dato di dominio si cancella fisicamente: si archivia, e la storia delle m
 - `data_limite_avvio = data_fine − lead_time(procedura)`. Il lead time si può sovrascrivere sul singolo contratto. Sostituisce il valore fisso di 6 mesi.
 - Per i contratti a tacito rinnovo: `data_ultima_disdetta = data_fine − preavviso`. Negli alert (regole 3 e 4) la data di riferimento è la più vicina tra data limite e data ultima di disdetta.
 - Colori degli alert. Le regole si valutano in quest'ordine e vale la prima che si applica:
-  1. nessun alert se la decisione del fabbisogno è `Dismettere`, se esiste un contratto successore registrato se il contratto è confluito in un contratto nuovo (TC-12) o se il fabbisogno prosegue con una spesa senza contratto che inizia dopo la fine del contratto (§5.6);
+  1. nessun alert se la decisione del fabbisogno è `Dismettere`, se esiste un contratto successore registrato se il contratto è confluito in un contratto nuovo (TC-12);
   2. 🔴 se oggi > data di fine;
   3. 🟠 se oggi > data limite e la pratica è `Non avviata` o `Offerta richiesta`;
   4. 🟡 se oggi > data limite con pratica più avanzata, oppure se oggi ≥ data limite − 3 mesi (finestra parametrica);
@@ -164,7 +165,6 @@ Nessun dato di dominio si cancella fisicamente: si archivia, e la storia delle m
 
   I casi di verifica sono in `docs/TEST_CASES.md`, TC-06.
 
-- Una **spesa ricorrente senza contratto** ha solo un promemoria: 🟡 da (prossima spesa − finestra parametrica) fino al giorno della spesa compreso, altrimenti 🟢; mai 🟠 o 🔴. Nessun alert se la decisione è `Dismettere` o la spesa è terminata (§5.6, TC-14).
 
 ### 5.2 Tre viste di budget (tutte per anno, cluster, conto, WBS, fornitore)
 
@@ -219,7 +219,7 @@ Report annuale "Piano ordini anno X". Una riga per ogni contratto previsto o da 
 
 Di default il piano mostra i propri cluster (§8.1).
 
-Le spese ricorrenti senza contratto non entrano nel piano ordini: non c'è un ordine da emettere (§5.6).
+I rinnovi senza contratto, registrati o previsti, non entrano nel piano ordini: non passano dal Procurement (§5.6).
 
 Include un avviso quando più fabbisogni della stessa categoria o dello stesso fornitore, sommati, superano una soglia. Serve a valutare l'accorpamento ed evitare il frazionamento. L'applicabilità concreta delle soglie per Siciliacque (settori speciali) va confermata con Procurement/Legale.
 
@@ -229,18 +229,14 @@ Export in XLSX, oltre al PDF quando serve da allegare.
 
 Per una WBS, di cluster o a progetto: i contratti con voci sulla WBS e gli importi anno per anno, nella vista (fatturato, ordinato, competenza) e al livello scelti. Solo contratti registrati, niente previsti: è la spesa sostenuta o impegnata sulla WBS, anche fuori dai budget dei cluster. Export in XLSX. Di default l'elenco mostra le WBS dei propri cluster e tutte le WBS a progetto.
 
-### 5.6 Spese ricorrenti senza contratto
+### 5.6 Rinnovi senza contratto
 
-Un fabbisogno può essere soddisfatto senza contratto, con una fattura diretta a ogni periodo (tipicamente importi piccoli, es. il rinnovo annuale di un dominio DNS). Sul fabbisogno si indicano fornitore, importo, periodicità e prima spesa (§4).
-- **Date delle spese**: prima spesa + k × periodicità (k = 0, 1, …), sempre contate dalla prima spesa con l'aritmetica dei mesi di §5.1, così non scivolano (31/01 mensile → 28/02, 31/03, 30/04). Si fermano alla data di fine, se indicata.
-- Ogni spesa è una voce `Una tantum` fatturata il giorno della spesa, con periodo di servizio fino al giorno prima della spesa successiva:
-  - **fatturato**: l'importo nell'anno della spesa;
-  - **ordinato**: l'importo nell'anno della spesa;
-  - **competenza**: pro-rata a giorni sul periodo di servizio.
-- Entrano nel budget come dato **consolidato** (non previsionale), con cluster, fornitore e la classificazione del fabbisogno; non generano contratti previsti.
-- Alert: solo promemoria 🟡 (§5.1). Fuori dal piano ordini (§5.4).
-- **Rinnovo senza contratto**: un fabbisogno il cui contratto scade può proseguire con una spesa senza contratto. I contratti restano nello storico e nel budget dei loro anni; la spesa fa da successore dell'ultimo, che non va più in alert e non genera previsti. Ogni contratto non archiviato deve finire prima della prima spesa (fine effettiva, proroghe comprese); un contratto senza date blocca la spesa.
-- Con decisione `Dismettere` la spesa si ferma: contano solo le spese prima di oggi, che restano nel budget. Con la data di fine contano le spese fino a quella data.
+Un fabbisogno può proseguire senza documento contrattuale (es. un dominio rinnovato ogni anno con una fattura diretta). Ogni periodo va comunque rinnovato in tempo: si registra come un **contratto segnato «senza contratto»** (§4), anello della catena dei rinnovi come gli altri.
+- **Registrazione**: «Rinnova senza contratto» dal contratto che scade (predecessore), oppure «Nuovo senza contratto» per il primo periodo. Inizio di default il giorno dopo la fine del predecessore, durata di default 12 mesi (annuale); si riportano le voci, con classificazione e piano di fatturazione, come in un rinnovo (§5.3). La pratica del predecessore passa a «Contratto attivo».
+- **Scadenza e alert**: le stesse regole del contratto (§5.1): data di fine = inizio + durata − 1 giorno (annuale dal 15/03/2025: fine 14/03/2026), data limite = fine − lead time della procedura, alert 🟡 🟠 🔴 con la pratica. Il predecessore non va più in alert.
+- **Previsti e budget**: come per un contratto (§5.2, §5.3). Il periodo registrato è consolidato; i periodi successivi sono previsti e partono dal rinnovo senza contratto.
+- **Piano ordini**: fuori, sia il periodo registrato sia i suoi previsti (§5.4). Un rinnovo registrato poi come contratto vero rientra nelle regole ordinarie.
+- Si può alternare: dopo un rinnovo senza contratto si può registrare un contratto, e viceversa.
 
 ## 6. Perimetro funzionale
 
@@ -346,7 +342,6 @@ Import dall'interfaccia (Gestione → Import), con lo stesso codice dei comandi 
 - **Anno di imputazione dell'impegno per i contratti previsti**: il default è l'anno di inizio del servizio. Da confermare con il Procurement se preferisce l'anno della data limite di avvio.
 - **IVA**: gli importi sono sempre imponibile. Da verificare se il Procurement vuole anche l'IVA nel piano ordini.
 - **Mappatura dei gruppi AD e account di servizio**: da creare sul dominio.
-- **Spese ricorrenti nel budget**: entrano come consolidato (proposta di Claude, F9.5). Le spese degli anni futuri sono in realtà una stima: da confermare se vanno mostrate come previsionale.
 
 ## 10. Regole di lavoro per Claude in questo progetto
 

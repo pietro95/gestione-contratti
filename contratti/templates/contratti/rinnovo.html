@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% load registro %}
-{% block title %}Registra rinnovo{% endblock %}
+{% block title %}{% if senza_contratto %}Rinnova senza contratto{% else %}Registra rinnovo{% endif %}{% endblock %}
 {% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'contratti:contratti' %}">Contratti</a></li><li class="breadcrumb-item"><a href="{% url 'contratti:contratto' predecessore.pk %}">{{ predecessore }}</a></li><li class="breadcrumb-item active" aria-current="page">Rinnovo</li></ol></nav>{% endblock %}
-{% block titolo_pagina %}Registra rinnovo{% endblock %}
+{% block titolo_pagina %}{% if senza_contratto %}Rinnova senza contratto{% else %}Registra rinnovo{% endif %}{% endblock %}
 {% block sottotitolo %}<div class="sottotitolo">{{ predecessore }} · finisce il {{ fine|date:"d/m/Y"|default:"—" }}</div>{% endblock %}
 {% block content %}
-<div class="alert alert-info"><i class="bi bi-info-circle" aria-hidden="true"></i> Il nuovo contratto avrà lo stesso fabbisogno e il contratto attuale come predecessore. Le voci riportano conto, centro di costo, WBS e piano di fatturazione: correggi importi, riferimenti e date.</div>
+{% if senza_contratto %}<div class="alert alert-info"><i class="bi bi-info-circle" aria-hidden="true"></i> Il rinnovo si registra come un contratto senza documento contrattuale, con il contratto attuale come predecessore. <strong>Scadenza</strong> = inizio + durata − 1 giorno (12 mesi = annuale); da lì, come per un contratto, la data limite (scadenza − lead time della procedura), la pratica e gli alert 🟡 🟠 🔴. Alla scadenza si registra il periodo successivo con «Rinnova senza contratto» o «Registra rinnovo». Il budget lo conta come un contratto; il piano ordini del Procurement no.</div>
+{% else %}<div class="alert alert-info"><i class="bi bi-info-circle" aria-hidden="true"></i> Il nuovo contratto avrà lo stesso fabbisogno e il contratto attuale come predecessore. Le voci riportano conto, centro di costo, WBS e piano di fatturazione: correggi importi, riferimenti e date.</div>{% endif %}
 <form method="post" novalidate>
   {% csrf_token %}
   {% include "contratti/_campi.html" with form=form %}
@@ -39,7 +40,7 @@
   </fieldset>
   {% endif %}
   <div class="form-azioni">
-    <button type="submit" class="btn btn-primary"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Registra rinnovo</button>
+    <button type="submit" class="btn btn-primary"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> {% if senza_contratto %}Rinnova senza contratto{% else %}Registra rinnovo{% endif %}</button>
     <a class="btn btn-outline-secondary" href="{% url 'contratti:contratto' predecessore.pk %}">Annulla</a>
   </div>
 </form>
