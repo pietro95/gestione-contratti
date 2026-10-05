@@ -387,7 +387,7 @@ Rev00: realizzata (v1.5.1). Richiesta di Pietro del 05/10/2026. Caso numerico: T
 
 ## F9.5.3 — Scorciatoie per la spesa senza contratto
 
-Rev00: realizzata. Richiesta di Pietro del 05/10/2026: registrare una spesa senza contratto
+Rev00: realizzata (v1.5.2). Richiesta di Pietro del 05/10/2026: registrare una spesa senza contratto
 senza passare dal form completo del fabbisogno.
 
 - «Nuova spesa senza contratto» nell'elenco dei fabbisogni: crea il fabbisogno con i soli
@@ -416,7 +416,7 @@ in A4 verticale con la pagina ruotata e parti mancanti (dialogo di stampa di mac
   solo file locali di `static/` (nessuna risorsa esterna). Logo in PNG per il PDF.
 - La stampa dal browser (Ctrl+P) resta, con il CSS di stampa di F9.5.
 
-## F9.5.3 — Più cluster nel filtro, cluster in evidenza nel PDF
+## F9.5.4 — Più cluster nel filtro, cluster in evidenza nel PDF
 
 Rev00: realizzata (v1.5.2). Richiesta di Pietro del 05/10/2026.
 
