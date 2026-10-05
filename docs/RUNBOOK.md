@@ -330,7 +330,7 @@ qui sotto restano per l'emergenza: fanno la stessa cosa con lo stesso codice.
    piano `Da verificare` e il loro fatturato è stimato a pro-rata: imposta modalità e
    periodicità reali partendo dalle voci più pesanti, poi genera lo scadenzario.
 
-### 6.1 Struttura ICTDINN: cluster, responsabili, conti e WBS (dalla v1.3)
+### 6.1 Struttura ICTDINN: cluster, responsabili, conti e WBS (dalla v1.5)
 
 Si carica dall'app, solo come Admin: menu "Import" → "Struttura ICTDINN".
 

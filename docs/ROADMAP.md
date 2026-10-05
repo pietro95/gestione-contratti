@@ -245,7 +245,7 @@ Rev00: segnalazione di Pietro del 02/10/2026 (contratto 01/03/2025–28/02/2026 
 
 ## F9.2 — Estensione all'ufficio ICTDINN
 
-Rev02: realizzata (v1.3.0). Rev01: risposte di Pietro del 02/10/2026.
+Rev02: realizzata (v1.5.0). Rev01: risposte di Pietro del 02/10/2026.
 
 **Realizzato, con le scelte da confermare**
 - Cluster al posto dell'area; conto con il suo cluster (vuoto finché non si carica la
@@ -332,7 +332,7 @@ Rev02: realizzata (v1.3.0). Rev01: risposte di Pietro del 02/10/2026.
 
 ## F9.3 — Un contratto che rinnova più contratti
 
-Rev00: realizzata (v1.4.0). Caso numerico: TC-12 (SIM voce e SIM M2M).
+Rev00: realizzata (v1.5.0). Caso numerico: TC-12 (SIM voce e SIM M2M).
 
 - Il rinnovo principale resta il predecessore; gli altri contratti sostituiti «confluiscono»
   nel contratto nuovo (campo `confluito_in`). Ogni contratto ha al massimo un successore: o è
@@ -363,7 +363,7 @@ Rev00: richiesta di Pietro del 05/10/2026.
 
 ## F9.5 — Stampa dei report e spese senza contratto
 
-Rev00: richiesta di Pietro del 05/10/2026. Caso numerico: TC-14.
+Rev00: realizzata (v1.5.0). Richiesta di Pietro del 05/10/2026. Caso numerico: TC-14.
 
 - **Stampa**: A4 orizzontale; dimensioni di base sull'elemento `html` (Bootstrap usa i rem);
   tabelle a tutta pagina, testo a capo, nessuna colonna tagliata; intestazioni ripetute su ogni
