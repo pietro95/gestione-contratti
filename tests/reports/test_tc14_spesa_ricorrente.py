@@ -182,3 +182,96 @@ def test_contratto_senza_date_blocca_la_spesa(dns, client, make_user):
     client.login(username="u_editor", password="password-locale-di-prova")
     url = reverse("contratti:fabbisogno_modifica", args=[dns.pk])
     assert "non ha date" in client.post(url, _dati_form(dns)).content.decode()
+
+
+# --- Scorciatoie: nuova spesa e rinnovo senza contratto (F9.5.3) -------------------------
+
+
+def _editor(client, make_user):
+    from accounts.roles import EDITOR
+
+    make_user("u_editor", role=EDITOR)
+    client.login(username="u_editor", password="password-locale-di-prova")
+
+
+def test_nuova_spesa_crea_il_fabbisogno(dns, client, make_user):
+    _editor(client, make_user)
+    url = reverse("contratti:spesa_nuova")
+    html = client.get(url).content.decode()
+    assert "Nuova spesa senza contratto" in html and "dominio DNS" not in html
+    dati = {
+        "descrizione": "Certificato TLS",
+        "cluster": dns.cluster_id,
+        "categoria": dns.categoria_id,
+        "spesa_fornitore": dns.spesa_fornitore_id,
+        "spesa_importo": "",
+        "spesa_periodicita": "annuale",
+        "spesa_dal": "",
+        "natura_previsti": "OPEX",
+    }
+    assert "Obbligatorio per una spesa" in client.post(url, dati).content.decode()
+    risposta = client.post(url, {**dati, "spesa_importo": "80,00", "spesa_dal": "15/01/2027"})
+    assert risposta.status_code == 302
+    nuovo = m.Fabbisogno.objects.get(descrizione="Certificato TLS")
+    assert nuovo.senza_contratto and nuovo.decisione == "rinnovare"
+    assert nuovo.spesa_importo == Decimal("80.00") and nuovo.spesa_dal == D(2027, 1, 15)
+    assert (
+        "Nuova spesa senza contratto"
+        in client.get(reverse("contratti:fabbisogni")).content.decode()
+    )
+
+
+def test_rinnova_senza_contratto_dal_contratto(dns, client, make_user):
+    m.Fabbisogno.objects.filter(pk=dns.pk).update(
+        senza_contratto=False,
+        decisione="da_valutare",
+        spesa_importo=None,
+        spesa_periodicita="",
+        spesa_dal=None,
+        conto_previsti=None,
+        natura_previsti="",
+    )
+    conto = m.ContoCoge.objects.get(codice="61000009")
+    c = f.contratto(fabbisogno=dns, data_inizio=D(2024, 3, 15), durata_mesi=12)
+    f.piano(f.voce(c, conto=conto, importo_fisso=Decimal("300.00")))
+    _editor(client, make_user)
+    html = client.get(reverse("contratti:contratto", args=[c.pk])).content.decode()
+    url = reverse("contratti:contratto_rinnovo_spesa", args=[c.pk])
+    assert url in html and "Rinnova senza contratto" in html
+    form = client.get(url).context["form"]
+    assert form.initial["spesa_dal"] == D(2025, 3, 15)  # il giorno dopo la fine
+    assert form.initial["spesa_fornitore"] == c.fornitore_id
+    assert form.initial["conto_previsti"] == conto.pk
+    dati = {
+        "spesa_fornitore": c.fornitore_id,
+        "spesa_importo": "25,00",
+        "spesa_periodicita": "annuale",
+        "natura_previsti": "OPEX",
+        "conto_previsti": conto.pk,
+    }
+    risposta = client.post(url, {**dati, "spesa_dal": "14/03/2025"})
+    assert "la prima spesa deve essere dopo" in risposta.content.decode()
+    assert client.post(url, {**dati, "spesa_dal": "15/03/2025"}).status_code == 302
+    dns.refresh_from_db()
+    assert dns.senza_contratto and dns.decisione == "rinnovare"
+    assert dns.spesa_dal == D(2025, 3, 15) and dns.descrizione == "Dominio DNS"
+    assert adapters.alert_contratto(c, D(2026, 12, 20)) is None
+    # Il pulsante sparisce: il contratto ha già la spesa come successore.
+    html = client.get(reverse("contratti:contratto", args=[c.pk])).content.decode()
+    assert url not in html and "continua <a" in html
+    assert client.get(url).status_code == 302
+
+
+def test_scorciatoie_spesa_403_per_reader(dns, client, make_user):
+    from accounts.roles import READER
+
+    c = f.contratto(fabbisogno=dns)
+    make_user("u_reader", role=READER)
+    client.login(username="u_reader", password="password-locale-di-prova")
+    for url in (
+        reverse("contratti:spesa_nuova"),
+        reverse("contratti:fabbisogno_spesa", args=[dns.pk]),
+        reverse("contratti:contratto_rinnovo_spesa", args=[c.pk]),
+    ):
+        assert client.get(url).status_code == 403, url
+        assert client.post(url, {}).status_code == 403, url

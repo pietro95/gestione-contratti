@@ -3,7 +3,7 @@
 {% block title %}Fabbisogni{% endblock %}
 {% block titolo_pagina %}Fabbisogni{% endblock %}
 {% block sottotitolo %}<div class="sottotitolo">Il fabbisogno è l'esigenza stabile (es. "licenze gestionale"); i contratti ne sono le istanze nel tempo.</div>{% endblock %}
-{% block azioni %}{% if puo_modificare %}<a class="btn btn-primary" href="{% url 'contratti:fabbisogno_nuovo' %}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuovo fabbisogno</a>{% endif %}{% endblock %}
+{% block azioni %}{% if puo_modificare %}<a class="btn btn-primary" href="{% url 'contratti:fabbisogno_nuovo' %}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuovo fabbisogno</a><a class="btn btn-outline-primary" href="{% url 'contratti:spesa_nuova' %}"><i class="bi bi-receipt" aria-hidden="true"></i> Nuova spesa senza contratto</a>{% endif %}{% endblock %}
 {% block content %}
 <form method="get" class="filtri row g-3 align-items-end">
   <div class="col-md-6 col-xl-4"><label class="form-label" for="f-q">Cerca</label><input id="f-q" type="search" name="q" value="{{ filtri.q }}" class="form-control" placeholder="Descrizione, referente, note"></div>
