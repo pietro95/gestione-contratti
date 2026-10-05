@@ -2,7 +2,7 @@
 
 Ogni caso descrive: input, output atteso, regola della SPEC che verifica.
 
-Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (scritto da Claude su richiesta di Pietro del 02/10/2026). F9.4: aggiunto TC-13 (scritto da Claude su richiesta di Pietro del 05/10/2026). F9.5: aggiunto TC-14 (scritto da Claude su richiesta di Pietro del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (scritto da Claude su decisione di Pietro del 05/10/2026, da approvare).
+Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (scritto da Claude su richiesta di Pietro del 02/10/2026). F9.4: aggiunto TC-13 (scritto da Claude su richiesta di Pietro del 05/10/2026). F9.5: aggiunto TC-14 (scritto da Claude su richiesta di Pietro del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (scritto da Claude su decisione di Pietro del 05/10/2026, da approvare). SPEC Rev11: aggiunti TC-15 e TC-16 (scritti da Claude su decisione di Pietro del 05/10/2026, bozza da approvare).
 
 I valori sono stati calcolati a mano e verificati con uno script indipendente. **Se un test non passa, l'errore è nel codice, non nel caso.** Un caso si modifica solo con l'approvazione di Pietro e insieme a una nuova revisione della SPEC.
 
@@ -399,3 +399,89 @@ Il rinnovo previsto dal 15/03/2026 entra nel budget 2026 come previsionale.
 
 **Piano ordini 2026**: vuoto (C2 e i suoi previsti sono senza contratto). Controllo: con C2
 registrato come contratto, il piano 2026 ha una riga con avvio 15/03/2026.
+
+## TC-15 — Stato della pratica ricavato dalla RDA
+
+SPEC §4 (stato pratica, RDA), §5.1, §5.7. Rev11, bozza da approvare.
+
+Parametri: procedura `Affidamento diretto`, lead time 4 mesi; finestra dell'alert giallo 3
+mesi.
+
+Input: fabbisogno «Servizio di prova», decisione `Rinnovare`. Contratto C1 con fine
+31/12/2026: data limite 31/08/2026, giallo dal 31/05/2026. Passaggio registrato a mano:
+`Offerta ricevuta` il 01/06/2026. RDA R1 collegata alla pratica di C1: richiesta il
+10/06/2026, inserita in SAP il 15/06/2026 (numero di 10 cifre), ultimo rilascio il 01/07/2026.
+Contratto C2, successore di C1 con RDA d'origine R1: emesso il 20/07/2026, inizio 01/01/2027.
+
+**(a) Percorso ordinario**
+
+| Oggi | Fase di R1 | Stato della pratica (data) | Alert di C1 |
+|---|---|---|---|
+| 05/06/2026 | — (R1 non esiste) | Offerta ricevuta (01/06/2026, passaggio) | 🟡 |
+| 12/06/2026 | Richiesta | RDA richiesta (10/06/2026) | 🟡 |
+| 20/06/2026 | Predisposta | RDA predisposta (15/06/2026) | 🟡 |
+| 05/07/2026 | Approvata | RDA approvata (01/07/2026) | 🟡 |
+| 25/07/2026 | Contratto emesso | Contratto emesso (20/07/2026) | nessuno (successore registrato) |
+| 05/01/2027 | Contratto emesso | Contratto attivo (01/01/2027) | nessuno |
+
+Registrare C2 con «Registra rinnovo» non scrive il passaggio `Contratto attivo` (la pratica
+ha una RDA). Senza documenti di esecuzione né fatture R1 resta `Contratto emesso`.
+
+**(b) RDA annullata**: R1 annullata il 10/07/2026, C2 non esiste.
+
+| Oggi | Fase di R1 | Stato della pratica | Alert di C1 |
+|---|---|---|---|
+| 15/07/2026 | Annullata | Offerta ricevuta (ultimo passaggio) | 🟡 |
+| 15/09/2026 | Annullata | Offerta ricevuta | 🟡 (oltre la data limite con pratica più avanzata di `Offerta richiesta`) |
+
+Nuova RDA R2 richiesta il 20/09/2026: al 25/09/2026 lo stato è `RDA richiesta` (20/09/2026).
+
+**(c) Passaggio successivo meno avanzato**: come (a); il 06/07/2026 si registra a mano
+`Offerta richiesta`. Al 07/07/2026 lo stato resta `RDA approvata` (vale il più avanzato).
+
+**(d) Dati precedenti alla 2.0**: pratica senza RDA con il passaggio `RDA predisposta`
+importato il 01/10/2026. Al 02/10/2026 lo stato è `RDA predisposta`.
+
+**(e) RDA ferma** (soglia 30 giorni): una RDA predisposta il 15/06/2026, senza rilascio, non è
+ferma al 15/07/2026 (30 giorni) ed è ferma al 16/07/2026 (31 giorni).
+
+## TC-16 — Esecuzione, residuo e chiusura di un contratto una tantum
+
+SPEC §4 (una tantum, documento di esecuzione, fattura, chiusura), §5.1, §5.3, §5.4, §5.7,
+§5.8. Rev11, bozza da approvare.
+
+Input: fabbisogno «Forniture di prova», decisione `Rinnovare`. RDA R1 con contratto F1
+**una tantum**: emesso e iniziato il 02/03/2026, durata 1 mese (fine 01/04/2026); voce OPEX,
+fisso 10.000,00 €, massimale 2.000,00 €; fatturazione `Una tantum`, rata unica di 10.000,00
+con data fattura 02/03/2026.
+
+**Una tantum**: nessun alert (anche dopo il 01/04/2026), nessun contratto previsto, nessuna
+riga nel piano ordini 2026 e 2027; il fabbisogno non segnala la catena interrotta.
+
+**Budget 2026** (OPEX, fisso): fatturato 10.000,00; ordinato 10.000,00; competenza 10.000,00
+(02/03–01/04/2026, 31 giorni, tutti nel 2026).
+
+**Esecuzione**, eventi in ordine:
+
+| Data | Evento |
+|---|---|
+| 10/03/2026 | DDT |
+| 15/03/2026 | fattura FA-1, 4.000,00 |
+| 20/04/2026 | fattura FA-2, 5.000,00, abbinata alla rata (la rata diventa consuntivo, importo 10.000,00 invariato) |
+| 28/04/2026 | modello di ricezione materiale, finale |
+| 05/05/2026 | fattura FA-3, 3.500,00 |
+| 10/05/2026 | chiusura del contratto |
+
+Situazione alle date di controllo:
+
+| Oggi | Fatturato | Residuo sul fisso | Residuo sul massimo | Avanzamento | Da chiudere | Anomalie | Fase di R1 |
+|---|---|---|---|---|---|---|---|
+| 05/03/2026 | 0,00 | 10.000,00 | 12.000,00 | 0% | — (non finito) | — | Contratto emesso |
+| 25/04/2026 | 9.000,00 | 1.000,00 | 3.000,00 | 90% | Attestazione mancante | — | In esecuzione |
+| 30/04/2026 | 9.000,00 | 1.000,00 | 3.000,00 | 90% | Fatture mancanti | — | In esecuzione |
+| 06/05/2026 | 12.500,00 | −2.500,00 | −500,00 | 125% | Pronto da chiudere | `FATTURATO_OLTRE_MASSIMO` | In esecuzione |
+| 11/05/2026 | 12.500,00 | −2.500,00 | −500,00 | 125% | — (chiuso) | `FATTURATO_OLTRE_MASSIMO` | Chiusa |
+
+Il budget non cambia con le fatture: il fatturato del budget 2026 resta 10.000,00 (rata).
+Controllo: un import con una fattura per F1 datata 15/05/2026 scarta la riga
+(`FATTURA_DOPO_CHIUSURA`); la stessa fattura FA-1 importata di nuovo non si duplica.
