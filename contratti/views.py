@@ -10,7 +10,6 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.db import transaction
 from django.db.models import Count, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -386,16 +385,13 @@ def _passo(numero: int) -> dict:
     return {"passo": numero, "passi_titoli": PASSI}
 
 
-def _genera_rate(request, voce: m.VoceContratto) -> None:
-    """Rate generate dal piano appena salvato; quelle modificate a mano non si toccano."""
-    try:
-        rate = servizi.genera_scadenzario(voce)
-    except servizi.ScadenzarioBloccato as exc:
-        messages.warning(request, f"Voce salvata, rate non rigenerate: {exc}")
-        return
-    if rate:
-        messages.success(request, f"Voce salvata: {len(rate)} rate generate.")
-    elif voce.piano_fatturazione.modalita == m.ModalitaFatturazione.SAL:
+def _messaggio_rate(request, salvata: servizi.VoceSalvata) -> None:
+    """Esito delle rate generate dal piano appena salvato."""
+    if salvata.rate is None:
+        messages.warning(request, f"Voce salvata, rate non rigenerate: {salvata.bloccato}")
+    elif salvata.rate:
+        messages.success(request, f"Voce salvata: {len(salvata.rate)} rate generate.")
+    elif salvata.voce.piano_fatturazione.modalita == m.ModalitaFatturazione.SAL:
         messages.info(request, "Voce salvata. Fatturazione a SAL: le rate si inseriscono a mano.")
     else:
         messages.info(request, "Voce salvata. Nessuna rata generata dal piano.")
@@ -704,46 +700,14 @@ def contratto_rinnovo(request, pk, senza_contratto=False):
         messages.error(request, "Il contratto ha già un successore registrato.")
         return redirect("contratti:contratto", pk=pk)
     fine = adapters.data_fine_effettiva(predecessore)
-    iniziali = {
-        campo: getattr(predecessore, campo)
-        for campo in (
-            "fornitore",
-            "descrizione",
-            "procedura",
-            "durata_mesi",
-            "tacito_rinnovo",
-            "preavviso_disdetta_giorni",
-        )
-    }
-    if fine:
-        iniziali["data_inizio"] = fine + datetime.timedelta(days=1)
-    if senza_contratto and not predecessore.senza_contratto:
-        iniziali["durata_mesi"] = 12  # di solito si rinnova anno per anno
-    voci_iniziali = [
-        {
-            "origine": v.pk,
-            "riporta": True,
-            "descrizione": v.descrizione,
-            "importo_fisso": v.importo_fisso,
-            "massimale_variabile": v.massimale_variabile,
-        }
-        for v in predecessore.voci.filter(archiviato=False, proroga__isnull=True).order_by("id")
-    ]
+    iniziali = servizi.iniziali_rinnovo(predecessore, senza_contratto)
+    voci_iniziali = servizi.voci_iniziali_rinnovo(predecessore)
     classe_form = forms.RinnovoSenzaContrattoForm if senza_contratto else forms.RinnovoForm
     form = classe_form(request.POST or None, initial=iniziali)
     formset = forms.VociRinnovoFormSet(request.POST or None, initial=voci_iniziali, prefix="voci")
     sostituibili = servizi.candidati_sostituiti(predecessore)
     if request.method == "POST" and form.is_valid() and formset.is_valid():
-        voci = [
-            {
-                "origine": d["origine"],
-                "descrizione": d["descrizione"],
-                "importo_fisso": d["importo_fisso"],
-                "massimale_variabile": d.get("massimale_variabile") or Decimal("0.00"),
-            }
-            for d in formset.cleaned_data
-            if d.get("riporta")
-        ]
+        voci = servizi.voci_rinnovo(formset.cleaned_data)
         scelti = set(request.POST.getlist("sostituisce"))
         sostituisce = [c for c in sostituibili if str(c.pk) in scelti]
         dati = form.cleaned_data | ({"senza_contratto": True} if senza_contratto else {})
@@ -778,15 +742,7 @@ def proroga_nuova(request, pk):
     form = forms.ProrogaForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         d = form.cleaned_data
-        voce = None
-        if d.get("importo_fisso"):
-            voce = {
-                "descrizione": d.get("descrizione_voce")
-                or f"Proroga al {d['nuova_data_fine']:%d/%m/%Y}",
-                "importo_fisso": d["importo_fisso"],
-                "modalita": d["modalita"],
-                "periodicita": d.get("periodicita") or "",
-            }
+        voce = servizi.voce_proroga(d)
         try:
             servizi.registra_proroga(
                 contratto,
@@ -835,16 +791,7 @@ def voce_modifica(request, contratto_pk, pk=None):
     form, piano_form, quote = _voce_form(request, contratto, voce)
     guidata = request.GET.get("guidata") == "1"
     if request.method == "POST" and form.is_valid() and piano_form.is_valid() and quote.is_valid():
-        with transaction.atomic():
-            voce_salvata = form.save(commit=False)
-            voce_salvata.contratto = contratto
-            voce_salvata.save()
-            piano = piano_form.save(commit=False)
-            piano.voce = voce_salvata
-            piano.save()
-            quote.instance = voce_salvata
-            quote.save()
-        _genera_rate(request, voce_salvata)
+        _messaggio_rate(request, servizi.salva_voce(contratto, form, piano_form, quote))
         if guidata:
             return redirect("contratti:contratto_guidata", pk=contratto.pk)
         if request.GET.get("ritorno") == "piani":

@@ -447,12 +447,13 @@ anche senza contratto ogni rinnovo va gestito con scadenza e alert.
 ## F10 — Connettore MCP in sola lettura
 
 Rev01: in corso. Decisioni di Pietro del 05/10/2026 (SPEC Rev10, `docs/SPEC_MCP.md`
-Rev03). Claude interroga il registro con gli stessi numeri dell'interfaccia.
+Rev03). Rilasciata con F10.1 nella v1.7.0. Claude interroga il registro con gli stessi
+numeri dell'interfaccia.
 
-**Parte 1 (v1.7.0), realizzata**: OAuth con login interno, `/mcp`, container `mcp` con
+**Parte 1, realizzata**: OAuth con login interno, `/mcp`, container `mcp` con
 utente PostgreSQL limitato, registro e limite, tool `riferimenti`, `cerca`, `scadenze`,
 `crea_client_mcp`, `verifica_mcp.sh`, RUNBOOK §12. Serve alla prova D8 in produzione.
-**Parte 2 (v1.8.0), realizzata**: gli altri otto tool (`contratto`, `fabbisogno`,
+**Parte 2, realizzata**: gli altri otto tool (`contratto`, `fabbisogno`,
 `fornitore`, `scadenzario`, `budget`, `piano_ordini`, `spese_wbs`, `piani_da_verificare`),
 `versione` negli oggetti letti (per F10.1), tool per ruolo come le pagine, pagina «Connettore
 MCP» dell'utente con revoca, limite di dimensione della risposta. Resta la prova D8.
@@ -483,11 +484,13 @@ container `mcp` limitata ai quattro endpoint; prova in produzione da claude.ai e
 
 ## F10.1 — Scrittura dal connettore MCP
 
-Rev01: in corso. **Parte 1 (v1.9.0), realizzata**: infrastruttura (scope e consenso,
-anteprima in transazione annullata con modifiche ed effetti, conferma con versioni,
-idempotenza, interruttore, storia `MCP …`, privilegi PostgreSQL) e tool dei gruppi A, B, D,
-`archivia` e `ripristina`, con i test di equivalenza con l'interfaccia. **Parte 2**: gruppo C
-(nuovo contratto, modifica, rinnovo, proroga, voci) con TC-12 e TC-14 ricostruiti via MCP.
+Rev02: realizzata, rilasciata nella v1.7.0 insieme a F10. **Parte 1**: infrastruttura (scope e consenso, anteprima in
+transazione annullata con modifiche ed effetti, conferma con versioni, idempotenza,
+interruttore, storia `MCP …`, privilegi PostgreSQL) e tool dei gruppi A, B, D, `archivia` e
+`ripristina`. **Parte 2**: gruppo C (`crea_contratto` con voci, piani e quote,
+`modifica_contratto`, `registra_rinnovo` anche senza contratto e con contratti sostituiti,
+`registra_proroga`, `crea_voce`, `modifica_voce`); logica di voce, rinnovo e proroga spostata
+dalle viste ai servizi; TC-12 e TC-14 ricostruiti via MCP. Il gruppo E arriva con F11.
 
 Decisione di Pietro del 05/10/2026 (SPEC Rev12,
 `docs/SPEC_MCP.md` Rev05 §8): perimetro gruppi A–E (D11), conferma nella chat (D12), nessun limite

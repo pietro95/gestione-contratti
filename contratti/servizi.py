@@ -2,6 +2,7 @@
 
 import datetime
 from dataclasses import dataclass, field
+from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import Q
@@ -53,6 +54,96 @@ def genera_scadenzario(voce: m.VoceContratto) -> list[m.Rata]:
     for rata in nuove:
         rata.save()
     return nuove
+
+
+@dataclass
+class VoceSalvata:
+    voce: m.VoceContratto
+    rate: list[m.Rata] | None  # None: scadenzario bloccato da rate modificate o consuntivate
+    bloccato: str = ""
+
+
+def salva_voce(contratto: m.Contratto, form, piano_form, quote) -> VoceSalvata:
+    """Voce con piano di fatturazione e quote per periodo, poi le rate (SPEC §4).
+
+    I form arrivano già validi (interfaccia o connettore). Le rate modificate a mano o
+    consuntivate non si toccano: in quel caso lo scadenzario resta com'è e lo si dice.
+    """
+    with transaction.atomic():
+        voce = form.save(commit=False)
+        voce.contratto = contratto
+        voce.save()
+        piano = piano_form.save(commit=False)
+        piano.voce = voce
+        piano.save()
+        quote.instance = voce
+        quote.save()
+    try:
+        rate = genera_scadenzario(voce)
+    except ScadenzarioBloccato as exc:
+        return VoceSalvata(voce, None, str(exc))
+    return VoceSalvata(voce, rate)
+
+
+def iniziali_rinnovo(predecessore: m.Contratto, senza_contratto: bool = False) -> dict:
+    """Dati proposti per il rinnovo: quelli del predecessore, inizio il giorno dopo la fine."""
+    iniziali = {
+        campo: getattr(predecessore, campo)
+        for campo in (
+            "fornitore",
+            "descrizione",
+            "procedura",
+            "durata_mesi",
+            "tacito_rinnovo",
+            "preavviso_disdetta_giorni",
+        )
+    }
+    fine = adapters.data_fine_effettiva(predecessore)
+    if fine:
+        iniziali["data_inizio"] = fine + datetime.timedelta(days=1)
+    if senza_contratto and not predecessore.senza_contratto:
+        iniziali["durata_mesi"] = 12  # di solito si rinnova anno per anno
+    return iniziali
+
+
+def voci_iniziali_rinnovo(predecessore: m.Contratto) -> list[dict]:
+    """Voci da riportare nel rinnovo: quelle del predecessore, escluse le proroghe."""
+    return [
+        {
+            "origine": v.pk,
+            "riporta": True,
+            "descrizione": v.descrizione,
+            "importo_fisso": v.importo_fisso,
+            "massimale_variabile": v.massimale_variabile,
+        }
+        for v in predecessore.voci.filter(archiviato=False, proroga__isnull=True).order_by("id")
+    ]
+
+
+def voci_rinnovo(righe: list[dict]) -> list[dict]:
+    """Dalle righe delle voci del rinnovo (form validi): quelle da riportare."""
+    return [
+        {
+            "origine": d["origine"],
+            "descrizione": d["descrizione"],
+            "importo_fisso": d["importo_fisso"],
+            "massimale_variabile": d.get("massimale_variabile") or Decimal("0.00"),
+        }
+        for d in righe
+        if d.get("riporta")
+    ]
+
+
+def voce_proroga(d: dict) -> dict | None:
+    """L'eventuale voce dell'importo della proroga, dai dati del form della proroga."""
+    if not d.get("importo_fisso"):
+        return None
+    return {
+        "descrizione": d.get("descrizione_voce") or f"Proroga al {d['nuova_data_fine']:%d/%m/%Y}",
+        "importo_fisso": d["importo_fisso"],
+        "modalita": d["modalita"],
+        "periodicita": d.get("periodicita") or "",
+    }
 
 
 class OperazioneNonAmmessa(Exception):

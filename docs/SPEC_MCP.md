@@ -1,6 +1,6 @@
 # Connettore MCP — specifica (bozza)
 
-Rev05 — 05/10/2026 — testo scritto da Claude, decisioni di Pietro Verro, da approvare. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalla fase F10 di `docs/ROADMAP.md`.
+Rev06 — 05/10/2026 — testo scritto da Claude, decisioni di Pietro Verro, da approvare. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalla fase F10 di `docs/ROADMAP.md`.
 
 Storico revisioni:
 - Rev00 (05/10/2026): prima bozza, raccomandata l'opzione «solo rete interna con ponte locale».
@@ -9,6 +9,7 @@ Storico revisioni:
 - Rev03 (05/10/2026): D5 chiusa: calcoli sempre alla data di oggi. Inserita nella SPEC (Rev10) e nella ROADMAP (F10).
 - Rev04 (05/10/2026): decisione di Pietro: il connettore prevede anche la scrittura (§8, sotto-fase F10.1), con anteprima e conferma in due passi, scope OAuth separato, solo Admin ed Editor. Aggiornati §1, §2.2, §4.2, §4.5, §5, §9, §10.
 - Rev05 (05/10/2026): decisioni di Pietro. D11: perimetro dei gruppi A–E. D12: conferma nella chat. D13: nessun limite giornaliero di operazioni.
+- Rev06 (05/10/2026): decisione di Pietro, a valle della realizzazione di F10.1: tre limiti dei tool del gruppo C (§8.2): `modifica_voce` non cambia le quote per periodo esistenti, `crea_contratto` e `modifica_contratto` non gestiscono le note, `registra_rinnovo` non genera le rate.
 
 ## 1. Obiettivo
 
@@ -208,6 +209,12 @@ Un oggetto principale per operazione (un contratto si crea con le sue voci e i l
 | **D. Catena** | `collega_rinnovo`, `scollega_predecessore`, `confluisci`, `togli_confluenza` | `servizi.collega_rinnovo`, `scollega_predecessore`, `confluisci`, `togli_confluenza` |
 | **E. Processo d'acquisto** (con F11) | `crea_rda`, `modifica_rda`, `registra_documento_esecuzione`, `registra_fattura` (con abbinamento alle rate), `chiudi_contratto`, `annulla_chiusura` | form e servizi di F11, quando esistono |
 | | `conferma_operazione` (id) | — |
+
+Limiti del gruppo C (Rev06):
+- `modifica_voce` modifica voce e piano; le quote per periodo già registrate si cambiano solo dall'interfaccia (`crea_voce` le accetta);
+- `crea_contratto` e `modifica_contratto` non gestiscono il campo `note`;
+- `registra_rinnovo` non genera le rate, come l'interfaccia: lo scadenzario delle nuove voci si genera dopo con `genera_scadenzario`;
+- la procedura si indica con il codice restituito da `riferimenti`.
 
 **Solo dall'interfaccia**, mai via MCP:
 - `sposta_contratto`, `accorpa_fabbisogni`, `unisci_doppioni`: ristrutturano più fabbisogni e catene in un colpo; la loro anteprima è già una pagina dedicata e un errore è costoso da ricostruire (D11);
