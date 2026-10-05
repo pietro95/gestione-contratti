@@ -98,10 +98,15 @@ def piano_ordini(request):
     )
     if request.GET.get("formato") == "xlsx":
         nome = f"{oggi:%Y.%m.%d}_Piano_ordini_{piano.anno}.xlsx"
-        return xlsx.risposta(piano_xlsx(piano, oggi, form.descrizione()), nome)
+        natura = d.get("natura") or ""
+        return xlsx.risposta(piano_xlsx(piano, oggi, form.descrizione(), natura), nome)
     contesto |= {
         "piano": piano,
-        "per_natura": piano.totali_per_natura(),
+        # Con il filtro di natura, solo i totali di quella natura (un previsto misto resta
+        # in elenco con l'importo intero, ma la sua quota dell'altra natura non si conta).
+        "per_natura": {d["natura"]: piano.totali(d["natura"])}
+        if d.get("natura")
+        else piano.totali_per_natura(),
         "livelli": LIVELLI,
     }
     return render(request, "reports/piano_ordini.html", contesto)

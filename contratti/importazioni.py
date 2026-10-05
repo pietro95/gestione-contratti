@@ -160,16 +160,18 @@ def modello_conti() -> Workbook:
         [
             (
                 "Conti",
-                ["codice", "descrizione", "valido_dal", "valido_al"],
+                ["codice", "descrizione", "valido_dal", "valido_al", "cluster"],
                 {"codice", "descrizione", "valido_dal"},
             )
         ],
         [
             "Piano dei conti",
             "La coppia codice + valido_dal identifica il conto; una riga già presente aggiorna "
-            "descrizione e fine validità. Nessuna cancellazione.",
+            "descrizione, fine validità e cluster. Nessuna cancellazione.",
+            "cluster: codice del cluster del conto (es. IT); vuoto = invariato. Ogni conto "
+            "appartiene a un cluster: per caricare tutto insieme usa l'import della struttura.",
             "Date gg/mm/aaaa. Un errore su una riga annulla tutto il file.",
-            "Esempio (fittizio): 60000000 | Canoni software | 01/01/2026 |",
+            "Esempio (fittizio): 60000000 | Canoni software | 01/01/2026 | | IT",
         ],
     )
 

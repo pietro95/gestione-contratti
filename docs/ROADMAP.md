@@ -347,3 +347,17 @@ Rev00: realizzata (v1.4.0). Caso numerico: TC-12 (SIM voce e SIM M2M).
   contratti» per collegarli dopo.
 - Spostare un contratto confluito (o in cui altri confluiscono) è rifiutato: prima si toglie
   il collegamento. I doppioni passano la confluenza al contratto tenuto.
+
+## F9.4 — SPEC Rev06, chiusura delle scelte F9.2, TC-13
+
+Rev00: richiesta di Pietro del 05/10/2026.
+
+- **SPEC Rev06** (bozza da approvare): allineamento a F8–F9.3.
+- **Scelte F9.2 chiuse**:
+  - la transizione finisce per sempre alla prima assegnazione registrata: archiviare tutte le
+    assegnazioni non ridà agli Editor i permessi su tutti i cluster;
+  - cluster obbligatorio sul conto in amministrazione; caricata la struttura (almeno un conto
+    con cluster), una voce non può usare un conto senza cluster e l'import dei contratti lo
+    segnala (`CONTO_SENZA_CLUSTER`); l'import del piano dei conti legge la colonna `cluster`.
+- **TC-13**: natura per voce (contratto con una voce OPEX e una CAPEX).
+

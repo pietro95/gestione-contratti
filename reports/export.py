@@ -145,7 +145,7 @@ def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):
     return wb
 
 
-def piano_xlsx(piano: PianoOrdini, oggi: datetime.date, filtri: str = ""):
+def piano_xlsx(piano: PianoOrdini, oggi: datetime.date, filtri: str = "", natura: str = ""):
     wb = xlsx.nuovo_libro()
     intestazione = [
         f"Piano ordini {piano.anno}",
@@ -180,8 +180,9 @@ def piano_xlsx(piano: PianoOrdini, oggi: datetime.date, filtri: str = ""):
         for r in piano.righe
     ]
     # Un totale per natura: OPEX e CAPEX sono budget distinti.
-    for natura, totali in piano.totali_per_natura().items():
-        righe.append([f"Totale {natura}"] + [None] * 11 + [totali[liv] for liv in LIVELLI] + [None])
+    per_natura = {natura: piano.totali(natura)} if natura else piano.totali_per_natura()
+    for n, totali in per_natura.items():
+        righe.append([f"Totale {n}"] + [None] * 11 + [totali[liv] for liv in LIVELLI] + [None])
     xlsx.foglio(wb, "Piano ordini", intestazione, colonne, righe)
 
     righe = [

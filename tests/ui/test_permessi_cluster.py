@@ -177,3 +177,46 @@ def test_assegnazione_archiviata_non_vale(struttura, utente):
     m.AssegnazioneCluster.objects.filter(username="e.it").update(archiviato=True)
     editor = utente("e.altro", EDITOR)  # nuova sessione: senza assegnazioni attive
     assert _modifica(editor, struttura["contratto"]["IT"]).status_code == 403
+
+
+def test_transizione_finita_anche_con_assegnazioni_tutte_archiviate(struttura, utente):
+    """Dalla prima assegnazione valgono le regole per cluster, per sempre (SPEC §8.1)."""
+    editor = utente("e.libero", EDITOR)
+    assert _modifica(editor, struttura["contratto"]["OT"]).status_code == 200
+    utente("e.it", EDITOR, "IT")
+    m.AssegnazioneCluster.objects.update(archiviato=True)  # nessuna assegnazione attiva
+    editor = utente("e.altro", EDITOR)
+    assert _modifica(editor, struttura["contratto"]["OT"]).status_code == 403
+
+
+def _voce(conto):
+    return {
+        "voce-descrizione": "Canone",
+        "voce-natura": "OPEX",
+        "voce-conto": conto.pk,
+        "voce-importo_fisso": "1.000,00",
+        "voce-massimale_variabile": "0",
+        "piano-modalita": "anticipata",
+        "piano-periodicita": "annuale",
+        "quote-TOTAL_FORMS": "0",
+        "quote-INITIAL_FORMS": "0",
+    }
+
+
+def test_conto_senza_cluster_bloccato_dopo_la_struttura(struttura, utente):
+    editor = utente("e.it", EDITOR, "IT")
+    c = struttura["contratto"]["IT"]
+    url = reverse("contratti:voce_nuova", args=[c.pk])
+    senza = m.ContoCoge.objects.create(
+        codice="60000002", descrizione="Senza cluster", valido_dal=D(2020, 1, 1)
+    )
+    # Struttura non ancora caricata (nessun conto con cluster): ammesso.
+    assert editor.post(url, _voce(senza)).status_code == 302
+    m.ContoCoge.objects.create(
+        codice="60000003", descrizione="Con cluster", valido_dal=D(2020, 1, 1),
+        cluster=struttura["cluster"]["IT"],
+    )  # fmt: skip
+    risposta = editor.post(url, _voce(senza))
+    assert risposta.status_code == 200
+    assert "non ha un cluster" in risposta.content.decode()
+    assert c.voci.count() == 1

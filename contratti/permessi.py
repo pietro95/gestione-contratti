@@ -2,8 +2,9 @@
 
 - Admin: modifica tutto. Editor: modifica solo i fabbisogni (e i loro contratti) dei cluster
   assegnati, o di tutti con l'assegnazione TUTTI. Reader: legge tutto, non modifica.
-- Transizione: finché non esiste alcuna assegnazione (struttura non ancora caricata), gli
-  Editor modificano tutto, come prima della F9.2.
+- Transizione: finché non è mai stata registrata un'assegnazione (struttura non ancora
+  caricata), gli Editor modificano tutto, come prima della F9.2. Dalla prima assegnazione
+  valgono le regole per cluster, anche se poi le assegnazioni si archiviano (SPEC §8.1).
 - Visibilità: di default ognuno vede i propri cluster; gli altri a richiesta (``?area=tutti``).
   Chi non ha cluster assegnati (o ha TUTTI) vede tutto.
 """
@@ -39,12 +40,22 @@ def cluster_assegnati(user) -> frozenset[int] | None:
     return frozenset(a.cluster_id for a in assegnazioni)
 
 
+def struttura_caricata() -> bool:
+    """È mai stata registrata un'assegnazione di cluster? (anche archiviata)"""
+    return m.AssegnazioneCluster.objects.exists()
+
+
+def conti_per_cluster() -> bool:
+    """Il piano dei conti ha i cluster (struttura caricata): da qui il cluster è obbligatorio."""
+    return m.ContoCoge.objects.filter(cluster__isnull=False).exists()
+
+
 def cluster_modificabili(user) -> frozenset[int] | None:
     """Cluster in cui l'utente può modificare; ``None`` = tutti, vuoto = nessuno."""
     ruolo = role_of(user)
     if ruolo not in WRITE_ROLES:
         return frozenset()
-    if ruolo == ADMIN or not m.AssegnazioneCluster.objects.filter(archiviato=False).exists():
+    if ruolo == ADMIN or not struttura_caricata():
         return None
     return cluster_assegnati(user)
 
