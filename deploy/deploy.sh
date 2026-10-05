@@ -107,7 +107,7 @@ main() {
   compose run --rm --no-deps --user 0 web chown -R 1000:1000 /import
   compose run --rm --no-deps web python manage.py check --deploy --fail-level ERROR
   if mcp_attivo; then
-    echo "==> Utente PostgreSQL del connettore MCP (sola lettura)"
+    echo "==> Utente PostgreSQL del connettore MCP (privilegi limitati)"
     compose run --rm --no-deps web python manage.py ruolo_db_mcp
   fi
 
