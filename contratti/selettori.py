@@ -246,3 +246,26 @@ def cerca(q: str, oggi: datetime.date) -> dict[str, list]:
         ).order_by("archiviato", "ragione_sociale")[: LIMITE_CERCA["fornitori"]]
     )
     return risultati
+
+
+def catena(contratto: m.Contratto) -> list[m.Contratto]:
+    """Contratti della catena dei rinnovi, dal più vecchio al più recente."""
+    prima, c, visti = [], contratto.predecessore, {contratto.pk}
+    while c is not None and c.pk not in visti and len(prima) < 20:
+        prima.insert(0, c)
+        visti.add(c.pk)
+        c = c.predecessore
+    dopo, c = [], m.Contratto.objects.filter(predecessore=contratto).first()
+    while c is not None and c.pk not in visti and len(dopo) < 20:
+        dopo.append(c)
+        visti.add(c.pk)
+        c = m.Contratto.objects.filter(predecessore=c).first()
+    return [*prima, contratto, *dopo]
+
+
+def previsti_dopo(contratto: m.Contratto, oggi: datetime.date):
+    """Rinnovi previsti, se questo è il contratto da cui partono."""
+    base = adapters.contratto_base_previsti(contratto.fabbisogno)
+    if base is None or base.pk != contratto.pk:
+        return []
+    return adapters.previsti_fabbisogno(contratto.fabbisogno, adapters.orizzonte_default(oggi))

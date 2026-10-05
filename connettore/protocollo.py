@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from django.conf import settings
 
 from connettore import schema, serializza
-from connettore.strumenti import STRUMENTI, Contesto, ErroreTool
+from connettore.strumenti import STRUMENTI, Contesto, ErroreTool, ammessi
 
 # Ultima versione stabile del protocollo (SPEC_MCP §3) e versioni che accettiamo.
 VERSIONE_PROTOCOLLO = "2025-11-25"
@@ -80,6 +80,10 @@ def _tools_call(params: dict, ctx: Contesto, esito: Esito) -> dict:
     strumento = STRUMENTI.get(nome) if isinstance(nome, str) else None
     if strumento is None:
         raise _ErroreProtocollo(INVALID_PARAMS, f"Tool sconosciuto: {nome}")
+    if not strumento.ammesso(ctx.utente):
+        esito.esito, esito.messaggio = "errore_tool", "ruolo"
+        testo = f"Il tool «{nome}» è riservato ad Admin ed Editor, come la pagina dell'app."
+        return {"content": [{"type": "text", "text": testo}], "isError": True}
     argomenti = params.get("arguments")
     esito.argomenti = argomenti if isinstance(argomenti, dict) else {}
     try:
@@ -88,8 +92,17 @@ def _tools_call(params: dict, ctx: Contesto, esito: Esito) -> dict:
     except (schema.ArgomentiNonValidi, ErroreTool) as e:
         esito.esito, esito.messaggio = "errore_tool", str(e)[:300]
         return {"content": [{"type": "text", "text": str(e)}], "isError": True}
-    esito.elementi = _conta(dati)
     testo = json.dumps(dati, ensure_ascii=False)
+    dimensione = len(testo.encode())
+    if dimensione > settings.MCP_RISPOSTA_MAX_BYTES:
+        esito.esito, esito.messaggio = "errore_tool", f"risposta di {dimensione} byte"
+        testo = (
+            f"Risultato troppo grande ({dimensione // 1024} KB, massimo "
+            f"{settings.MCP_RISPOSTA_MAX_BYTES // 1024} KB): restringere i filtri (cluster, "
+            "natura, anno) o usare «limite» e «cursore» dove ci sono."
+        )
+        return {"content": [{"type": "text", "text": testo}], "isError": True}
+    esito.elementi = _conta(dati)
     return {"content": [{"type": "text", "text": testo}], "structuredContent": dati}
 
 
@@ -124,7 +137,8 @@ def gestisci(messaggio, ctx: Contesto) -> tuple[dict | None, Esito]:
         if metodo == "ping":
             return _risposta(id_, {}), esito
         if metodo == "tools/list":
-            return _risposta(id_, {"tools": [s.descrittore() for s in STRUMENTI.values()]}), esito
+            tools = [s.descrittore() for s in ammessi(ctx.utente)]
+            return _risposta(id_, {"tools": tools}), esito
         if metodo == "tools/call":
             return _risposta(id_, _tools_call(params, ctx, esito)), esito
         raise _ErroreProtocollo(METHOD_NOT_FOUND, f"Metodo non supportato: {metodo}")

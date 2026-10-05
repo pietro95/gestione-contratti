@@ -78,6 +78,7 @@ def _pagine(dati):
         "/contratti/nuovo/?senza_contratto=1",
         "/cerca/?q=prova",
         "/proposte/",
+        "/connettore/",
     ]
 
 

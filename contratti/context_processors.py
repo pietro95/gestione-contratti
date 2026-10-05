@@ -1,3 +1,5 @@
+from django.conf import settings
+
 from accounts.roles import can_write
 from contratti import models as m
 from contratti import permessi, selettori
@@ -14,6 +16,7 @@ def navigazione(request):
     )
     return {
         "puo_importare": can_write(user),
+        "connettore_attivo": bool(settings.MCP_URL_PUBBLICO),
         "proposte_aperte": aperte,
         "piani_da_verificare": selettori.voci_piano_da_verificare(
             permessi.codici_filtro(user, [])

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Connettore MCP{% endblock %}
+{% block titolo_pagina %}Connettore MCP{% endblock %}
+{% block sottotitolo %}<p class="text-body-secondary mb-0">Claude interroga il registro con i tuoi permessi, in sola lettura.</p>{% endblock %}
+{% block content %}
+{% if not ammesso %}
+<div class="alert alert-warning" role="alert">Il tuo utente non può collegare il connettore: serve un ruolo dell'applicazione, e l'account di emergenza non è ammesso.</div>
+{% endif %}
+
+<div class="card mb-3"><div class="card-body">
+  <h2 class="h5">Collegamenti attivi</h2>
+  {% if collegamenti %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-2">
+      <thead><tr><th scope="col">Client</th><th scope="col">Collegato il</th><th scope="col">Ultimo rinnovo</th><th scope="col"><span class="visually-hidden">Azioni</span></th></tr></thead>
+      <tbody>
+      {% for c in collegamenti %}
+        <tr>
+          <td>{{ c.application.name }}</td>
+          <td>{{ c.created|date:"d/m/Y H:i" }}</td>
+          <td>{{ c.updated|date:"d/m/Y H:i" }}</td>
+          <td class="text-end">
+            <form method="post" action="{% url 'connettore:revoca' c.pk %}" class="m-0">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle" aria-hidden="true"></i> Revoca</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <form method="post" action="{% url 'connettore:revoca_tutti' %}" class="m-0">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-sm btn-outline-danger">Revoca tutti</button>
+  </form>
+  {% else %}
+  <p class="mb-0 text-body-secondary">Nessun collegamento attivo.</p>
+  {% endif %}
+  <p class="small text-body-secondary mt-3 mb-0">Un collegamento resta attivo se accedi all'applicazione almeno una volta ogni {{ giorni_login }} giorni. I dati letti dal connettore vanno al modello di Claude.</p>
+</div></div>
+
+<div class="card mb-3"><div class="card-body">
+  <h2 class="h5">Come collegarsi</h2>
+  <p class="mb-2">Dalla rete aziendale o da VPN: in Claude, Impostazioni → Connettori → <strong>Registro contratti</strong> → Connetti, poi accedi qui e autorizza.</p>
+  <p class="mb-1">Claude Code:</p>
+  <pre class="small bg-body-tertiary p-2 rounded mb-0"><code>claude mcp add --transport http{% if client_claude_code %} --client-id {{ client_claude_code }}{% endif %} registro-contratti {{ url_mcp }}</code></pre>
+</div></div>
+
+<div class="card"><div class="card-body">
+  <h2 class="h5">Ultime chiamate</h2>
+  {% if chiamate %}
+  <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead><tr><th scope="col">Data e ora</th><th scope="col">Metodo</th><th scope="col">Tool</th><th scope="col">Esito</th><th scope="col" class="text-end">Durata</th></tr></thead>
+      <tbody>
+      {% for ch in chiamate %}
+        <tr><td>{{ ch.timestamp|date:"d/m/Y H:i:s" }}</td><td>{{ ch.metodo|default:"—" }}</td><td>{{ ch.tool|default:"—" }}</td><td>{{ ch.get_esito_display }}</td><td class="text-end">{{ ch.durata_ms }} ms</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="mb-0 text-body-secondary">Nessuna chiamata registrata.</p>
+  {% endif %}
+</div></div>
+{% endblock %}

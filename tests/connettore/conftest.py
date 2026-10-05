@@ -9,6 +9,9 @@ from oauth2_provider.models import AccessToken, get_application_model, set_token
 
 from accounts.roles import ADMIN, EDITOR, READER
 
+# Archivio di prova dei report (fixture importate + casi costruiti), per i tool di report.
+from tests.reports.conftest import archivio, conti  # noqa: F401
+
 HOST_PUBBLICO = "mcp.esempio.test"
 HOST_INTERNO = "contratti.esempio.test"
 ROLES = {"admin": ADMIN, "editor": EDITOR, "reader": READER}

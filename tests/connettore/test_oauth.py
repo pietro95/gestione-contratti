@@ -327,3 +327,14 @@ def test_crea_client_claude_mostra_il_secret_una_volta(db, capsys):
         "https://claude.ai/api/mcp/auth_callback",
         "https://claude.com/api/mcp/auth_callback",
     ]
+
+
+def test_revoca_dalla_pagina_blocca_il_refresh(client, applicazione, utente_reader, collegato):
+    from oauth2_provider.models import RefreshToken
+
+    rt = RefreshToken.objects.get(user=utente_reader, revoked__isnull=True)
+    assert rt.token_family is not None
+    r = client.post(f"/connettore/{rt.pk}/revoca/", HTTP_HOST=HOST_INTERNO, secure=True)
+    assert r.status_code == 302
+    assert refresh(client, applicazione, collegato["refresh_token"]).status_code == 400
+    assert chiama_mcp(client, collegato["access_token"]).status_code == 401

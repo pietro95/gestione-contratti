@@ -452,8 +452,10 @@ Rev03). Claude interroga il registro con gli stessi numeri dell'interfaccia.
 **Parte 1 (v1.7.0), realizzata**: OAuth con login interno, `/mcp`, container `mcp` con
 utente PostgreSQL limitato, registro e limite, tool `riferimenti`, `cerca`, `scadenze`,
 `crea_client_mcp`, `verifica_mcp.sh`, RUNBOOK §12. Serve alla prova D8 in produzione.
-**Parte 2, dopo la prova**: gli altri otto tool, pagina «Connettore MCP» dell'utente,
-limite di dimensione della risposta.
+**Parte 2 (v1.8.0), realizzata**: gli altri otto tool (`contratto`, `fabbisogno`,
+`fornitore`, `scadenzario`, `budget`, `piano_ordini`, `spese_wbs`, `piani_da_verificare`),
+`versione` negli oggetti letti (per F10.1), tool per ruolo come le pagine, pagina «Connettore
+MCP» dell'utente con revoca, limite di dimensione della risposta. Resta la prova D8.
 
 - **Primo passo, prima del resto**: prova con claude.ai di un flusso OAuth con la pagina di
   autorizzazione sull'host interno e i metadati e il token endpoint sull'host pubblico

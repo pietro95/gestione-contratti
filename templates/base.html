@@ -34,6 +34,7 @@
       <div class="app-sezione">Gestione</div>
       {% if puo_importare %}{% nav_voce 'contratti:importazioni' 'Import' 'bi-upload' '/import/' %}{% endif %}
       {% nav_voce 'contratti:proposte' 'Proposte import' 'bi-inboxes' conteggio=proposte_aperte %}
+      {% if connettore_attivo %}{% nav_voce 'connettore:collegamenti' 'Connettore MCP' 'bi-plug' '/connettore/' %}{% endif %}
       {% if user.is_staff %}{% nav_voce 'admin:index' 'Amministrazione' 'bi-gear' '/admin/' %}{% endif %}
     </div>
   </nav>

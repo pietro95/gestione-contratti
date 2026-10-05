@@ -586,13 +586,19 @@ con il cruscotto dell'app.
 - Access token di 1 ora (`MCP_ACCESS_TOKEN_SECONDI`), rinnovato da Claude. Il rinnovo riesce
   solo se l'utente ha fatto login nell'app negli ultimi 7 giorni (parametro `mcp_giorni_login`):
   altrimenti Claude chiede di ricollegare il connettore, dalla rete interna.
-- **Revoca immediata** di un utente: Amministrazione → Django OAuth Toolkit → *Refresh tokens* e
-  *Access tokens* → filtra per utente → elimina; oppure disattiva l'utente.
+- **Revoca da parte dell'utente**: menu «Connettore MCP» dell'app (`/connettore/`), con i propri
+  collegamenti, la revoca e le ultime chiamate.
+- **Revoca immediata** di un altro utente (Admin): Amministrazione → Django OAuth Toolkit →
+  *Refresh tokens* e *Access tokens* → filtra per utente → elimina; oppure disattiva l'utente.
 - **Spegnere il connettore**: `MCP_PORT=` vuota nel `.env` e `deploy.sh <versione>`, oppure
   disattivare il proxy host in Nginx Proxy Manager.
 - **Registro**: Amministrazione → Connettore MCP → Chiamate (utente, tool, argomenti, esito,
   durata; mai i risultati né i token). Limite: 60 richieste al minuto per collegamento
-  (parametro `mcp_richieste_minuto`).
+  (parametro `mcp_richieste_minuto`) e 200 KB per risultato (`MCP_RISPOSTA_MAX_BYTES`): oltre,
+  Claude riceve l'invito a restringere i filtri.
+- **Tool** (sola lettura): `riferimenti`, `cerca`, `scadenze`, `contratto`, `fabbisogno`,
+  `scadenzario`, `budget`, `piano_ordini`, `spese_wbs`; per Admin ed Editor anche `fornitore` e
+  `piani_da_verificare`, come le pagine dell'interfaccia.
 
 ### 12.8 Problemi frequenti
 
