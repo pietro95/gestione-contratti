@@ -1,6 +1,6 @@
 # Connettore MCP — specifica (bozza)
 
-Rev04 — 05/10/2026 — testo scritto da Claude, decisioni di Pietro Verro, da approvare. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalla fase F10 di `docs/ROADMAP.md`.
+Rev05 — 05/10/2026 — testo scritto da Claude, decisioni di Pietro Verro, da approvare. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalla fase F10 di `docs/ROADMAP.md`.
 
 Storico revisioni:
 - Rev00 (05/10/2026): prima bozza, raccomandata l'opzione «solo rete interna con ponte locale».
@@ -8,6 +8,7 @@ Storico revisioni:
 - Rev02 (05/10/2026): decisioni di Pietro. D1 chiusa: i dati possono andare al fornitore del modello. D7: dipendenze approvate. D9 e organizzazione Claude: le gestisce Pietro. D5 spiegata meglio, con proposta.
 - Rev03 (05/10/2026): D5 chiusa: calcoli sempre alla data di oggi. Inserita nella SPEC (Rev10) e nella ROADMAP (F10).
 - Rev04 (05/10/2026): decisione di Pietro: il connettore prevede anche la scrittura (§8, sotto-fase F10.1), con anteprima e conferma in due passi, scope OAuth separato, solo Admin ed Editor. Aggiornati §1, §2.2, §4.2, §4.5, §5, §9, §10.
+- Rev05 (05/10/2026): decisioni di Pietro. D11: perimetro dei gruppi A–E. D12: conferma nella chat. D13: nessun limite giornaliero di operazioni.
 
 ## 1. Obiettivo
 
@@ -185,7 +186,7 @@ Rev04, decisione di Pietro: il connettore prevede anche la scrittura. Si realizz
 7. **Atomicità.** Ogni operazione confermata è una transazione: tutto o niente.
 8. **Tracciabilità.** In `django-simple-history` l'utente è la persona, il motivo `MCP <tool> <id_operazione>`. Nel registro delle chiamate (§6): anteprime, conferme, rifiuti, id degli oggetti toccati.
 9. **Nessuna cancellazione** (regola 8): non esistono tool di cancellazione; `archivia` e `ripristina` sì.
-10. **Freni.** Interruttore generale `mcp_scrittura_attiva` (`Parametro`, solo Admin): spegne la scrittura senza deploy, la lettura resta. Limite di operazioni confermate per utente al giorno (proposta 50, in `Parametro`). L'Admin può togliere lo scope di scrittura a un collegamento senza revocare la lettura.
+10. **Freni.** Interruttore generale `mcp_scrittura_attiva` (`Parametro`, solo Admin): spegne la scrittura senza deploy, la lettura resta. L'Admin può togliere lo scope di scrittura a un collegamento senza revocare la lettura.
 
 ### 8.2 Tool di scrittura
 
@@ -215,9 +216,9 @@ Un oggetto principale per operazione (un contratto si crea con le sue voci e i l
 
 ### 8.3 Rischi specifici e contromisure
 
-- **Istruzioni nascoste nei dati** (*prompt injection*): una descrizione o una nota scritta da qualcuno può contenere frasi che il modello prende per istruzioni («archivia tutti i contratti di …»). Contromisure: testo libero in campi distinti, mai nelle descrizioni dei tool; un oggetto per operazione; anteprima obbligatoria; conferma solo con un id generato dal server; limite giornaliero; permessi per cluster. Rischio residuo: un utente che conferma senza leggere. Non si elimina; si limita il danno (archiviazione reversibile, storia completa, nessuna cancellazione).
+- **Istruzioni nascoste nei dati** (*prompt injection*): una descrizione o una nota scritta da qualcuno può contenere frasi che il modello prende per istruzioni («archivia tutti i contratti di …»). Contromisure: testo libero in campi distinti, mai nelle descrizioni dei tool; un oggetto per operazione; anteprima obbligatoria; conferma solo con un id generato dal server; permessi per cluster. Rischio residuo: un utente che conferma senza leggere. Non si elimina; si limita il danno (archiviazione reversibile, storia completa, nessuna cancellazione).
 - **Dati dettati male** (importi, date, fornitore sbagliato): l'anteprima mostra gli effetti calcolati, non solo i campi; le validazioni sono quelle dei form.
-- **Token rubato con scope di scrittura**: lo stesso danno di una sessione web rubata, limitato a 1 ora per l'access token, ai cluster dell'utente e dal limite giornaliero; revoca immediata dall'Admin.
+- **Token rubato con scope di scrittura**: lo stesso danno di una sessione web rubata, limitato a 1 ora per l'access token e ai cluster dell'utente; revoca immediata dall'Admin. Nessun limite al numero di operazioni (D13): il freno è l'interruttore generale.
 - **Database**: l'utente PostgreSQL del container `mcp` ottiene `INSERT` e `UPDATE` sulle tabelle di dominio e di storia; **`DELETE` solo sulle rate** (la rigenerazione dello scadenzario sostituisce le rate generate, `servizi.genera_scadenzario`) e sulle tabelle dei token OAuth. Nessun `DELETE` sulle altre tabelle di dominio: la regola 8 è imposta anche dal database.
 
 ### 8.4 Test e criteri di accettazione (F10.1)
@@ -226,7 +227,7 @@ Un oggetto principale per operazione (un contratto si crea con le sue voci e i l
 - **L'anteprima non scrive niente**: stesso numero di righe e di record di storia prima e dopo, in ogni tabella.
 - **Equivalenza con l'interfaccia**: gli stessi dati inviati alla vista web e al tool producono lo stesso stato del database (stessi campi, rate, previsti, pratica); gli stessi dati non validi producono gli stessi errori.
 - Conferma: id scaduto, già usato da un altro utente, con argomenti diversi o con un oggetto modificato nel frattempo → rifiutata; seconda conferma con lo stesso id → stesso esito, nessuna seconda scrittura.
-- Interruttore spento → ogni tool di scrittura rifiutato, lettura invariata; limite giornaliero raggiunto → rifiutato.
+- Interruttore spento → ogni tool di scrittura rifiutato, lettura invariata.
 - Storia con l'utente reale e motivo `MCP …`; nessun `DELETE` del container `mcp` fuori da rate e token (verifica sui privilegi dell'utente PostgreSQL nello script di verifica di `deploy/`).
 - Casi di `docs/TEST_CASES.md` ricostruiti via MCP (almeno TC-12 rinnovo con confluenza e TC-14 rinnovo senza contratto): anteprima e risultato coincidono con i valori attesi.
 
@@ -243,11 +244,11 @@ Prese:
 - D9 (Rev02): host pubblico, DNS, firewall perimetrale e organizzazione Claude (aggiunta del connettore da parte dell'Owner) li gestisce Pietro. Il RUNBOOK descrive cosa configurare.
 
 - D10 (Rev04): il connettore prevede la scrittura, sotto-fase F10.1 (§8).
+- D11 (Rev05): perimetro della scrittura: gruppi A–E di §8.2; spostamento, accorpamento e unione dei doppioni solo nell'interfaccia.
+- D12 (Rev05): conferma nella chat, con anteprima e `conferma_operazione` (§8.1), per tutti i gruppi.
+- D13 (Rev05): nessun limite al numero di operazioni confermate.
 
 Aperte:
-- **D11 — Perimetro della scrittura.** Proposta: gruppi A–E di §8.2; spostamento, accorpamento e unione dei doppioni solo nell'interfaccia. Da confermare, o da restringere (es. partire con A e B, poi C e D).
-- **D12 — Conferma.** Proposta: anteprima + `conferma_operazione` nella chat (§8.1). Alternativa più rigida, per le operazioni del gruppo C e D: conferma con un clic su una pagina dell'app (rete interna), più sicura contro le istruzioni nascoste nei dati ma più scomoda e non usabile da fuori sede.
-- **D13 — Limite giornaliero** di operazioni confermate per utente: proposta 50.
 - **D8 — Piano B se Claude non accetta l'authorize su host interno** (§2.1): pubblicare anche `/oauth/authorize` e il login (sconsigliato), oppure delegare il login a un IdP aziendale già pubblico (Entra ID/ADFS), se esiste.
 
 ## 10. Stima
