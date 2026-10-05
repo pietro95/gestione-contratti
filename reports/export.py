@@ -112,7 +112,11 @@ def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):
     for v in sorted(budget.voci, key=lambda v: v.natura != "OPEX"):
         righe.append(
             [
-                "Previsionale" if v.previsionale else "Consolidato",
+                "Previsionale"
+                if v.previsionale
+                else "Spesa senza contratto"
+                if v.spesa_ricorrente
+                else "Consolidato",
                 v.natura,
                 v.numero_previsto,
                 v.area,

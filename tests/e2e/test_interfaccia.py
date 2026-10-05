@@ -3,6 +3,7 @@
 
 import datetime
 import json
+from decimal import Decimal
 
 import pytest
 from playwright.sync_api import expect
@@ -24,6 +25,14 @@ def _pagine(dati):
     vecchio = f.contratto(fabbisogno=interrotto, data_inizio=datetime.date(2025, 3, 1))
     f.contratto(fabbisogno=interrotto, data_inizio=datetime.date(2026, 1, 1))
     wbs = m.WBS.objects.create(codice_wbs="X.0001.00.000", descrizione="WBS di prova")
+    # F9.5: spesa ricorrente senza contratto.
+    dns = f.fabbisogno(
+        "Dominio di prova",
+        senza_contratto=True,
+        spesa_importo=Decimal("25.00"),
+        spesa_periodicita="annuale",
+        spesa_dal=datetime.date(2025, 3, 15),
+    )
     # F9.3: un contratto nuovo che sostituisce anche un altro contratto.
     nuovo = f.contratto(
         fabbisogno=interrotto, predecessore=vecchio, data_inizio=datetime.date(2027, 1, 1)
@@ -64,6 +73,8 @@ def _pagine(dati):
         "/report/piano-ordini/?anno=2027",
         "/report/wbs/",
         f"/report/wbs/{wbs.pk}/",
+        f"/fabbisogni/{dns.pk}/",
+        f"/fabbisogni/{dns.pk}/modifica/",
         "/cerca/?q=prova",
         "/proposte/",
     ]
@@ -253,3 +264,31 @@ def test_import_date_da_interfaccia(pagina, dati, tmp_path):
     c.refresh_from_db()
     assert c.data_emissione == datetime.date(2025, 12, 15)
     assert not pagina.errori, pagina.errori
+
+
+def test_stampa_dei_report_senza_colonne_tagliate(pagina, dati):
+    """In stampa (A4 orizzontale) nessuna tabella esce dal foglio e i totali sono in fondo."""
+    pagina.set_viewport_size({"width": 1050, "height": 740})  # area utile di un A4 orizzontale
+    for url in (
+        "/report/budget/?anno=2026&natura=separate&area=tutti",
+        "/report/piano-ordini/?anno=2027&area=tutti",
+        "/contratti/?area=tutti",
+    ):
+        pagina.goto(pagina.base + url)
+        pagina.wait_for_load_state("networkidle")
+        pagina.emulate_media(media="print")
+        fuori = pagina.evaluate(
+            """() => {
+              const larghezza = document.documentElement.clientWidth;
+              return [...document.querySelectorAll('table')]
+                .filter(t => t.offsetParent !== null)
+                .map(t => Math.ceil(t.getBoundingClientRect().right))
+                .filter(destra => destra > larghezza + 1);
+            }"""
+        )
+        assert not fuori, (url, fuori)
+        piede = pagina.evaluate(
+            "() => [...document.querySelectorAll('tfoot')].map(t => getComputedStyle(t).display)"
+        )
+        assert all(d == "table-row-group" for d in piede), (url, piede)
+        pagina.emulate_media(media="screen")

@@ -161,10 +161,22 @@ class FabbisognoForm(ModelFormBootstrap):
                 "previsto_procedura",
                 "previsto_modalita",
                 "previsto_periodicita",
-                "natura_previsti",
-                "conto_previsti",
-                "wbs_previsti",
             ],
+        ),
+        (
+            "Spesa ricorrente senza contratto (es. dominio DNS pagato ogni anno)",
+            [
+                "senza_contratto",
+                "spesa_fornitore",
+                "spesa_importo",
+                "spesa_periodicita",
+                "spesa_dal",
+                "spesa_al",
+            ],
+        ),
+        (
+            "Classificazione del previsto manuale o della spesa senza contratto",
+            ["natura_previsti", "conto_previsti", "wbs_previsti"],
         ),
     ]
 
@@ -187,6 +199,12 @@ class FabbisognoForm(ModelFormBootstrap):
             "natura_previsti",
             "conto_previsti",
             "wbs_previsti",
+            "senza_contratto",
+            "spesa_fornitore",
+            "spesa_importo",
+            "spesa_periodicita",
+            "spesa_dal",
+            "spesa_al",
         ]
 
     def __init__(self, *args, utente=None, **kwargs):
@@ -199,6 +217,7 @@ class FabbisognoForm(ModelFormBootstrap):
         _solo_attivi(self, "impianto", m.Impianto.objects.filter(archiviato=False))
         _solo_attivi(self, "previsto_procedura", m.Procedura.objects.filter(attiva=True))
         _solo_attivi(self, "wbs_previsti", m.WBS.objects.filter(archiviato=False))
+        _solo_attivi(self, "spesa_fornitore", m.Fornitore.objects.filter(archiviato=False))
 
     def clean(self):
         dati = super().clean()
@@ -210,6 +229,21 @@ class FabbisognoForm(ModelFormBootstrap):
         verifica_natura_wbs(
             self, dati.get("natura_previsti") or m.Natura.OPEX, "wbs_previsti", dati.get("cluster")
         )
+        if dati.get("senza_contratto"):
+            for campo in ("spesa_importo", "spesa_periodicita", "spesa_dal"):
+                if dati.get(campo) in (None, ""):
+                    self.add_error(campo, "Obbligatorio per una spesa senza contratto.")
+            if avvio:
+                self.add_error(
+                    "previsto_data_avvio",
+                    "Una spesa senza contratto non ha previsto manuale: lascia vuoto.",
+                )
+            if self.instance.pk and self.instance.contratti.filter(archiviato=False).exists():
+                self.add_error(
+                    "senza_contratto",
+                    "Il fabbisogno ha contratti attivi: archiviali o sposta la spesa in un "
+                    "altro fabbisogno.",
+                )
         return dati
 
 
