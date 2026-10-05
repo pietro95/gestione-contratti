@@ -138,6 +138,9 @@
       {% if puo_modificare %}<form method="post" action="{% url 'contratti:contratto_togli_confluenza' c.pk %}" class="d-inline" data-conferma="Il contratto torna senza successore (in rosso, se scaduto)." data-conferma-etichetta="Togli">{% csrf_token %}<button class="btn btn-link btn-sm p-0 align-baseline" type="submit">Togli il collegamento</button></form>{% endif %}
     </div>
     {% endif %}
+    {% if sostituito_da_spesa %}
+    <div class="alert alert-info small"><i class="bi bi-receipt" aria-hidden="true"></i> Dopo la fine il fabbisogno continua <a class="alert-link" href="{% url 'contratti:fabbisogno' c.fabbisogno_id %}">senza contratto</a>, con una spesa ricorrente dal {{ c.fabbisogno.spesa_dal|date:"d/m/Y" }}: il contratto non va più in alert.</div>
+    {% endif %}
     {% if confluiti %}
     <h2 class="h6 text-uppercase text-body-secondary">Sostituisce anche</h2>
     <ul class="list-group mb-4">

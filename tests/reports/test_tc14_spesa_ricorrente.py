@@ -135,7 +135,7 @@ def test_form_e_pagina(dns, client, make_user):
     assert "non ha previsto manuale" in risposta.content.decode()
     f.contratto(fabbisogno=dns)
     risposta = client.post(url, _dati_form(dns))
-    assert "ha contratti attivi" in risposta.content.decode()
+    assert "la prima spesa deve essere dopo" in risposta.content.decode()
     m.Contratto.objects.filter(fabbisogno=dns).update(archiviato=True)
     assert client.post(url, _dati_form(dns, spesa_importo="30,00")).status_code == 302
     dns.refresh_from_db()
@@ -144,3 +144,41 @@ def test_form_e_pagina(dns, client, make_user):
     assert "Spesa ricorrente senza contratto" in html and "Prossima spesa" in html
     html = client.get(reverse("contratti:fabbisogni") + "?area=tutti").content.decode()
     assert "spesa senza contratto" in html
+
+
+def test_rinnovo_senza_contratto_dopo_un_contratto(dns, client, make_user):
+    """v1.5.1: il contratto scaduto resta nello storico; la spesa gli fa da successore."""
+    from accounts.roles import EDITOR
+
+    c = f.contratto(fabbisogno=dns, data_inizio=D(2024, 3, 15), durata_mesi=12)
+    v = f.voce(c, conto=dns.conto_previsti, importo_fisso=Decimal("300.00"))
+    f.piano(v)  # anticipata annuale: fattura il 15/03/2024
+    make_user("u_editor", role=EDITOR)
+    client.login(username="u_editor", password="password-locale-di-prova")
+    url = reverse("contratti:fabbisogno_modifica", args=[dns.pk])
+    risposta = client.post(url, _dati_form(dns, spesa_dal="2025-03-14"))
+    assert "finisce il 14/03/2025: la prima spesa deve essere dopo" in risposta.content.decode()
+    assert client.post(url, _dati_form(dns)).status_code == 302  # prima spesa 15/03/2025
+    # Nessun alert sul contratto scaduto, solo il promemoria della spesa.
+    oggi = D(2026, 12, 20)
+    assert adapters.alert_contratto(c, oggi) is None
+    gruppi = selettori.cruscotto(oggi, {})
+    assert gruppi[Alert.ROSSO] == []
+    assert [r.spesa_ricorrente for r in gruppi[Alert.GIALLO]] == [True]
+    html = client.get(reverse("contratti:contratto", args=[c.pk])).content.decode()
+    assert "continua <a" in html and "senza contratto" in html
+    # Lo storico resta nel budget; nessun previsto e niente nel piano ordini.
+    assert _consolidato(2024, "cassa", oggi=oggi)[0] == Decimal("300.00")
+    assert _consolidato(2025, "cassa", oggi=oggi)[0] == Decimal("25.00")
+    assert not calcola_budget(Filtri(anno=2026), oggi).rinnovi_mancanti
+    assert calcola_piano(2027, oggi).righe == []
+
+
+def test_contratto_senza_date_blocca_la_spesa(dns, client, make_user):
+    from accounts.roles import EDITOR
+
+    f.contratto(fabbisogno=dns, data_inizio=None)
+    make_user("u_editor", role=EDITOR)
+    client.login(username="u_editor", password="password-locale-di-prova")
+    url = reverse("contratti:fabbisogno_modifica", args=[dns.pk])
+    assert "non ha date" in client.post(url, _dati_form(dns)).content.decode()
