@@ -22,19 +22,27 @@ fi
 
 echo "==> Backup di sicurezza dei dati attuali"
 compose exec -T backup bash /scripts/backup.sh prima_del_ripristino
+servizi=(web)
+if mcp_attivo; then servizi+=(mcp); fi
 echo "==> Arresto dell'applicazione"
-compose stop web
+compose stop "${servizi[@]}"
 echo "==> Ripristino di $nome"
+# --no-acl: i privilegi dell'utente del connettore MCP si ricreano dopo il ripristino (su un
+# server nuovo quell'utente non esiste ancora e pg_restore si fermerebbe).
 compose exec -T backup bash -c '
   set -euo pipefail
   export PGPASSWORD="$POSTGRES_PASSWORD" PGOPTIONS="-c client_min_messages=warning"
   psql -q -h db -U "$POSTGRES_USER" -d postgres \
     -c "DROP DATABASE IF EXISTS \"$POSTGRES_DB\" WITH (FORCE)" \
     -c "CREATE DATABASE \"$POSTGRES_DB\" OWNER \"$POSTGRES_USER\""
-  pg_restore -h db -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner --exit-on-error "/backup/$1"
+  pg_restore -h db -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner --no-acl --exit-on-error "/backup/$1"
 ' _ "$nome"
+if mcp_attivo; then
+  echo "==> Utente PostgreSQL del connettore MCP"
+  compose run --rm --no-deps web python manage.py ruolo_db_mcp
+fi
 echo "==> Riavvio dell'applicazione"
-compose up --detach web
+compose up --detach "${servizi[@]}"
 host_app="$(valore_env DJANGO_ALLOWED_HOSTS | cut -d, -f1)"
 bind="$(valore_env APP_BIND)"
 for _ in $(seq 1 30); do

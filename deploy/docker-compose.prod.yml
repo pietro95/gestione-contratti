@@ -59,6 +59,26 @@ services:
       db:
         condition: service_healthy
 
+  # Connettore MCP (F10, docs/SPEC_MCP.md): stessa immagine, URLconf con i soli endpoint
+  # pubblici, utente PostgreSQL limitato. Si avvia solo con MCP_PORT nel .env (profilo "mcp",
+  # attivato da comune.sh). Il proxy pubblica questa porta sull'host pubblico (RUNBOOK §12).
+  mcp:
+    <<: *app
+    profiles: ["mcp"]
+    restart: unless-stopped
+    environment:
+      APP_VERSION: ${APP_VERSION:-locale}
+      TZ: Europe/Rome
+      GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS:---workers 3 --timeout 60}
+      DJANGO_SETTINGS_MODULE: config.settings.mcp
+      DJANGO_ALLOWED_HOSTS: ${MCP_HOST:-}
+      DATABASE_URL: ${MCP_DATABASE_URL:-}
+    ports:
+      - "${MCP_BIND:-127.0.0.1}:${MCP_PORT:-0}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
   backup:
     image: postgres:16
     restart: unless-stopped

@@ -150,32 +150,7 @@ def home(request):
 def cerca(request):
     """Ricerca globale su contratti, fabbisogni e fornitori (barra superiore)."""
     q = request.GET.get("q", "").strip()
-    risultati = {"contratti": [], "fabbisogni": [], "fornitori": []}
-    if len(q) >= 2:
-        oggi = oggi_richiesta(request)
-        contratti = selettori.contratti_base().filter(
-            Q(descrizione__icontains=q)
-            | Q(fabbisogno__descrizione__icontains=q)
-            | Q(numero_contratto__icontains=q)
-            | Q(cig__icontains=q)
-            | Q(numero_rda__icontains=q)
-            | Q(fornitore__ragione_sociale__icontains=q)
-        )
-        risultati["contratti"] = selettori.righe_contratti(
-            contratti.order_by("archiviato", "-data_inizio")[:25], oggi
-        )
-        risultati["fabbisogni"] = list(
-            m.Fabbisogno.objects.filter(Q(descrizione__icontains=q) | Q(referente__icontains=q))
-            .select_related("categoria")
-            .order_by("archiviato", "descrizione")[:15]
-        )
-        risultati["fornitori"] = list(
-            m.Fornitore.objects.filter(
-                Q(ragione_sociale__icontains=q)
-                | Q(partita_iva__icontains=q)
-                | Q(codice_sap__icontains=q)
-            ).order_by("archiviato", "ragione_sociale")[:15]
-        )
+    risultati = selettori.cerca(q, oggi_richiesta(request))
     return render(
         request,
         "contratti/cerca.html",

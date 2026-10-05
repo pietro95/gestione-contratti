@@ -82,6 +82,7 @@ jobs:
     env:
       BASE: /tmp/appdata/gestione-contratti
       HOST_APP: contratti.test
+      HOST_MCP: mcp.test
     steps:
       - uses: actions/checkout@v4
         with:
@@ -93,6 +94,7 @@ jobs:
           ln -s "$GITHUB_WORKSPACE/app" "$BASE/app"
           cp app/tests/fixtures/contratti_it_sample.xlsx "$BASE/import/"
           pwd_db=$(openssl rand -hex 24)
+          pwd_mcp=$(openssl rand -hex 24)
           cat > "$BASE/config/.env" <<FINE
           APP_PORT=18471
           APP_BIND=127.0.0.1
@@ -107,6 +109,12 @@ jobs:
           LDAP_SERVER_URI=
           BACKUP_ORA=02:30
           BACKUP_GIORNI=14
+          MCP_PORT=18472
+          MCP_BIND=127.0.0.1
+          MCP_HOST=$HOST_MCP
+          MCP_URL_PUBBLICO=https://$HOST_MCP
+          MCP_URL_INTERNO=https://$HOST_APP
+          MCP_DATABASE_URL=postgres://contratti_mcp:$pwd_mcp@db:5432/contratti
           FINE
           sed -i 's/^ *//' "$BASE/config/.env"
           chmod 600 "$BASE/config/.env"
@@ -121,8 +129,17 @@ jobs:
               -e "s|__CERT__|/tmp/tls/cert.pem|g" \
               -e "s|__KEY__|/tmp/tls/key.pem|g" \
               app/deploy/nginx/gestione-contratti.conf.esempio > /tmp/nginx.conf
+          # Host pubblico del connettore, con le regole del proxy (IP e percorsi ammessi).
+          openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=$HOST_MCP" \
+            -addext "subjectAltName=DNS:$HOST_MCP" \
+            -keyout /tmp/tls/mcp-key.pem -out /tmp/tls/mcp.pem
+          sed -e "s|__MCP_SERVER_NAME__|$HOST_MCP|g" -e "s|__MCP_UPSTREAM__|127.0.0.1:18472|g" \
+              -e "s|__CERT__|/tmp/tls/mcp.pem|g" -e "s|__KEY__|/tmp/tls/mcp-key.pem|g" \
+              -e "s|__RETE_INTERNA__|127.0.0.1/32|g" \
+              app/deploy/nginx/connettore-mcp.conf.esempio > /tmp/nginx-mcp.conf
           docker run -d --name ci-nginx --network host \
-            -v /tmp/nginx.conf:/etc/nginx/conf.d/default.conf:ro -v /tmp/tls:/tmp/tls:ro \
+            -v /tmp/nginx.conf:/etc/nginx/conf.d/default.conf:ro \
+            -v /tmp/nginx-mcp.conf:/etc/nginx/conf.d/mcp.conf:ro -v /tmp/tls:/tmp/tls:ro \
             nginx:1.24
           sleep 2
           docker logs ci-nginx
@@ -151,6 +168,45 @@ jobs:
           $c -b /tmp/cj -o /tmp/budget.pdf "https://$HOST_APP/report/budget/?formato=pdf"
           test "$(head -c 5 /tmp/budget.pdf)" = "%PDF-"
           $c -b /tmp/cj https://$HOST_APP/ | grep -q "versione"
+      - name: Connettore MCP (host pubblico, OAuth, utente PostgreSQL limitato)
+        run: |
+          export CURL_OPZIONI="--cacert /tmp/tls/mcp.pem --resolve $HOST_MCP:443:127.0.0.1"
+          app/deploy/verifica_mcp.sh "https://$HOST_MCP" ammesso
+          ci="curl -sS --cacert /tmp/tls/cert.pem --resolve $HOST_APP:443:127.0.0.1 -c /tmp/cj -b /tmp/cj"
+          cm="curl -sS --cacert /tmp/tls/mcp.pem --resolve $HOST_MCP:443:127.0.0.1"
+          cd "$BASE/app/deploy" && source ./comune.sh
+          # Il container mcp usa l'utente limitato e non scrive sui dati di dominio.
+          test "$(compose exec -T mcp python manage.py shell -v 0 -c \
+            "from django.db import connection; print(connection.settings_dict['USER'])")" = contratti_mcp
+          if compose exec -T mcp python manage.py shell -v 0 -c \
+            "from contratti.models import Fornitore; Fornitore.objects.create(ragione_sociale='No')" \
+            2>/tmp/scrittura.txt; then exit 1; fi
+          grep -q "permission denied" /tmp/scrittura.txt
+          # Flusso OAuth: login e consenso sull'host interno, token e /mcp sull'host pubblico.
+          client_id=$(./manage.sh crea_client_mcp claude-code | awk '/client ID:/ {print $3}')
+          verifier=$(openssl rand -hex 32)
+          challenge=$(printf %s "$verifier" | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+          ritorno=http://127.0.0.1:8765/callback
+          parametri="client_id=$client_id&response_type=code&redirect_uri=$ritorno&scope=registro.lettura&state=ci&code_challenge=$challenge&code_challenge_method=S256"
+          url_aut="https://$HOST_APP/oauth/authorize/?$parametri"
+          $ci "$url_aut" | grep "Collega il connettore MCP" >/dev/null
+          csrf=$(awk '$6 == "csrftoken" {print $7}' /tmp/cj)
+          location=$($ci -o /dev/null -w '%{redirect_url}' -H "Referer: $url_aut" \
+            --data "csrfmiddlewaretoken=$csrf&$parametri&allow=Autorizza" "$url_aut")
+          [[ "$location" == "$ritorno?"* ]]
+          code=$(python3 -c "import sys,urllib.parse as u; print(u.parse_qs(u.urlparse(sys.argv[1]).query)['code'][0])" "$location")
+          $cm --data "grant_type=authorization_code&code=$code&redirect_uri=$ritorno&client_id=$client_id&code_verifier=$verifier" \
+            "https://$HOST_MCP/oauth/token/" > /tmp/token.json
+          access=$(python3 -c "import json; print(json.load(open('/tmp/token.json'))['access_token'])")
+          refresh=$(python3 -c "import json; print(json.load(open('/tmp/token.json'))['refresh_token'])")
+          $cm -H "Authorization: Bearer $access" -H "Content-Type: application/json" \
+            --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"scadenze","arguments":{"cluster":["tutti"]}}}' \
+            "https://$HOST_MCP/mcp" > /tmp/scadenze.json
+          python3 -c "import json; r=json.load(open('/tmp/scadenze.json'))['result']; assert not r.get('isError'), r; print('righe:', r['structuredContent']['totale'])"
+          # Refresh ruotato con l'utente limitato (cancella il vecchio access token).
+          test "$($cm -o /dev/null -w '%{http_code}' --data "grant_type=refresh_token&refresh_token=$refresh&client_id=$client_id" \
+            "https://$HOST_MCP/oauth/token/")" = 200
+          test "$(./manage.sh shell -v 0 -c "from connettore.models import RegistroChiamata as R; print(R.objects.filter(tool='scadenze', esito='ok').count())")" = 1
       - name: Import, backup e verifica di ripristino
         run: |
           cd "$BASE/app/deploy" && source ./comune.sh
@@ -185,6 +241,7 @@ jobs:
           # Il database non espone porte; l'app solo su 127.0.0.1.
           if docker ps --format '{{.Names}} {{.Ports}}' | grep gestione-contratti-db | grep -q -- '->'; then exit 1; fi
           docker ps --format '{{.Names}} {{.Ports}}' | grep gestione-contratti-web | grep -q '127.0.0.1:18471->8000'
+          docker ps --format '{{.Names}} {{.Ports}}' | grep gestione-contratti-mcp | grep -q '127.0.0.1:18472->8000'
       - name: Log in caso di errore
         if: failure()
         run: |

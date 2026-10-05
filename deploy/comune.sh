@@ -30,8 +30,15 @@ valore_env() {
   { grep -E "^$1=" "$ENV_FILE" || true; } | tail -n 1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'
 }
 
+# Connettore MCP attivo se il .env ha MCP_PORT (RUNBOOK §12): avvia anche il container mcp.
+mcp_attivo() {
+  [ -f "$ENV_FILE" ] && [ -n "$(valore_env MCP_PORT)" ]
+}
+
 # Docker Compose limitato a questo progetto: non tocca gli altri container del server.
 compose() {
+  local profili=()
+  if mcp_attivo; then profili=(--profile mcp); fi
   docker compose --project-name "$PROGETTO" --file "$DEPLOY_DIR/docker-compose.prod.yml" \
-    --env-file "$ENV_FILE" "$@"
+    --env-file "$ENV_FILE" "${profili[@]}" "$@"
 }

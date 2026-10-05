@@ -38,6 +38,9 @@ uv run python manage.py import_conti <piano_conti.csv> --dry-run
 uv run python manage.py import_date_contratti <date_contratti.csv|xlsx> --dry-run
 uv run python manage.py quadratura_excel <file.xlsx> --area IT
 uv run pytest tests/e2e                   # solo i test nel browser (Chromium di Playwright)
+uv run pytest tests/connettore            # connettore MCP (F10)
+uv run python manage.py crea_client_mcp claude|claude-code   # client OAuth del connettore
+uv run python manage.py ruolo_db_mcp      # utente PostgreSQL limitato (MCP_DATABASE_URL)
 ```
 
 Sul server di produzione gli stessi comandi passano da `deploy/manage.sh` (es. `deploy/manage.sh import_excel /import/<file> --area IT`).
@@ -53,6 +56,7 @@ contratti/engine/  motore di calcolo PURO: scadenzario, competenza, alert, previ
 contratti/importer/ import Excel, normalizzazione, report anomalie
 accounts/          autenticazione LDAP, ruoli, break-glass
 reports/           viste budget, piano ordini, export XLSX
+connettore/        connettore MCP (F10): protocollo, tool, OAuth; config/urls_mcp.py è l'host pubblico
 tests/             test (fixtures/ contiene SOLO dati anonimizzati)
 deploy/            docker-compose.prod.yml, proxy, script di deploy e backup
 ```

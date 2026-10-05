@@ -32,6 +32,9 @@ def test_parametri_iniziali_provvisori():
         "adeguamento_pct": Decimal("0"),
         "finestra_alert_mesi": Decimal("3"),
         "orizzonte_anni": Decimal("3"),
+        # Connettore MCP (migration 0023, SPEC_MCP §4.4, §6).
+        "mcp_giorni_login": Decimal("7"),
+        "mcp_richieste_minuto": Decimal("60"),
     }
     assert set(valori) == set(m.Parametro.Chiave.values)
     assert not m.Parametro.objects.filter(provvisorio=False).exists()
