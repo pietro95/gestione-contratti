@@ -10,8 +10,19 @@
     <p><strong>{{ application.name }}</strong> chiede di accedere al registro contratti con il tuo utente
       (<strong>{{ request.user.get_username }}</strong>) e con i tuoi permessi:</p>
     <ul>
-      {% for scope in scopes_descriptions %}<li>{{ scope }}</li>{% endfor %}
+      <li>Lettura del registro contratti</li>
     </ul>
+    {% if chiede_scrittura %}
+      {% if puo_scrivere %}
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" name="scrittura" value="1" id="scrittura">
+        <label class="form-check-label" for="scrittura">Consenti anche la <strong>modifica</strong> del
+          registro: ogni modifica mostra prima un'anteprima e si esegue solo dopo la tua conferma.</label>
+      </div>
+      {% else %}
+      <p class="small text-body-secondary">Claude chiede anche la modifica: il tuo ruolo consente solo la lettura.</p>
+      {% endif %}
+    {% endif %}
     <p>Dopo il consenso il browser torna a <strong>{{ host_ritorno }}</strong>.</p>
     {% if ritorno_locale %}
       <div class="alert alert-warning small" role="alert">Il ritorno è su questo computer

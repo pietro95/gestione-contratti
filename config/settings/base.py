@@ -128,11 +128,15 @@ WHITENOISE_MAX_AGE = 3600
 MCP_URL_PUBBLICO = env("MCP_URL_PUBBLICO", default="").rstrip("/")
 MCP_URL_INTERNO = env("MCP_URL_INTERNO", default="").rstrip("/")
 MCP_SCOPE_LETTURA = "registro.lettura"
+MCP_SCOPE_SCRITTURA = "registro.scrittura"
 # Dimensione massima del risultato di un tool (SPEC_MCP §6): oltre, si chiede di filtrare.
 MCP_RISPOSTA_MAX_BYTES = env.int("MCP_RISPOSTA_MAX_BYTES", default=200_000)
 
 OAUTH2_PROVIDER = {
-    "SCOPES": {MCP_SCOPE_LETTURA: "Lettura del registro contratti"},
+    "SCOPES": {
+        MCP_SCOPE_LETTURA: "Lettura del registro contratti",
+        MCP_SCOPE_SCRITTURA: "Modifica del registro contratti, con anteprima e conferma",
+    },
     "DEFAULT_SCOPES": [MCP_SCOPE_LETTURA],
     "OAUTH2_VALIDATOR_CLASS": "connettore.oauth.Validatore",
     # Durate: codice 60 secondi, access token 1 ora; il refresh non scade da solo, lo ferma

@@ -12,11 +12,12 @@
   {% if collegamenti %}
   <div class="table-responsive">
     <table class="table table-sm align-middle mb-2">
-      <thead><tr><th scope="col">Client</th><th scope="col">Collegato il</th><th scope="col">Ultimo rinnovo</th><th scope="col"><span class="visually-hidden">Azioni</span></th></tr></thead>
+      <thead><tr><th scope="col">Client</th><th scope="col">Permessi</th><th scope="col">Collegato il</th><th scope="col">Ultimo rinnovo</th><th scope="col"><span class="visually-hidden">Azioni</span></th></tr></thead>
       <tbody>
       {% for c in collegamenti %}
         <tr>
           <td>{{ c.application.name }}</td>
+          <td>{% if "registro.scrittura" in c.access_token.scope %}lettura e modifica{% else %}lettura{% endif %}</td>
           <td>{{ c.created|date:"d/m/Y H:i" }}</td>
           <td>{{ c.updated|date:"d/m/Y H:i" }}</td>
           <td class="text-end">

@@ -20,23 +20,44 @@ def test_privilegi(capsys):
     # CREATE ROLE è transazionale: il ruolo sparisce con il rollback del test.
     call_command("ruolo_db_mcp", url=URL)
     assert "creato" in capsys.readouterr().out
-    for tabella in ("contratti_contratto", "contratti_rata", "accounts_user", "django_session"):
+    # Configurazione, utenti, sessioni, import: sola lettura.
+    for tabella in (
+        "contratti_parametro",
+        "contratti_procedura",
+        "contratti_cluster",
+        "contratti_assegnazionecluster",
+        "contratti_importazione",
+        "accounts_user",
+        "auth_group",
+        "django_session",
+        "oauth2_provider_application",
+    ):
         assert privilegio(tabella, "SELECT")
         for tipo in ("INSERT", "UPDATE", "DELETE", "TRUNCATE"):
             assert not privilegio(tabella, tipo), (tabella, tipo)
+    # Dominio della scrittura (F10.1): inserire e aggiornare, mai cancellare...
+    for tabella in ("contratti_contratto", "contratti_fabbisogno", "contratti_statopratica"):
+        assert privilegio(tabella, "INSERT") and privilegio(tabella, "UPDATE")
+        assert not privilegio(tabella, "DELETE") and not privilegio(tabella, "TRUNCATE")
+    # ...tranne le rate generate, che lo scadenzario sostituisce.
+    assert privilegio("contratti_rata", "DELETE")
+    # Storia: solo inserimenti.
+    assert privilegio("contratti_historicalcontratto", "INSERT")
+    assert not privilegio("contratti_historicalcontratto", "UPDATE")
+    assert not privilegio("contratti_historicalcontratto", "DELETE")
     for tabella in ("oauth2_provider_accesstoken", "oauth2_provider_refreshtoken"):
         assert privilegio(tabella, "INSERT") and privilegio(tabella, "DELETE")
     assert privilegio("connettore_registrochiamata", "INSERT")
     assert not privilegio("connettore_registrochiamata", "UPDATE")
-    assert not privilegio("connettore_registrochiamata", "DELETE")
-    assert not privilegio("oauth2_provider_application", "UPDATE")
+    assert privilegio("connettore_operazionemcp", "UPDATE")
+    assert not privilegio("connettore_operazionemcp", "DELETE")
 
 
 def test_rieseguibile(capsys):
     call_command("ruolo_db_mcp", url=URL)
     call_command("ruolo_db_mcp", url=URL)
     assert "aggiornato" in capsys.readouterr().out
-    assert not privilegio("contratti_contratto", "UPDATE")
+    assert not privilegio("contratti_contratto", "DELETE")
 
 
 def test_rifiuta_il_proprietario_del_database():

@@ -29,14 +29,16 @@ def pkce():
     return verifier, challenge
 
 
-def autorizza(client, app, redirect_uri=CALLBACK, approva=True):
+def autorizza(
+    client, app, redirect_uri=CALLBACK, approva=True, scope="registro.lettura", scrittura=False
+):
     """Consenso sull'host interno; restituisce (risposta, code_verifier)."""
     verifier, challenge = pkce()
     parametri = {
         "client_id": app.client_id,
         "response_type": "code",
         "redirect_uri": redirect_uri,
-        "scope": "registro.lettura",
+        "scope": scope,
         "state": "stato-di-prova",
         "code_challenge": challenge,
         "code_challenge_method": "S256",
@@ -47,6 +49,8 @@ def autorizza(client, app, redirect_uri=CALLBACK, approva=True):
     if pagina.status_code != 200 or not approva:
         return pagina, verifier
     dati = {**parametri, "allow": "Autorizza"}
+    if scrittura:
+        dati["scrittura"] = "1"
     dati.pop("response_type")
     dati["response_type"] = "code"
     r = client.post(url, data=dati, HTTP_HOST=HOST_INTERNO, secure=True)
@@ -118,7 +122,7 @@ def test_metadati_della_risorsa(client):
         dati = client.get(percorso, HTTP_HOST=HOST_PUBBLICO, secure=True).json()
         assert dati["resource"] == RISORSA
         assert dati["authorization_servers"] == ["https://mcp.esempio.test"]
-        assert dati["scopes_supported"] == ["registro.lettura"]
+        assert dati["scopes_supported"] == ["registro.lettura", "registro.scrittura"]
 
 
 @override_settings(ROOT_URLCONF="config.urls_mcp")
@@ -338,3 +342,29 @@ def test_revoca_dalla_pagina_blocca_il_refresh(client, applicazione, utente_read
     assert r.status_code == 302
     assert refresh(client, applicazione, collegato["refresh_token"]).status_code == 400
     assert chiama_mcp(client, collegato["access_token"]).status_code == 401
+
+
+ENTRAMBI = "registro.lettura registro.scrittura"
+
+
+@pytest.mark.parametrize(
+    ("ruolo", "spunta", "atteso"),
+    [
+        ("Editor", True, ENTRAMBI),
+        ("Editor", False, "registro.lettura"),
+        ("Admin", True, ENTRAMBI),
+        ("Reader", True, "registro.lettura"),  # il Reader non ottiene mai la scrittura
+    ],
+)
+def test_scrittura_concessa_a_parte(client, applicazione, make_user, ruolo, spunta, atteso):
+    utente = make_user(f"utente-{ruolo}", role=ruolo)
+    client.force_login(utente)
+    pagina, _ = autorizza(client, applicazione, approva=False, scope=ENTRAMBI)
+    testo = pagina.content.decode()
+    if ruolo == "Reader":
+        assert 'name="scrittura"' not in testo and "solo la lettura" in testo
+    else:
+        assert 'name="scrittura"' in testo
+    r, verifier = autorizza(client, applicazione, scope=ENTRAMBI, scrittura=spunta)
+    risposta = scambia(client, applicazione, codice(r), verifier)
+    assert risposta.json()["scope"] == atteso

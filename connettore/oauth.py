@@ -19,7 +19,7 @@ from django.utils import timezone
 from oauth2_provider import views as oauth_views
 from oauth2_provider.oauth2_validators import OAuth2Validator
 
-from accounts.roles import role_of
+from accounts.roles import can_write, role_of
 from contratti import adapters
 from contratti import models as m
 
@@ -95,12 +95,24 @@ class Autorizza(oauth_views.AuthorizationView):
             return render(request, "connettore/non_ammesso.html", status=403)
         return super().dispatch(request, *args, **kwargs)
 
+    def form_valid(self, form):
+        """La scrittura si concede a parte, solo ad Admin ed Editor (SPEC_MCP §8.1)."""
+        scope = set((form.cleaned_data.get("scope") or "").split())
+        consenti = self.request.POST.get("scrittura") == "1" and can_write(self.request.user)
+        if not consenti:
+            scope.discard(settings.MCP_SCOPE_SCRITTURA)
+        form.cleaned_data["scope"] = " ".join(sorted(scope)) or settings.MCP_SCOPE_LETTURA
+        return super().form_valid(form)
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         form = ctx.get("form")
         uri = form.initial.get("redirect_uri") if form is not None else None
         ctx["host_ritorno"] = urlparse(uri).hostname if uri else ""
         ctx["ritorno_locale"] = ctx["host_ritorno"] in ("localhost", "127.0.0.1", "::1")
+        richiesti = set((form.initial.get("scope") or "").split()) if form is not None else set()
+        ctx["chiede_scrittura"] = settings.MCP_SCOPE_SCRITTURA in richiesti
+        ctx["puo_scrivere"] = can_write(self.request.user)
         ctx["giorni_login"] = int(
             adapters.parametro(m.Parametro.Chiave.MCP_GIORNI_LOGIN, timezone.localdate())
         )

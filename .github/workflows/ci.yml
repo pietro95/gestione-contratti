@@ -175,13 +175,18 @@ jobs:
           ci="curl -sS --cacert /tmp/tls/cert.pem --resolve $HOST_APP:443:127.0.0.1 -c /tmp/cj -b /tmp/cj"
           cm="curl -sS --cacert /tmp/tls/mcp.pem --resolve $HOST_MCP:443:127.0.0.1"
           cd "$BASE/app/deploy" && source ./comune.sh
-          # Il container mcp usa l'utente limitato e non scrive sui dati di dominio.
+          # Il container mcp usa l'utente limitato: niente scrittura su configurazione e utenti,
+          # niente cancellazioni sul dominio (SPEC_MCP §8.3).
           test "$(compose exec -T mcp python manage.py shell -v 0 -c \
             "from django.db import connection; print(connection.settings_dict['USER'])")" = contratti_mcp
           if compose exec -T mcp python manage.py shell -v 0 -c \
-            "from contratti.models import Fornitore; Fornitore.objects.create(ragione_sociale='No')" \
+            "from contratti.models import Parametro; Parametro.objects.update(valore=0)" \
             2>/tmp/scrittura.txt; then exit 1; fi
           grep -q "permission denied" /tmp/scrittura.txt
+          if compose exec -T mcp python manage.py shell -v 0 -c \
+            "from django.db import connection; connection.cursor().execute('DELETE FROM contratti_contratto')" \
+            2>/tmp/cancella.txt; then exit 1; fi
+          grep -q "permission denied" /tmp/cancella.txt
           # Flusso OAuth: login e consenso sull'host interno, token e /mcp sull'host pubblico.
           client_id=$(./manage.sh crea_client_mcp claude-code | awk '/client ID:/ {print $3}')
           verifier=$(openssl rand -hex 32)
@@ -207,6 +212,25 @@ jobs:
           test "$($cm -o /dev/null -w '%{http_code}' --data "grant_type=refresh_token&refresh_token=$refresh&client_id=$client_id" \
             "https://$HOST_MCP/oauth/token/")" = 200
           test "$(./manage.sh shell -v 0 -c "from connettore.models import RegistroChiamata as R; print(R.objects.filter(tool='scadenze', esito='ok').count())")" = 1
+          # Scrittura (F10.1) con l'utente limitato: anteprima, poi conferma.
+          scrive=$(./manage.sh shell -v 0 -c "
+          import datetime, secrets
+          from django.utils import timezone
+          from oauth2_provider.models import AccessToken, get_application_model, set_token_value
+          from accounts.models import User
+          t = AccessToken(user=User.objects.get(username='prova'), application=get_application_model().objects.get(client_id='$client_id'), scope='registro.lettura registro.scrittura', expires=timezone.now() + datetime.timedelta(hours=1))
+          raw = secrets.token_urlsafe(30); set_token_value(t, raw); t.save(); print(raw)")
+          chiama() {
+            $cm -H "Authorization: Bearer $scrive" -H "Content-Type: application/json" \
+              --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}" \
+              "https://$HOST_MCP/mcp"
+          }
+          chiama crea_fornitore '{"ragione_sociale":"Fornitore da MCP"}' > /tmp/anteprima.json
+          id_op=$(python3 -c "import json; print(json.load(open('/tmp/anteprima.json'))['result']['structuredContent']['id_operazione'])")
+          test "$(./manage.sh shell -v 0 -c "from contratti.models import Fornitore; print(Fornitore.objects.filter(ragione_sociale='Fornitore da MCP').count())")" = 0
+          chiama conferma_operazione "{\"id_operazione\":\"$id_op\"}" > /tmp/conferma.json
+          python3 -c "import json; r=json.load(open('/tmp/conferma.json'))['result']; assert not r.get('isError'), r"
+          test "$(./manage.sh shell -v 0 -c "from contratti.models import Fornitore; f=Fornitore.objects.get(ragione_sociale='Fornitore da MCP'); print(f.history.get().history_user.username)")" = prova
       - name: Import, backup e verifica di ripristino
         run: |
           cd "$BASE/app/deploy" && source ./comune.sh

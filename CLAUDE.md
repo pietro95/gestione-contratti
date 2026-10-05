@@ -56,7 +56,7 @@ contratti/engine/  motore di calcolo PURO: scadenzario, competenza, alert, previ
 contratti/importer/ import Excel, normalizzazione, report anomalie
 accounts/          autenticazione LDAP, ruoli, break-glass
 reports/           viste budget, piano ordini, export XLSX
-connettore/        connettore MCP (F10): protocollo, tool, OAuth; config/urls_mcp.py è l'host pubblico
+connettore/        connettore MCP (F10, F10.1): protocollo, tool, OAuth, scrittura in due passi; config/urls_mcp.py è l'host pubblico
 tests/             test (fixtures/ contiene SOLO dati anonimizzati)
 deploy/            docker-compose.prod.yml, proxy, script di deploy e backup
 ```

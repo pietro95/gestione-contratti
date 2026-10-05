@@ -596,11 +596,29 @@ con il cruscotto dell'app.
   durata; mai i risultati né i token). Limite: 60 richieste al minuto per collegamento
   (parametro `mcp_richieste_minuto`) e 200 KB per risultato (`MCP_RISPOSTA_MAX_BYTES`): oltre,
   Claude riceve l'invito a restringere i filtri.
-- **Tool** (sola lettura): `riferimenti`, `cerca`, `scadenze`, `contratto`, `fabbisogno`,
+- **Tool** di lettura: `riferimenti`, `cerca`, `scadenze`, `contratto`, `fabbisogno`,
   `scadenzario`, `budget`, `piano_ordini`, `spese_wbs`; per Admin ed Editor anche `fornitore` e
-  `piani_da_verificare`, come le pagine dell'interfaccia.
+  `piani_da_verificare`, come le pagine dell'interfaccia. Di scrittura: §12.8.
 
-### 12.8 Problemi frequenti
+### 12.8 Scrittura (F10.1)
+
+- **Chi**: solo Admin ed Editor, nei propri cluster, e solo se al collegamento hanno spuntato
+  «Consenti anche la modifica» nella pagina di consenso. Il Reader non ottiene mai la scrittura.
+  La colonna «Permessi» della pagina «Connettore MCP» dice se un collegamento può modificare.
+- **Come**: ogni tool di scrittura restituisce un'anteprima (modifiche campo per campo, effetti
+  su date, alert, previsti e budget) e un codice; si esegue solo con `conferma_operazione`, entro
+  15 minuti (parametro `mcp_minuti_operazione`) e solo se nel frattempo nessuno ha modificato gli
+  stessi oggetti. Nella storia l'utente è la persona e il motivo inizia con `MCP <tool>`.
+- **In Claude**: nelle impostazioni del connettore si può lasciare «chiedi sempre» solo su
+  `conferma_operazione` (è l'unico tool marcato come distruttivo).
+- **Spegnere la scrittura** senza deploy: Amministrazione → Parametri → `mcp_scrittura_attiva`
+  = 0 (nuovo valore con validità da oggi). La lettura resta attiva.
+- **Registro**: Amministrazione → Connettore MCP → Operazioni (anteprime, conferme, rifiuti con
+  il motivo) e Chiamate.
+- **Database**: l'utente `contratti_mcp` scrive solo sulle tabelle di dominio dei tool e sulle
+  loro storie; cancella solo rate generate e token (`ruolo_db_mcp`, a ogni deploy).
+
+### 12.9 Problemi frequenti
 
 | Sintomo | Causa e rimedio |
 |---|---|

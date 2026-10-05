@@ -24,6 +24,9 @@ class ErroreTool(Exception):
 class Contesto:
     utente: object
     oggi: datetime.date
+    # Il collegamento ha lo scope di scrittura (SPEC_MCP §8.1, punto 2).
+    scrittura: bool = False
+    client_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -36,9 +39,13 @@ class Strumento:
     annotazioni: dict = field(default_factory=lambda: {"readOnlyHint": True})
     # Ruoli ammessi, come la pagina corrispondente dell'interfaccia; None = tutti.
     ruoli: frozenset | None = None
+    # Tool di scrittura: servono anche lo scope e l'interruttore acceso (SPEC_MCP §8.1).
+    scrittura: bool = False
 
-    def ammesso(self, utente) -> bool:
-        return self.ruoli is None or role_of(utente) in self.ruoli
+    def ammesso(self, ctx: "Contesto") -> bool:
+        if self.ruoli is not None and role_of(ctx.utente) not in self.ruoli:
+            return False
+        return not self.scrittura or (ctx.scrittura and scrittura_attiva(ctx.oggi))
 
     def descrittore(self) -> dict:
         return {
@@ -48,6 +55,13 @@ class Strumento:
             "inputSchema": self.input_schema,
             "annotations": {"title": self.titolo, **self.annotazioni},
         }
+
+
+def scrittura_attiva(oggi: datetime.date) -> bool:
+    """Interruttore generale della scrittura (parametro ``mcp_scrittura_attiva``)."""
+    from contratti import adapters
+
+    return adapters.parametro(m.Parametro.Chiave.MCP_SCRITTURA_ATTIVA, oggi) == 1
 
 
 def link(nome_url: str, *args) -> str:

@@ -125,6 +125,15 @@ class Parametro(ConfigurazioneProvvisoria):
             "mcp_richieste_minuto",
             "connettore MCP: richieste al minuto per collegamento",
         )
+        # Scrittura dal connettore (SPEC_MCP §8.1, F10.1).
+        MCP_SCRITTURA_ATTIVA = (
+            "mcp_scrittura_attiva",
+            "connettore MCP: scrittura attiva (1 = sì, 0 = spenta)",
+        )
+        MCP_MINUTI_OPERAZIONE = (
+            "mcp_minuti_operazione",
+            "connettore MCP: validità dell'anteprima da confermare (minuti)",
+        )
 
     chiave = models.CharField(max_length=40, choices=Chiave.choices)
     valore = models.DecimalField(max_digits=10, decimal_places=4)

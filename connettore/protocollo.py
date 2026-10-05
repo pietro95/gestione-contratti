@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 
 from django.conf import settings
 
+from accounts.roles import role_of
 from connettore import schema, serializza
 from connettore.strumenti import STRUMENTI, Contesto, ErroreTool, ammessi
 
@@ -70,6 +71,17 @@ def _initialize(params: dict) -> dict:
     }
 
 
+def _non_ammesso(strumento, ctx: Contesto) -> str:
+    if strumento.ruoli is not None and role_of(ctx.utente) not in strumento.ruoli:
+        return f"Il tool «{strumento.nome}» è riservato ad Admin ed Editor, come nell'app."
+    if not ctx.scrittura:
+        return (
+            f"Il tool «{strumento.nome}» modifica il registro: il collegamento non ha il "
+            "permesso di scrittura. Ricollegare il connettore e consentire la modifica."
+        )
+    return "La scrittura dal connettore è spenta dall'amministratore (mcp_scrittura_attiva)."
+
+
 def _conta(dati: dict) -> int:
     return sum(len(v) for v in dati.values() if isinstance(v, list))
 
@@ -80,9 +92,9 @@ def _tools_call(params: dict, ctx: Contesto, esito: Esito) -> dict:
     strumento = STRUMENTI.get(nome) if isinstance(nome, str) else None
     if strumento is None:
         raise _ErroreProtocollo(INVALID_PARAMS, f"Tool sconosciuto: {nome}")
-    if not strumento.ammesso(ctx.utente):
-        esito.esito, esito.messaggio = "errore_tool", "ruolo"
-        testo = f"Il tool «{nome}» è riservato ad Admin ed Editor, come la pagina dell'app."
+    if not strumento.ammesso(ctx):
+        esito.esito, esito.messaggio = "errore_tool", "non ammesso"
+        testo = _non_ammesso(strumento, ctx)
         return {"content": [{"type": "text", "text": testo}], "isError": True}
     argomenti = params.get("arguments")
     esito.argomenti = argomenti if isinstance(argomenti, dict) else {}
@@ -137,7 +149,7 @@ def gestisci(messaggio, ctx: Contesto) -> tuple[dict | None, Esito]:
         if metodo == "ping":
             return _risposta(id_, {}), esito
         if metodo == "tools/list":
-            tools = [s.descrittore() for s in ammessi(ctx.utente)]
+            tools = [s.descrittore() for s in ammessi(ctx)]
             return _risposta(id_, {"tools": tools}), esito
         if metodo == "tools/call":
             return _risposta(id_, _tools_call(params, ctx, esito)), esito
