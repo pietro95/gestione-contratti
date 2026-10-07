@@ -625,7 +625,9 @@ Registro: fornitore «Fornitore Prova A S.r.l.» con un solo contratto CA (servi
 01/01/2026, 12 mesi); fornitore «Studio Prova» (nome breve `STUDIOP`) con il contratto CS
 (servizi, dal 01/01/2026, 12 mesi; una voce CAPEX, conto 600010, centro di costo
 C0001, WBS `WBS-TEST-01`; cluster IT). Utenti: «rossi» e «bianchi», Editor del cluster IT;
-«verdi», Editor del solo cluster TLC; «neri», Reader.
+«verdi», Editor del solo cluster TLC; «neri», Reader; «gialli», Editor di tutti i cluster con la
+funzione «Amministrazione acquisti». Referente (utente) del fabbisogno: bianchi per CA e per CS.
+CS ha già la fattura 12/2026 del 31/08/2026, presa in carico da rossi e trasferita.
 
 File (primo foglio): riga 1 «Rev. 00 del 05/10/2026»; riga 2 intestazione; riga 3 vuota.
 
@@ -643,25 +645,32 @@ In fondo, dopo tre righe vuote, la legenda «Fatture in lavorazione» nella colo
 
 **Primo import** (anteprima, poi conferma):
 
-| Riga | Esito | Passo da fare | Anomalie |
-|---|---|---|---|
-| 1 | creata, contratto proposto CA | Da prendere in carico | — |
-| 2 | creata, contratto proposto CS | Da prendere in carico | — |
-| 3 | non importata | — | `FORNITORE_NON_TROVATO` |
-| 4 | creata, numero «76 In attesa di nota credito», contratto proposto CA | Da prendere in carico | `NUMERO_DA_VERIFICARE` |
-| legenda | ignorata | — | — |
+| Riga | Esito | Referente proposto | Passo da fare | Anomalie |
+|---|---|---|---|---|
+| 1 | creata, contratto proposto CA | bianchi (referente di CA: nessuna fattura precedente) | Da prendere in carico | — |
+| 2 | creata, contratto proposto CS | rossi (ultima fattura di CS, 12/2026; prevale sul referente bianchi) | Da prendere in carico | — |
+| 3 | non importata | — | — | `FORNITORE_NON_TROVATO` |
+| 4 | creata, numero «76 In attesa di nota credito», contratto proposto CA | bianchi | Da prendere in carico | `NUMERO_DA_VERIFICARE` |
+| legenda | ignorata | — | — | — |
 
 Conteggi: 3 create, 1 non importata; nessuna ha referente, esito `Da valutare`, valore base vuoto.
 
 **Presa in carico**: le tre fatture sono nell'elenco «Fatture da prendere in carico» di rossi,
-bianchi, verdi e neri.
+bianchi, verdi, neri e gialli; con «proposte a me», rossi vede solo 13/2026, bianchi FA-1/2026 e 76.
 - rossi seleziona 13/2026 e FA-1/2026 e le prende in carico insieme: referente rossi, passo
-  `Da assegnare`; nell'elenco resta la fattura 76;
+  `Da assegnare`; nell'elenco resta la fattura 76, ora con referente proposto rossi (ultima
+  fattura di CA, FA-1/2026);
 - bianchi tenta di prendere FA-1/2026 (pagina non aggiornata): rifiutata, «già in carico a rossi»;
 - verdi prende in carico la fattura 76 (qualunque cluster), ma non può abbinarla a CA (cluster
   IT): 403;
 - neri vede l'elenco senza caselle né azioni; la presa in carico chiesta da neri dà 403;
 - rossi lascia FA-1/2026 e la riprende: torna e poi esce dall'elenco.
+
+In alternativa, dallo stato dopo il primo import: gialli seleziona le tre fatture e «Assegna ai
+referenti proposti»: 13/2026 → rossi, FA-1/2026 e 76 → bianchi, tutte al passo `Da assegnare`.
+La stessa azione chiesta da bianchi (senza la funzione) dà 403. Con il fabbisogno di CA senza
+referente utente e nessuna RDA d'origine, FA-1/2026 e 76 non hanno proposta: restano nell'elenco,
+indicate come «senza referente proposto».
 
 **Secondo import** dello stesso file con la riga 1 a 1.250,00: 0 create, 3 già presenti; riga 1
 `IMPORTO_DIVERSO` (l'importo resta 1.220,00).

@@ -592,7 +592,9 @@ uguale a TC-17.
   «una tantum».
 - Fattura (SPEC Rev14–Rev15): registrazione; importo del documento e valore base
   prelevato dal contratto, oneri e bollo; elenco «Fatture da prendere in carico» visibile a tutti,
-  presa in carico (singola o su più fatture selezionate), lascia e riassegna; assegnazione al
+  referente proposto (ultima fattura, referente del contratto) con filtro «proposte a me»,
+  presa in carico (singola o su più fatture selezionate), «Assegna ai referenti proposti»,
+  lascia e riassegna; assegnazione al
   contratto (con proposta); convalida
   del referente (esito, nota, bloccata fino al); RdC → MAP (servizi) o MIGO (forniture) →
   trasferimento per il pagamento; fuori registro (anche su più fatture); «Le mie fatture»; scheda SAP della fattura per passo,
