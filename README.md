@@ -143,13 +143,21 @@ LDAP deve usare LDAPS oppure StartTLS con verifica del certificato. L'endpoint `
 
 ## Documentazione
 
+La guida completa e l'autorità dei documenti sono raccolte nell'[indice della documentazione](docs/README.md).
+
 | Documento | Contenuto |
 |---|---|
-| [`docs/SPEC.md`](docs/SPEC.md) | requisiti, modello dati, regole e decisioni |
+| [`docs/SPEC.md`](docs/SPEC.md) | requisiti, regole e decisioni funzionali |
 | [`docs/TEST_CASES.md`](docs/TEST_CASES.md) | casi numerici che costituiscono l'oracolo dei test |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | fasi, attività e criteri di accettazione |
-| [`docs/SPEC_MCP.md`](docs/SPEC_MCP.md) | architettura, sicurezza e strumenti del connettore |
-| [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | gestione dell'ambiente di produzione |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | componenti, confini e flussi tecnici |
+| [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) | mappa concettuale delle entità |
+| [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | installazione e gestione della produzione |
+| [`docs/OPERATIONS.md`](docs/OPERATIONS.md) | attività operative ricorrenti |
+| [`docs/SECURITY.md`](docs/SECURITY.md) | sicurezza e trattamento dei dati |
+| [`docs/RELEASE.md`](docs/RELEASE.md) | preparazione, rilascio e rollback |
+| [`docs/SPEC_MCP.md`](docs/SPEC_MCP.md) | architettura e regole del connettore |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | regole per contribuire |
 | [`CLAUDE.md`](CLAUDE.md) | regole operative per gli assistenti di sviluppo |
 
 ## Sicurezza e dati

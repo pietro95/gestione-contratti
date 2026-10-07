@@ -1,17 +1,19 @@
 # Connettore MCP — specifica (bozza)
 
-Rev08 — 07/10/2026 — testo scritto da Claude, decisioni di Pietro Verro, da approvare. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
+> Specifica normativa del connettore. L'inquadramento architetturale è in [ARCHITECTURE](ARCHITECTURE.md), i principi di protezione in [SECURITY](SECURITY.md) e le procedure di esercizio in [RUNBOOK](RUNBOOK.md).
+
+Rev08 — 07/10/2026 — decisioni del responsabile del progetto, da approvare. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
 
 Storico revisioni:
 - Rev00 (05/10/2026): prima bozza, raccomandata l'opzione «solo rete interna con ponte locale».
-- Rev01 (05/10/2026): decisioni di Pietro. **Deroga alla SPEC §8.2**: si espone su Internet solo il connettore MCP (§2). D3: il token vale se l'utente ha fatto login negli ultimi 7 giorni (§4.4). D4: il connettore è disponibile a tutti i ruoli. Autenticazione OAuth 2.1 con login AD solo dalla rete interna (§4).
-- Rev02 (05/10/2026): decisioni di Pietro. D1 chiusa: i dati possono andare al fornitore del modello. D7: dipendenze approvate. D9 e organizzazione Claude: le gestisce Pietro. D5 spiegata meglio, con proposta.
+- Rev01 (05/10/2026): decisioni del responsabile del progetto. **Deroga alla SPEC §8.2**: si espone su Internet solo il connettore MCP (§2). D3: il token vale se l'utente ha fatto login negli ultimi 7 giorni (§4.4). D4: il connettore è disponibile a tutti i ruoli. Autenticazione OAuth 2.1 con login AD solo dalla rete interna (§4).
+- Rev02 (05/10/2026): decisioni del responsabile del progetto. D1 chiusa: i dati possono andare al fornitore del modello. D7: dipendenze approvate. D9 e organizzazione Claude: sono gestite dal responsabile del servizio. D5 spiegata meglio, con proposta.
 - Rev03 (05/10/2026): D5 chiusa: calcoli sempre alla data di oggi. Inserita nella SPEC (Rev10) e nella ROADMAP (F10).
-- Rev04 (05/10/2026): decisione di Pietro: il connettore prevede anche la scrittura (§8, sotto-fase F10.1), con anteprima e conferma in due passi, scope OAuth separato, solo Admin ed Editor. Aggiornati §1, §2.2, §4.2, §4.5, §5, §9, §10.
-- Rev05 (05/10/2026): decisioni di Pietro. D11: perimetro dei gruppi A–E. D12: conferma nella chat. D13: nessun limite giornaliero di operazioni.
-- Rev06 (05/10/2026): decisione di Pietro, a valle della realizzazione di F10.1: tre limiti dei tool del gruppo C (§8.2): `modifica_voce` non cambia le quote per periodo esistenti, `crea_contratto` e `modifica_contratto` non gestiscono le note, `registra_rinnovo` non genera le rate.
+- Rev04 (05/10/2026): decisione del responsabile del progetto: il connettore prevede anche la scrittura (§8, sotto-fase F10.1), con anteprima e conferma in due passi, scope OAuth separato, solo Admin ed Editor. Aggiornati §1, §2.2, §4.2, §4.5, §5, §9, §10.
+- Rev05 (05/10/2026): decisioni del responsabile del progetto. D11: perimetro dei gruppi A–E. D12: conferma nella chat. D13: nessun limite giornaliero di operazioni.
+- Rev06 (05/10/2026): decisione del responsabile del progetto, a valle della realizzazione di F10.1: tre limiti dei tool del gruppo C (§8.2): `modifica_voce` non cambia le quote per periodo esistenti, `crea_contratto` e `modifica_contratto` non gestiscono le note, `registra_rinnovo` non genera le rate.
 - Rev07 (07/10/2026): D8 chiusa con esito positivo: nella prova in produzione Claude ha accettato l'autorizzazione sull'host interno (§2.1); il piano B non serve. Nessuna decisione aperta.
-- Rev08 (07/10/2026): decisioni di Pietro, **bozza da approvare**. Il connettore copre il processo d'acquisto della release 2.0 (§11, fase F12): lettura di RDA, fatture, esecuzione e viste; scrittura di tutto il processo tranne gli import (D14); presa in carico, fuori registro e assegnazione ai proposti anche su più fatture (D15); nome dei referenti esposto (D16); testi per SAP e PAC restituiti (D17). Gruppo E di §8.2 definito in §11.3.
+- Rev08 (07/10/2026): decisioni del responsabile del progetto, **bozza da approvare**. Il connettore copre il processo d'acquisto della release 2.0 (§11, fase F12): lettura di RDA, fatture, esecuzione e viste; scrittura di tutto il processo tranne gli import (D14); presa in carico, fuori registro e assegnazione ai proposti anche su più fatture (D15); nome dei referenti esposto (D16); testi per SAP e PAC restituiti (D17). Gruppo E di §8.2 definito in §11.3.
 
 ## 1. Obiettivo
 
@@ -30,7 +32,7 @@ Non obiettivi:
 
 I connettori di claude.ai, Desktop, Cowork e mobile si collegano al server **dall'infrastruttura di Anthropic** (uscita dalla rete `160.79.104.0/21`), non dal PC dell'utente. Per questo serve un'esposizione pubblica. La deroga è limitata al minimo indispensabile.
 
-**Testo proposto per la SPEC §8.2** (lo inserisce Pietro): «Accesso solo dalla rete interna. Unica eccezione: il connettore MCP (`docs/SPEC_MCP.md`), pubblicato su un host dedicato, raggiungibile solo dalla rete di uscita di Anthropic, limitato agli endpoint del protocollo MCP e dello scambio dei token OAuth. Login, interfaccia e amministrazione restano solo interni.»
+**Testo proposto per la SPEC §8.2** (da recepire nella SPEC): «Accesso solo dalla rete interna. Unica eccezione: il connettore MCP (`docs/SPEC_MCP.md`), pubblicato su un host dedicato, raggiungibile solo dalla rete di uscita di Anthropic, limitato agli endpoint del protocollo MCP e dello scambio dei token OAuth. Login, interfaccia e amministrazione restano solo interni.»
 
 ### 2.1 Cosa è pubblico e cosa no
 
@@ -59,7 +61,7 @@ Verificato in produzione il 07/10/2026 (D8): Claude accetta un `authorization_en
 
 ### 2.3 Dati verso il fornitore del modello (D1, chiusa)
 
-I risultati dei tool entrano nel contesto del modello e transitano dai server di Anthropic. Decisione di Pietro (Rev02): ammesso, nessuna categoria di dati esclusa per questo motivo. Le esclusioni di §5 restano per minimizzazione.
+I risultati dei tool entrano nel contesto del modello e transitano dai server di Anthropic. Decisione del responsabile del progetto (Rev02): ammesso, nessuna categoria di dati esclusa per questo motivo. Le esclusioni di §5 restano per minimizzazione.
 
 ## 3. Architettura
 
@@ -167,11 +169,11 @@ Vincolo verificabile: **per gli stessi filtri e la stessa data, `budget` e `pian
 - Nessuna chiamata esterna dal server.
 - `ruff`, `pytest`, `makemigrations --check` puliti.
 - **RUNBOOK**: host pubblico su NPM (certificato, Access List, percorsi), DNS split horizon, utente PostgreSQL limitato, creazione dei client OAuth, aggiunta del connettore in Claude da parte dell'Owner, collegamento dell'utente, revoca, script di verifica esterna.
-- **Prova in produzione**, prima dell'apertura a tutti: collegamento da claude.ai e da Claude Code di Pietro; verifica esterna di §2.2 punto 7.
+- **Prova in produzione**, prima dell'apertura a tutti: collegamento da claude.ai e da Claude Code con un account di prova autorizzato; verifica esterna di §2.2 punto 7.
 
 ## 8. Scrittura (F10.1)
 
-Rev04, decisione di Pietro: il connettore prevede anche la scrittura. Si realizza dopo la lettura (F10), in una sotto-fase propria (F10.1), sullo stesso server e con lo stesso OAuth.
+Rev04, decisione del responsabile del progetto: il connettore prevede anche la scrittura. Si realizza dopo la lettura (F10), in una sotto-fase propria (F10.1), sullo stesso server e con lo stesso OAuth.
 
 ### 8.1 Principi
 
@@ -250,7 +252,7 @@ Prese:
 - D6 decade: con l'esposizione pubblica Desktop usa il connettore come claude.ai.
 - D5 (Rev03): calcoli sempre alla data di oggi, come nell'interfaccia; nessun parametro `alla_data`. «Cosa scade o va avviato entro il …» si ottiene con il filtro `entro` di `scadenze` e con `piano_ordini` per anno.
 - D7 (Rev02): `django-oauth-toolkit` (runtime) e SDK `mcp` (solo `dev`) approvati.
-- D9 (Rev02): host pubblico, DNS, firewall perimetrale e organizzazione Claude (aggiunta del connettore da parte dell'Owner) li gestisce Pietro. Il RUNBOOK descrive cosa configurare.
+- D9 (Rev02): host pubblico, DNS, firewall perimetrale e organizzazione Claude (aggiunta del connettore da parte dell'Owner) li gestisce il responsabile del servizio. Il RUNBOOK descrive cosa configurare.
 
 - D10 (Rev04): il connettore prevede la scrittura, sotto-fase F10.1 (§8).
 - D11 (Rev05): perimetro della scrittura: gruppi A–E di §8.2; spostamento, accorpamento e unione dei doppioni solo nell'interfaccia.
@@ -274,7 +276,7 @@ Scrittura (F10.1): circa quanto F10. Il grosso è portare nei form e nei servizi
 
 ## 11. Processo d'acquisto (F12)
 
-Rev08, decisioni di Pietro del 07/10/2026 (D14–D17). La release 2.0 (SPEC Rev11–Rev15, F11) ha aggiunto richieste di RDA, fatture, esecuzione e chiusura dei contratti e quattro viste. Il connettore le espone con le regole di §5 (lettura) e §8 (scrittura): stessi selettori, form e servizi dell'interfaccia, nessuna regola nuova.
+Rev08, decisioni del responsabile del progetto del 07/10/2026 (D14–D17). La release 2.0 (SPEC Rev11–Rev15, F11) ha aggiunto richieste di RDA, fatture, esecuzione e chiusura dei contratti e quattro viste. Il connettore le espone con le regole di §5 (lettura) e §8 (scrittura): stessi selettori, form e servizi dell'interfaccia, nessuna regola nuova.
 
 ### 11.1 Dati esposti (D16, D17)
 

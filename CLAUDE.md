@@ -2,7 +2,7 @@
 
 Web app interna per gestire i contratti dell'ufficio IT/TLC: catena dei rinnovi, budget su tre viste (impegno, cassa, competenza), previsione degli ordini per il Procurement.
 
-Owner: Pietro Verro (IT Manager).
+Responsabile del progetto: IT Manager ICTDINN.
 
 ## Documenti da leggere prima di lavorare
 
@@ -10,10 +10,16 @@ Owner: Pietro Verro (IT Manager).
 - `docs/TEST_CASES.md`: casi numerici di riferimento. Sono l'oracolo dei test: **non modificarli per far passare un test**.
 - `docs/ROADMAP.md`: fasi e criteri di accettazione. Lavora solo sulla fase richiesta.
 - `docs/SPEC_MCP.md`: connettore MCP (F10): protocollo, OAuth, esposizione su Internet in deroga.
+- `docs/ARCHITECTURE.md`: componenti, confini e regole di dipendenza.
+- `docs/DATA_MODEL.md`: mappa concettuale delle entità.
+- `docs/SECURITY.md`: principi di sicurezza e trattamento dei dati.
+- `docs/OPERATIONS.md`: attività operative ricorrenti.
+- `docs/RELEASE.md`: checklist di rilascio e rollback.
+- `docs/adr/`: decisioni architetturali accettate.
 
-Se la SPEC è ambigua o in conflitto con la richiesta, fermati e chiedi. Non scegliere in silenzio. Se proponi di cambiare la SPEC, scrivilo nella descrizione della PR: la SPEC la aggiorna Pietro.
+Se la SPEC è ambigua o in conflitto con la richiesta, fermati e chiedi. Non scegliere in silenzio. Se proponi di cambiare la SPEC, scrivilo nella descrizione della PR: l'aggiornamento della SPEC richiede l'approvazione del responsabile del progetto.
 
-## Stack (deciso, non cambiarlo senza approvazione)
+## Stack approvato (non cambiarlo senza una decisione esplicita)
 
 - Python 3.12, Django 5.2 LTS, PostgreSQL 16.
 - Template Django + HTMX + Bootstrap 5. Le risorse statiche vanno in `static/vendor/`, senza CDN: l'app gira in rete interna. Niente framework SPA.
@@ -85,7 +91,7 @@ deploy/            docker-compose.prod.yml, proxy, script di deploy e backup
 - Le migration si committano sempre e non si modificano dopo il merge su `main`.
 - Commit piccoli e descrittivi in italiano. Una PR per fase o sotto-fase, con descrizione che riporta cosa è stato fatto, come è stato verificato, cosa resta aperto e le deviazioni dalla SPEC.
 - Prima di chiudere una PR: `ruff` pulito, `pytest` verde, migration generate (`makemigrations --check`).
-- Ogni PR che diventa una release riporta il testo del tag da creare: nome (`vX.Y.Z`), titolo e descrizione (novità, correzioni, database e rollback, cosa verificare dopo il deploy). Lo stesso testo va nel messaggio finale a Pietro.
+- Ogni PR che diventa una release riporta il testo del tag da creare: nome (`vX.Y.Z`), titolo e descrizione (novità, correzioni, database e rollback, cosa verificare dopo il deploy). Lo stesso testo va nel riepilogo finale della pull request.
 
 ## Cosa NON fare
 

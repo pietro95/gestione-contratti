@@ -85,18 +85,18 @@ Ogni fase è una PR (o poche PR) verso `main`. Una fase è chiusa solo quando tu
   - `deploy/restore.md`: procedura di ripristino.
 - Runbook `docs/RUNBOOK.md`: installazione della VM, variabili, rinnovo del certificato, aggiornamento.
 
-**Accettazione:** installazione da zero su una VM pulita seguendo solo il runbook (verifica manuale di Pietro).
+**Accettazione:** installazione da zero su una VM pulita seguendo solo il runbook (verifica manuale del responsabile del rilascio).
 
 ## F7 — Interfaccia grafica e identità aziendale
 
-Rev01: scelte confermate da Pietro (logo e linee guida tipografiche in `docs/design/`).
+Rev01: scelte confermate dal responsabile del progetto (logo e linee guida tipografiche in `docs/design/`).
 
 Obiettivo: rendere l'applicazione usabile ogni giorno da chi non l'ha sviluppata. Le funzioni
 restano quelle di F4–F5; cambiano struttura delle pagine, gerarchia visiva e flussi.
 
 **Identità**
 - Logo aziendale nell'intestazione, nella pagina di login, nei PDF stampati e come favicon.
-  File forniti da Pietro in `static/img/logo/` (colore, bianco, nero).
+  File dell'identità visiva disponibili in `static/img/logo/` (colore, bianco, nero).
 - Colori aziendali come variabili CSS che personalizzano Bootstrap (`static/css/app.css`),
   senza compilazione Sass: blu istituzionale `#003F6B`, azzurro `#5CBBFF` solo su fondo blu
   (su bianco ha contrasto 2,1:1, sotto WCAG AA), verde del logo `#177F42` per gli stati positivi.
@@ -148,11 +148,11 @@ restano quelle di F4–F5; cambiano struttura delle pagine, gerarchia visiva e f
 - test esistenti verdi e nessuna funzione persa (stessi URL e stessi permessi);
 - test end-to-end nel browser (Playwright, in CI) sulle pagine principali: caricamento senza
   errori JavaScript, navigazione da tastiera, nessuna violazione di accessibilità grave;
-- revisione di Pietro sugli screenshot delle pagine principali, prima e dopo.
+- revisione del responsabile del progetto sugli screenshot delle pagine principali, prima e dopo.
 
 ## F8 — Correzioni del modello dopo il primo uso
 
-Rev00: note di Pietro dopo il primo uso in produzione (v1.0.2), proposte approvate.
+Rev00: note raccolte dal responsabile del progetto dopo il primo uso in produzione (v1.0.2), proposte approvate.
 
 **Numero di contratto**
 - In azienda non si usa l'OdA: il riferimento SAP è il numero di contratto. I campi diventano
@@ -185,12 +185,12 @@ Rev00: note di Pietro dopo il primo uso in produzione (v1.0.2), proposte approva
 
 **Accettazione:**
 - test verdi, compresi quelli nel browser sulle nuove pagine (accessibilità, flusso Sposta);
-- Pietro: data di emissione caricata da SAP sui contratti reali, un accorpamento e uno
+- Responsabile del progetto: data di emissione caricata da SAP sui contratti reali, un accorpamento e uno
   spostamento sui dati reali, budget OPEX e CAPEX confrontati con le attese.
 
 ## F9.1 — Import dall'interfaccia
 
-Rev00: richiesta di Pietro del 02/10/2026, proposte approvate.
+Rev00: richiesta del responsabile del progetto del 02/10/2026, proposte approvate.
 
 - Pagina Gestione → Import: Excel dei contratti, date di emissione, piano dei conti,
   quadratura con l'Excel. Modello XLSX scaricabile per ogni import, generato dall'app.
@@ -206,11 +206,11 @@ Rev00: richiesta di Pietro del 02/10/2026, proposte approvate.
 - I comandi da riga di comando restano e usano lo stesso codice.
 
 **Accettazione:** test verdi (anteprima senza scritture, conferma, scadenza, permessi, modelli
-reimportabili, flusso nel browser); Pietro carica dal web le date di emissione estratte da SAP.
+reimportabili, flusso nel browser); L'operatore autorizzato carica dal web le date di emissione estratte da SAP.
 
 ## F9.1.1 — Correzioni dopo il primo uso dell'import web
 
-Rev00: segnalazioni di Pietro del 02/10/2026.
+Rev00: segnalazioni raccolte dal responsabile del progetto del 02/10/2026.
 
 - **Import Excel incrementale**: un contratto già registrato si riconosce anche quando il file
   è cambiato (righe inserite o spostate, foglio rinominato, altro cluster, dati corretti) o è
@@ -232,7 +232,7 @@ Rev00: segnalazioni di Pietro del 02/10/2026.
 
 ## F9.1.2 — Rinnovi che partono prima della scadenza
 
-Rev00: segnalazione di Pietro del 02/10/2026 (contratto 01/03/2025–28/02/2026 rinnovato dal
+Rev00: segnalazione raccolta dal responsabile del progetto del 02/10/2026 (contratto 01/03/2025–28/02/2026 rinnovato dal
 01/01/2026 nello stesso fabbisogno, in rosso «Senza rinnovo» e senza modo di collegarli).
 
 - **Proposta di collegamento**: il rinnovo può iniziare prima della scadenza del
@@ -245,7 +245,7 @@ Rev00: segnalazione di Pietro del 02/10/2026 (contratto 01/03/2025–28/02/2026 
 
 ## F9.2 — Estensione all'ufficio ICTDINN
 
-Rev02: realizzata (v1.5.0). Rev01: risposte di Pietro del 02/10/2026.
+Rev02: realizzata (v1.5.0). Rev01: risposte del responsabile del progetto del 02/10/2026.
 
 **Realizzato, con le scelte da confermare**
 - Cluster al posto dell'area; conto con il suo cluster (vuoto finché non si carica la
@@ -312,7 +312,7 @@ Rev02: realizzata (v1.5.0). Rev01: risposte di Pietro del 02/10/2026.
 - Import: gli Editor importano contratti e date solo nei propri cluster; l'import della
   struttura (cluster, responsabili, conti, WBS) è solo Admin, con il modello
   `GestioneContratti_ModelloImport_Struttura` (fogli Cluster, Responsabili,
-  Conti, WBS), accettato da Pietro.
+  Conti, WBS), accettato dal responsabile del progetto.
 
 **Quota CAPEX e quota OPEX nello stesso contratto (nota del 02/10/2026, da decidere)**
 - Proposta: natura e WBS diventano attributi della voce (in SAP ogni posizione ha la sua
@@ -350,7 +350,7 @@ Rev00: realizzata (v1.5.0). Caso numerico: TC-12 (SIM voce e SIM M2M).
 
 ## F9.4 — SPEC Rev06, chiusura delle scelte F9.2, TC-13
 
-Rev00: richiesta di Pietro del 05/10/2026.
+Rev00: richiesta del responsabile del progetto del 05/10/2026.
 
 - **SPEC Rev06** (bozza da approvare): allineamento a F8–F9.3.
 - **Scelte F9.2 chiuse**:
@@ -363,7 +363,7 @@ Rev00: richiesta di Pietro del 05/10/2026.
 
 ## F9.5 — Stampa dei report e spese senza contratto
 
-Rev00: realizzata (v1.5.0). Richiesta di Pietro del 05/10/2026. Caso numerico: TC-14.
+Rev00: realizzata (v1.5.0). Richiesta del responsabile del progetto del 05/10/2026. Caso numerico: TC-14.
 
 - **Stampa**: A4 orizzontale; dimensioni di base sull'elemento `html` (Bootstrap usa i rem);
   tabelle a tutta pagina, testo a capo, nessuna colonna tagliata; intestazioni ripetute su ogni
@@ -378,7 +378,7 @@ Rev00: realizzata (v1.5.0). Richiesta di Pietro del 05/10/2026. Caso numerico: T
 
 ## F9.5.1 — Rinnovo senza contratto
 
-Rev00: realizzata (v1.5.1). Richiesta di Pietro del 05/10/2026. Caso numerico: TC-14.
+Rev00: realizzata (v1.5.1). Richiesta del responsabile del progetto del 05/10/2026. Caso numerico: TC-14.
 
 - La spesa senza contratto si può registrare su un fabbisogno con contratti, se tutti
   finiscono prima della prima spesa; prima andava creato un fabbisogno nuovo.
@@ -387,7 +387,7 @@ Rev00: realizzata (v1.5.1). Richiesta di Pietro del 05/10/2026. Caso numerico: T
 
 ## F9.5.3 — Scorciatoie per la spesa senza contratto
 
-Rev00: realizzata (v1.5.2). Richiesta di Pietro del 05/10/2026: registrare una spesa senza contratto
+Rev00: realizzata (v1.5.2). Richiesta del responsabile del progetto del 05/10/2026: registrare una spesa senza contratto
 senza passare dal form completo del fabbisogno.
 
 - «Nuova spesa senza contratto» nell'elenco dei fabbisogni: crea il fabbisogno con i soli
@@ -403,7 +403,7 @@ senza passare dal form completo del fabbisogno.
 
 ## F9.5.2 — PDF dei report generati dal server
 
-Rev00: realizzata (v1.5.1). Richiesta di Pietro del 05/10/2026: la stampa dal browser usciva
+Rev00: realizzata (v1.5.1). Richiesta del responsabile del progetto del 05/10/2026: la stampa dal browser usciva
 in A4 verticale con la pagina ruotata e parti mancanti (dialogo di stampa di macOS, che ignora
 `@page`).
 
@@ -418,7 +418,7 @@ in A4 verticale con la pagina ruotata e parti mancanti (dialogo di stampa di mac
 
 ## F9.5.4 — Più cluster nel filtro, cluster in evidenza nel PDF
 
-Rev00: realizzata (v1.5.2). Richiesta di Pietro del 05/10/2026.
+Rev00: realizzata (v1.5.2). Richiesta del responsabile del progetto del 05/10/2026.
 
 - Il filtro «Cluster» (budget, piano ordini, spese per WBS, contratti, fabbisogni, cruscotto,
   piani da verificare) accetta più cluster insieme (`?area=IT&area=TLC`). «I miei cluster» e
@@ -429,7 +429,7 @@ Rev00: realizzata (v1.5.2). Richiesta di Pietro del 05/10/2026.
 
 ## F9.5.5 — Rinnovo senza contratto come anello della catena
 
-Rev00: realizzata. Richiesta e decisioni di Pietro del 05/10/2026 (SPEC Rev09, TC-14):
+Rev00: realizzata. Richiesta e decisioni del responsabile del progetto del 05/10/2026 (SPEC Rev09, TC-14):
 anche senza contratto ogni rinnovo va gestito con scadenza e alert.
 
 - Tolta la spesa ricorrente sul fabbisogno (F9.5, F9.5.1): non gestiva la scadenza, il
@@ -446,7 +446,7 @@ anche senza contratto ogni rinnovo va gestito con scadenza e alert.
 
 ## F10 — Connettore MCP in sola lettura
 
-Rev02: realizzata. Decisioni di Pietro del 05/10/2026 (SPEC Rev10, `docs/SPEC_MCP.md`
+Rev02: realizzata. Decisioni del responsabile del progetto del 05/10/2026 (SPEC Rev10, `docs/SPEC_MCP.md`
 Rev03). Rilasciata con F10.1 nella v1.7.0; in produzione dal 07/10/2026, prova D8 superata
 (SPEC_MCP Rev07). Claude interroga il registro con gli stessi
 numeri dell'interfaccia.
@@ -493,7 +493,7 @@ interruttore, storia `MCP …`, privilegi PostgreSQL) e tool dei gruppi A, B, D,
 `registra_proroga`, `crea_voce`, `modifica_voce`); logica di voce, rinnovo e proroga spostata
 dalle viste ai servizi; TC-12 e TC-14 ricostruiti via MCP. Il gruppo E arriva con F11.
 
-Decisione di Pietro del 05/10/2026 (SPEC Rev12,
+Decisione del responsabile del progetto del 05/10/2026 (SPEC Rev12,
 `docs/SPEC_MCP.md` Rev05 §8): perimetro gruppi A–E (D11), conferma nella chat (D12), nessun limite
 giornaliero (D13).
 
@@ -514,7 +514,7 @@ TC-12 e TC-14 ricostruiti via MCP.
 
 ## F11 — Release 2.0: processo d'acquisto (RDA → esecuzione → chiusura)
 
-Rev01: bozza da approvare. Decisioni di Pietro del 05/10/2026 (SPEC Rev11): solo ICTDINN; le
+Rev01: bozza da approvare. Decisioni del responsabile del progetto del 05/10/2026 (SPEC Rev11): solo ICTDINN; le
 forniture una tantum entrano come contratti; stati della pratica ricavati dalla RDA;
 inserimento a mano e import XLSX, nessun collegamento a SAP; CUP sì, basket del masterplan
 no. Decisioni del 07/10/2026 (SPEC Rev13): flusso referente → addetto amministrativo con la
@@ -544,7 +544,7 @@ delle tabelle SAP).
 - Configurazione: richiedenti SAP, gruppi merci, gruppi acquisti (ciascuno con al più un
   predefinito), cartella base delle RDA per cluster, funzione «Amministrazione acquisti» per utente (anche
   nell'import della struttura: rinviato, il modello della struttura è approvato e non si
-  tocca senza Pietro; per ora dall'amministrazione); parametri «RDA ferma» (30 giorni) e «fattura ferma» (15
+  modifica senza approvazione formale; per ora dall'amministrazione); parametri «RDA ferma» (30 giorni) e «fattura ferma» (15
   giorni), provvisori.
 - Data migration: il n. RDA dei contratti diventa una RDA collegata (SPEC §7).
 - Import delle tabelle SAP da Excel (richiedenti, gruppi merci, gruppi acquisti), solo Admin,
@@ -627,7 +627,7 @@ report con tutte le anomalie note (SPEC §2.3), idempotenza.
 
 ## F12 — Connettore MCP per il processo d'acquisto
 
-Rev00: bozza da approvare. Decisioni di Pietro del 07/10/2026 (`docs/SPEC_MCP.md` Rev08 §11,
+Rev00: bozza da approvare. Decisioni del responsabile del progetto del 07/10/2026 (`docs/SPEC_MCP.md` Rev08 §11,
 D14–D17). Il connettore copre richieste di RDA, fatture, esecuzione e chiusura e le quattro
 viste della release 2.0, con le regole di F10 (lettura) e F10.1 (anteprima e conferma).
 
