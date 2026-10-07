@@ -467,7 +467,7 @@ riavvio del server (`restart: unless-stopped`).
 | Login AD rifiutato a tutti | `compose logs web \| grep -i ldap`; per diagnosi `LDAP_LOG_LEVEL=DEBUG`, poi `compose restart web` |
 | Emergenza senza AD | accesso con l'account break-glass (§6.1) |
 
-## 12. Connettore MCP (F10)
+## 12. Connettore MCP (F10, F10.1)
 
 Claude interroga il registro attraverso il connettore MCP (`docs/SPEC_MCP.md`). È l'unica parte
 dell'app esposta su Internet (deroga alla SPEC §8.2): un **host pubblico dedicato**, raggiungibile
@@ -483,7 +483,217 @@ endpoint. Login e consenso restano sull'host interno.
 | `GET/POST /oauth/authorize/` **sull'host interno** | browser dell'utente |
 
 Il connettore gira in un container a parte (`mcp`), con le sole URL qui sopra e un utente
-PostgreSQL che legge tutto ma scrive solo su token e registro delle chiamate.
+PostgreSQL limitato: legge tutto, scrive solo su token, registri e tabelle dei tool di scrittura
+(§12.8), non cancella dati di dominio.
+
+### 12.0 Attivazione passo per passo (aggiornamento dalla v1.6.0)
+
+Sequenza completa per chi parte da un server con la v1.6.0 e il connettore mai attivato. I
+paragrafi da 12.1 a 12.8 restano il riferimento per i dettagli; qui c'è l'ordine in cui farli.
+Le fasi 1 e 2 sono indipendenti: la 2 si può fare prima, anche giorni prima.
+
+Segnaposto usati sotto (annotali prima di iniziare):
+
+| Segnaposto | Esempio | Dove si trova |
+|---|---|---|
+| `<NOME_DNS>` | `contratti.siciliacque.local` | primo valore di `DJANGO_ALLOWED_HOSTS` nel `.env` |
+| `<MCP_HOST>` | `mcp-contratti.siciliacque.it` | nome nuovo, nel dominio **pubblico** |
+| `<APP_BIND>` | `172.17.0.1` | `APP_BIND` nel `.env` |
+| `<MCP_PORT>` | `18472` | porta nuova, libera (fase 3) |
+| `<IP_PUBBLICO>` | — | IP pubblico con cui il firewall pubblica il proxy |
+| `<IP_INTERNO_PROXY>` | — | IP interno del server di Nginx Proxy Manager |
+
+**Prima di iniziare**, serve:
+- accesso al DNS pubblico del dominio e, per il certificato, le credenziali API del provider DNS
+  supportate da Nginx Proxy Manager (*DNS Challenge*);
+- accesso al DNS interno (AD) e al firewall perimetrale;
+- il ruolo di Owner dell'organizzazione Claude;
+- un PC della rete interna con `bash` e `curl` (Linux, macOS, WSL o Git Bash) e una connessione
+  fuori dalla rete aziendale (hotspot del telefono) per le verifiche;
+- una finestra di pochi minuti: ogni `deploy.sh` riavvia l'app.
+
+#### Fase 1 — Aggiornamento alla v1.7.0, connettore spento
+
+L'app si aggiorna senza toccare la rete: se qualcosa va storto si torna indietro come in §7.
+
+1. **Tag su GitHub**: Releases → *Draft a new release* → *Choose a tag* → `v1.7.0` (nuovo, su
+   `main`) → titolo e descrizione dalla PR #28 → *Publish release*.
+2. Sul server, controlla versione e configurazione:
+   ```bash
+   git -C /appdata/gestione-contratti/app describe --tags        # atteso: v1.6.0
+   grep '^MCP_' /appdata/gestione-contratti/config/.env || echo "nessuna variabile MCP"
+   ```
+   Non devono esserci variabili `MCP_` attive (al massimo righe commentate con `#`).
+3. Aggiorna:
+   ```bash
+   /appdata/gestione-contratti/app/deploy/deploy.sh v1.7.0
+   ```
+   Righe attese, nell'ordine: `Backup pre-aggiornamento`, `Codice: v1.7.0`, `Build`
+   (qualche minuto: c'è una dipendenza nuova), `Migration` con `contratti.0023`,
+   `contratti.0024`, `oauth2_provider.*`, `connettore.0001`, `connettore.0002`, poi
+   `Attesa di /healthz … ok` e `Installata la versione v1.7.0.` Nessuna riga sul connettore:
+   è spento.
+4. Verifica:
+   ```bash
+   cd /appdata/gestione-contratti/app/deploy && source comune.sh && compose ps
+   ```
+   `db`, `web` e `backup` `Up`, nessun container `mcp`. Dal browser: piè di pagina `v1.7.0`,
+   login, cruscotto, budget come prima. In Amministrazione → Parametri compaiono
+   `mcp_giorni_login`, `mcp_richieste_minuto`, `mcp_scrittura_attiva`, `mcp_minuti_operazione`.
+   La voce di menu «Connettore MCP» non c'è ancora.
+5. Se qualcosa non va: rollback di §7 con il dump `…_pre_v1.7.0.dump` e `deploy.sh v1.6.0`.
+
+Qui ci si può fermare: l'app funziona come prima, il connettore è spento.
+
+#### Fase 2 — DNS, firewall e certificato
+
+1. **DNS pubblico**: record A `<MCP_HOST>` → `<IP_PUBBLICO>`.
+2. **DNS interno** (split horizon): record A `<MCP_HOST>` → `<IP_INTERNO_PROXY>`. Da un PC
+   interno `nslookup <MCP_HOST>` deve dare l'IP interno; `nslookup <MCP_HOST> 1.1.1.1` l'IP
+   pubblico.
+3. **Firewall perimetrale**: inoltro TCP 443 da `<IP_PUBBLICO>` a `<IP_INTERNO_PROXY>`:443,
+   **solo** con origine `160.79.104.0/21` (intervallo aggiornato:
+   <https://platform.claude.com/docs/en/api/ip-addresses>). Niente porta 80. L'inoltro non deve
+   cambiare l'IP di origine (nessun SNAT o *masquerade* in ingresso): l'Access List del proxy
+   (fase 4) decide in base a quell'IP. La verifica «esterno» della fase 4 lo controlla.
+4. **Certificato** in Nginx Proxy Manager: SSL Certificates → Add SSL Certificate →
+   *Let's Encrypt* → Domain Names `<MCP_HOST>`, *Use a DNS Challenge*, provider e credenziali API
+   del DNS, email → Save. Deve comparire con scadenza a circa 90 giorni; NPM lo rinnova da solo.
+   Se il provider DNS non è tra quelli di NPM: o si delega a un provider supportato il
+   sottodominio, o si apre la porta 80 da Internet verso il proxy (rinnovo con *HTTP Challenge*,
+   ogni 60 giorni circa). La seconda strada allarga l'esposizione: da decidere prima.
+
+#### Fase 3 — Configurazione e avvio del container `mcp`
+
+1. Porta libera:
+   ```bash
+   ss -ltn | grep -w 18472 || echo "libera"
+   ```
+2. Password dell'utente PostgreSQL del connettore:
+   ```bash
+   python3 -c "import secrets; print(secrets.token_hex(24))"
+   ```
+3. `nano /appdata/gestione-contratti/config/.env` e aggiungi in fondo (o togli il `#` dalle
+   righe dell'esempio e compila):
+   ```bash
+   MCP_PORT=<MCP_PORT>
+   MCP_BIND=<APP_BIND>
+   MCP_HOST=<MCP_HOST>
+   MCP_URL_PUBBLICO=https://<MCP_HOST>
+   MCP_URL_INTERNO=https://<NOME_DNS>
+   MCP_DATABASE_URL=postgres://contratti_mcp:<password del punto 2>@db:5432/<POSTGRES_DB>
+   ```
+   `<POSTGRES_DB>` è lo stesso nome di database di `DATABASE_URL`. `MCP_URL_PUBBLICO` senza `/`
+   finale e senza percorso.
+4. Rilancia lo stesso deploy:
+   ```bash
+   /appdata/gestione-contratti/app/deploy/deploy.sh v1.7.0
+   ```
+   Rispetto alla fase 1 compaiono `Utente PostgreSQL del connettore MCP (privilegi limitati)` e
+   `Attesa del connettore MCP su <APP_BIND>:<MCP_PORT> … ok`. Il dump pre-aggiornamento viene
+   rifatto, la build usa la cache, le migration non hanno niente da applicare. Se si ferma su
+   una variabile, il messaggio dice quale.
+5. Verifica:
+   ```bash
+   cd /appdata/gestione-contratti/app/deploy && source comune.sh && compose ps
+   curl -s -H "Host: <MCP_HOST>" -H "X-Forwarded-Proto: https" http://<APP_BIND>:<MCP_PORT>/healthz
+   ```
+   Compare `gestione-contratti-mcp-1` `Up`; `curl` risponde `{"status": "ok"}`. Nell'app, dal
+   browser, compare la voce di menu «Connettore MCP».
+
+#### Fase 4 — Host pubblico in Nginx Proxy Manager e verifica
+
+1. **Access List** (Access Lists → Add Access List): nome `connettore-mcp`, *Satisfy Any*
+   spento, nessun utente; nella scheda *Access*: `allow 160.79.104.0/21`, `allow <rete interna>`
+   (le sottoreti dei PC, es. `10.0.0.0/8`), `deny all`.
+2. **Proxy Host** (Hosts → Proxy Hosts → Add Proxy Host):
+   - *Details*: Domain Names `<MCP_HOST>`; Scheme `http`; Forward Hostname/IP `<APP_BIND>`;
+     Forward Port `<MCP_PORT>`; *Block Common Exploits* attivo; Access List `connettore-mcp`;
+   - *SSL*: il certificato della fase 2, *Force SSL* e *HTTP/2 Support* attivi;
+   - *Advanced*: il blocco di §12.3 (solo i percorsi del connettore, il resto 404).
+3. **Verifica da dentro**, da un PC della rete interna (non dal server: le connessioni che
+   partono dal server verso il proxy sullo stesso host possono arrivare con un IP Docker non in
+   allowlist). Lo script è in `deploy/verifica_mcp.sh` del repository (scaricalo da GitHub o
+   copialo dal server con `scp`):
+   ```bash
+   bash verifica_mcp.sh https://<MCP_HOST> ammesso
+   ```
+   Atteso: «Verifica superata.» (certificato valido, metadati 200, `/mcp` senza token 401,
+   altri percorsi 404).
+4. **Verifica da fuori**, dallo stesso PC collegato all'hotspot del telefono:
+   ```bash
+   bash verifica_mcp.sh https://<MCP_HOST> esterno
+   ```
+   Atteso: «Verifica superata.», con «nessuna risposta: bloccato dal firewall» (il firewall
+   della fase 2 scarta chi non viene da `160.79.104.0/21`) o 403 (Access List). Ogni 200 o 401
+   da fuori vuol dire che l'host è aperto a tutti: spegni il proxy host e correggi firewall e
+   Access List prima di andare avanti.
+
+   Senza `bash`, su Windows: `curl.exe -s -o NUL -w "%{http_code}" https://<MCP_HOST>/.well-known/oauth-authorization-server`
+   dà `200` da dentro e `403` o `000` (nessuna risposta) da fuori.
+
+#### Fase 5 — Client OAuth
+
+```bash
+cd /appdata/gestione-contratti/app/deploy
+./manage.sh crea_client_mcp claude
+./manage.sh crea_client_mcp claude-code
+```
+Il primo stampa `client ID` e `client secret`: il secret non si rilegge più, tienilo aperto nel
+terminale e incollalo direttamente nella fase 6 (non in email, chat o file). Il secondo stampa
+solo il `client ID` (Claude Code non usa secret).
+
+#### Fase 6 — Connettore nell'organizzazione Claude
+
+Da Owner, su claude.ai (le voci dei menu possono cambiare):
+1. Impostazioni dell'organizzazione → **Connettori** → Aggiungi connettore personalizzato.
+2. Nome `Registro contratti`; URL `https://<MCP_HOST>/mcp`.
+3. *Impostazioni avanzate*: OAuth Client ID e Client Secret del client `claude` → Aggiungi.
+
+Il connettore compare a tutti i membri, ma ognuno deve collegarlo con le proprie credenziali.
+
+#### Fase 7 — Prima prova di Pietro (D8)
+
+Dalla rete interna o da VPN:
+1. claude.ai → Impostazioni → Connettori → `Registro contratti` → **Connetti**.
+2. Si apre la pagina di login dell'app (`<NOME_DNS>`): login con l'account AD.
+3. Pagina «Collega il connettore MCP»: spunta «Consenti anche la modifica» se vuoi provare la
+   scrittura, poi **Autorizza**. Si torna su claude.ai con il connettore collegato.
+4. In una chat nuova, con il connettore attivo: «Quali contratti dei miei cluster sono in
+   alert?». Il risultato deve coincidere con il cruscotto.
+5. Nell'app: menu «Connettore MCP» mostra il collegamento con i permessi; Amministrazione →
+   Connettore MCP → Chiamate mostra le chiamate appena fatte.
+
+Se al punto 2 la pagina non si apre o al punto 3 Claude dà errore: fermati, annota il
+messaggio e le righe di Amministrazione → Connettore MCP → Chiamate, e vedi §12.9. Se Claude
+non accetta l'autorizzazione sull'host interno, è il caso D8 della SPEC_MCP: va deciso il piano
+B, non si aggira.
+
+#### Fase 8 — Prova della scrittura
+
+1. Chiedi a Claude una modifica reale che avresti fatto comunque (es. «registra la proroga di
+   3 mesi del contratto X»). Claude mostra l'anteprima con le modifiche e gli effetti (date,
+   alert, budget) e **non scrive niente**.
+2. Controlla l'anteprima, poi rispondi di confermare: Claude chiama `conferma_operazione`.
+3. Nell'app: la modifica c'è; nella storia dell'oggetto l'utente sei tu e il motivo inizia con
+   `MCP registra_proroga`; Amministrazione → Connettore MCP → Operazioni la mostra confermata.
+
+Per tenere la scrittura spenta all'inizio: Amministrazione → Parametri → `mcp_scrittura_attiva`
+= 0 (validità da oggi). La lettura resta attiva; si riaccende con 1.
+
+#### Fase 9 — Claude Code (facoltativo) e comunicazione agli utenti
+
+- Claude Code, da un PC della rete interna, con l'ID del client `claude-code` (fase 5):
+  ```bash
+  claude mcp add --transport http --client-id <ID claude-code> registro-contratti https://<MCP_HOST>/mcp
+  ```
+  poi `/mcp` → `registro-contratti` → Authenticate (si apre il login dell'app).
+- Agli utenti: il collegamento si fa dalla rete interna o da VPN; dopo, Claude funziona anche
+  da fuori. Senza un login all'app per 7 giorni Claude chiede di ricollegarsi. Ognuno vede gli
+  stessi dati dell'interfaccia; scrivono solo Editor e Admin che hanno spuntato la modifica.
+
+**Per spegnere tutto** in caso di problemi: in NPM disattiva il proxy host di `<MCP_HOST>`
+(effetto immediato), poi, se serve, `MCP_PORT=` vuota nel `.env` e `deploy.sh v1.7.0`.
 
 ### 12.1 Configurazione (`config/.env`)
 
@@ -533,13 +743,13 @@ l'utente PostgreSQL (`manage.py ruolo_db_mcp`), avvia il container `mcp` e aspet
 
 **Verifica** (dopo ogni deploy e ogni modifica del proxy):
 ```bash
-# da un PC della rete interna (in allowlist)
-/appdata/gestione-contratti/app/deploy/verifica_mcp.sh https://<MCP_HOST> ammesso
+# da un PC della rete interna (in allowlist), non dal server (§12.0, fase 4)
+bash verifica_mcp.sh https://<MCP_HOST> ammesso
 # da una rete fuori allowlist (es. hotspot del telefono)
-deploy/verifica_mcp.sh https://<MCP_HOST> esterno
+bash verifica_mcp.sh https://<MCP_HOST> esterno
 ```
-Esito atteso: «Verifica superata.» Da fuori, gli endpoint rispondono 403; da dentro, metadati
-200, `/mcp` senza token 401 con `resource_metadata`, ogni altro percorso 404.
+Esito atteso: «Verifica superata.» Da fuori, nessuna risposta (firewall) o 403; da dentro,
+metadati 200, `/mcp` senza token 401 con `resource_metadata`, ogni altro percorso 404.
 
 ### 12.4 Client OAuth
 

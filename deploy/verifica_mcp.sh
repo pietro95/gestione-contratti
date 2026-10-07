@@ -6,8 +6,9 @@
 #
 # «ammesso» (rete interna o rete di Anthropic): certificato valido, metadati 200, /mcp senza
 # token 401 con resource_metadata, ogni altro percorso 404.
-# «esterno» (es. una connessione mobile): 403 sugli endpoint del connettore; gli altri
-# percorsi 403 o 404 (dipende dall'ordine delle regole nel proxy), mai una risposta dell'app.
+# «esterno» (es. una connessione mobile): nessuna risposta (connessione scartata dal firewall
+# perimetrale) oppure 403 dall'Access List sugli endpoint del connettore; gli altri percorsi
+# anche 404 (dipende dall'ordine delle regole nel proxy). Mai una risposta dell'app.
 # Esce con 1 se un controllo fallisce. Non usa token né credenziali.
 # CURL_OPZIONI: opzioni in più per curl (in CI: --cacert e --resolve verso il proxy di prova).
 set -uo pipefail
@@ -39,20 +40,33 @@ PUBBLICI=(
 )
 NASCOSTI=(/ /admin/ /accounts/login/ /oauth/authorize/ /healthz /cruscotto/ /report/budget/ /static/css/app.css)
 
+bloccato() {  # descrizione codice ammessi... → ok se il codice è tra gli ammessi o 000
+  local descrizione="$1" c="$2"
+  shift 2
+  if [ "$c" = "000" ]; then
+    echo "ok    $descrizione (nessuna risposta: bloccato dal firewall)"
+    return
+  fi
+  for a in "$@"; do
+    if [ "$c" = "$a" ]; then
+      echo "ok    $descrizione ($c)"
+      return
+    fi
+  done
+  echo "ERRORE $descrizione: atteso $* o nessuna risposta, ottenuto $c"
+  FALLITI=1
+}
+
 case "$MODO" in
   esterno)
     for voce in "${PUBBLICI[@]}"; do
       read -r metodo percorso <<<"$voce"
-      verifica "$metodo $percorso" 403 "$(codice "$metodo" "$percorso")"
+      bloccato "$metodo $percorso" "$(codice "$metodo" "$percorso")" 403
     done
-    verifica "POST /mcp" 403 "$(codice POST /mcp '{}')"
-    verifica "POST /oauth/token/" 403 "$(codice POST /oauth/token/ '')"
+    bloccato "POST /mcp" "$(codice POST /mcp '{}')" 403
+    bloccato "POST /oauth/token/" "$(codice POST /oauth/token/ '')" 403
     for p in "${NASCOSTI[@]}"; do
-      c=$(codice GET "$p")
-      case "$c" in
-        403 | 404) echo "ok    GET $p ($c)" ;;
-        *) echo "ERRORE GET $p: atteso 403 o 404, ottenuto $c"; FALLITI=1 ;;
-      esac
+      bloccato "GET $p" "$(codice GET "$p")" 403 404
     done
     ;;
   ammesso)
