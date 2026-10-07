@@ -1,6 +1,6 @@
 from django.urls import path
 
-from contratti import views, views_import, views_rda
+from contratti import views, views_fatture, views_import, views_rda
 
 app_name = "contratti"
 
@@ -56,6 +56,38 @@ urlpatterns = [
     path("fornitori/<int:pk>/", views.fornitore_dettaglio, name="fornitore"),
     path("fornitori/<int:pk>/modifica/", views.fornitore_modifica, name="fornitore_modifica"),
     path("piani-da-verificare/", views.piani_da_verificare, name="piani_da_verificare"),
+    path("fatture/", views_fatture.fatture_elenco, name="fatture"),
+    path("fatture/azione/", views_fatture.fatture_azione, name="fatture_azione"),
+    path("fatture/nuova/", views_fatture.fattura_nuova, name="fattura_nuova"),
+    path("fatture/<int:pk>/", views_fatture.fattura_dettaglio, name="fattura"),
+    path("fatture/<int:pk>/prendi/", views_fatture.fattura_prendi, name="fattura_prendi"),
+    path("fatture/<int:pk>/lascia/", views_fatture.fattura_lascia, name="fattura_lascia"),
+    path("fatture/<int:pk>/riassegna/", views_fatture.fattura_riassegna, name="fattura_riassegna"),
+    path("fatture/<int:pk>/contratto/", views_fatture.fattura_contratto, name="fattura_contratto"),
+    path("fatture/<int:pk>/convalida/", views_fatture.fattura_convalida, name="fattura_convalida"),
+    path("fatture/<int:pk>/importi/", views_fatture.fattura_importi, name="fattura_importi"),
+    path("fatture/<int:pk>/documento/", views_fatture.fattura_documento, name="fattura_documento"),
+    path(
+        "fatture/<int:pk>/trasferimento/",
+        views_fatture.fattura_trasferisci,
+        name="fattura_trasferisci",
+    ),
+    path(
+        "fatture/<int:pk>/fuori-registro/",
+        views_fatture.fattura_fuori_registro,
+        name="fattura_fuori_registro",
+    ),
+    path(
+        "contratti/<int:contratto_pk>/fattura/",
+        views_fatture.fattura_nuova,
+        name="contratto_fattura_nuova",
+    ),
+    path(
+        "contratti/<int:pk>/documento/",
+        views_fatture.contratto_documento,
+        name="contratto_documento",
+    ),
+    path("contratti/<int:pk>/chiudi/", views_fatture.contratto_chiudi, name="contratto_chiudi"),
     path("rda/", views_rda.rda_elenco, name="rda_elenco"),
     path("rda/registra/", views_rda.rda_registra, name="rda_registra"),
     path("rda/nuova/<int:fabbisogno_pk>/", views_rda.rda_nuova, name="rda_nuova"),

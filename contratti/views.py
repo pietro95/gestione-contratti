@@ -326,7 +326,7 @@ def _contratto(pk):
 
 @login_required
 def contratto_dettaglio(request, pk):
-    from contratti import views_rda
+    from contratti import views_fatture, views_rda
 
     oggi = oggi_richiesta(request)
     contratto = _contratto(pk)
@@ -370,6 +370,7 @@ def contratto_dettaglio(request, pk):
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
             **views_rda.contesto_pratica(contratto, oggi),
             "rda_proposta": acquisti.rda_proposta(contratto),
+            **views_fatture.contesto_esecuzione(contratto, oggi),
             "form_rda": forms_rda.CollegaRdaForm(contratto=contratto),
             "puo_chiedere_rda": not contratto.una_tantum
             and successore is None

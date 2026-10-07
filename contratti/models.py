@@ -1573,6 +1573,11 @@ class Fattura(Archiviabile):
             self.fornitore_id = self.contratto.fornitore_id
         super().save(*args, **kwargs)
 
+    def get_absolute_url(self):
+        from django.urls import reverse
+
+        return reverse("contratti:fattura", args=[self.pk])
+
     def clean(self):
         super().clean()
         if (

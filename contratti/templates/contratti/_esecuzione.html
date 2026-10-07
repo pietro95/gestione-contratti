@@ -1,0 +1,35 @@
+{% load registro %}
+{% with e=esecuzione.esecuzione %}
+<div class="row g-3 mb-3">
+  <div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">Fatturato</div><div class="kpi-valore">{{ e.fatturato|euro }}</div><div class="kpi-nota">somma dei valori base</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi {% if e.residuo_fisso < 0 %}rosso{% endif %}"><div class="card-body"><div class="kpi-etichetta">Residuo sul fisso</div><div class="kpi-valore">{{ e.residuo_fisso|euro }}</div><div class="kpi-nota">sul massimo {{ e.residuo_massimo|euro }}</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Avanzamento</div><div class="kpi-valore">{% if e.avanzamento_pct is not None %}{{ e.avanzamento_pct }}%{% else %}—{% endif %}</div><div class="kpi-nota">rispetto al fisso (senza fisso, al massimale)</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi {% if c.chiuso %}verde{% endif %}"><div class="card-body"><div class="kpi-etichetta">Chiusura</div><div class="kpi-valore fs-6">{% if c.data_chiusura %}chiuso il {{ c.data_chiusura|date:"d/m/Y" }}{% elif motivo_chiusura %}{{ motivo_chiusura }}{% else %}prestazione in corso{% endif %}</div>
+    {% if puo_modificare %}<form method="post" action="{% url 'contratti:contratto_chiudi' c.pk %}" class="mt-2" data-conferma="{% if c.data_chiusura %}Il contratto torna aperto: si potranno registrare documenti e fatture.{% else %}Chiusura amministrativa: prestazione attestata e fatture registrate. Su un contratto chiuso non si registrano documenti né fatture.{% endif %}" data-conferma-etichetta="{% if c.data_chiusura %}Annulla la chiusura{% else %}Chiudi il contratto{% endif %}">{% csrf_token %}{% if c.data_chiusura %}<button class="btn btn-sm btn-outline-danger" type="submit" name="annulla" value="1">Annulla chiusura</button>{% else %}<button class="btn btn-sm btn-outline-primary" type="submit">Chiudi</button>{% endif %}</form>{% endif %}
+  </div></div></div>
+</div>
+{% endwith %}
+{% for a in esecuzione.anomalie %}<div class="alert alert-warning small"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> {% if a == "FATTURATO_OLTRE_MASSIMO" %}Fatturato oltre il massimo (fisso + massimale).{% elif a == "CHIUSO_SENZA_ATTESTAZIONE" %}Chiuso senza un'attestazione o un modello di ricezione finale.{% elif a == "FATTURA_DUPLICATA" %}Due fatture con lo stesso numero.{% elif a == "VALORE_BASE_MANCANTE" %}Fatture senza valore base: non contano nel fatturato.{% else %}{{ a }}{% endif %}</div>{% endfor %}
+
+<div class="d-flex justify-content-between align-items-center mt-3 mb-2"><h2 class="h6 text-uppercase text-body-secondary mb-0">Fatture</h2>{% if puo_modificare and not c.data_chiusura %}<a class="btn btn-sm btn-outline-primary" href="{% url 'contratti:contratto_fattura_nuova' c.pk %}"><i class="bi bi-receipt" aria-hidden="true"></i> Registra una fattura</a>{% endif %}</div>
+<div class="tabella-card mb-4"><div class="table-responsive"><table class="table table-sm table-hover align-middle">
+  <thead><tr><th>Fattura</th><th class="text-end">Documento</th><th class="text-end">Valore base</th><th>Rata</th><th>Passo</th></tr></thead>
+  <tbody>{% for r in fatture %}{% url 'contratti:fattura' r.f.pk as link %}
+    <tr data-href="{{ link }}"><td><a href="{{ link }}">{{ r.f.numero }}</a> <span class="small text-body-secondary">del {{ r.f.data|date:"d/m/Y" }}</span>{% if r.f.fuori_registro %} <span class="stato stato-grigio">fuori registro</span>{% endif %}</td><td class="text-end">{{ r.f.importo_documento|euro }}</td><td class="text-end">{{ r.f.valore_base|euro }}</td><td class="small">{{ r.f.rata|default:"—" }}</td><td>{{ r.passo|passo_badge }}{% if r.f.referente %} <span class="small text-body-secondary">{{ r.f.referente.username }}</span>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="5" class="text-body-secondary small">Nessuna fattura abbinata.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+
+<h2 class="h6 text-uppercase text-body-secondary">Documenti di esecuzione</h2>
+<div class="tabella-card mb-3"><div class="table-responsive"><table class="table table-sm align-middle">
+  <thead><tr><th>Documento</th><th>Numero</th><th>Data</th><th class="text-end">Importo</th><th>Fattura</th></tr></thead>
+  <tbody>{% for d in documenti_esecuzione %}<tr><td>{{ d.get_tipo_display }}{% if d.finale %} <span class="stato stato-verde">finale</span>{% endif %}</td><td>{{ d.numero|default:"—" }}</td><td>{{ d.data|date:"d/m/Y" }}</td><td class="text-end">{{ d.importo|euro }}</td><td>{% if d.fattura %}<a href="{% url 'contratti:fattura' d.fattura.pk %}">{{ d.fattura.numero }}</a>{% else %}—{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="5" class="text-body-secondary small">Nessun documento.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% if puo_modificare and not c.data_chiusura %}
+<details class="mb-3"><summary class="small">Registra un documento (DDT, attestazione, modello di ricezione, …)</summary>
+<form method="post" action="{% url 'contratti:contratto_documento' c.pk %}" class="mt-2" novalidate>
+  {% csrf_token %}
+  {% include "contratti/_campi.html" with form=form_documento_esecuzione %}
+  <button class="btn btn-primary" type="submit">Registra</button>
+</form></details>
+{% endif %}

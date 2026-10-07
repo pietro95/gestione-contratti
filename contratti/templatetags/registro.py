@@ -91,6 +91,23 @@ def fase_badge(valore):
     return _badge(classe, testo)
 
 
+PASSO_FATTURA = {
+    "presa_in_carico": ("arancione", "Da prendere in carico"),
+    "assegnazione": ("giallo", "Da assegnare"),
+    "convalida": ("giallo", "Da convalidare"),
+    "rdc": ("blu", "RdC da fare"),
+    "map_migo": ("blu", "MAP/MIGO da fare"),
+    "trasferimento": ("blu", "Da trasferire"),
+    "None": ("verde", "Trasferita"),
+}
+
+
+@register.filter
+def passo_badge(valore):
+    classe, testo = PASSO_FATTURA.get(str(valore), ("grigio", valore))
+    return _badge(classe, testo)
+
+
 @register.filter
 def iniziali(utente):
     nome = (utente.get_full_name() or utente.get_username()).replace(".", " ").split()

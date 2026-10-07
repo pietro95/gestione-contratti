@@ -214,7 +214,7 @@ def voci_piano_da_verificare(codici: list[str] | None = None):
 
 
 # Ricerca globale (barra superiore e connettore MCP): stessi criteri e stessi limiti.
-LIMITE_CERCA = {"contratti": 25, "fabbisogni": 15, "fornitori": 15, "rda": 15}
+LIMITE_CERCA = {"contratti": 25, "fabbisogni": 15, "fornitori": 15, "rda": 15, "fatture": 15}
 
 
 def cerca(q: str, oggi: datetime.date) -> dict[str, list]:
@@ -222,7 +222,7 @@ def cerca(q: str, oggi: datetime.date) -> dict[str, list]:
 
     Meno di 2 caratteri: nessun risultato. Gli archiviati in fondo.
     """
-    risultati = {"contratti": [], "fabbisogni": [], "fornitori": [], "rda": []}
+    risultati = {"contratti": [], "fabbisogni": [], "fornitori": [], "rda": [], "fatture": []}
     q = q.strip()
     if len(q) < 2:
         return risultati
@@ -255,6 +255,13 @@ def cerca(q: str, oggi: datetime.date) -> dict[str, list]:
         )
         .select_related("cluster")
         .order_by("archiviato", "-data_creazione")[: LIMITE_CERCA["rda"]]
+    )
+    # F11.3: numero di fattura e numeri dei documenti SAP (RdC/ODA, MAP, MIGO).
+    risultati["fatture"] = list(
+        m.Fattura.objects.filter(Q(numero__icontains=q) | Q(documenti__numero__icontains=q))
+        .select_related("fornitore", "contratto")
+        .distinct()
+        .order_by("archiviato", "-data")[: LIMITE_CERCA["fatture"]]
     )
     return risultati
 

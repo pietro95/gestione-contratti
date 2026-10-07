@@ -419,15 +419,66 @@ def aggiorna_importi(
     oneri: Decimal | None,
     bollo: Decimal | None,
     voce: m.VoceContratto | None = None,
+    rata: m.Rata | None = None,
 ) -> None:
+    """Valore base, oneri, bollo; con il contratto anche voce e rata abbinata (la rata diventa
+    consuntivo e riceve il numero di fattura; il suo importo non cambia)."""
     if voce is not None and voce.contratto_id != fattura.contratto_id:
         raise OperazioneNonAmmessa("La voce è di un altro contratto.")
+    if rata is not None and rata.piano.voce.contratto_id != fattura.contratto_id:
+        raise OperazioneNonAmmessa("La rata è di un altro contratto.")
+    if rata is not None and m.Fattura.objects.filter(rata=rata).exclude(pk=fattura.pk).exists():
+        raise OperazioneNonAmmessa("La rata è già abbinata a un'altra fattura.")
     fattura.valore_base, fattura.oneri, fattura.bollo = valore_base, oneri, bollo
     campi = ["valore_base", "oneri", "bollo"]
     if fattura.contratto_id:
-        fattura.voce = voce
-        campi.append("voce")
+        precedente = fattura.rata if fattura.rata_id and fattura.rata_id != getattr(
+            rata, "pk", None
+        ) else None  # fmt: skip
+        fattura.voce, fattura.rata = voce, rata
+        campi += ["voce", "rata"]
+        with transaction.atomic():
+            if precedente is not None and precedente.numero_fattura == fattura.numero:
+                precedente.consuntivo, precedente.numero_fattura = False, ""
+                _salva(precedente, f"Tolta la fattura {fattura.numero}",
+                       update_fields=["consuntivo", "numero_fattura"])  # fmt: skip
+            _salva(fattura, "Importi", update_fields=campi)
+            if rata is not None and (not rata.consuntivo or rata.numero_fattura != fattura.numero):
+                rata.consuntivo, rata.numero_fattura = True, fattura.numero[:40]
+                _salva(rata, f"Fattura {fattura.numero}",
+                       update_fields=["consuntivo", "numero_fattura"])  # fmt: skip
+        return
     _salva(fattura, "Importi", update_fields=campi)
+
+
+def registra(
+    *,
+    numero: str,
+    data: datetime.date,
+    importo_documento: Decimal,
+    fornitore: m.Fornitore | None = None,
+    contratto: m.Contratto | None = None,
+    note: str = "",
+) -> m.Fattura:
+    """Fattura registrata a mano: come dall'import, da prendere in carico; dal contratto
+    entra già abbinata."""
+    if contratto is not None and contratto.data_chiusura is not None:
+        raise OperazioneNonAmmessa("Il contratto è chiuso: prima si annulla la chiusura.")
+    fattura = m.Fattura(
+        fornitore=contratto.fornitore if contratto else fornitore,
+        contratto=contratto,
+        numero=numero.strip(),
+        data=data,
+        importo_documento=importo_documento,
+        note=note,
+    )
+    if contratto is not None:
+        voci = [v for v in contratto.voci.all() if not v.archiviato]
+        fattura.voce = voci[0] if len(voci) == 1 else None
+    fattura.full_clean()
+    fattura._change_reason = "Registrata a mano"
+    fattura.save()
+    return fattura
 
 
 # --- Documenti SAP e trasferimento (Rev14) ---------------------------------------------------
