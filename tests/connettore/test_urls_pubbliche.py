@@ -1,5 +1,7 @@
 """Il container mcp espone solo il connettore (SPEC_MCP §2.2, punto 4)."""
 
+from pathlib import Path
+
 import pytest
 from django.urls import URLPattern, URLResolver
 
@@ -58,3 +60,12 @@ def test_nessun_errore_nei_controlli_di_deploy(settings, modulo):
         if e.level >= checks.ERROR and e.id.startswith("oauth2_provider")
     ]
     assert errori == []
+
+
+def test_verifica_mcp_compatibile_con_bash_di_macos():
+    """verifica_mcp.sh gira anche sui Mac (bash 3.2): lì, con set -u, un array vuoto espanso
+    con "${EXTRA[@]}" interrompe lo script («unbound variable»)."""
+    script = Path(__file__).resolve().parents[2] / "deploy" / "verifica_mcp.sh"
+    codice = [r for r in script.read_text().splitlines() if not r.lstrip().startswith("#")]
+    for riga in codice:
+        assert '"${EXTRA[@]}"' not in riga.replace('${EXTRA[@]+"${EXTRA[@]}"}', ""), riga
