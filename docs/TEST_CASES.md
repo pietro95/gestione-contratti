@@ -2,7 +2,7 @@
 
 Ogni caso descrive: input, output atteso, regola della SPEC che verifica.
 
-Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (scritto da Claude su richiesta di Pietro del 02/10/2026). F9.4: aggiunto TC-13 (scritto da Claude su richiesta di Pietro del 05/10/2026). F9.5: aggiunto TC-14 (scritto da Claude su richiesta di Pietro del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (scritto da Claude su decisione di Pietro del 05/10/2026, da approvare). SPEC Rev11: aggiunti TC-15 e TC-16 (scritti da Claude su decisione di Pietro del 05/10/2026, bozza da approvare). SPEC Rev13: TC-15 riscritto sulle fasi della richiesta di RDA, aggiunto TC-17 (scritti da Claude su decisione di Pietro del 07/10/2026, bozza da approvare). SPEC Rev14: TC-15 (e) aggiornato ai tre passi della fattura (stessa origine, bozza da approvare).
+Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (scritto da Claude su richiesta di Pietro del 02/10/2026). F9.4: aggiunto TC-13 (scritto da Claude su richiesta di Pietro del 05/10/2026). F9.5: aggiunto TC-14 (scritto da Claude su richiesta di Pietro del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (scritto da Claude su decisione di Pietro del 05/10/2026, da approvare). SPEC Rev11: aggiunti TC-15 e TC-16 (scritti da Claude su decisione di Pietro del 05/10/2026, bozza da approvare). SPEC Rev13: TC-15 riscritto sulle fasi della richiesta di RDA, aggiunto TC-17 (scritti da Claude su decisione di Pietro del 07/10/2026, bozza da approvare). SPEC Rev14: TC-15 (e) aggiornato ai tre passi della fattura (stessa origine, bozza da approvare). SPEC Rev15: aggiunto TC-18 (stessa origine, bozza da approvare).
 
 I valori sono stati calcolati a mano e verificati con uno script indipendente. **Se un test non passa, l'errore è nel codice, non nel caso.** Un caso si modifica solo con l'approvazione di Pietro e insieme a una nuova revisione della SPEC.
 
@@ -451,7 +451,7 @@ importato il 01/10/2026. Al 02/10/2026 lo stato è `RDA predisposta`.
 **(e) Ferme**: R1 inserita il 15/06/2026, senza rilascio, non è ferma al 15/07/2026 (30
 giorni) ed è ferma al 16/07/2026 (31 giorni).
 
-Fattura FA-1 di un contratto di **servizi**, registrata il 01/03/2026 (Rev14):
+Fattura FA-1 di un contratto di **servizi**, registrata il 01/03/2026, già assegnata al contratto e convalidata dal referente lo stesso giorno (Rev14, Rev15):
 
 | Oggi | Documenti collegati, trasferimento | Passo da fare | Ferma (15 giorni) |
 |---|---|---|---|
@@ -616,3 +616,67 @@ non cambia.
 
 Registrando il contratto da (a), la voce 2 ha fisso 206,00 e massimale 515,00 (721,00 − 515,00 =
 206,00); il massimo del contratto proposto è 1.751,00 e la differenza dalla RDA è 0,00.
+
+## TC-18 — Import settimanale delle fatture, convalida, commento per PAC
+
+SPEC §4 (fattura), §5.7, §5.8, §5.9, §7. Rev15, bozza da approvare. Nomi e codici di fantasia.
+
+Registro: fornitore «Fornitore Prova A S.r.l.» con un solo contratto CA (servizi, dal
+01/01/2026, 12 mesi); fornitore «Studio Prova» (nome breve `STUDIOP`) con il contratto CS
+(servizi, dal 01/01/2026, 12 mesi; una voce CAPEX, conto 600010, centro di costo
+C0001, WBS `WBS-TEST-01`; referente del fabbisogno: utente «rossi»).
+
+File (primo foglio): riga 1 «Rev. 00 del 05/10/2026»; riga 2 intestazione; riga 3 vuota.
+
+| # | Fornitore | Numero Documento | Data | Importo SAP | Note | REFERENTE | CONVALIDABILE ? |
+|---|---|---|---|---|---|---|---|
+| 1 | Fornitore Prova A S.r.l. | FA-1/2026 | 04.09.2026 | 1220 | | | |
+| 2 | STUDIOP | 13/2026 | 28.09.2026 | 1679,83 | Valore base 1.504,17 | Rossi | SI |
+| 3 | Fornitore Sconosciuto | 99 | 30.09.26 | 10 | | | |
+| 4 | Fornitore Prova A S.r.l. | 76 In attesa di nota credito | 22.09.2026 | 78,9 | | | |
+
+In fondo, dopo tre righe vuote, la legenda «Fatture in lavorazione» nella colonna Fornitore.
+
+**Primo import** (anteprima, poi conferma):
+
+| Riga | Esito | Passo da fare | Anomalie |
+|---|---|---|---|
+| 1 | creata, contratto proposto CA, esito `Da valutare` | Da assegnare | — |
+| 2 | creata, contratto proposto CS, referente «rossi», esito `Convalidabile`, nota «Valore base 1.504,17» | Da assegnare | — |
+| 3 | non importata | — | `FORNITORE_NON_TROVATO` |
+| 4 | creata, numero «76 In attesa di nota credito», contratto proposto CA | Da assegnare | `NUMERO_DA_VERIFICARE` |
+| legenda | ignorata | — | — |
+
+Conteggi: 3 create, 1 non importata; il valore base è vuoto su tutte.
+
+**Secondo import** dello stesso file con la riga 1 a 1.250,00: 0 create, 3 già presenti; riga 1
+`IMPORTO_DIVERSO` (l'importo resta 1.220,00).
+
+**Lavorazione della fattura 13/2026**, dopo la conferma dell'abbinamento a CS:
+- passo `RdC da fare` (convalida già `Convalidabile` dall'import);
+- valore base 1.504,17, oneri 173,66, bollo 2,00: 1.504,17 + 173,66 + 2,00 = 1.679,83, nessun
+  `IMPORTO_NON_QUADRA`; con bollo 3,00 → `IMPORTO_NON_QUADRA`;
+- indicazioni per la validazione: `Valore base da prelevare € 1.504,17. COGE: 600010, CDC: C0001, WBS: WBS-TEST-01`;
+- RdC `RDC-0001`, MAP `MAP-0001` registrati → passo `Da trasferire`; commento per PAC:
+
+```
+ODA : RDC-0001
+MAP: MAP-0001
+CDC: C0001
+COGE: 600010
+WBS: WBS-TEST-01
+
+Valore base prelevato da contratto: € 1.504,17
+Oneri previdenziali: € 173,66
+Bollo: € 2,00
+```
+
+- senza MAP registrato la seconda riga è `MAP: (da registrare)`; senza oneri e bollo le ultime due
+  righe non compaiono.
+
+**Fattura FA-1/2026**, abbinata a CA: passo `Da convalidare`; con esito `In attesa` e «bloccata
+fino al» 06/10/2026 resta `Da convalidare` anche dopo il 06/10/2026, finché l'esito non diventa
+`Convalidabile`. Segnata fuori registro, non è più da lavorare.
+
+**Fatturato di CS** (TC-16, §5.8): 1.504,17 (il valore base, non 1.679,83).
+

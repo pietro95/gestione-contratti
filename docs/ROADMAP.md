@@ -590,14 +590,17 @@ uguale a TC-17.
 - Contratto: scheda «Esecuzione» (documenti, fatture, abbinamento alle rate, residuo,
   avanzamento, anomalie); «Chiudi» / «Annulla chiusura» in finestra modale; etichetta
   «una tantum».
-- Fattura: registrazione e lavorazione in tre passi (SPEC Rev14): RdC → MAP (servizi) o MIGO
-  (forniture), proposto dal tipo d'acquisto del contratto → trasferimento per il pagamento;
-  scheda SAP della fattura divisa per passo (nomi dei campi da completare con l'esempio che
-  Pietro fornirà).
+- Fattura (SPEC Rev14–Rev15): registrazione; importo del documento e valore base
+  prelevato dal contratto, oneri e bollo; assegnazione al contratto (con proposta); convalida
+  del referente (esito, nota, bloccata fino al); RdC → MAP (servizi) o MIGO (forniture) →
+  trasferimento per il pagamento; fuori registro; scheda SAP della fattura per passo,
+  indicazioni per la validazione e **commento per PAC** con «Copia».
+- **Import settimanale delle fatture** dall'estrazione SAP annotata (SPEC §7, TC-18), con
+  anteprima, conferma, registro, report delle anomalie.
 - Ricerca globale anche per ODA e numero di fattura.
 
-**Accettazione:** test di permesso; test nel browser del flusso «contratto → fattura →
-MAP/MIGO → chiusura»; TC-16.
+**Accettazione:** test di permesso; test nel browser del flusso «import → assegnazione →
+convalida → RdC → MAP/MIGO → trasferimento → chiusura»; TC-16, TC-18.
 
 ### F11.4 — Cruscotti, viste e import
 
