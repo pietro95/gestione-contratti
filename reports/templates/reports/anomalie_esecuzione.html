@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load registro %}
+{% block title %}Anomalie dell'esecuzione{% endblock %}
+{% block titolo_pagina %}Anomalie dell'esecuzione{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">Al {{ oggi|date:"d/m/Y" }} · contratti e fatture con anomalie (SPEC §5.8)</div>{% endblock %}
+{% block azioni %}{% include "reports/_azioni.html" %}{% endblock %}
+{% block content %}
+{% include "reports/_filtri.html" %}
+{% if righe is not None %}
+<div class="row g-3 mb-4">
+  {% for codice, descrizione, n in conteggi %}<div class="col-sm-6 col-xl-3"><div class="card kpi arancione"><div class="card-body"><div class="kpi-etichetta">{{ codice }}</div><div class="kpi-valore">{{ n }}</div><div class="kpi-nota">{{ descrizione }}</div></div></div></div>
+  {% empty %}<div class="col-12"><div class="vuoto">Nessuna anomalia.</div></div>{% endfor %}
+</div>
+{% if righe %}
+<div class="tabella-card"><div class="table-responsive">
+<table class="table table-hover align-middle" id="anomalie">
+  <thead><tr><th>Contratto</th><th>Fine effettiva</th><th class="text-end">Fatturato</th><th class="text-end">Residuo sul fisso</th><th class="text-end">Avanzamento</th><th>Anomalie</th></tr></thead>
+  <tbody>{% for r in righe %}<tr>{% include "reports/_tabella_esecuzione.html" %}<td class="small">
+    {% for codice in r.riepilogo.anomalie %}{% if codice not in per_fattura %}<div><span class="stato stato-arancione">{{ codice }}</span></div>{% endif %}{% endfor %}
+    {% for f, codici in r.anomalie_fatture %}<div><a href="{% url 'contratti:fattura' f.pk %}">Fattura {{ f.numero }}</a>: {% for c in codici %}<span class="stato stato-arancione">{{ c }}</span> {% endfor %}</div>{% endfor %}
+  </td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endif %}
+{% endif %}
+{% endblock %}

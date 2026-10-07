@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% load registro %}
+{% block title %}Cruscotto acquisti{% endblock %}
+{% block titolo_pagina %}Cruscotto acquisti{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">Al {{ oggi|date:"d/m/Y" }} · RDA da processare, fatture da lavorare e contratti da chiudere{% if addetto %} · la tua funzione: Amministrazione acquisti{% endif %}</div>{% endblock %}
+{% block content %}
+{% include "reports/_filtri.html" %}
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3"><a class="card kpi blu" href="#rda-da-processare"><div class="card-body"><div class="kpi-etichetta">RDA da processare</div><div class="kpi-valore">{{ rda_totale }}</div><div class="kpi-nota">{{ rda_ferme }} ferme</div></div></a></div>
+  <div class="col-sm-6 col-xl-3"><a class="card kpi arancione" href="{% url 'contratti:fatture' %}"><div class="card-body"><div class="kpi-etichetta">Fatture da prendere in carico</div><div class="kpi-valore">{{ da_prendere|length }}</div><div class="kpi-nota">visibili a tutti i referenti</div></div></a></div>
+  <div class="col-sm-6 col-xl-3"><a class="card kpi {% if fatture_ferme %}rosso{% endif %}" href="#fatture-da-lavorare"><div class="card-body"><div class="kpi-etichetta">Fatture ferme</div><div class="kpi-valore">{{ fatture_ferme }}</div><div class="kpi-nota">da lavorare oltre i giorni del parametro</div></div></a></div>
+  <div class="col-sm-6 col-xl-3"><a class="card kpi verde" href="{% url 'reports:contratti_da_chiudere' %}"><div class="card-body"><div class="kpi-etichetta">Contratti da chiudere</div><div class="kpi-valore">{{ da_chiudere|length }}</div><div class="kpi-nota">prestazione finita, non chiusi</div></div></a></div>
+</div>
+
+<h2 class="sezione-titolo" id="rda-da-processare">RDA da processare</h2>
+<div class="row g-4 mb-4">
+{% for azione, etichetta, righe in rda %}
+  <div class="col-xl-4"><div class="card h-100">
+    <div class="card-header">{{ etichetta }} <span class="badge rounded-pill text-bg-light">{{ righe|length }}</span></div>
+    {% if righe %}<ul class="list-group list-group-flush">{% for r in righe %}
+      <li class="list-group-item"><a href="{% url 'contratti:rda' r.rda.pk %}">{{ r.rda.intestazione|default:r.rda.descrizione }}</a>{% if r.ferma %} <span class="stato stato-rosso">ferma</span>{% endif %}
+        <div class="small text-body-secondary">{{ r.rda.numero_rda|default:"senza numero SAP" }} · {{ r.rda.cluster.codice }} · {{ r.rda.nome_referente|default:"senza referente" }} · {{ r.importo|euro }} · {{ r.giorni|default:0 }} giorni</div></li>
+    {% endfor %}</ul>{% else %}<div class="vuoto py-3">Nessuna.</div>{% endif %}
+  </div></div>
+{% endfor %}
+</div>
+
+<h2 class="sezione-titolo" id="fatture-da-lavorare">Fatture da lavorare</h2>
+<div class="row g-4 mb-4">
+  <div class="col-xl-6"><div class="card h-100">
+    <div class="card-header">Da convalidare <span class="badge rounded-pill text-bg-light">{{ da_convalidare|length }}</span> <span class="small text-body-secondary">· sollecitare il referente</span></div>
+    {% if da_convalidare %}<ul class="list-group list-group-flush">{% for r in da_convalidare %}
+      <li class="list-group-item"><a href="{% url 'contratti:fattura' r.fattura.pk %}">Fattura {{ r.fattura.numero }}</a> · {{ r.fattura.fornitore }}{% if r.ferma %} <span class="stato stato-rosso">ferma</span>{% endif %}
+        <div class="small text-body-secondary">referente {{ r.fattura.referente.get_full_name|default:r.fattura.referente.username }} · {{ r.fattura.get_esito_convalida_display|lower }}{% if r.fattura.bloccata_fino_al %} · bloccata fino al {{ r.fattura.bloccata_fino_al|date:"d/m/Y" }}{% endif %} · {{ r.giorni }} giorni</div></li>
+    {% endfor %}</ul>{% else %}<div class="vuoto py-3">Nessuna.</div>{% endif %}
+  </div></div>
+  {% for passo, etichetta, righe in fatture_per_passo %}
+  <div class="col-xl-6"><div class="card h-100">
+    <div class="card-header">{{ etichetta }} <span class="badge rounded-pill text-bg-light">{{ righe|length }}</span></div>
+    {% if righe %}<ul class="list-group list-group-flush">{% for r in righe %}
+      <li class="list-group-item"><a href="{% url 'contratti:fattura' r.fattura.pk %}">Fattura {{ r.fattura.numero }}</a> · {{ r.fattura.fornitore }}{% if r.ferma %} <span class="stato stato-rosso">ferma</span>{% endif %}
+        <div class="small text-body-secondary">{{ r.fattura.importo_documento|euro }}{% if r.fattura.contratto %} · {{ r.fattura.contratto.numero_contratto|default:"contratto" }}{% endif %}{% if r.fattura.referente %} · {{ r.fattura.referente.username }}{% endif %} · {{ r.giorni }} giorni</div></li>
+    {% endfor %}</ul>{% else %}<div class="vuoto py-3">Nessuna.</div>{% endif %}
+  </div></div>
+  {% endfor %}
+</div>
+
+<h2 class="sezione-titolo">Contratti da chiudere</h2>
+<div class="card mb-4">{% if da_chiudere %}<ul class="list-group list-group-flush">{% for r in da_chiudere|slice:":10" %}
+  <li class="list-group-item d-flex justify-content-between gap-3"><span><a href="{% url 'contratti:contratto' r.contratto.pk %}#esecuzione">{{ r.contratto.fabbisogno.descrizione }}</a> <span class="small text-body-secondary">{{ r.contratto.fornitore }} · fine {{ r.fine|date:"d/m/Y" }}</span></span><span class="stato {% if r.riepilogo.motivo_da_chiudere == 'pronto_da_chiudere' %}stato-verde{% else %}stato-giallo{% endif %}">{{ r.motivo_label }}</span></li>
+{% endfor %}</ul>{% if da_chiudere|length > 10 %}<div class="card-footer small"><a href="{% url 'reports:contratti_da_chiudere' %}">tutti ({{ da_chiudere|length }})</a></div>{% endif %}{% else %}<div class="vuoto py-3">Nessun contratto da chiudere.</div>{% endif %}</div>
+{% endblock %}

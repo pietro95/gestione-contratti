@@ -128,11 +128,21 @@ def home(request):
         }
     except adapters.ParametroMancante:
         pass
+    from reports import acquisti as viste_acquisti
+
     return render(
         request,
         "home.html",
         {
             "oggi": oggi,
+            # F11.4 (SPEC §5.7): le mie RDA, le mie fatture, le fatture proposte a me.
+            "mie_rda": viste_acquisti.mie_rda(request.user, oggi),
+            "mie_fatture": viste_acquisti.mie_fatture(request.user, oggi),
+            "fatture_proposte": viste_acquisti.fatture_proposte_a(request.user, oggi),
+            "fatture_da_prendere_home": m.Fattura.objects.filter(
+                referente__isnull=True, fuori_registro=False, archiviato=False
+            ).count(),
+            "addetto": permessi.e_addetto(request.user),
             "conteggi": {colore.value: len(gruppi[colore]) for colore in priorita},
             "attivi": sum(1 for r in righe if r.stato == "attivo"),
             "da_fare": da_fare[:8],

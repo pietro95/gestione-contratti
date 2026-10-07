@@ -1,0 +1,10 @@
+{% extends "reports/pdf/base.html" %}
+{% load registro %}
+{% block sottotitolo %}Al {{ oggi|date:"d/m/Y" }} · contratti e fatture con anomalie{% endblock %}
+{% block contenuto %}
+<table class="kpi"><tr>{% for codice, descrizione, n in conteggi %}<td><div class="etichetta">{{ codice }}</div><div class="valore">{{ n }}</div><div class="nota">{{ descrizione }}</div></td>{% empty %}<td><div class="etichetta">Anomalie</div><div class="valore">0</div></td>{% endfor %}</tr></table>
+<table class="dati" id="anomalie">
+  <thead><tr><th class="sx">Contratto</th><th>Fine effettiva</th><th class="num">Fatturato</th><th class="num">Residuo sul fisso</th><th class="num">Avanzamento</th><th class="sx">Anomalie</th></tr></thead>
+  <tbody>{% for r in righe %}<tr>{% include "reports/pdf/_righe_esecuzione.html" %}<td class="sx">{% for codice in r.riepilogo.anomalie %}{% if codice not in per_fattura %}{{ codice }}<br>{% endif %}{% endfor %}{% for f, codici in r.anomalie_fatture %}Fattura {{ f.numero }}: {{ codici|join:", " }}<br>{% endfor %}</td></tr>{% empty %}<tr><td colspan="6" class="vuoto">Nessuna anomalia.</td></tr>{% endfor %}</tbody>
+</table>
+{% endblock %}

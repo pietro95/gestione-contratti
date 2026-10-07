@@ -213,7 +213,7 @@ def test_menu_su_tablet(browser, live_server, dati, make_user):
     menu = pg.locator("#menu")
     assert not menu.is_visible()
     pg.click("button[aria-controls=menu]")
-    menu.locator("a:has-text('Contratti')").click()
+    menu.get_by_role("link", name="Contratti", exact=True).click()
     pg.wait_for_url(f"{live_server.url}/contratti/")
     pg.close()
 
