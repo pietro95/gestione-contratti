@@ -1,6 +1,6 @@
 from django.urls import path
 
-from contratti import views, views_import
+from contratti import views, views_import, views_rda
 
 app_name = "contratti"
 
@@ -56,6 +56,24 @@ urlpatterns = [
     path("fornitori/<int:pk>/", views.fornitore_dettaglio, name="fornitore"),
     path("fornitori/<int:pk>/modifica/", views.fornitore_modifica, name="fornitore_modifica"),
     path("piani-da-verificare/", views.piani_da_verificare, name="piani_da_verificare"),
+    path("rda/", views_rda.rda_elenco, name="rda_elenco"),
+    path("rda/registra/", views_rda.rda_registra, name="rda_registra"),
+    path("rda/nuova/<int:fabbisogno_pk>/", views_rda.rda_nuova, name="rda_nuova"),
+    path("rda/<int:pk>/", views_rda.rda_dettaglio, name="rda"),
+    path("rda/<int:pk>/modifica/", views_rda.rda_modifica, name="rda_modifica"),
+    path("rda/<int:pk>/invia/", views_rda.rda_invia, name="rda_invia"),
+    path("rda/<int:pk>/rimanda/", views_rda.rda_rimanda, name="rda_rimanda"),
+    path("rda/<int:pk>/annulla/", views_rda.rda_annulla, name="rda_annulla"),
+    path("rda/<int:pk>/dati-sap/", views_rda.rda_dati_sap, name="rda_dati_sap"),
+    path("rda/<int:pk>/pratica/", views_rda.rda_collega_pratica, name="rda_collega_pratica"),
+    path("rda/<int:pk>/collega/", views_rda.rda_collega_contratto, name="rda_collega_contratto"),
+    path("rda/<int:pk>/contratto/", views_rda.rda_contratto, name="rda_contratto"),
+    path("contratti/<int:pk>/rda/", views_rda.contratto_collega_rda, name="contratto_collega_rda"),
+    path(
+        "contratti/<int:pk>/scollega-rda/",
+        views_rda.contratto_scollega_rda,
+        name="contratto_scollega_rda",
+    ),
     path("import/", views_import.importazioni, name="importazioni"),
     path("import/carica/<str:tipo>/", views_import.importazione_carica, name="importazione_carica"),
     path(

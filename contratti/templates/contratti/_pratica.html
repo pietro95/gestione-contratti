@@ -1,6 +1,12 @@
 <div class="row g-4">
   <div class="col-lg-6">
     <h2 class="h6 text-uppercase text-body-secondary">Avanzamento della pratica di rinnovo</h2>
+    <p class="mb-2">Stato corrente: <strong>{{ pratica_corrente|default:"Non avviata" }}</strong>{% if pratica_data %} dal {{ pratica_data|date:"d/m/Y" }}{% endif %}{% if pratica_da_rda %} <span class="small text-body-secondary">(dalla RDA)</span>{% endif %}</p>
+    {% if pratica_rda %}
+    <ul class="list-unstyled small mb-3">
+      {% for x in pratica_rda %}<li><i class="bi bi-cart" aria-hidden="true"></i> <a href="{% url 'contratti:rda' x.rda.pk %}">{{ x.rda }}</a> · {{ x.fase_label|lower }}{% if x.data_fase %} dal {{ x.data_fase|date:"d/m/Y" }}{% endif %}</li>{% endfor %}
+    </ul>
+    {% endif %}
     {% if pratica %}
     <ol class="timeline">
       {% for p in pratica %}
@@ -14,6 +20,7 @@
   {% if puo_modificare %}
   <div class="col-lg-6">
     <h2 class="h6 text-uppercase text-body-secondary">Registra un passaggio</h2>
+    <p class="small text-body-secondary">A mano solo le offerte: da «RDA richiesta» in poi lo stato si ricava dalla richiesta di RDA.</p>
     <form method="post" action="{% url 'contratti:pratica_avanza' tipo_pratica oggetto_pratica.pk %}" class="row g-3">
       {% csrf_token %}
       <div class="col-sm-7"><label class="form-label" for="{{ form_pratica.stato.id_for_label }}">Nuovo stato</label>{{ form_pratica.stato }}</div>

@@ -18,7 +18,7 @@ from django.views.decorators.http import require_POST
 
 from accounts.permissions import editor_required
 from accounts.roles import ADMIN, role_of
-from contratti import adapters, forms, permessi, selettori, servizi
+from contratti import acquisti, adapters, forms, forms_rda, permessi, selettori, servizi
 from contratti import models as m
 from contratti.engine.budget import valore
 from contratti.engine.scadenzario import genera_rate
@@ -326,6 +326,8 @@ def _contratto(pk):
 
 @login_required
 def contratto_dettaglio(request, pk):
+    from contratti import views_rda
+
     oggi = oggi_richiesta(request)
     contratto = _contratto(pk)
     riga = selettori.riga_contratto(contratto, oggi, selettori.finestra_alert(oggi))
@@ -366,6 +368,13 @@ def contratto_dettaglio(request, pk):
             and not contratto.archiviato,
             "pratica": contratto.stati_pratica.select_related("utente").order_by("-data", "-id"),
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
+            **views_rda.contesto_pratica(contratto, oggi),
+            "rda_proposta": acquisti.rda_proposta(contratto),
+            "form_rda": forms_rda.CollegaRdaForm(contratto=contratto),
+            "puo_chiedere_rda": not contratto.una_tantum
+            and successore is None
+            and not contratto.confluito_in_id
+            and not contratto.archiviato,
             "storico": storico(contratto),
             "catena": selettori.catena(contratto),
             "previsti": selettori.previsti_dopo(contratto, oggi),
@@ -985,6 +994,8 @@ def fabbisogni_elenco(request):
 
 @login_required
 def fabbisogno_dettaglio(request, pk):
+    from contratti import views_rda
+
     oggi = oggi_richiesta(request)
     f = get_object_or_404(m.Fabbisogno.objects.select_related("categoria", "impianto"), pk=pk)
     contratti = selettori.righe_contratti(
@@ -1006,6 +1017,8 @@ def fabbisogno_dettaglio(request, pk):
             ],
             "pratica": f.stati_pratica.order_by("-data", "-id"),
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
+            **views_rda.contesto_pratica(f, oggi),
+            "richieste": views_rda.richieste_del_fabbisogno(f, oggi),
             "storico": storico(f),
             "puo_modificare": permessi.puo_modificare(request.user, f.cluster_id),
         },

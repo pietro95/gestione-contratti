@@ -559,3 +559,30 @@ def test_le_rda_seguono_spostamenti_e_accorpamenti():
     servizi.accorpa_fabbisogni(origine, tlc)
     r_fabbisogno.refresh_from_db()
     assert r_fabbisogno.fabbisogno == tlc and r_fabbisogno.cluster.codice == "TLC"
+
+
+def test_lavorazione_della_fattura_rev14(referente):
+    """RdC → MAP (servizi) o MIGO (forniture) → trasferimento (TC-15 e)."""
+    from contratti.engine.acquisti import PassoFattura
+
+    c = f.contratto()
+    fa = m.Fattura.objects.create(
+        contratto=c, numero="FA-1", data=D(2026, 3, 1), imponibile=100,
+        data_registrazione=D(2026, 3, 1),
+    )  # fmt: skip
+    assert acquisti.documento_proposto(fa) == "MAP"
+    assert acquisti.passo_fattura(fa, D(2026, 3, 2)) == PassoFattura.RDC
+    m.DocumentoEsecuzione.objects.create(
+        contratto=c, tipo="ODA_RDC", data=D(2026, 3, 5), fattura=fa
+    )
+    assert acquisti.passo_fattura(fa, D(2026, 3, 6)) == PassoFattura.MAP_MIGO
+    m.DocumentoEsecuzione.objects.create(contratto=c, tipo="MAP", data=D(2026, 3, 18), fattura=fa)
+    assert acquisti.passo_fattura(fa, D(2026, 3, 19)) == PassoFattura.TRASFERIMENTO
+    acquisti.trasferisci(fa, referente, D(2026, 3, 20))
+    assert acquisti.passo_fattura(fa, D(2026, 3, 21)) is None
+    with pytest.raises(acquisti.OperazioneNonAmmessa):
+        acquisti.trasferisci(fa, referente)
+    c.tipo_acquisto = m.Contratto.TipoAcquisto.FORNITURA
+    c.save()
+    fa.refresh_from_db()
+    assert acquisti.documento_proposto(fa) == "MIGO"

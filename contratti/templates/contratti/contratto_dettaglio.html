@@ -5,7 +5,7 @@
 {% block titolo_pagina %}{{ c.fabbisogno.descrizione }}{% endblock %}
 {% block sottotitolo %}
 <div class="sottotitolo">
-  {{ riga.stato|stato_badge }} {{ riga.alert|alert_badge }}{% if c.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}{% if c.senza_contratto %} <span class="stato stato-grigio">senza contratto</span>{% endif %}
+  {{ riga.stato|stato_badge }} {{ riga.alert|alert_badge }}{% if c.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}{% if c.senza_contratto %} <span class="stato stato-grigio">senza contratto</span>{% endif %}{% if c.una_tantum %} <span class="stato stato-grigio">una tantum</span>{% endif %}{% if c.chiuso %} <span class="stato stato-verde">chiuso</span>{% endif %}
   <span>· <a href="{% url 'contratti:fornitore' c.fornitore.pk %}">{{ c.fornitore }}</a></span>
   <span>· {{ c.fabbisogno.area }}</span>
   {% if c.numero_contratto %}<span>· N. {{ c.numero_contratto }}</span>{% endif %}
@@ -13,7 +13,8 @@
 {% endblock %}
 {% block azioni %}
 {% if puo_modificare %}
-  {% if not successore %}<a class="btn btn-primary" href="{% url 'contratti:contratto_rinnovo' c.pk %}"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Registra rinnovo</a><a class="btn btn-outline-primary" href="{% url 'contratti:contratto_rinnovo_senza_contratto' c.pk %}"><i class="bi bi-receipt" aria-hidden="true"></i> Rinnova senza contratto</a>{% endif %}
+  {% if puo_chiedere_rda %}<a class="btn btn-primary" href="{% url 'contratti:rda_nuova' c.fabbisogno.pk %}?contratto={{ c.pk|stringformat:"d" }}"><i class="bi bi-cart-plus" aria-hidden="true"></i> Nuova richiesta di RDA</a>{% endif %}
+  {% if not successore and not c.una_tantum %}<a class="btn btn-outline-primary" href="{% url 'contratti:contratto_rinnovo' c.pk %}"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Registra rinnovo</a><a class="btn btn-outline-primary" href="{% url 'contratti:contratto_rinnovo_senza_contratto' c.pk %}"><i class="bi bi-receipt" aria-hidden="true"></i> Rinnova senza contratto</a>{% endif %}
   <a class="btn btn-outline-primary" href="{% url 'contratti:contratto_modifica' c.pk %}"><i class="bi bi-pencil" aria-hidden="true"></i> Modifica</a>
   <div class="dropdown">
     <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Altre azioni</button>
@@ -59,10 +60,16 @@
           <dt>Descrizione</dt><dd>{{ c.descrizione|default:"—" }}</dd>
           <dt>Fornitore</dt><dd><a href="{% url 'contratti:fornitore' c.fornitore.pk %}">{{ c.fornitore }}</a></dd>
           <dt>N. contratto</dt><dd>{{ c.numero_contratto|default:"—" }}{% if c.data_emissione %} del {{ c.data_emissione|date:"d/m/Y" }}{% endif %}</dd>
-          <dt>RDA</dt><dd>{{ c.numero_rda|default:"—" }}</dd>
+          <dt>RDA d'origine</dt><dd>{% if c.rda %}<a href="{% url 'contratti:rda' c.rda.pk %}">{{ c.rda }}</a>{% if puo_modificare %} <form method="post" action="{% url 'contratti:contratto_scollega_rda' c.pk %}" class="d-inline" data-conferma="Il contratto non avrà più questa RDA d'origine." data-conferma-etichetta="Scollega">{% csrf_token %}<button class="btn btn-link btn-sm p-0 align-baseline" type="submit">scollega</button></form>{% endif %}{% elif c.numero_rda %}{{ c.numero_rda }} <span class="small text-body-secondary">(testo, non collegata)</span>{% else %}—{% endif %}
+            {% if not c.rda and puo_modificare %}
+              {% if rda_proposta %}<form method="post" action="{% url 'contratti:contratto_collega_rda' c.pk %}" class="mt-1">{% csrf_token %}<input type="hidden" name="rda" value="{{ rda_proposta.pk|stringformat:"d" }}"><button class="btn btn-sm btn-outline-primary" type="submit"><i class="bi bi-link-45deg" aria-hidden="true"></i> Collega alla {{ rda_proposta }}</button></form>
+              {% elif form_rda.fields.rda.queryset.exists %}<form method="post" action="{% url 'contratti:contratto_collega_rda' c.pk %}" class="d-flex gap-2 mt-1 align-items-end"><div class="flex-grow-1"><label class="visually-hidden" for="{{ form_rda.rda.id_for_label }}">RDA d'origine</label>{{ form_rda.rda }}</div><button class="btn btn-sm btn-outline-primary" type="submit">Collega</button>{% csrf_token %}</form>{% endif %}
+            {% endif %}</dd>
+          {% if c.rup or c.cup %}<dt>RUP · CUP</dt><dd>{{ c.rup|default:"—" }} · {{ c.cup|default:"—" }}</dd>{% endif %}
           <dt>CIG</dt><dd>{{ c.cig|default:"—" }}</dd>
           <dt>Procedura</dt><dd>{{ c.procedura }} · lead time {% if c.lead_time_mesi_override is not None %}{{ c.lead_time_mesi_override }}{% else %}{{ c.procedura.lead_time_mesi }}{% endif %} mesi</dd>
           <dt>Natura</dt><dd>{{ c.natura }}{% if c.finanziamento == "finanziato" %} · finanziato (WBS a progetto){% endif %}</dd>
+          {% if c.percorso_documenti %}<dt>Cartella</dt><dd class="text-break"><code>{{ c.percorso_documenti }}</code> <button type="button" class="btn btn-sm btn-outline-secondary" data-copia-testo="{{ c.percorso_documenti }}" aria-label="Copia il percorso"><i class="bi bi-clipboard" aria-hidden="true"></i> Copia</button></dd>{% endif %}
           {% if c.link_documenti %}<dt>Documenti</dt><dd><a href="{{ c.link_documenti }}" rel="noopener" target="_blank">Apri la cartella <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></dd>{% endif %}
         </dl>
       </div>

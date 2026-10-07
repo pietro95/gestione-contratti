@@ -531,8 +531,8 @@ F10.
 
 ### F11.1 — Modello e motore
 
-Stato: realizzata, in revisione (nessuna interfaccia nuova oltre all'amministrazione e
-all'import delle tabelle SAP). Scelte e deviazioni nella PR.
+Stato: realizzata (PR #33; nessuna interfaccia nuova oltre all'amministrazione e all'import
+delle tabelle SAP).
 
 - Modelli (SPEC §4): `RichiestaAcquisto` con posizioni (`PosizioneRDA`) e storico
   (invio, rimando, annullamento); `DocumentoEsecuzione` (con fattura facoltativa), `Fattura`;
@@ -562,6 +562,10 @@ verdi; `makemigrations --check` pulito.
 
 ### F11.2 — Richiesta di RDA e scheda SAP
 
+Stato: realizzata, in revisione. Oltre a quanto previsto: elenco «Richieste di RDA» nel menu
+(filtri per cluster, fase, «le mie»), in attesa dei cruscotti di F11.4. Il testo della
+richiesta si vede nella scheda SAP dopo il primo salvataggio (anche in bozza), non nel form.
+
 - Referente: «Nuova richiesta di RDA» dalla pagina del fabbisogno (e dal contratto, che porta al
   suo fabbisogno); scopo impostato da solo (rinnovo del contratto in scadenza o primo
   acquisto), con la scelta «acquisto aggiuntivo»; form con posizioni precompilate (SPEC §5.9) e
@@ -586,13 +590,22 @@ uguale a TC-17.
 - Contratto: scheda «Esecuzione» (documenti, fatture, abbinamento alle rate, residuo,
   avanzamento, anomalie); «Chiudi» / «Annulla chiusura» in finestra modale; etichetta
   «una tantum».
-- Fattura: registrazione, scheda SAP della fattura (campi da completare con l'esempio che
-  Pietro fornirà), documenti SAP a supporto (MAP, MIGO, …)
-  collegati alla fattura.
+- Fattura (SPEC Rev14–Rev15): registrazione; importo del documento e valore base
+  prelevato dal contratto, oneri e bollo; elenco «Fatture da prendere in carico» visibile a tutti,
+  referente proposto (ultima fattura, referente del contratto) con filtro «proposte a me»,
+  presa in carico (singola o su più fatture selezionate), «Assegna ai referenti proposti»,
+  lascia e riassegna; assegnazione al
+  contratto (con proposta); convalida
+  del referente (esito, nota, bloccata fino al); RdC → MAP (servizi) o MIGO (forniture) →
+  trasferimento per il pagamento; fuori registro (anche su più fatture); «Le mie fatture»; scheda SAP della fattura per passo,
+  indicazioni per la validazione e **commento per PAC** con «Copia».
+- **Import settimanale delle fatture** dall'estrazione SAP annotata (SPEC §7, TC-18), con
+  anteprima, conferma, registro, report delle anomalie.
 - Ricerca globale anche per ODA e numero di fattura.
 
-**Accettazione:** test di permesso; test nel browser del flusso «contratto → fattura →
-MAP/MIGO → chiusura»; TC-16.
+**Accettazione:** test di permesso; test nel browser del flusso «import → presa in carico
+multipla → assegnazione →
+convalida → RdC → MAP/MIGO → trasferimento → chiusura»; TC-16, TC-18.
 
 ### F11.4 — Cruscotti, viste e import
 

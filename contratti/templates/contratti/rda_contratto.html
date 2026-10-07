@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load registro %}
+{% block title %}Registra contratto dalla RDA{% endblock %}
+{% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'contratti:rda_elenco' %}">Richieste di RDA</a></li><li class="breadcrumb-item"><a href="{% url 'contratti:rda' rda.pk %}">{{ rda }}</a></li><li class="breadcrumb-item active" aria-current="page">Registra contratto</li></ol></nav>{% endblock %}
+{% block titolo_pagina %}Registra contratto dalla RDA{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">{{ rda.intestazione|default:rda.descrizione }} · importo della RDA {{ importo_rda|euro }}</div>{% endblock %}
+{% block content %}
+<div class="alert alert-info"><i class="bi bi-info-circle" aria-hidden="true"></i>
+  {% if predecessore %}Il contratto sarà il <strong>rinnovo</strong> di <a class="alert-link" href="{% url 'contratti:contratto' predecessore.pk %}">{% include "contratti/_contratto_breve.html" with x=predecessore %}</a> (salvo «una tantum»).{% elif rda.scopo == "aggiuntivo" %}Acquisto aggiuntivo: il contratto è proposto <strong>una tantum</strong>, fuori dalla catena dei rinnovi.{% else %}Il contratto non ha predecessore.{% endif %}
+  Le voci arrivano dalle posizioni della RDA (fisso = importo − variabile, massimale = variabile), con natura, conto, centro di costo e WBS: scrivi gli importi emessi dal Procurement. La differenza dalla RDA si mostra, la RDA non cambia.
+</div>
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "contratti/_campi.html" with form=form %}
+  <div class="card form-sezione">
+    <div class="card-header">Voci</div>
+    {{ formset.management_form }}
+    {% if formset.non_form_errors %}<div class="alert alert-danger m-3">{{ formset.non_form_errors|join:" " }}</div>{% endif %}
+    <div class="table-responsive"><table class="table align-middle">
+      <thead><tr><th>Descrizione</th><th>Importo fisso</th><th>Massimale variabile</th></tr></thead>
+      <tbody>
+      {% for f in formset %}
+        <tr>
+          <td>{{ f.posizione }}<label class="visually-hidden" for="{{ f.descrizione.id_for_label }}">Descrizione della voce {{ forloop.counter }}</label>{{ f.descrizione }}{% for e in f.descrizione.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</td>
+          <td><label class="visually-hidden" for="{{ f.importo_fisso.id_for_label }}">Importo fisso della voce {{ forloop.counter }}</label>{{ f.importo_fisso }}{% for e in f.importo_fisso.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</td>
+          <td><label class="visually-hidden" for="{{ f.massimale_variabile.id_for_label }}">Massimale variabile della voce {{ forloop.counter }}</label>{{ f.massimale_variabile }}</td>
+        </tr>
+      {% empty %}<tr><td colspan="3"><div class="vuoto py-3">La RDA non ha posizioni: aggiungile alla RDA prima di registrare il contratto.</div></td></tr>{% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+  <div class="form-azioni">
+    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Registra contratto</button>
+    <a class="btn btn-outline-secondary" href="{% url 'contratti:rda' rda.pk %}">Annulla</a>
+  </div>
+</form>
+{% endblock %}

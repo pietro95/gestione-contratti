@@ -512,6 +512,35 @@ def annulla_chiusura(contratto: m.Contratto) -> None:
     contratto.save(update_fields=["data_chiusura", "chiuso_da"])
 
 
+# --- Lavorazione della fattura (Rev14) --------------------------------------------------------
+
+
+def documenti_fattura(fattura: m.Fattura) -> list[tuple[str, datetime.date]]:
+    return [(d.tipo, d.data) for d in fattura.documenti.all() if not d.archiviato]
+
+
+def passo_fattura(fattura: m.Fattura, oggi: datetime.date | None = None):
+    """RdC → MAP/MIGO → trasferimento: il primo che manca; ``None`` se trasferita."""
+    return motore.passo_fattura(
+        documenti_fattura(fattura), oggi or timezone.localdate(), fattura.data_trasferimento
+    )
+
+
+def documento_proposto(fattura: m.Fattura) -> str:
+    """MAP per un contratto di servizi, MIGO per una fornitura."""
+    return motore.documento_accettazione(fattura.contratto.tipo_acquisto)
+
+
+def trasferisci(fattura: m.Fattura, utente=None, data=None) -> None:
+    """Ultimo passo: la fattura è trasferita per il pagamento (solo data)."""
+    if fattura.data_trasferimento is not None:
+        raise OperazioneNonAmmessa("La fattura è già trasferita.")
+    fattura.data_trasferimento = data or timezone.localdate()
+    fattura.trasferita_da = utente
+    _salva(fattura, "Trasferita per il pagamento", update_fields=["data_trasferimento",
+                                                                    "trasferita_da"])  # fmt: skip
+
+
 # --- Parametri ------------------------------------------------------------------------------
 
 
@@ -521,3 +550,240 @@ def giorni_rda_ferma(oggi: datetime.date) -> int:
 
 def giorni_fattura_ferma(oggi: datetime.date) -> int:
     return int(adapters.parametro(Chiave.FATTURA_FERMA_GIORNI, oggi))
+
+
+# --- Interfaccia (F11.2): salvataggio, dati SAP, collegamenti, contratto dalla RDA ----------
+
+
+def _salva(oggetto, motivo: str = "", **kw) -> None:
+    if motivo:
+        oggetto._change_reason = motivo[:100]
+    oggetto.save(**kw)
+
+
+FASI_MODIFICABILI_DAL_REFERENTE = frozenset({motore.Fase.BOZZA, motore.Fase.DA_CORREGGERE})
+
+
+def correzione_diretta(rda: m.RichiestaAcquisto, oggi: datetime.date | None = None) -> bool:
+    """Modificare ora la richiesta è una correzione diretta (inviata o oltre), tracciata."""
+    return fase(rda, oggi) not in FASI_MODIFICABILI_DAL_REFERENTE
+
+
+@transaction.atomic
+def salva_richiesta(rda: m.RichiestaAcquisto, posizioni: list[dict]) -> m.RichiestaAcquisto:
+    """Salva la richiesta e le sue posizioni, numerate nell'ordine dato.
+
+    ``posizioni``: dizionari con i campi della posizione e, per quelle già salvate, ``pk``.
+    Le posizioni già salvate non si cancellano (regola 8): si modificano.
+    """
+    motivo = "Correzione diretta dopo l'invio" if rda.pk and correzione_diretta(rda) else ""
+    rda.full_clean()
+    _salva(rda, motivo)
+    esistenti = {p.pk: p for p in rda.posizioni.all()}
+    # Numeri provvisori alti: evitano il vincolo (rda, numero) mentre si rinumera.
+    for p in esistenti.values():
+        p.numero += 1000
+        p.save(update_fields=["numero"])
+    for numero, dati in enumerate(posizioni, start=1):
+        dati = dict(dati)
+        posizione = esistenti.pop(dati.pop("pk", None), None) or m.PosizioneRDA(rda=rda)
+        for campo, valore in dati.items():
+            setattr(posizione, campo, valore)
+        if posizione.natura != m.Natura.CAPEX:
+            posizione.wbs = None
+        posizione.numero = numero
+        posizione.full_clean()
+        _salva(posizione, motivo)
+    for numero, posizione in enumerate(
+        sorted(esistenti.values(), key=lambda p: p.numero), start=len(posizioni) + 1
+    ):
+        posizione.numero = numero  # non toccate dal form: restano, in fondo
+        posizione.save(update_fields=["numero"])
+    return rda
+
+
+@transaction.atomic
+def aggiorna_dati_sap(rda, numero_rda, data_inserimento, data_rilascio) -> None:
+    """Dati che SAP restituisce: li riporta l'addetto (o il referente)."""
+    if fase(rda) == motore.Fase.ANNULLATA:
+        raise OperazioneNonAmmessa("La RDA è annullata.")
+    rda.numero_rda = (numero_rda or "").strip() or None
+    rda.data_inserimento = data_inserimento
+    rda.data_rilascio = data_rilascio
+    if rda.numero_rda and rda.data_inserimento is None:
+        rda.data_inserimento = timezone.localdate()
+    if rda.data_rilascio and not rda.numero_rda:
+        raise OperazioneNonAmmessa("Prima del rilascio serve il numero della RDA.")
+    rda.full_clean()
+    _salva(rda, "Dati da SAP")
+
+
+@transaction.atomic
+def collega_pratica(
+    rda: m.RichiestaAcquisto,
+    *,
+    fabbisogno: m.Fabbisogno | None = None,
+    contratto: m.Contratto | None = None,
+) -> None:
+    """Lega la RDA alla pratica: contratto in scadenza o fabbisogno; nessuno dei due la scollega."""
+    if fabbisogno is not None and contratto is not None:
+        raise OperazioneNonAmmessa("Scegli il contratto in scadenza oppure il fabbisogno.")
+    if rda.origine == m.RichiestaAcquisto.Origine.PORTALE and not (fabbisogno or contratto):
+        raise OperazioneNonAmmessa("Una richiesta nata sul portale resta legata al fabbisogno.")
+    if contratto is not None and adapters.ha_successore(contratto):
+        raise OperazioneNonAmmessa("Il contratto ha già un successore: non è in scadenza.")
+    rda.fabbisogno, rda.contratto_in_scadenza = fabbisogno, contratto
+    if contratto is not None:
+        rda.scopo = Scopo.RINNOVO
+    elif fabbisogno is not None:
+        rda.scopo = (
+            Scopo.AGGIUNTIVO if _ha_contratti_da_rinnovare(fabbisogno) else Scopo.PRIMO_ACQUISTO
+        )
+    else:
+        rda.scopo = ""
+    legato = rda.fabbisogno_della_pratica()
+    if legato is not None:
+        rda.cluster_id = legato.cluster_id
+    rda.full_clean()
+    _salva(rda, "Collegamento della pratica")
+
+
+@transaction.atomic
+def collega_contratto(rda: m.RichiestaAcquisto, contratto: m.Contratto) -> None:
+    """Il contratto è nato da questa RDA (RDA d'origine)."""
+    if contratto.rda_id and contratto.rda_id != rda.pk:
+        raise OperazioneNonAmmessa(f"Il contratto ha già la RDA d'origine {contratto.rda}.")
+    if contratto.fabbisogno.cluster_id != rda.cluster_id:
+        raise OperazioneNonAmmessa("Il contratto è di un altro cluster.")
+    contratto.rda = rda
+    _salva(contratto, f"Collegato a {rda}", update_fields=["rda"])
+
+
+@transaction.atomic
+def scollega_contratto(contratto: m.Contratto) -> None:
+    if contratto.rda_id is None:
+        raise OperazioneNonAmmessa("Il contratto non ha una RDA d'origine.")
+    rda = contratto.rda
+    contratto.rda = None
+    _salva(contratto, f"Scollegato da {rda}", update_fields=["rda"])
+
+
+def contratti_proposti(rda: m.RichiestaAcquisto) -> list[m.Contratto]:
+    """Contratti senza RDA d'origine con lo stesso n. RDA scritto (proposte di collegamento)."""
+    if not rda.numero_rda:
+        return []
+    return list(
+        m.Contratto.objects.filter(
+            archiviato=False, rda__isnull=True, numero_rda=rda.numero_rda
+        ).select_related("fornitore", "fabbisogno")
+    )
+
+
+def rda_proposta(contratto: m.Contratto) -> m.RichiestaAcquisto | None:
+    """La RDA registrata con il n. RDA scritto sul contratto, se il contratto non ne ha una."""
+    if contratto.rda_id or not contratto.numero_rda:
+        return None
+    return m.RichiestaAcquisto.objects.filter(
+        archiviato=False, numero_rda=contratto.numero_rda.strip()
+    ).first()
+
+
+def contratto_in_scadenza_libero(rda: m.RichiestaAcquisto) -> m.Contratto | None:
+    """Il predecessore del contratto che nasce dalla RDA: il contratto in scadenza, se è
+    ancora senza successore."""
+    c = rda.contratto_in_scadenza
+    if c is None or adapters.ha_successore(c):
+        return None
+    return c
+
+
+def iniziali_contratto(rda: m.RichiestaAcquisto, oggi: datetime.date | None = None) -> dict:
+    """Dati proposti per il contratto che nasce dalla RDA (F11.2)."""
+    oggi = oggi or timezone.localdate()
+    predecessore = contratto_in_scadenza_libero(rda)
+    una_tantum = rda.scopo == Scopo.AGGIUNTIVO
+    iniziali = {
+        "fornitore": rda.fornitore_proposto or (predecessore.fornitore if predecessore else None),
+        "descrizione": rda.descrizione,
+        "data_emissione": oggi,
+        "procedura": predecessore.procedura
+        if predecessore
+        else m.Procedura.objects.filter(codice="affidamento_diretto").first(),
+        "durata_mesi": predecessore.durata_mesi if predecessore else (1 if una_tantum else 12),
+        "una_tantum": una_tantum,
+        "tipo_acquisto": predecessore.tipo_acquisto
+        if predecessore
+        else m.Contratto.TipoAcquisto.SERVIZIO,
+        "rup": rda.rup,
+        "cup": rda.cup,
+        "percorso_documenti": rda.percorso_file_server,
+        "modalita": m.ModalitaFatturazione.UNA_TANTUM
+        if una_tantum
+        else m.ModalitaFatturazione.DA_VERIFICARE,
+        "periodicita": "",
+    }
+    if predecessore is not None:
+        iniziali["data_inizio"] = adapters.data_fine_effettiva(predecessore) + datetime.timedelta(
+            days=1
+        )
+        prima = predecessore.voci.filter(archiviato=False, proroga__isnull=True).order_by("pk")
+        piano = getattr(prima.first(), "piano_fatturazione", None) if prima.exists() else None
+        if piano is not None:
+            iniziali["modalita"], iniziali["periodicita"] = piano.modalita, piano.periodicita
+    elif una_tantum:
+        iniziali["data_inizio"] = oggi
+    return iniziali
+
+
+MODALITA_CON_RATE = frozenset({"anticipata", "posticipata", "una_tantum", "consumo"})
+
+
+@transaction.atomic
+def registra_contratto_da_rda(
+    rda: m.RichiestaAcquisto,
+    dati: dict,
+    voci: list[dict],
+    *,
+    modalita: str,
+    periodicita: str = "",
+    fabbisogno: m.Fabbisogno | None = None,
+) -> m.Contratto:
+    """Contratto emesso dal Procurement, registrato dalla RDA (rinnovo o una tantum).
+
+    ``voci``: descrizione, importo fisso, massimale e numero della posizione d'origine, da
+    cui prendono natura, conto, centro di costo e WBS. Gli importi sono quelli emessi.
+    """
+    if fase(rda) == motore.Fase.ANNULLATA:
+        raise OperazioneNonAmmessa("La RDA è annullata.")
+    fabbisogno = rda.fabbisogno_della_pratica() or fabbisogno
+    if fabbisogno is None:
+        raise OperazioneNonAmmessa("Indica il fabbisogno del contratto.")
+    if not voci:
+        raise OperazioneNonAmmessa("Il contratto deve avere almeno una voce.")
+    if modalita in ("anticipata", "posticipata") and not periodicita:
+        raise OperazioneNonAmmessa("Indica la periodicità della fatturazione.")
+    una_tantum = dati.get("una_tantum", False)
+    predecessore = None if una_tantum else contratto_in_scadenza_libero(rda)
+    contratto = m.Contratto(fabbisogno=fabbisogno, predecessore=predecessore, rda=rda, **dati)
+    contratto.full_clean()
+    _salva(contratto, f"Registrato da {rda}")
+    posizioni = {p.numero: p for p in rda.posizioni.all()}
+    for d in voci:
+        d = dict(d)
+        origine = posizioni.get(d.pop("posizione", None))
+        voce = m.VoceContratto(contratto=contratto, **d)
+        if origine is not None:
+            voce.natura, voce.conto, voce.centro_costo = (
+                origine.natura,
+                origine.conto,
+                origine.centro_costo,
+            )
+            voce.wbs = origine.wbs if origine.natura == m.Natura.CAPEX else None
+        voce.full_clean()
+        voce.save()
+        m.PianoFatturazione.objects.create(voce=voce, modalita=modalita, periodicita=periodicita)
+        if modalita in MODALITA_CON_RATE and contratto.data_inizio:
+            from contratti import servizi
+
+            servizi.genera_scadenzario(voce)
+    return contratto

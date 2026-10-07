@@ -2,7 +2,7 @@
 
 Ogni caso descrive: input, output atteso, regola della SPEC che verifica.
 
-Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (scritto da Claude su richiesta di Pietro del 02/10/2026). F9.4: aggiunto TC-13 (scritto da Claude su richiesta di Pietro del 05/10/2026). F9.5: aggiunto TC-14 (scritto da Claude su richiesta di Pietro del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (scritto da Claude su decisione di Pietro del 05/10/2026, da approvare). SPEC Rev11: aggiunti TC-15 e TC-16 (scritti da Claude su decisione di Pietro del 05/10/2026, bozza da approvare). SPEC Rev13: TC-15 riscritto sulle fasi della richiesta di RDA, aggiunto TC-17 (scritti da Claude su decisione di Pietro del 07/10/2026, bozza da approvare).
+Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (scritto da Claude su richiesta di Pietro del 02/10/2026). F9.4: aggiunto TC-13 (scritto da Claude su richiesta di Pietro del 05/10/2026). F9.5: aggiunto TC-14 (scritto da Claude su richiesta di Pietro del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (scritto da Claude su decisione di Pietro del 05/10/2026, da approvare). SPEC Rev11: aggiunti TC-15 e TC-16 (scritti da Claude su decisione di Pietro del 05/10/2026, bozza da approvare). SPEC Rev13: TC-15 riscritto sulle fasi della richiesta di RDA, aggiunto TC-17 (scritti da Claude su decisione di Pietro del 07/10/2026, bozza da approvare). SPEC Rev14: TC-15 (e) aggiornato ai tre passi della fattura (stessa origine, bozza da approvare). SPEC Rev15: aggiunto TC-18 (stessa origine, bozza da approvare).
 
 I valori sono stati calcolati a mano e verificati con uno script indipendente. **Se un test non passa, l'errore è nel codice, non nel caso.** Un caso si modifica solo con l'approvazione di Pietro e insieme a una nuova revisione della SPEC.
 
@@ -449,9 +449,20 @@ Nuova RDA R2 inviata il 20/09/2026: al 25/09/2026 lo stato è `RDA richiesta` (2
 importato il 01/10/2026. Al 02/10/2026 lo stato è `RDA predisposta`.
 
 **(e) Ferme**: R1 inserita il 15/06/2026, senza rilascio, non è ferma al 15/07/2026 (30
-giorni) ed è ferma al 16/07/2026 (31 giorni). Una fattura registrata il 01/03/2026 senza MAP né
-MIGO è da lavorare; non è ferma al 16/03/2026 (15 giorni), è ferma al 17/03/2026 (16 giorni);
-collegato un MAP il 18/03/2026, non è più da lavorare.
+giorni) ed è ferma al 16/07/2026 (31 giorni).
+
+Fattura FA-1 di un contratto di **servizi**, registrata il 01/03/2026, già presa in carico, assegnata al contratto e convalidata dal referente lo stesso giorno (Rev14, Rev15):
+
+| Oggi | Documenti collegati, trasferimento | Passo da fare | Ferma (15 giorni) |
+|---|---|---|---|
+| 02/03/2026 | — | RdC | no |
+| 06/03/2026 | RdC del 05/03/2026 | MAP (proposto; MIGO per una fornitura) | no |
+| 16/03/2026 | RdC | MAP | no (15 giorni) |
+| 17/03/2026 | RdC | MAP | sì (16 giorni) |
+| 19/03/2026 | RdC, MAP del 18/03/2026 | trasferimento | sì |
+| 21/03/2026 | RdC, MAP, trasferita il 20/03/2026 | — (trasferita) | no |
+
+Fuori ordine: con il solo MAP registrato (senza RdC) il passo da fare è la RdC.
 
 **(f) RDA registrata a mano, scollegata, poi collegata**: R3 registrata il 03/02/2026 con
 numero SAP e data di inserimento 02/02/2026, senza storico di invio, senza fabbisogno né
@@ -605,3 +616,90 @@ non cambia.
 
 Registrando il contratto da (a), la voce 2 ha fisso 206,00 e massimale 515,00 (721,00 − 515,00 =
 206,00); il massimo del contratto proposto è 1.751,00 e la differenza dalla RDA è 0,00.
+
+## TC-18 — Import settimanale delle fatture, convalida, commento per PAC
+
+SPEC §4 (fattura), §5.7, §5.8, §5.9, §7. Rev15, bozza da approvare. Nomi e codici di fantasia.
+
+Registro: fornitore «Fornitore Prova A S.r.l.» con un solo contratto CA (servizi, dal
+01/01/2026, 12 mesi); fornitore «Studio Prova» (nome breve `STUDIOP`) con il contratto CS
+(servizi, dal 01/01/2026, 12 mesi; una voce CAPEX, conto 600010, centro di costo
+C0001, WBS `WBS-TEST-01`; cluster IT). Utenti: «rossi» e «bianchi», Editor del cluster IT;
+«verdi», Editor del solo cluster TLC; «neri», Reader; «gialli», Editor di tutti i cluster con la
+funzione «Amministrazione acquisti». Referente (utente) del fabbisogno: bianchi per CA e per CS.
+CS ha già la fattura 12/2026 del 31/08/2026, presa in carico da rossi e trasferita.
+
+File (primo foglio): riga 1 «Rev. 00 del 05/10/2026»; riga 2 intestazione; riga 3 vuota.
+
+| # | Fornitore | Numero Documento | Data | Importo SAP | Note |
+|---|---|---|---|---|---|
+| 1 | Fornitore Prova A S.r.l. | FA-1/2026 | 04.09.2026 | 1220 | |
+| 2 | STUDIOP | 13/2026 | 28.09.2026 | 1679,83 | |
+| 3 | Fornitore Sconosciuto | 99 | 30.09.26 | 10 | |
+| 4 | Fornitore Prova A S.r.l. | 76 In attesa di nota credito | 22.09.2026 | 78,9 | |
+
+Lo stesso file con le colonne `REFERENTE` e `CONVALIDABILE ?` in più, compilate, dà lo stesso
+risultato: si ignorano.
+
+In fondo, dopo tre righe vuote, la legenda «Fatture in lavorazione» nella colonna Fornitore.
+
+**Primo import** (anteprima, poi conferma):
+
+| Riga | Esito | Referente proposto | Passo da fare | Anomalie |
+|---|---|---|---|---|
+| 1 | creata, contratto proposto CA | bianchi (referente di CA: nessuna fattura precedente) | Da prendere in carico | — |
+| 2 | creata, contratto proposto CS | rossi (ultima fattura di CS, 12/2026; prevale sul referente bianchi) | Da prendere in carico | — |
+| 3 | non importata | — | — | `FORNITORE_NON_TROVATO` |
+| 4 | creata, numero «76 In attesa di nota credito», contratto proposto CA | bianchi | Da prendere in carico | `NUMERO_DA_VERIFICARE` |
+| legenda | ignorata | — | — | — |
+
+Conteggi: 3 create, 1 non importata; nessuna ha referente, esito `Da valutare`, valore base vuoto.
+
+**Presa in carico**: le tre fatture sono nell'elenco «Fatture da prendere in carico» di rossi,
+bianchi, verdi, neri e gialli; con «proposte a me», rossi vede solo 13/2026, bianchi FA-1/2026 e 76.
+- rossi seleziona 13/2026 e FA-1/2026 e le prende in carico insieme: referente rossi, passo
+  `Da assegnare`; nell'elenco resta la fattura 76, ora con referente proposto rossi (ultima
+  fattura di CA, FA-1/2026);
+- bianchi tenta di prendere FA-1/2026 (pagina non aggiornata): rifiutata, «già in carico a rossi»;
+- verdi prende in carico la fattura 76 (qualunque cluster), ma non può abbinarla a CA (cluster
+  IT): 403;
+- neri vede l'elenco senza caselle né azioni; la presa in carico chiesta da neri dà 403;
+- rossi lascia FA-1/2026 e la riprende: torna e poi esce dall'elenco.
+
+In alternativa, dallo stato dopo il primo import: gialli seleziona le tre fatture e «Assegna ai
+referenti proposti»: 13/2026 → rossi, FA-1/2026 e 76 → bianchi, tutte al passo `Da assegnare`.
+La stessa azione chiesta da bianchi (senza la funzione) dà 403. Con il fabbisogno di CA senza
+referente utente e nessuna RDA d'origine, FA-1/2026 e 76 non hanno proposta: restano nell'elenco,
+indicate come «senza referente proposto».
+
+**Secondo import** dello stesso file con la riga 1 a 1.250,00: 0 create, 3 già presenti; riga 1
+`IMPORTO_DIVERSO` (l'importo resta 1.220,00).
+
+**Lavorazione della fattura 13/2026**, dopo la conferma dell'abbinamento a CS:
+- passo `Da convalidare`; rossi registra l'esito `Convalidabile` → passo `RdC da fare`;
+- valore base 1.504,17, oneri 173,66, bollo 2,00: 1.504,17 + 173,66 + 2,00 = 1.679,83, nessun
+  `IMPORTO_NON_QUADRA`; con bollo 3,00 → `IMPORTO_NON_QUADRA`;
+- indicazioni per la validazione: `Valore base da prelevare € 1.504,17. COGE: 600010, CDC: C0001, WBS: WBS-TEST-01`;
+- RdC `RDC-0001`, MAP `MAP-0001` registrati → passo `Da trasferire`; commento per PAC:
+
+```
+ODA : RDC-0001
+MAP: MAP-0001
+CDC: C0001
+COGE: 600010
+WBS: WBS-TEST-01
+
+Valore base prelevato da contratto: € 1.504,17
+Oneri previdenziali: € 173,66
+Bollo: € 2,00
+```
+
+- senza MAP registrato la seconda riga è `MAP: (da registrare)`; senza oneri e bollo le ultime due
+  righe non compaiono.
+
+**Fattura FA-1/2026**, abbinata a CA: passo `Da convalidare`; con esito `In attesa` e «bloccata
+fino al» 06/10/2026 resta `Da convalidare` anche dopo il 06/10/2026, finché l'esito non diventa
+`Convalidabile`. Segnata fuori registro, non è più da lavorare.
+
+**Fatturato di CS** (TC-16, §5.8): 1.504,17 (il valore base, non 1.679,83).
+

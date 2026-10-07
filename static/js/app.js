@@ -131,12 +131,81 @@
     });
   }
 
+  // «Copia»: il valore negli appunti (scheda SAP). data-copia-testo = testo da copiare,
+  // data-copia = id dell'elemento (textarea o testo) da copiare. Senza API degli appunti
+  // (pagina non HTTPS) si usa la selezione con execCommand.
+  function copia(testo) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(testo);
+    return new Promise(function (ok, ko) {
+      var area = document.createElement("textarea");
+      area.value = testo;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      var riuscito = false;
+      try { riuscito = document.execCommand("copy"); } catch (e) { riuscito = false; }
+      document.body.removeChild(area);
+      riuscito ? ok() : ko();
+    });
+  }
+  function copie(radice) {
+    radice.querySelectorAll("[data-copia], [data-copia-testo]").forEach(function (b) {
+      if (b._copia) return;
+      b._copia = true;
+      b.addEventListener("click", function () {
+        var testo = b.dataset.copiaTesto;
+        if (testo === undefined) {
+          var origine = document.getElementById(b.dataset.copia);
+          testo = origine ? (origine.value !== undefined ? origine.value : origine.textContent) : "";
+        }
+        var prima = b.innerHTML;
+        copia(testo).then(function () {
+          b.innerHTML = '<i class="bi bi-check-lg" aria-hidden="true"></i> Copiato';
+          b.classList.add("copiato");
+        }, function () {
+          b.innerHTML = "Copia non riuscita: seleziona il testo";
+        });
+        setTimeout(function () { b.innerHTML = prima; b.classList.remove("copiato"); }, 1800);
+      });
+    });
+  }
+
+  // Formset: «Aggiungi …» clona il modello <template id="<prefisso>-vuota"> nel contenitore
+  // <prefisso>-forms e aggiorna TOTAL_FORMS. Senza JavaScript resta la riga vuota in fondo.
+  function formset(radice) {
+    radice.querySelectorAll("[data-aggiungi-form]").forEach(function (b) {
+      if (b._formset) return;
+      b._formset = true;
+      b.addEventListener("click", function () {
+        var prefisso = b.dataset.aggiungiForm;
+        var totale = document.getElementById("id_" + prefisso + "-TOTAL_FORMS");
+        var modello = document.getElementById(prefisso + "-vuota");
+        var contenitore = document.getElementById(prefisso + "-forms");
+        if (!totale || !modello || !contenitore) return;
+        var indice = parseInt(totale.value, 10);
+        var html = modello.innerHTML.replace(/__prefix__/g, String(indice));
+        var div = document.createElement("div");
+        div.innerHTML = html.replace("Posizione </legend>", "Posizione " + (indice + 1) + "</legend>");
+        var nuovo = div.firstElementChild;
+        contenitore.appendChild(nuovo);
+        totale.value = String(indice + 1);
+        inizializza(nuovo);
+        var primo = nuovo.querySelector("input:not([type=hidden]), select, textarea");
+        if (primo) primo.focus();
+      });
+    });
+  }
+
   function inizializza(radice) {
     tendine(radice);
     cluster(radice);
     date(radice);
     righe(radice);
     scorrimenti(radice);
+    copie(radice);
+    formset(radice);
   }
 
   document.addEventListener("DOMContentLoaded", function () {
