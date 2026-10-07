@@ -512,36 +512,38 @@ Segnaposto usati sotto (annotali prima di iniziare):
   fuori dalla rete aziendale (hotspot del telefono) per le verifiche;
 - una finestra di pochi minuti: ogni `deploy.sh` riavvia l'app.
 
-#### Fase 1 — Aggiornamento alla v1.7.0, connettore spento
+#### Fase 1 — Aggiornamento alla v1.7.1, connettore spento
 
 L'app si aggiorna senza toccare la rete: se qualcosa va storto si torna indietro come in §7.
 
-1. **Tag su GitHub**: Releases → *Draft a new release* → *Choose a tag* → `v1.7.0` (nuovo, su
-   `main`) → titolo e descrizione dalla PR #28 → *Publish release*.
+1. **Tag su GitHub**: `v1.7.1` (il connettore della `v1.7.0` più questa procedura e la verifica
+   esterna corretta). Si installa direttamente la `v1.7.1`, senza passare dalla `v1.7.0`.
 2. Sul server, controlla versione e configurazione:
    ```bash
-   git -C /appdata/gestione-contratti/app describe --tags        # atteso: v1.6.0
+   git -C /appdata/gestione-contratti/app describe --tags        # atteso: v1.6.0 (o v1.7.0)
    grep '^MCP_' /appdata/gestione-contratti/config/.env || echo "nessuna variabile MCP"
    ```
    Non devono esserci variabili `MCP_` attive (al massimo righe commentate con `#`).
 3. Aggiorna:
    ```bash
-   /appdata/gestione-contratti/app/deploy/deploy.sh v1.7.0
+   /appdata/gestione-contratti/app/deploy/deploy.sh v1.7.1
    ```
-   Righe attese, nell'ordine: `Backup pre-aggiornamento`, `Codice: v1.7.0`, `Build`
+   Righe attese, nell'ordine: `Backup pre-aggiornamento`, `Codice: v1.7.1`, `Build`
    (qualche minuto: c'è una dipendenza nuova), `Migration` con `contratti.0023`,
    `contratti.0024`, `oauth2_provider.*`, `connettore.0001`, `connettore.0002`, poi
-   `Attesa di /healthz … ok` e `Installata la versione v1.7.0.` Nessuna riga sul connettore:
+   `Attesa di /healthz … ok` e `Installata la versione v1.7.1.` Nessuna riga sul connettore:
    è spento.
 4. Verifica:
    ```bash
    cd /appdata/gestione-contratti/app/deploy && source comune.sh && compose ps
    ```
-   `db`, `web` e `backup` `Up`, nessun container `mcp`. Dal browser: piè di pagina `v1.7.0`,
+   `db`, `web` e `backup` `Up`, nessun container `mcp`. Dal browser: piè di pagina `v1.7.1`,
    login, cruscotto, budget come prima. In Amministrazione → Parametri compaiono
    `mcp_giorni_login`, `mcp_richieste_minuto`, `mcp_scrittura_attiva`, `mcp_minuti_operazione`.
    La voce di menu «Connettore MCP» non c'è ancora.
-5. Se qualcosa non va: rollback di §7 con il dump `…_pre_v1.7.0.dump` e `deploy.sh v1.6.0`.
+5. Se qualcosa non va: rollback di §7 con il dump `…_pre_v1.7.1.dump` e `deploy.sh v1.6.0`.
+   Se partivi dalla `v1.7.0` le migration non hanno niente da applicare e basta
+   `deploy.sh v1.7.0`, senza ripristino.
 
 Qui ci si può fermare: l'app funziona come prima, il connettore è spento.
 
@@ -587,7 +589,7 @@ Qui ci si può fermare: l'app funziona come prima, il connettore è spento.
    finale e senza percorso.
 4. Rilancia lo stesso deploy:
    ```bash
-   /appdata/gestione-contratti/app/deploy/deploy.sh v1.7.0
+   /appdata/gestione-contratti/app/deploy/deploy.sh v1.7.1
    ```
    Rispetto alla fase 1 compaiono `Utente PostgreSQL del connettore MCP (privilegi limitati)` e
    `Attesa del connettore MCP su <APP_BIND>:<MCP_PORT> … ok`. Il dump pre-aggiornamento viene
@@ -693,7 +695,7 @@ Per tenere la scrittura spenta all'inizio: Amministrazione → Parametri → `mc
   stessi dati dell'interfaccia; scrivono solo Editor e Admin che hanno spuntato la modifica.
 
 **Per spegnere tutto** in caso di problemi: in NPM disattiva il proxy host di `<MCP_HOST>`
-(effetto immediato), poi, se serve, `MCP_PORT=` vuota nel `.env` e `deploy.sh v1.7.0`.
+(effetto immediato), poi, se serve, `MCP_PORT=` vuota nel `.env` e `deploy.sh v1.7.1`.
 
 ### 12.1 Configurazione (`config/.env`)
 
