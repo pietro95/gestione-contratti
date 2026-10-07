@@ -505,7 +505,9 @@ Controllo: un import con una fattura per F1 datata 15/05/2026 scarta la riga
 SPEC §4 (RDA, posizioni, configurazione), §5.9. Rev13, bozza da approvare. Codici e nomi di
 fantasia.
 
-Configurazione: cluster `IT` con richiedente SAP `999901`, gruppo acquisti `G01`, cartella base
+Configurazione: richiedenti SAP `999901` (ufficio di prova, **predefinito**) e `999902` (altro
+ufficio); gruppi acquisti `G01` (predefinito) e `G02`; gruppi merci `GM-TEST01` (predefinito) e
+`GM-TEST02`; cluster `IT` con cartella base
 `smb://nas.esempio.local/Share/ICTDINN/00_IT/RDA_Ordini`. Fornitore «Software Prova S.r.l.»,
 nome breve `SWPROVA`.
 
@@ -520,7 +522,7 @@ preventivo», allegati «preventivo nella cartella del file server». Posizioni:
 
 **Proposte attese**:
 - intestazione e descrizione breve 1: `SWPROVA - Rinnovo licenza CAD (2 postazioni)`;
-- richiedente `999901`, gruppo acquisti `G01`;
+- richiedente `999901` e gruppo acquisti `G01` (i predefiniti); scegliendo `999902` il testo riporta `Richiedente: 999902`;
 - percorso: `smb://nas.esempio.local/Share/ICTDINN/00_IT/RDA_Ordini/2026/2026_09_29_SWPROVA_Rinnovo_licenza_CAD_2_postazioni`;
 - importo della RDA: 1.348,98.
 
@@ -575,3 +577,28 @@ Senza note al buyer la riga delle note non compare.
 e due voci OPEX, 1.099,00 (conto 600001) e 249,98 (conto 600002), centro di costo C0001. Se il
 contratto è emesso per 1.300,00 (voce 1 1.060,00, voce 2 240,00), la differenza dalla RDA è
 −48,98 e si mostra; la RDA non cambia.
+
+**RDA dal fabbisogno** (Rev13). Parametri: adeguamento dei rinnovi 3%; procedura del contratto
+`Affidamento diretto`.
+
+Fabbisogno «Licenze CAD di prova» (cluster `IT`, categoria senza gruppo merci indicato). Contratto
+C1 con «Software Prova S.r.l.», dal 01/01/2026 al 31/12/2026, RUP «Rossi», CUP vuoto, senza
+successore, due voci:
+
+| Voce | Fisso | Massimale | Natura | Conto | Centro di costo | Conto dei rinnovi |
+|---|---|---|---|---|---|---|
+| Canone licenze | 1.000,00 | — | OPEX | 600001 | C0001 | — |
+| Assistenza a consumo | 200,00 | 500,00 | OPEX | 600002 | C0001 | 600003 |
+
+| Caso | Scopo e legame | Posizioni proposte |
+|---|---|---|
+| (a) «Nuova richiesta di RDA» dal fabbisogno | rinnovo di C1 (pratica di C1) | 1: «Canone licenze», q 1 × 1.030,00, conto 600001; 2: «Assistenza a consumo», q 1 × 206,00, conto 600003, segnalato il massimale (515,00 nel previsto) non compreso. Totale 1.236,00 |
+| (b) come (a), scelta «acquisto aggiuntivo» | fabbisogno, nessuna pratica | 1 posizione vuota, OPEX, conto 600001, C0001 |
+| (c) fabbisogno senza contratti, previsto manuale OPEX conto 600001, stima 5.000,00 | primo acquisto (pratica del fabbisogno) | 1 posizione «Licenze CAD di prova», q 1 × 5.000,00, conto 600001 |
+| (d) fabbisogno con due contratti senza successore, C1 (fine 31/12/2026) e C0 (fine 30/06/2026) | rinnovo di C1 proposto, C0 selezionabile | come (a) |
+
+In (a): descrizione «Licenze CAD di prova», fornitore proposto «Software Prova S.r.l.»,
+intestazione `SWPROVA - Licenze CAD di prova`, prima descrizione breve uguale all'intestazione,
+seconda «Assistenza a consumo»; gruppo merci `GM-TEST01` (predefinito) su entrambe; RUP «Rossi».
+Inviata la richiesta, la pratica di C1 passa a `RDA richiesta` (TC-15); in (b) la pratica di C1
+non cambia.

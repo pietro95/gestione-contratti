@@ -520,7 +520,11 @@ no. Decisioni del 07/10/2026 (SPEC Rev13): flusso referente → addetto amminist
 richiesta di RDA e la scheda SAP; funzione «Amministrazione acquisti» assegnata per utente,
 nessun nuovo ruolo AD; i campi da SAP li scrive anche il referente; più posizioni per RDA;
 nessuna mail dal portale, solo il testo da copiare; RDA e contratti inseriti a mano, scollegati,
-collegabili dopo. Casi numerici: TC-15, TC-16, TC-17. Uscita prevista come `v2.0.0` alla fine
+collegabili dopo. Decisioni del 07/10/2026 (seconda parte): la richiesta di RDA parte dal
+fabbisogno ed è impostata da sola come rinnovo del contratto in scadenza; tabelle dei
+richiedenti SAP (con un predefinito), dei gruppi merci e dei gruppi acquisti caricate da Excel;
+chiusura del contratto per addetto e referente; i campi SAP della fattura arriveranno più
+avanti. Casi numerici: TC-15, TC-16, TC-17. Uscita prevista come `v2.0.0` alla fine
 di F11.4; le sotto-fasi si possono rilasciare prima come versioni 1.x successive a quella di
 F10.
 
@@ -533,25 +537,30 @@ F10.
   nel database (RDA mai legata sia a contratto sia a fabbisogno; una tantum senza
   predecessore, successore e confluenze; fattura unica per fornitore e numero; quantità e
   importi ≥ 0).
-- Configurazione: gruppi merci, gruppi acquisti, dati SAP del cluster (richiedente, gruppo
-  acquisti, cartella base), funzione «Amministrazione acquisti» per utente (anche
+- Configurazione: richiedenti SAP, gruppi merci, gruppi acquisti (ciascuno con al più un
+  predefinito), cartella base delle RDA per cluster, funzione «Amministrazione acquisti» per utente (anche
   nell'import della struttura); parametri «RDA ferma» (30 giorni) e «fattura ferma» (15
   giorni), provvisori.
 - Data migration: il n. RDA dei contratti diventa una RDA collegata (SPEC §7).
-- Motore puro: fase della RDA, stato della pratica ricavato (massimo tra passaggi e RDA),
+- Import delle tabelle SAP da Excel (richiedenti, gruppi merci, gruppi acquisti), solo Admin,
+  con anteprima, conferma e registro (SPEC §7).
+- Motore puro: fase della RDA, scopo e proposte della richiesta dal fabbisogno (rinnovo dal
+  contratto in scadenza e dal suo previsto, primo acquisto, acquisto aggiuntivo), stato della pratica ricavato (massimo tra passaggi e RDA),
   RDA e fatture ferme, proposte della scheda SAP (intestazione, cartella, testo della
   richiesta), residuo, avanzamento, motivi «da chiudere», anomalie (SPEC §5.7–§5.9); una
   tantum esclusa da alert, previsti, catena e piano ordini.
 - Admin per le nuove entità.
 
-**Accettazione:** TC-15, TC-16 e TC-17 come test parametrizzati; TC-01 … TC-14 invariati e
+**Accettazione:** TC-15, TC-16 e TC-17 come test parametrizzati; import delle tabelle SAP
+idempotente, con errore per più predefiniti o codici doppi; TC-01 … TC-14 invariati e
 verdi; `makemigrations --check` pulito.
 
 ### F11.2 — Richiesta di RDA e scheda SAP
 
-- Referente: «Nuova richiesta di RDA» dal contratto in scadenza, dal fabbisogno o libera (solo
-  cluster); form con posizioni, proposte (SPEC §5.9) e anteprima del testo; «Invia
-  all'addetto»; correzione dopo il rimando.
+- Referente: «Nuova richiesta di RDA» dalla pagina del fabbisogno (e dal contratto, che porta al
+  suo fabbisogno); scopo impostato da solo (rinnovo del contratto in scadenza o primo
+  acquisto), con la scelta «acquisto aggiuntivo»; form con posizioni precompilate (SPEC §5.9) e
+  anteprima del testo; «Invia all'addetto»; correzione dopo il rimando.
 - Addetto (e referente): scheda SAP con «Copia» per campo e «Copia testo della richiesta»;
   campi da SAP (numero, inserimento, rilascio); «Rimanda al referente» con nota; «Annulla».
 - RDA registrata a mano (già in SAP), senza legami; «Collega» RDA ↔ fabbisogno, contratto in
@@ -572,7 +581,8 @@ uguale a TC-17.
 - Contratto: scheda «Esecuzione» (documenti, fatture, abbinamento alle rate, residuo,
   avanzamento, anomalie); «Chiudi» / «Annulla chiusura» in finestra modale; etichetta
   «una tantum».
-- Fattura: registrazione, scheda SAP della fattura, documenti SAP a supporto (MAP, MIGO, …)
+- Fattura: registrazione, scheda SAP della fattura (campi da completare con l'esempio che
+  Pietro fornirà), documenti SAP a supporto (MAP, MIGO, …)
   collegati alla fattura.
 - Ricerca globale anche per ODA e numero di fattura.
 
