@@ -56,6 +56,15 @@ def test_tools_list_sola_lettura(ctx):
         "budget",
         "piano_ordini",
         "spese_wbs",
+        # F12.1: processo d'acquisto (SPEC_MCP §11.2), tutti i ruoli.
+        "rda",
+        "elenco_rda",
+        "fattura",
+        "elenco_fatture",
+        "esecuzione",
+        "cruscotto_acquisti",
+        "contratti_da_chiudere",
+        "anomalie_esecuzione",
     ]
     for t in tools:
         assert t["annotations"]["readOnlyHint"] is True

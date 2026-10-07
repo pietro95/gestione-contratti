@@ -10,7 +10,6 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -65,42 +64,21 @@ def conteggio_da_prendere() -> int:
 def fatture_elenco(request):
     oggi = oggi_richiesta(request)
     g = request.GET
-    vista = g.get("vista") if g.get("vista") in VISTE else "da_prendere"
-    qs = fatture.QS_FATTURE.all()
-    if vista == "da_prendere":
-        qs = qs.filter(referente__isnull=True, fuori_registro=False, archiviato=False)
-    elif vista == "mie":
-        qs = qs.filter(
-            referente=request.user,
-            fuori_registro=False,
-            archiviato=False,
-            data_trasferimento__isnull=True,
-        )
-    else:
-        if not g.get("archiviate"):
-            qs = qs.filter(archiviato=False)
-        if not g.get("fuori_registro"):
-            qs = qs.filter(fuori_registro=False)
-    if q := g.get("q", "").strip():
-        qs = qs.filter(
-            Q(numero__icontains=q)
-            | Q(fornitore__ragione_sociale__icontains=q)
-            | Q(fornitore__nome_breve__icontains=q)
-            | Q(contratto__numero_contratto__icontains=q)
-            | Q(documenti__numero__icontains=q)
-        ).distinct()
-    lista = list(qs.order_by("data", "pk"))
-    contratti = fatture.contratti_proposti(lista) if vista != "mie" else {}
-    referenti = fatture.referenti_proposti(lista) if vista != "mie" else {}
-    proposte_a_me = sum(1 for u in referenti.values() if u == request.user)
-    solo_proposte = vista == "da_prendere" and (
-        g.get("proposte") == "1" or (g.get("proposte") is None and proposte_a_me > 0)
+    from reports.acquisti import elenco_fatture
+
+    proposte = {"1": True, "0": False}.get(g.get("proposte"))
+    elenco = elenco_fatture(
+        request.user,
+        oggi,
+        g.get("vista") or "da_prendere",
+        testo=g.get("q", ""),
+        passo=g.get("passo", ""),
+        proposte=proposte,
+        fuori_registro=bool(g.get("fuori_registro")),
+        archiviate=bool(g.get("archiviate")),
     )
-    righe = [_riga(f, oggi, contratti.get(f.pk), referenti.get(f.pk)) for f in lista]
-    if solo_proposte:
-        righe = [r for r in righe if r["referente_proposto"] == request.user]
-    if passo := g.get("passo"):
-        righe = [r for r in righe if (r["passo"] or "trasferita") == passo]
+    vista, righe = elenco.vista, elenco.righe
+    proposte_a_me, solo_proposte = elenco.proposte_a_me, elenco.solo_proposte
     pagina = Paginator(righe, PER_PAGINA).get_page(g.get("pagina"))
     return render(
         request,

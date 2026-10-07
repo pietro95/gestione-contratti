@@ -83,6 +83,26 @@ def riferimenti(ctx: Contesto, argomenti: dict) -> dict:
             {"codice": p.codice, "nome": p.nome, "lead_time_mesi": p.lead_time_mesi}
             for p in m.Procedura.objects.filter(attiva=True)
         ],
+        # F12.1 (SPEC_MCP §11.2): tabelle del processo d'acquisto.
+        "richiedenti_sap": [
+            {"codice": r.codice, "descrizione": r.descrizione, "predefinito": r.predefinito}
+            for r in m.RichiedenteSAP.objects.filter(attivo=True)
+        ],
+        "gruppi_acquisti": [
+            {"codice": g.codice, "descrizione": g.descrizione, "predefinito": g.predefinito}
+            for g in m.GruppoAcquisti.objects.filter(attivo=True)
+        ],
+        "gruppi_merci": [
+            {
+                "codice": g.codice,
+                "descrizione": g.descrizione,
+                "predefinito": g.predefinito,
+                "categoria": g.categoria.nome if g.categoria_id else None,
+            }
+            for g in m.GruppoMerci.objects.filter(attivo=True).select_related("categoria")
+        ],  # fmt: skip
+        "tipi_acquisto": [{"codice": v, "nome": n} for v, n in m.Contratto.TipoAcquisto.choices],
+        "scopi_rda": [{"codice": v, "nome": n} for v, n in m.RichiestaAcquisto.Scopo.choices],
         "soglie": [
             {
                 "codice": s.codice,
@@ -149,6 +169,32 @@ def cerca(ctx: Contesto, argomenti: dict) -> dict:
                 "link": link("contratti:fornitore", f.pk),
             }
             for f in risultati["fornitori"]
+        ]
+    # F12.1 (SPEC_MCP §11.2): RDA e fatture, come la ricerca globale.
+    if tipo in (None, "rda"):
+        uscita["rda"] = [
+            {
+                "id": r.pk,
+                "numero_rda": r.numero_rda,
+                "descrizione": r.intestazione or r.descrizione,
+                "cluster": r.cluster.codice,
+                "archiviata": r.archiviato,
+                "link": link("contratti:rda", r.pk),
+            }
+            for r in risultati["rda"]
+        ]
+    if tipo in (None, "fatture"):
+        uscita["fatture"] = [
+            {
+                "id": f.pk,
+                "numero": f.numero,
+                "data": f.data,
+                "fornitore": f.fornitore.ragione_sociale,
+                "contratto": f.contratto_id,
+                "archiviata": f.archiviato,
+                "link": link("contratti:fattura", f.pk),
+            }
+            for f in risultati["fatture"]
         ]
     uscita["limiti"] = selettori.LIMITE_CERCA
     return uscita
@@ -228,7 +274,9 @@ STRUMENTI = [
         titolo="Tabelle di riferimento",
         descrizione=(
             "Cluster (con quelli dell'utente), categorie dei fabbisogni, procedure di "
-            "affidamento con il lead time in mesi e soglie d'importo valide oggi. Con "
+            "affidamento con il lead time in mesi, soglie d'importo valide oggi; per le RDA "
+            "richiedenti SAP, gruppi acquisti e gruppi merci (con il predefinito), tipi "
+            "d'acquisto e scopi. Con "
             "«includi» anche i conti COGE validi oggi e le WBS (di default dei cluster "
             "dell'utente; le WBS a progetto sempre). Da chiamare per conoscere codici e id "
             "da usare nei filtri degli altri tool."
@@ -252,15 +300,19 @@ STRUMENTI = [
         descrizione=(
             "Ricerca testuale su contratti (descrizione, fabbisogno, numero di contratto, "
             "CIG, RDA, fornitore), fabbisogni e fornitori (ragione sociale, partita IVA, "
-            "codice SAP). Tutti i cluster. Al massimo 25 contratti, 15 fabbisogni e 15 "
-            "fornitori: se servono di più, restringere il testo. Gli importi sono "
-            "imponibili, IVA esclusa."
+            "codice SAP), richieste di RDA (numero, descrizione) e fatture (numero, numeri di "
+            "RdC, MAP e MIGO). Tutti i cluster. Al massimo 25 contratti e 15 per gli altri "
+            "tipi: se servono di più, restringere il testo. Gli importi sono imponibili, IVA "
+            "esclusa."
         ),
         input_schema={
             "type": "object",
             "properties": {
                 "testo": {"type": "string", "minLength": 2, "maxLength": 100},
-                "tipo": {"type": "string", "enum": ["contratti", "fabbisogni", "fornitori"]},
+                "tipo": {
+                    "type": "string",
+                    "enum": ["contratti", "fabbisogni", "fornitori", "rda", "fatture"],
+                },
             },
             "required": ["testo"],
             "additionalProperties": False,
