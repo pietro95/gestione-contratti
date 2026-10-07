@@ -4,6 +4,8 @@ Installazione, aggiornamento ed esercizio sul **server Docker aziendale già in 
 condiviso con altri applicativi di produzione. Ogni comando si può copiare così com'è; le parti
 da adattare sono indicate come `<SEGNAPOSTO>`.
 
+Il RUNBOOK copre installazione, configurazione e scenari straordinari. Per i controlli quotidiani, gli import, i backup e gli aggiornamenti ordinari vedere [OPERATIONS](OPERATIONS.md); per la checklist di rilascio vedere [RELEASE](RELEASE.md); per i principi di protezione vedere [SECURITY](SECURITY.md).
+
 ## 0. Principi
 
 - **Tutto in una cartella**: `/appdata/gestione-contratti`. Fuori da lì si tocca solo la
