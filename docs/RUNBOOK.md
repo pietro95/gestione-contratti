@@ -370,7 +370,7 @@ qui sotto restano per l'emergenza: fanno la stessa cosa con lo stesso codice.
 Si carica dall'app, solo come Admin: menu "Import" → "Struttura ICTDINN".
 
 1. Scarica il modello dalla scheda ("Scarica il modello":
-   `2026.10.02_PFE_Modello_import_struttura_ICTDINN_Rev00.xlsx`) e compila i fogli Cluster,
+   `GestioneContratti_ModelloImport_Struttura.xlsx`) e compila i fogli Cluster,
    Responsabili, Conti e WBS. La colonna «Controllo» deve essere vuota su tutte le righe.
 2. Carica il file e leggi l'anteprima: conteggi e anomalie, nessuna scrittura. Poi conferma.
 3. Verifica nel report:

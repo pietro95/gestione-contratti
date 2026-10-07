@@ -66,7 +66,7 @@ class Tipo:
     chiede_area: bool = False
     modello: Callable[[], Workbook] | None = None
     note: list[str] = field(default_factory=list)
-    nome_modello: str = ""
+    oggetti_modello: str = ""  # nel nome del file: GestioneContratti_ModelloImport_<oggetti>.xlsx
 
 
 def serializza(report: Report) -> dict:
@@ -320,6 +320,7 @@ TIPI: dict[str, Tipo] = {
             },
             chiede_area=True,
             modello=modello_contratti,
+            oggetti_modello="Contratti",
         ),
         Tipo(
             "date_emissione",
@@ -335,6 +336,7 @@ TIPI: dict[str, Tipo] = {
                 "fuori_cluster": "Di altri cluster (non modificati)",
             },
             modello=modello_date,
+            oggetti_modello="DateEmissione",
         ),
         Tipo(
             "conti",
@@ -345,6 +347,7 @@ TIPI: dict[str, Tipo] = {
             {"creati": "Conti creati", "aggiornati": "Aggiornati", "invariati": "Invariati"},
             solo_admin=True,
             modello=modello_conti,
+            oggetti_modello="PianoConti",
         ),
         Tipo(
             "struttura",
@@ -365,7 +368,7 @@ TIPI: dict[str, Tipo] = {
             },
             solo_admin=True,
             modello=modello_struttura,
-            nome_modello=modello_struttura_rev00.NOME,
+            oggetti_modello="Struttura",
             note=[
                 "Il foglio Responsabili, se compilato, è l'elenco completo: chi non c'è perde "
                 "le assegnazioni. Conti e WBS non si cancellano mai.",
@@ -388,6 +391,7 @@ TIPI: dict[str, Tipo] = {
             },
             solo_admin=True,
             modello=modello_tabelle_sap,
+            oggetti_modello="TabelleSAP",
         ),
         Tipo(
             "fatture",
@@ -404,6 +408,7 @@ TIPI: dict[str, Tipo] = {
                 "con_contratto_proposto": "Con contratto proposto",
             },
             modello=modello_fatture,
+            oggetti_modello="Fatture",
             note=[
                 "Dopo la conferma le fatture sono in «Fatture da prendere in carico», visibili a "
                 "tutti.",
@@ -426,6 +431,7 @@ TIPI: dict[str, Tipo] = {
             },
             solo_admin=True,
             modello=modello_esecuzione,
+            oggetti_modello="Esecuzione",
         ),
         Tipo(
             "riepilogo",

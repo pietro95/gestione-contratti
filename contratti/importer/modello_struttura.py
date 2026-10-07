@@ -11,7 +11,6 @@ from openpyxl.comments import Comment
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.worksheet.datavalidation import DataValidation
 
-NOME = "2026.10.02_PFE_Modello_import_struttura_ICTDINN_Rev00.xlsx"
 F = "Arial"
 BLU = "003F6B"
 GIALLO = PatternFill("solid", fgColor="FFF2CC")

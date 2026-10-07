@@ -174,8 +174,8 @@ def test_solo_admin_dall_interfaccia(tmp_path, make_user):
     risposta = admin.get(reverse("contratti:importazione_modello", args=["struttura"]))
     assert risposta.status_code == 200
     assert (
-        "2026.10.02_PFE_Modello_import_struttura_ICTDINN_Rev00.xlsx"
-        in (risposta["Content-Disposition"])
+        'filename="GestioneContratti_ModelloImport_Struttura.xlsx"'
+        in risposta["Content-Disposition"]
     )
     file.seek(0)
     risposta = admin.post(url, {"struttura-file": file})
