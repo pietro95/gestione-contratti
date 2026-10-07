@@ -591,15 +591,18 @@ uguale a TC-17.
   avanzamento, anomalie); «Chiudi» / «Annulla chiusura» in finestra modale; etichetta
   «una tantum».
 - Fattura (SPEC Rev14–Rev15): registrazione; importo del documento e valore base
-  prelevato dal contratto, oneri e bollo; assegnazione al contratto (con proposta); convalida
+  prelevato dal contratto, oneri e bollo; elenco «Fatture da prendere in carico» visibile a tutti,
+  presa in carico (singola o su più fatture selezionate), lascia e riassegna; assegnazione al
+  contratto (con proposta); convalida
   del referente (esito, nota, bloccata fino al); RdC → MAP (servizi) o MIGO (forniture) →
-  trasferimento per il pagamento; fuori registro; scheda SAP della fattura per passo,
+  trasferimento per il pagamento; fuori registro (anche su più fatture); «Le mie fatture»; scheda SAP della fattura per passo,
   indicazioni per la validazione e **commento per PAC** con «Copia».
 - **Import settimanale delle fatture** dall'estrazione SAP annotata (SPEC §7, TC-18), con
   anteprima, conferma, registro, report delle anomalie.
 - Ricerca globale anche per ODA e numero di fattura.
 
-**Accettazione:** test di permesso; test nel browser del flusso «import → assegnazione →
+**Accettazione:** test di permesso; test nel browser del flusso «import → presa in carico
+multipla → assegnazione →
 convalida → RdC → MAP/MIGO → trasferimento → chiusura»; TC-16, TC-18.
 
 ### F11.4 — Cruscotti, viste e import

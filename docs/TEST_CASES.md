@@ -451,7 +451,7 @@ importato il 01/10/2026. Al 02/10/2026 lo stato è `RDA predisposta`.
 **(e) Ferme**: R1 inserita il 15/06/2026, senza rilascio, non è ferma al 15/07/2026 (30
 giorni) ed è ferma al 16/07/2026 (31 giorni).
 
-Fattura FA-1 di un contratto di **servizi**, registrata il 01/03/2026, già assegnata al contratto e convalidata dal referente lo stesso giorno (Rev14, Rev15):
+Fattura FA-1 di un contratto di **servizi**, registrata il 01/03/2026, già presa in carico, assegnata al contratto e convalidata dal referente lo stesso giorno (Rev14, Rev15):
 
 | Oggi | Documenti collegati, trasferimento | Passo da fare | Ferma (15 giorni) |
 |---|---|---|---|
@@ -624,16 +624,20 @@ SPEC §4 (fattura), §5.7, §5.8, §5.9, §7. Rev15, bozza da approvare. Nomi e 
 Registro: fornitore «Fornitore Prova A S.r.l.» con un solo contratto CA (servizi, dal
 01/01/2026, 12 mesi); fornitore «Studio Prova» (nome breve `STUDIOP`) con il contratto CS
 (servizi, dal 01/01/2026, 12 mesi; una voce CAPEX, conto 600010, centro di costo
-C0001, WBS `WBS-TEST-01`; referente del fabbisogno: utente «rossi»).
+C0001, WBS `WBS-TEST-01`; cluster IT). Utenti: «rossi» e «bianchi», Editor del cluster IT;
+«verdi», Editor del solo cluster TLC; «neri», Reader.
 
 File (primo foglio): riga 1 «Rev. 00 del 05/10/2026»; riga 2 intestazione; riga 3 vuota.
 
-| # | Fornitore | Numero Documento | Data | Importo SAP | Note | REFERENTE | CONVALIDABILE ? |
-|---|---|---|---|---|---|---|---|
-| 1 | Fornitore Prova A S.r.l. | FA-1/2026 | 04.09.2026 | 1220 | | | |
-| 2 | STUDIOP | 13/2026 | 28.09.2026 | 1679,83 | Valore base 1.504,17 | Rossi | SI |
-| 3 | Fornitore Sconosciuto | 99 | 30.09.26 | 10 | | | |
-| 4 | Fornitore Prova A S.r.l. | 76 In attesa di nota credito | 22.09.2026 | 78,9 | | | |
+| # | Fornitore | Numero Documento | Data | Importo SAP | Note |
+|---|---|---|---|---|---|
+| 1 | Fornitore Prova A S.r.l. | FA-1/2026 | 04.09.2026 | 1220 | |
+| 2 | STUDIOP | 13/2026 | 28.09.2026 | 1679,83 | |
+| 3 | Fornitore Sconosciuto | 99 | 30.09.26 | 10 | |
+| 4 | Fornitore Prova A S.r.l. | 76 In attesa di nota credito | 22.09.2026 | 78,9 | |
+
+Lo stesso file con le colonne `REFERENTE` e `CONVALIDABILE ?` in più, compilate, dà lo stesso
+risultato: si ignorano.
 
 In fondo, dopo tre righe vuote, la legenda «Fatture in lavorazione» nella colonna Fornitore.
 
@@ -641,19 +645,29 @@ In fondo, dopo tre righe vuote, la legenda «Fatture in lavorazione» nella colo
 
 | Riga | Esito | Passo da fare | Anomalie |
 |---|---|---|---|
-| 1 | creata, contratto proposto CA, esito `Da valutare` | Da assegnare | — |
-| 2 | creata, contratto proposto CS, referente «rossi», esito `Convalidabile`, nota «Valore base 1.504,17» | Da assegnare | — |
+| 1 | creata, contratto proposto CA | Da prendere in carico | — |
+| 2 | creata, contratto proposto CS | Da prendere in carico | — |
 | 3 | non importata | — | `FORNITORE_NON_TROVATO` |
-| 4 | creata, numero «76 In attesa di nota credito», contratto proposto CA | Da assegnare | `NUMERO_DA_VERIFICARE` |
+| 4 | creata, numero «76 In attesa di nota credito», contratto proposto CA | Da prendere in carico | `NUMERO_DA_VERIFICARE` |
 | legenda | ignorata | — | — |
 
-Conteggi: 3 create, 1 non importata; il valore base è vuoto su tutte.
+Conteggi: 3 create, 1 non importata; nessuna ha referente, esito `Da valutare`, valore base vuoto.
+
+**Presa in carico**: le tre fatture sono nell'elenco «Fatture da prendere in carico» di rossi,
+bianchi, verdi e neri.
+- rossi seleziona 13/2026 e FA-1/2026 e le prende in carico insieme: referente rossi, passo
+  `Da assegnare`; nell'elenco resta la fattura 76;
+- bianchi tenta di prendere FA-1/2026 (pagina non aggiornata): rifiutata, «già in carico a rossi»;
+- verdi prende in carico la fattura 76 (qualunque cluster), ma non può abbinarla a CA (cluster
+  IT): 403;
+- neri vede l'elenco senza caselle né azioni; la presa in carico chiesta da neri dà 403;
+- rossi lascia FA-1/2026 e la riprende: torna e poi esce dall'elenco.
 
 **Secondo import** dello stesso file con la riga 1 a 1.250,00: 0 create, 3 già presenti; riga 1
 `IMPORTO_DIVERSO` (l'importo resta 1.220,00).
 
 **Lavorazione della fattura 13/2026**, dopo la conferma dell'abbinamento a CS:
-- passo `RdC da fare` (convalida già `Convalidabile` dall'import);
+- passo `Da convalidare`; rossi registra l'esito `Convalidabile` → passo `RdC da fare`;
 - valore base 1.504,17, oneri 173,66, bollo 2,00: 1.504,17 + 173,66 + 2,00 = 1.679,83, nessun
   `IMPORTO_NON_QUADRA`; con bollo 3,00 → `IMPORTO_NON_QUADRA`;
 - indicazioni per la validazione: `Valore base da prelevare € 1.504,17. COGE: 600010, CDC: C0001, WBS: WBS-TEST-01`;
