@@ -5,7 +5,7 @@ Rev08 — 07/10/2026 — testo scritto da Claude, decisioni del responsabile del
 Storico revisioni:
 - Rev00 (05/10/2026): prima bozza, raccomandata l'opzione «solo rete interna con ponte locale».
 - Rev01 (05/10/2026): decisioni del responsabile del progetto. **Deroga alla SPEC §8.2**: si espone su Internet solo il connettore MCP (§2). D3: il token vale se l'utente ha fatto login negli ultimi 7 giorni (§4.4). D4: il connettore è disponibile a tutti i ruoli. Autenticazione OAuth 2.1 con login AD solo dalla rete interna (§4).
-- Rev02 (05/10/2026): decisioni del responsabile del progetto. D1 chiusa: i dati possono andare al fornitore del modello. D7: dipendenze approvate. D9 e organizzazione Claude: le gestisce Pietro. D5 spiegata meglio, con proposta.
+- Rev02 (05/10/2026): decisioni del responsabile del progetto. D1 chiusa: i dati possono andare al fornitore del modello. D7: dipendenze approvate. D9 e organizzazione Claude: sono gestite dal responsabile del servizio. D5 spiegata meglio, con proposta.
 - Rev03 (05/10/2026): D5 chiusa: calcoli sempre alla data di oggi. Inserita nella SPEC (Rev10) e nella ROADMAP (F10).
 - Rev04 (05/10/2026): decisione del responsabile del progetto: il connettore prevede anche la scrittura (§8, sotto-fase F10.1), con anteprima e conferma in due passi, scope OAuth separato, solo Admin ed Editor. Aggiornati §1, §2.2, §4.2, §4.5, §5, §9, §10.
 - Rev05 (05/10/2026): decisioni del responsabile del progetto. D11: perimetro dei gruppi A–E. D12: conferma nella chat. D13: nessun limite giornaliero di operazioni.
