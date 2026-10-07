@@ -16,22 +16,10 @@ from contratti import models as m
 
 from .. import factories as f
 from ..engine.test_tc18_fatture import PAC_ATTESO
-from .conftest import violazioni_axe as _violazioni_axe
+from .conftest import violazioni_axe
 
 pytestmark = [pytest.mark.e2e, pytest.mark.django_db(transaction=True, serialized_rollback=True)]
 D = datetime.date
-
-
-def violazioni_axe(pg):
-    """Come in conftest, ad animazione delle notifiche finita (a metà dissolvenza il contrasto
-    non è quello reale)."""
-    pg.wait_for_function(
-        """() => [...document.querySelectorAll('.toast')].every(t => {
-            const s = getComputedStyle(t);
-            return s.display === 'none' || s.opacity === '1';
-        })"""
-    )
-    return _violazioni_axe(pg)
 
 
 def _estrazione(tmp_path, oggi):
