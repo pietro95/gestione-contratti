@@ -10,10 +10,16 @@ Responsabile del progetto: IT Manager ICTDINN.
 - `docs/TEST_CASES.md`: casi numerici di riferimento. Sono l'oracolo dei test: **non modificarli per far passare un test**.
 - `docs/ROADMAP.md`: fasi e criteri di accettazione. Lavora solo sulla fase richiesta.
 - `docs/SPEC_MCP.md`: connettore MCP (F10): protocollo, OAuth, esposizione su Internet in deroga.
+- `docs/ARCHITECTURE.md`: componenti, confini e regole di dipendenza.
+- `docs/DATA_MODEL.md`: mappa concettuale delle entità.
+- `docs/SECURITY.md`: principi di sicurezza e trattamento dei dati.
+- `docs/OPERATIONS.md`: attività operative ricorrenti.
+- `docs/RELEASE.md`: checklist di rilascio e rollback.
+- `docs/adr/`: decisioni architetturali accettate.
 
 Se la SPEC è ambigua o in conflitto con la richiesta, fermati e chiedi. Non scegliere in silenzio. Se proponi di cambiare la SPEC, scrivilo nella descrizione della PR: l'aggiornamento della SPEC richiede l'approvazione del responsabile del progetto.
 
-## Stack (deciso, non cambiarlo senza approvazione)
+## Stack approvato (non cambiarlo senza una decisione esplicita)
 
 - Python 3.12, Django 5.2 LTS, PostgreSQL 16.
 - Template Django + HTMX + Bootstrap 5. Le risorse statiche vanno in `static/vendor/`, senza CDN: l'app gira in rete interna. Niente framework SPA.
