@@ -67,6 +67,22 @@ def dati():
         dimensione=0,
         utente=get_user_model().objects.create_user("autore_import_prova"),
     )
+    # Processo d'acquisto (F11.1).
+    m.FunzioneUtente.objects.create(username="addetto.prova", funzione="amministrazione_acquisti")
+    m.RichiedenteSAP.objects.create(codice="999901", descrizione="Ufficio di prova")
+    m.GruppoAcquisti.objects.create(codice="G01", descrizione="Gruppo di prova")
+    m.GruppoMerci.objects.create(codice="GM-TEST01", descrizione="Gruppo merci di prova")
+    rda = m.RichiestaAcquisto.objects.create(
+        origine="manuale", cluster=it, descrizione="RDA di prova", numero_rda="5100000001"
+    )
+    m.PosizioneRDA.objects.create(rda=rda, numero=1, descrizione_breve="Prova", importo_unitario=1)
+    m.EventoRDA.objects.create(rda=rda, tipo="invio", data=D(2026, 9, 1))
+    fattura = m.Fattura.objects.create(
+        contratto=c, numero="FA-PROVA", data=D(2026, 3, 1), imponibile=Decimal("100")
+    )
+    m.DocumentoEsecuzione.objects.create(
+        contratto=c, tipo="MAP", data=D(2026, 3, 5), fattura=fattura
+    )
     return {"contratto": c, "voce": v, "piano": p, "proroga": proroga}
 
 
@@ -74,7 +90,8 @@ def test_tutti_i_modelli_registrati():
     attesi = {
         "procedura", "soglia", "parametro", "categoria", "impianto", "wbs", "cluster", "contocoge",
         "fornitore", "fabbisogno", "contratto", "proroga", "vocecontratto",
-        "pianofatturazione", "rata", "statopratica",
+        "pianofatturazione", "rata", "statopratica", "richiestaacquisto", "fattura",
+        "documentoesecuzione", "richiedentesap", "gruppoacquisti", "gruppomerci", "funzioneutente",
     }  # fmt: skip
     assert attesi <= {model._meta.model_name for model in MODELLI}
 

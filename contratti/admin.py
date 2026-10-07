@@ -140,14 +140,45 @@ class AssegnazioneClusterAdmin(ArchiviabileAdmin):
     autocomplete_fields = ("cluster",)
 
 
+@admin.register(m.FunzioneUtente)
+class FunzioneUtenteAdmin(ArchiviabileAdmin):
+    """Funzioni nel processo d'acquisto (Rev13): non danno permessi, decidono il cruscotto.
+
+    Per togliere una funzione si archivia.
+    """
+
+    list_display = ("username", "funzione", "note", "archiviato")
+    list_filter = ("funzione", "archiviato")
+    search_fields = ("username", "note")
+
+
+class TabellaSAPAdmin(BaseAdmin):
+    """Codici SAP caricati da Excel (Gestione → Import «Tabelle SAP»): al più un predefinito."""
+
+    list_display = ("codice", "descrizione", "predefinito", "attivo")
+    list_filter = ("attivo", "predefinito")
+    list_editable = ("attivo",)
+    search_fields = ("codice", "descrizione")
+
+
+admin.site.register(m.RichiedenteSAP, TabellaSAPAdmin)
+admin.site.register(m.GruppoAcquisti, TabellaSAPAdmin)
+
+
+@admin.register(m.GruppoMerci)
+class GruppoMerciAdmin(TabellaSAPAdmin):
+    list_display = ("codice", "descrizione", "categoria", "predefinito", "attivo")
+    list_filter = ("attivo", "predefinito", "categoria")
+
+
 # --- Dominio ---------------------------------------------------------------
 
 
 @admin.register(m.Fornitore)
 class FornitoreAdmin(ArchiviabileAdmin):
-    list_display = ("ragione_sociale", "partita_iva", "codice_sap", "archiviato")
+    list_display = ("ragione_sociale", "nome_breve", "partita_iva", "codice_sap", "archiviato")
     list_filter = ("archiviato",)
-    search_fields = ("ragione_sociale", "partita_iva", "codice_sap")
+    search_fields = ("ragione_sociale", "nome_breve", "partita_iva", "codice_sap")
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
@@ -240,6 +271,18 @@ class StatoPraticaContrattoInline(InlineSenzaCancellazione):
     autocomplete_fields = ("utente",)
 
 
+class FatturaInline(InlineSenzaCancellazione):
+    model = m.Fattura
+    fields = ("numero", "data", "imponibile", "voce", "rata", "data_registrazione", "archiviato")
+    raw_id_fields = ("voce", "rata")
+
+
+class DocumentoEsecuzioneInline(InlineSenzaCancellazione):
+    model = m.DocumentoEsecuzione
+    fields = ("tipo", "numero", "data", "importo", "finale", "fattura", "archiviato")
+    raw_id_fields = ("fattura",)
+
+
 @admin.register(m.Contratto)
 class ContrattoAdmin(ArchiviabileAdmin):
     list_display = (
@@ -260,9 +303,18 @@ class ContrattoAdmin(ArchiviabileAdmin):
         "cig",
         "fornitore__ragione_sociale",
     )
-    autocomplete_fields = ("fabbisogno", "predecessore", "fornitore", "procedura")
+    autocomplete_fields = (
+        "fabbisogno", "predecessore", "fornitore", "procedura", "rda", "chiuso_da",
+    )  # fmt: skip
     date_hierarchy = "data_inizio"
-    inlines = [VoceInline, OpzioneInline, ProrogaInline, StatoPraticaContrattoInline]
+    inlines = [
+        VoceInline,
+        OpzioneInline,
+        ProrogaInline,
+        StatoPraticaContrattoInline,
+        FatturaInline,
+        DocumentoEsecuzioneInline,
+    ]
     fieldsets = (
         (None, {"fields": ("fabbisogno", "predecessore", "fornitore", "descrizione")}),
         ("Riferimenti", {"fields": ("numero_contratto", "data_emissione", "numero_rda", "cig")}),
@@ -271,9 +323,98 @@ class ContrattoAdmin(ArchiviabileAdmin):
             "Date",
             {"fields": ("data_stipula", "data_inizio", "durata_mesi", "data_fine_override")},
         ),
-        ("Rinnovo", {"fields": ("tacito_rinnovo", "preavviso_disdetta_giorni")}),
-        ("Documenti e note", {"fields": ("link_documenti", "note", "archiviato")}),
+        ("Rinnovo", {"fields": ("tacito_rinnovo", "preavviso_disdetta_giorni", "una_tantum")}),
+        ("Processo d'acquisto", {"fields": ("rda", "rup", "cup", "data_chiusura", "chiuso_da")}),
+        (
+            "Documenti e note",
+            {"fields": ("link_documenti", "percorso_documenti", "note", "archiviato")},
+        ),
     )
+
+
+class PosizioneRDAInline(InlineSenzaCancellazione):
+    model = m.PosizioneRDA
+    fields = (
+        "numero", "descrizione_breve", "gruppo_merci", "quantita", "importo_unitario",
+        "di_cui_variabile", "natura", "conto", "centro_costo", "wbs",
+    )  # fmt: skip
+    autocomplete_fields = ("gruppo_merci", "conto", "wbs")
+    show_change_link = False
+
+
+class EventoRDAInline(InlineSenzaCancellazione):
+    model = m.EventoRDA
+    fields = ("tipo", "data", "nota", "utente")
+    autocomplete_fields = ("utente",)
+    show_change_link = False
+
+
+@admin.register(m.RichiestaAcquisto)
+class RichiestaAcquistoAdmin(ArchiviabileAdmin):
+    """RDA: la fase non si salva, la ricava il motore (SPEC §5.7)."""
+
+    list_display = (
+        "__str__", "descrizione", "cluster", "nome_referente", "fase", "data_creazione",
+        "archiviato",
+    )  # fmt: skip
+    list_filter = ("cluster", "origine", "scopo", "archiviato")
+    search_fields = ("numero_rda", "descrizione", "intestazione", "referente")
+    autocomplete_fields = (
+        "cluster", "fabbisogno", "contratto_in_scadenza", "referente_utente",
+        "fornitore_proposto", "richiedente", "gruppo_acquisti",
+    )  # fmt: skip
+    inlines = [PosizioneRDAInline, EventoRDAInline]
+    fieldsets = (
+        (None, {"fields": ("origine", "scopo", "cluster", "fabbisogno", "contratto_in_scadenza")}),
+        ("Referente", {"fields": ("referente_utente", "referente")}),
+        (
+            "Richiesta",
+            {
+                "fields": (
+                    "descrizione",
+                    "intestazione",
+                    "fornitore_proposto",
+                    "richiedente",
+                    "gruppo_acquisti",
+                    "note_buyer",
+                    "allegati",
+                    "percorso_file_server",
+                    "rup",
+                    "cup",
+                    "note",
+                    "data_creazione",
+                )  # fmt: skip
+            },
+        ),
+        ("Da SAP", {"fields": ("numero_rda", "data_inserimento", "data_rilascio")}),
+        (None, {"fields": ("archiviato",)}),
+    )
+
+    @admin.display(description="fase")
+    def fase(self, obj):
+        from contratti import acquisti
+        from contratti.engine.acquisti import ETICHETTE_FASE
+
+        return ETICHETTE_FASE[acquisti.fase(obj)]
+
+
+@admin.register(m.Fattura)
+class FatturaAdmin(ArchiviabileAdmin):
+    list_display = ("numero", "data", "imponibile", "contratto", "fornitore", "archiviato")
+    list_filter = ("archiviato",)
+    search_fields = ("numero", "contratto__numero_contratto", "fornitore__ragione_sociale")
+    autocomplete_fields = ("contratto",)
+    raw_id_fields = ("voce", "rata")
+    date_hierarchy = "data"
+
+
+@admin.register(m.DocumentoEsecuzione)
+class DocumentoEsecuzioneAdmin(ArchiviabileAdmin):
+    list_display = ("tipo", "numero", "data", "contratto", "fattura", "finale", "archiviato")
+    list_filter = ("tipo", "finale", "archiviato")
+    search_fields = ("numero", "contratto__numero_contratto")
+    autocomplete_fields = ("contratto",)
+    raw_id_fields = ("voce", "fattura")
 
 
 @admin.register(m.Proroga)

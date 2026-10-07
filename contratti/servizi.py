@@ -489,7 +489,18 @@ def sposta_contratto(
         s.predecessore = p
         s.clean()
         _salva(s, "Catena ricucita dopo uno spostamento", update_fields=["predecessore"])
+    _allinea_rda(m.RichiestaAcquisto.objects.filter(contratto_in_scadenza__in=a.contratti),
+                 destinazione, motivo)  # fmt: skip
     return a
+
+
+def _allinea_rda(richieste, destinazione: m.Fabbisogno, motivo: str) -> None:
+    """Le RDA seguono il contratto o il fabbisogno che passa in un altro fabbisogno (F11)."""
+    for r in richieste:
+        if r.fabbisogno_id is not None:
+            r.fabbisogno = destinazione
+        r.cluster_id = destinazione.cluster_id
+        _salva(r, motivo, update_fields=["fabbisogno", "cluster"])
 
 
 # --- Contratti doppi -------------------------------------------------------------------
@@ -879,6 +890,13 @@ def accorpa_fabbisogni(
         for passaggio in pratica_origine:
             passaggio.fabbisogno = destinazione
             _salva(passaggio, motivo, update_fields=["fabbisogno"])
+    _allinea_rda(
+        m.RichiestaAcquisto.objects.filter(
+            Q(fabbisogno=origine) | Q(contratto_in_scadenza__in=a.contratti)
+        ),
+        destinazione,
+        motivo,
+    )
     origine.archiviato = True
     _salva(origine, motivo, update_fields=["archiviato"])
     return a

@@ -543,3 +543,19 @@ def test_migrazione_rda_dai_contratti():
     assert vecchio.rda is None and vecchio.numero_rda == "RDA 12/21"
     migrazione.rda_dai_contratti(apps, None)  # idempotente
     assert m.RichiestaAcquisto.objects.filter(numero_rda="5100000099").count() == 1
+
+
+def test_le_rda_seguono_spostamenti_e_accorpamenti():
+    c = f.contratto()
+    r_contratto = _rda(contratto_in_scadenza=c, cluster=c.fabbisogno.cluster)
+    tlc = f.fabbisogno("Destinazione TLC", cluster=f.cluster("TLC"))
+    servizi.sposta_contratto(c, tlc, con_successivi=False)
+    r_contratto.refresh_from_db()
+    assert r_contratto.cluster.codice == "TLC" and r_contratto.fabbisogno is None
+    r_contratto.full_clean()
+
+    origine = f.fabbisogno("Origine nuova")
+    r_fabbisogno = _rda(fabbisogno=origine, scopo="primo_acquisto")
+    servizi.accorpa_fabbisogni(origine, tlc)
+    r_fabbisogno.refresh_from_db()
+    assert r_fabbisogno.fabbisogno == tlc and r_fabbisogno.cluster.codice == "TLC"

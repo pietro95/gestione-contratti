@@ -31,6 +31,7 @@ from contratti.importer.date_emissione import importa_date
 from contratti.importer.report import Report
 from contratti.importer.struttura import importa_struttura
 from contratti.importer.tabelle import FileNonValido
+from contratti.importer.tabelle_sap import importa_tabelle_sap
 
 log = logging.getLogger(__name__)
 
@@ -94,6 +95,10 @@ def _conti(percorso, dry_run, opzioni):
 
 def _struttura(percorso, dry_run, opzioni):
     return serializza(importa_struttura(percorso, dry_run=dry_run)), None
+
+
+def _tabelle_sap(percorso, dry_run, opzioni):
+    return serializza(importa_tabelle_sap(percorso, dry_run=dry_run)), None
 
 
 def _quadratura(percorso, dry_run, opzioni):
@@ -172,6 +177,28 @@ def modello_conti() -> Workbook:
             "appartiene a un cluster: per caricare tutto insieme usa l'import della struttura.",
             "Date gg/mm/aaaa. Un errore su una riga annulla tutto il file.",
             "Esempio (fittizio): 60000000 | Canoni software | 01/01/2026 | | IT",
+        ],
+    )
+
+
+def modello_tabelle_sap() -> Workbook:
+    return _modello(
+        [
+            ("Richiedenti", ["codice", "descrizione", "predefinito"], {"codice"}),
+            ("Gruppi merci", ["codice", "descrizione", "predefinito", "categoria"], {"codice"}),
+            ("Gruppi acquisti", ["codice", "nome", "predefinito"], {"codice"}),
+        ],
+        [
+            "Tabelle SAP del processo d'acquisto",
+            "Un foglio per tabella; si può caricare anche un foglio solo. Il codice identifica "
+            "la riga: una riga già presente aggiorna descrizione (o nome) e categoria. Nessuna "
+            "cancellazione: un codice tolto dal file resta, si disattiva dall'amministrazione.",
+            "predefinito: «sì» su una sola riga per foglio (es. il richiedente e il gruppo "
+            "acquisti dell'ufficio); diventa l'unico predefinito. Vuoto = no.",
+            "categoria (solo gruppi merci, facoltativa): nome della categoria di fabbisogno a cui "
+            "proporre il gruppo merci.",
+            "Un errore (due predefiniti, codici ripetuti, categoria inesistente) annulla il file.",
+            "Esempio (fittizio): 999901 | Ufficio di prova | sì",
         ],
     )
 
@@ -284,6 +311,24 @@ TIPI: dict[str, Tipo] = {
                 "Il foglio Responsabili, se compilato, è l'elenco completo: chi non c'è perde "
                 "le assegnazioni. Conti e WBS non si cancellano mai.",
             ],
+        ),
+        Tipo(
+            "tabelle_sap",
+            "Tabelle SAP (RDA)",
+            "Richiedenti SAP, gruppi merci e gruppi acquisti per le richieste di RDA. "
+            "Configurazione: solo Admin.",
+            (".xlsx",),
+            _tabelle_sap,
+            {
+                "richiedenti_creati": "Richiedenti creati",
+                "richiedenti_aggiornati": "Richiedenti aggiornati",
+                "gruppi_merci_creati": "Gruppi merci creati",
+                "gruppi_merci_aggiornati": "Gruppi merci aggiornati",
+                "gruppi_acquisti_creati": "Gruppi acquisti creati",
+                "gruppi_acquisti_aggiornati": "Gruppi acquisti aggiornati",
+            },
+            solo_admin=True,
+            modello=modello_tabelle_sap,
         ),
         Tipo(
             "quadratura",
