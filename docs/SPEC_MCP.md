@@ -1,6 +1,6 @@
 # Connettore MCP — specifica (bozza)
 
-Rev07 — 07/10/2026 — testo scritto da Claude, decisioni di Pietro Verro, da approvare. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalla fase F10 di `docs/ROADMAP.md`.
+Rev08 — 07/10/2026 — testo scritto da Claude, decisioni di Pietro Verro, da approvare. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
 
 Storico revisioni:
 - Rev00 (05/10/2026): prima bozza, raccomandata l'opzione «solo rete interna con ponte locale».
@@ -11,6 +11,7 @@ Storico revisioni:
 - Rev05 (05/10/2026): decisioni di Pietro. D11: perimetro dei gruppi A–E. D12: conferma nella chat. D13: nessun limite giornaliero di operazioni.
 - Rev06 (05/10/2026): decisione di Pietro, a valle della realizzazione di F10.1: tre limiti dei tool del gruppo C (§8.2): `modifica_voce` non cambia le quote per periodo esistenti, `crea_contratto` e `modifica_contratto` non gestiscono le note, `registra_rinnovo` non genera le rate.
 - Rev07 (07/10/2026): D8 chiusa con esito positivo: nella prova in produzione Claude ha accettato l'autorizzazione sull'host interno (§2.1); il piano B non serve. Nessuna decisione aperta.
+- Rev08 (07/10/2026): decisioni di Pietro, **bozza da approvare**. Il connettore copre il processo d'acquisto della release 2.0 (§11, fase F12): lettura di RDA, fatture, esecuzione e viste; scrittura di tutto il processo tranne gli import (D14); presa in carico, fuori registro e assegnazione ai proposti anche su più fatture (D15); nome dei referenti esposto (D16); testi per SAP e PAC restituiti (D17). Gruppo E di §8.2 definito in §11.3.
 
 ## 1. Obiettivo
 
@@ -208,7 +209,7 @@ Un oggetto principale per operazione (un contratto si crea con le sue voci e i l
 | | `crea_voce`, `modifica_voce` (con piano e quote) | `VoceForm`, `PianoForm` |
 | | `archivia`, `ripristina` (fornitore, fabbisogno, contratto, voce) | `servizi.archivia` |
 | **D. Catena** | `collega_rinnovo`, `scollega_predecessore`, `confluisci`, `togli_confluenza` | `servizi.collega_rinnovo`, `scollega_predecessore`, `confluisci`, `togli_confluenza` |
-| **E. Processo d'acquisto** (con F11) | `crea_rda`, `modifica_rda`, `registra_documento_esecuzione`, `registra_fattura` (con abbinamento alle rate), `chiudi_contratto`, `annulla_chiusura` | form e servizi di F11, quando esistono |
+| **E. Processo d'acquisto** (F12, Rev08) | RDA, fatture, documenti di esecuzione, chiusura: elenco in §11.3 | form e servizi di F11 |
 | | `conferma_operazione` (id) | — |
 
 Limiti del gruppo C (Rev06):
@@ -219,7 +220,7 @@ Limiti del gruppo C (Rev06):
 
 **Solo dall'interfaccia**, mai via MCP:
 - `sposta_contratto`, `accorpa_fabbisogni`, `unisci_doppioni`: ristrutturano più fabbisogni e catene in un colpo; la loro anteprima è già una pagina dedicata e un errore è costoso da ricostruire (D11);
-- import e conferma delle proposte d'import;
+- import (compresi estrazione settimanale delle fatture, modello dell'esecuzione, Riepilogo, tabelle SAP) e conferma delle proposte d'import;
 - tabelle di configurazione, utenti, assegnazioni dei cluster, interruttore della scrittura.
 
 ### 8.3 Rischi specifici e contromisure
@@ -258,6 +259,11 @@ Prese:
 
 - D8 (Rev07): chiusa con esito positivo. Prova in produzione del 07/10/2026: Claude apre `/oauth/authorize/` sull'host interno indicato nei metadati, il collegamento riesce e i tool rispondono (§2.1). Il piano B (login pubblicato o IdP esterno) non serve.
 
+- D14 (Rev08): scrittura di tutto il processo d'acquisto tranne gli import (§11.3).
+- D15 (Rev08): `prendi_in_carico`, `segna_fuori_registro` e `assegna_ai_referenti_proposti` anche su più fatture, al massimo 50, con anteprima per fattura (§11.3).
+- D16 (Rev08): del referente si espone solo il nome; filtri «mie» e «proposte a me» sull'utente del token (§11.1).
+- D17 (Rev08): testo della richiesta, scheda SAP, indicazioni per la validazione e commento per PAC restituiti in campi propri (§11.1).
+
 Aperte: nessuna.
 
 ## 10. Stima
@@ -265,6 +271,103 @@ Aperte: nessuna.
 Prima fase: circa una volta e mezza F9.5.2 (PDF dei report). Il lavoro si divide in tre parti di peso simile: OAuth e infrastruttura pubblica (proxy, container, utente DB, verifica esterna); spostamento in `selettori` della logica oggi dentro le viste (`cerca`, fornitore, catena del contratto) per riusarla senza duplicarla; protocollo e tool con i test di coerenza.
 
 Scrittura (F10.1): circa quanto F10. Il grosso è portare nei form e nei servizi le regole che oggi stanno nelle viste, calcolare gli effetti per l'anteprima (riusando motore e report) e i test di equivalenza con l'interfaccia per ogni tool.
+
+## 11. Processo d'acquisto (F12)
+
+Rev08, decisioni di Pietro del 07/10/2026 (D14–D17). La release 2.0 (SPEC Rev11–Rev15, F11) ha aggiunto richieste di RDA, fatture, esecuzione e chiusura dei contratti e quattro viste. Il connettore le espone con le regole di §5 (lettura) e §8 (scrittura): stessi selettori, form e servizi dell'interfaccia, nessuna regola nuova.
+
+### 11.1 Dati esposti (D16, D17)
+
+- **Referenti** (D16, deroga motivata alla minimizzazione di §5): del referente di RDA e fatture, del referente proposto, di chi ha la fattura in carico e di chi ha registrato un passaggio si restituisce solo il **nome** (nome e cognome, o lo username se mancano), mai email, telefono, gruppi o altro. I filtri «mie», «le mie fatture» e «proposte a me» usano l'utente del token.
+- **Testi del flusso**: note al buyer, allegati, nota del rimando, motivo dell'annullamento, nota della convalida. Si restituiscono in campi distinti (`testo_libero`), come le descrizioni (§6): sono dati, mai istruzioni. Le note libere generiche di RDA, contratti e fatture restano escluse, come in §5.
+- **Testi pronti per SAP e PAC** (D17): testo della richiesta di RDA, scheda SAP (campi nell'ordine di SAP, «SAP» o «info»), indicazioni per la validazione e commento per PAC. Sono identici all'interfaccia perché li compone lo stesso motore (`componi_testo_richiesta`, `commento_pac`, `indicazioni_validazione`) e stanno in campi propri. Test: uguali a TC-17 e TC-18.
+- Gli importi delle posizioni e delle fatture seguono le convenzioni di §5: stringhe con due decimali. Le quantità sono stringhe decimali.
+
+### 11.2 Strumenti di lettura
+
+| Tool | Argomenti | Restituisce | Riusa |
+|---|---|---|---|
+| `rda` | `id` | scopo, cluster, pratica (contratto in scadenza o fabbisogno) con il suo stato, fase con data, giorni e «ferma», numero SAP e date, referente, posizioni con importo, contratti generati con la differenza dalla RDA, storico della richiesta, scheda SAP, `testo_richiesta` | `acquisti.dati_rda`, `scheda`, `testo_della_richiesta`, `differenza_da_rda` |
+| `elenco_rda` | `cluster`, `fase` (più d'una), `anno`, `referente` (`me` o id), `fornitore`, `wbs`, `testo`, paginazione | righe della vista «Stato delle RDA», totale e conteggi per fase | `reports.acquisti.stato_rda`, `conteggi_per_fase` |
+| `fattura` | `id` | fornitore, numero, data, importo del documento, valore base, oneri, bollo, passo con «ferma», contratto (o proposto) e voce, rata, referente (o proposto), convalida, documenti SAP, trasferimento, fuori registro, anomalie, `indicazioni_validazione`, `commento_pac` | `contratti.fatture` |
+| `elenco_fatture` | `vista` (`da_prendere`, `mie`, `tutte`), `proposte_a_me`, `passo`, `testo`, `fuori_registro`, paginazione | righe con passo, giorni, «ferma», contratto e referente proposti | `views_fatture`, `reports.acquisti` |
+| `esecuzione` | `contratto_id` | fatturato, residuo sul fisso e sul massimo, avanzamento, motivo «da chiudere», anomalie del contratto e delle fatture, fatture con il passo, documenti di esecuzione | `acquisti.riepilogo_esecuzione`, `fatture.anomalie` |
+| `cruscotto_acquisti` | `cluster` | RDA da processare per azione con le ferme, fatture da lavorare per passo, contratti da chiudere | `reports.acquisti` |
+| `contratti_da_chiudere` | `cluster` | righe con motivo, fatturato e residui | `reports.acquisti.contratti_da_chiudere` |
+| `anomalie_esecuzione` | `cluster` | contratti e fatture con le anomalie, conteggi | `reports.acquisti.anomalie_esecuzione`, `conteggi_anomalie` |
+
+Tool esistenti estesi:
+- `contratto`: RDA d'origine, tipo d'acquisto, una tantum, RUP, CUP, chiusura;
+- `fabbisogno`: richieste di RDA;
+- `cerca`: anche RDA e fatture (numero, RdC, MAP, MIGO), come la ricerca globale;
+- `riferimenti`: richiedenti SAP, gruppi acquisti e gruppi merci attivi con il predefinito, tipi d'acquisto, scopi della RDA.
+
+Vincolo verificabile, come in §5: **per gli stessi filtri, `elenco_rda`, `contratti_da_chiudere` e `anomalie_esecuzione` danno gli stessi totali e conteggi della vista web e dell'export XLSX.**
+
+### 11.3 Strumenti di scrittura (gruppo E di §8.2, D14)
+
+Tutto il processo d'acquisto si fa dalla chat con anteprima e conferma (§8.1), **tranne gli import** (estrazione settimanale delle fatture, modello dell'esecuzione, Riepilogo, tabelle SAP), che restano solo nell'interfaccia come gli altri import (§8.2). Permessi come nell'interfaccia:
+- la RDA la modifica chi modifica nel suo cluster;
+- una fattura senza contratto la modificano chi la ha in carico, l'addetto e l'Admin; una fattura abbinata, chi modifica nel cluster del contratto;
+- la convalida la registrano chi ha la fattura in carico e l'Admin;
+- assegnare ad altri e riassegnare spetta all'Admin e all'addetto.
+
+| Area | Tool | Riusa | Effetti nell'anteprima |
+|---|---|---|---|
+| **RDA** | `crea_rda` (fabbisogno; scopo, contratto in scadenza e posizioni proposti dal fabbisogno se non indicati; `invia` sì/no) | `RichiestaForm`, `PosizioniFormSet`, `acquisti.proposta_richiesta`, `crea_richiesta`, `invia` | fase risultante, stato della pratica, testo della richiesta |
+| | `modifica_rda` (campi e posizioni: nuove o modificate, nessuna cancellazione; dopo l'invio è una correzione diretta, segnalata) | `salva_richiesta`, `correzione_diretta` | differenze, importo |
+| | `invia_rda`, `rimanda_rda` (nota), `annulla_rda` (motivo) | `acquisti.invia`, `rimanda`, `annulla` | fase e stato della pratica risultanti |
+| | `dati_sap_rda` (numero, inserimento, rilascio) | `DatiSapForm`, `aggiorna_dati_sap` | fase, stato della pratica, contratti con lo stesso n. RDA proposti |
+| | `registra_rda` (già in SAP, a mano) | `RdaManualeForm` | — |
+| | `collega_rda` (pratica, contratto generato, scollega) | `collega_pratica`, `collega_contratto`, `scollega_contratto` | stato della pratica |
+| | `registra_contratto_da_rda` | `ContrattoDaRdaForm`, `VociDaRdaFormSet`, `registra_contratto_da_rda` | contratto, voci e rate, predecessore, differenza dalla RDA, effetti di §8.1 (fine, data limite, budget, previsti) |
+| **Fatture** | `registra_fattura` (a mano; dal contratto già abbinata) | `FatturaForm`, `fatture.registra` | passo |
+| | `prendi_in_carico` (**più fatture**, D15), `segna_fuori_registro` (**più fatture**, sì/no) | `fatture.prendi_in_carico`, `segna_fuori_registro` | per ogni fattura: presa o rifiutata e perché |
+| | `assegna_ai_referenti_proposti` (**più fatture**; Admin e addetto) | `fatture.assegna_ai_proposti` | referente per fattura, quelle senza proposta |
+| | `lascia_fattura`, `riassegna_fattura` (Admin e addetto) | `fatture.lascia`, `riassegna` | — |
+| | `assegna_contratto_fattura` (contratto, voce; o scollega) | `ContrattoFatturaForm`, `fatture.assegna_contratto` | passo, fatturato e residuo del contratto |
+| | `convalida_fattura` (esito, nota, bloccata fino al) | `ConvalidaForm`, `fatture.convalida` | passo |
+| | `importi_fattura` (valore base, oneri, bollo, voce, rata) | `ImportiForm`, `fatture.aggiorna_importi` | `IMPORTO_NON_QUADRA`, fatturato e residuo, rata che diventa consuntivo, commento per PAC |
+| | `documento_fattura` (RdC, MAP, MIGO) | `DocumentoFatturaForm`, `fatture.registra_documento` | passo, commento per PAC |
+| | `trasferisci_fattura` (data; o annulla) | `TrasferimentoForm`, `fatture.trasferisci`, `annulla_trasferimento` | passo |
+| **Esecuzione** | `documento_esecuzione` (DDT, attestazione, modello di ricezione, finale) | `DocumentoEsecuzioneForm` | motivo «da chiudere» |
+| | `chiudi_contratto`, `annulla_chiusura` | `acquisti.chiudi`, `annulla_chiusura` | fase delle RDA, anomalie (`CHIUSO_SENZA_ATTESTAZIONE`) |
+
+**Operazioni su più fatture (D15)**: eccezione esplicita alla regola «un oggetto principale per operazione» (§8.2), solo per `prendi_in_carico`, `segna_fuori_registro` e `assegna_ai_referenti_proposti`:
+- al massimo 50 fatture per operazione;
+- l'anteprima elenca le fatture che passano e quelle rifiutate con il motivo;
+- la conferma applica solo le prime, in una transazione;
+- la versione di ogni fattura vale per la concorrenza: una fattura cambiata dopo l'anteprima rende la conferma rifiutata per intero.
+
+### 11.4 Rischi specifici
+
+- **Dati da SAP nei campi di testo**: nomi dei fornitori e numeri di fattura arrivano dall'estrazione settimanale. Sono testo di terzi, quindi la regola di §6 vale anche per loro.
+- **Operazioni multiple**: una richiesta mal interpretata («prendi tutte quelle di …») tocca più fatture in un colpo. Contromisure: limite di 50, anteprima che le elenca una per una, presa in carico solo per sé (assegnare ad altri è dell'Admin e dell'addetto), operazioni reversibili («lascia», «rimetti nel registro»).
+- **Testi per SAP e PAC**: il modello potrebbe riscriverli invece di copiarli. La descrizione dei tool chiede di riportarli tali e quali; il campo resta quello del server.
+
+### 11.5 Test e criteri di accettazione (F12)
+
+- Per ogni tool nuovo valgono §7 (lettura) e §8.4 (scrittura):
+  - Reader → 403 sulla scrittura;
+  - cluster non propri → 403 o «non trovato»;
+  - l'anteprima non scrive;
+  - equivalenza con la vista web (stesso stato del database, stessi errori);
+  - conferme scadute, ripetute o su oggetti cambiati gestite.
+- Casi ricostruiti via MCP:
+  - **TC-15**: fasi della RDA e stato della pratica;
+  - **TC-16**: esecuzione, residuo e chiusura;
+  - **TC-17**: `testo_richiesta` identico;
+  - **TC-18**: presa in carico multipla con il rifiuto «già in carico a …», referente proposto, convalida bloccata, commento per PAC identico.
+- `elenco_rda`, `contratti_da_chiudere` e `anomalie_esecuzione` uguali alla vista web e all'export XLSX.
+- Operazioni multiple: oltre 50 fatture → errore; conferma rifiutata per intero se una fattura è cambiata.
+- Nessun dato dei referenti oltre al nome; nessuna nota libera generica nelle risposte.
+- `ruff`, `pytest`, `makemigrations --check` puliti.
+
+### 11.6 Stima
+
+Circa quanto F10.1: la logica c'è già tutta in `contratti/acquisti.py`, `contratti/fatture.py` e `reports/acquisti.py`. Il grosso è nelle anteprime con gli effetti (fase, passo, residuo, commento per PAC dopo la modifica) e nei test di equivalenza per circa 25 tool di scrittura. Proposta in due sotto-fasi:
+- **F12.1**: lettura ed estensioni dei tool esistenti;
+- **F12.2**: scrittura.
 
 ## Fonti
 
