@@ -11,7 +11,7 @@ from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
-from contratti import acquisti, adapters, selettori, servizi
+from contratti import acquisti, adapters, fatture, selettori, servizi
 from contratti import models as m
 from contratti.engine.acquisti import Fase, MotivoChiusura
 from contratti.engine.tipi import Alert, Livello
@@ -96,11 +96,11 @@ def test_vincoli_posizioni_fatture_documenti():
     with pytest.raises(ValidationError):
         posizione.full_clean()
     c = f.contratto()
-    m.Fattura.objects.create(contratto=c, numero="FA-1", data=D(2026, 3, 1), imponibile=1)
+    m.Fattura.objects.create(contratto=c, numero="FA-1", data=D(2026, 3, 1), importo_documento=1)
     altro = f.contratto(fornitore=c.fornitore, fabbisogno=c.fabbisogno)
     _integrity(
         lambda: m.Fattura.objects.create(
-            contratto=altro, numero="FA-1", data=D(2026, 3, 2), imponibile=1
+            contratto=altro, numero="FA-1", data=D(2026, 3, 2), importo_documento=1
         )
     )
     _integrity(
@@ -308,9 +308,16 @@ def test_tc16_esecuzione_e_chiusura(f1, referente):
     voce = c.voci.get()
     rata = voce.piano_fatturazione.rate.get()
     m.DocumentoEsecuzione.objects.create(contratto=c, tipo="DDT", data=D(2026, 3, 10))
-    m.Fattura.objects.create(contratto=c, numero="FA-1", data=D(2026, 3, 15), imponibile=4000)
+    m.Fattura.objects.create(
+        contratto=c, numero="FA-1", data=D(2026, 3, 15), importo_documento=4000, valore_base=4000
+    )
     fa2 = m.Fattura.objects.create(
-        contratto=c, numero="FA-2", data=D(2026, 4, 20), imponibile=5000, rata=rata
+        contratto=c,
+        numero="FA-2",
+        data=D(2026, 4, 20),
+        importo_documento=5000,
+        valore_base=5000,
+        rata=rata,
     )
     fa2.full_clean()
     riepilogo = acquisti.riepilogo_esecuzione(c, D(2026, 4, 25))
@@ -324,7 +331,9 @@ def test_tc16_esecuzione_e_chiusura(f1, referente):
     assert acquisti.riepilogo_esecuzione(c, D(2026, 4, 30)).motivo_da_chiudere == (
         MotivoChiusura.FATTURE_MANCANTI
     )
-    m.Fattura.objects.create(contratto=c, numero="FA-3", data=D(2026, 5, 5), imponibile=3500)
+    m.Fattura.objects.create(
+        contratto=c, numero="FA-3", data=D(2026, 5, 5), importo_documento=3500, valore_base=3500
+    )
     riepilogo = acquisti.riepilogo_esecuzione(c, D(2026, 5, 6))
     assert riepilogo.motivo_da_chiudere == MotivoChiusura.PRONTO
     assert riepilogo.anomalie == ["FATTURATO_OLTRE_MASSIMO"]
@@ -567,22 +576,24 @@ def test_lavorazione_della_fattura_rev14(referente):
 
     c = f.contratto()
     fa = m.Fattura.objects.create(
-        contratto=c, numero="FA-1", data=D(2026, 3, 1), imponibile=100,
-        data_registrazione=D(2026, 3, 1),
+        contratto=c, numero="FA-1", data=D(2026, 3, 1), importo_documento=100,
+        data_registrazione=D(2026, 3, 1), referente=referente,
+        data_presa_in_carico=D(2026, 3, 1), esito_convalida="convalidabile",
+        data_convalida=D(2026, 3, 1),
     )  # fmt: skip
-    assert acquisti.documento_proposto(fa) == "MAP"
-    assert acquisti.passo_fattura(fa, D(2026, 3, 2)) == PassoFattura.RDC
+    assert fatture.documento_proposto(fa) == "MAP"
+    assert fatture.passo_fattura(fa, D(2026, 3, 2)) == PassoFattura.RDC
     m.DocumentoEsecuzione.objects.create(
         contratto=c, tipo="ODA_RDC", data=D(2026, 3, 5), fattura=fa
     )
-    assert acquisti.passo_fattura(fa, D(2026, 3, 6)) == PassoFattura.MAP_MIGO
+    assert fatture.passo_fattura(fa, D(2026, 3, 6)) == PassoFattura.MAP_MIGO
     m.DocumentoEsecuzione.objects.create(contratto=c, tipo="MAP", data=D(2026, 3, 18), fattura=fa)
-    assert acquisti.passo_fattura(fa, D(2026, 3, 19)) == PassoFattura.TRASFERIMENTO
-    acquisti.trasferisci(fa, referente, D(2026, 3, 20))
-    assert acquisti.passo_fattura(fa, D(2026, 3, 21)) is None
+    assert fatture.passo_fattura(fa, D(2026, 3, 19)) == PassoFattura.TRASFERIMENTO
+    fatture.trasferisci(fa, referente, D(2026, 3, 20))
+    assert fatture.passo_fattura(fa, D(2026, 3, 21)) is None
     with pytest.raises(acquisti.OperazioneNonAmmessa):
-        acquisti.trasferisci(fa, referente)
+        fatture.trasferisci(fa, referente)
     c.tipo_acquisto = m.Contratto.TipoAcquisto.FORNITURA
     c.save()
     fa.refresh_from_db()
-    assert acquisti.documento_proposto(fa) == "MIGO"
+    assert fatture.documento_proposto(fa) == "MIGO"

@@ -78,7 +78,7 @@ def dati():
     m.PosizioneRDA.objects.create(rda=rda, numero=1, descrizione_breve="Prova", importo_unitario=1)
     m.EventoRDA.objects.create(rda=rda, tipo="invio", data=D(2026, 9, 1))
     fattura = m.Fattura.objects.create(
-        contratto=c, numero="FA-PROVA", data=D(2026, 3, 1), imponibile=Decimal("100")
+        contratto=c, numero="FA-PROVA", data=D(2026, 3, 1), importo_documento=Decimal("100")
     )
     m.DocumentoEsecuzione.objects.create(
         contratto=c, tipo="MAP", data=D(2026, 3, 5), fattura=fattura

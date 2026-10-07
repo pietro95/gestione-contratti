@@ -151,3 +151,17 @@ def scelte_filtro(user) -> list[tuple[str, str]]:
         scelte.append((MIEI, "I miei cluster (" + ", ".join(c.codice for c in propri) + ")"))
     scelte.append((TUTTI, "Tutti i cluster"))
     return scelte + m.scelte_cluster()
+
+
+def e_addetto(user) -> bool:
+    """Ha la funzione «Amministrazione acquisti» (SPEC §8.1, Rev13)? Non dà permessi da sola."""
+    cache = getattr(user, "_e_addetto", None)
+    if cache is None:
+        nome = (getattr(user, "username", "") or "").strip().lower()
+        cache = m.FunzioneUtente.objects.filter(
+            username__iexact=nome,
+            funzione=m.FunzioneUtente.Funzione.AMMINISTRAZIONE_ACQUISTI,
+            archiviato=False,
+        ).exists()
+        user._e_addetto = cache
+    return cache
