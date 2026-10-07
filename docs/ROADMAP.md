@@ -624,3 +624,33 @@ convalida → RdC → MAP/MIGO → trasferimento → chiusura»; TC-16, TC-18.
 **Accettazione:** i totali delle viste sulle fixture coincidono con il motore (test); export
 e PDF con i filtri in evidenza come in F9.5.4; import completo della fixture senza eccezioni,
 report con tutte le anomalie note (SPEC §2.3), idempotenza.
+
+## F12 — Connettore MCP per il processo d'acquisto
+
+Rev00: bozza da approvare. Decisioni di Pietro del 07/10/2026 (`docs/SPEC_MCP.md` Rev08 §11,
+D14–D17). Il connettore copre richieste di RDA, fatture, esecuzione e chiusura e le quattro
+viste della release 2.0, con le regole di F10 (lettura) e F10.1 (anteprima e conferma).
+
+### F12.1 — Lettura
+
+- Tool `rda`, `elenco_rda`, `fattura`, `elenco_fatture`, `esecuzione`,
+  `cruscotto_acquisti`, `contratti_da_chiudere`, `anomalie_esecuzione` (SPEC_MCP §11.2).
+- Estensioni di `contratto`, `fabbisogno`, `cerca`, `riferimenti`.
+- Nome dei referenti (D16), testi per SAP e PAC in campi propri (D17), testi del flusso in
+  campi distinti.
+
+**Accettazione:** SPEC_MCP §7 e §11.5; TC-15, TC-16, TC-17 (`testo_richiesta`), TC-18
+(commento per PAC) via MCP; totali e conteggi uguali alla vista web e all'export XLSX.
+
+### F12.2 — Scrittura
+
+- Tool del gruppo E (SPEC_MCP §11.3): RDA, contratto dalla RDA, fatture, documenti di
+  esecuzione, chiusura; tutto tranne gli import (D14).
+- Operazioni su più fatture per presa in carico, fuori registro e assegnazione ai proposti,
+  al massimo 50, con anteprima per fattura (D15).
+- Anteprima con gli effetti: fase della RDA, stato della pratica, passo della fattura, fatturato
+  e residuo, commento per PAC risultante, effetti di F10.1 per il contratto dalla RDA.
+
+**Accettazione:** SPEC_MCP §8.4 e §11.5; per ogni tool Reader 403 ed equivalenza con
+l'interfaccia; TC-18 ricostruito via MCP (presa in carico multipla, rifiuto «già in carico»,
+convalida bloccata, commento per PAC).
