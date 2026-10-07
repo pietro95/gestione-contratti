@@ -409,7 +409,7 @@ Regole di dettaglio per la release 2.0 (Rev11):
 - **Dati esistenti**: il n. RDA già registrato sui contratti diventa una RDA collegata come RDA d'origine (data migration), senza date, con il cluster del fabbisogno del contratto e senza referente (Rev13); il testo originale resta nelle note se non è un numero valido.
 
 Import dall'interfaccia (Gestione → Import), con lo stesso codice dei comandi da riga di comando:
-- tipi: Excel dei contratti, date di emissione (estrazione SAP), piano dei conti, struttura dell'ufficio (cluster, responsabili, conti, WBS, dal modello `2026.10.02_PFE_Modello_import_struttura_ICTDINN_Rev00`), quadratura con l'Excel;
+- tipi: Excel dei contratti, date di emissione (estrazione SAP), piano dei conti, struttura dell'ufficio (cluster, responsabili, conti, WBS, dal modello `GestioneContratti_ModelloImport_Struttura`), quadratura con l'Excel;
 - carica → anteprima senza scritture (conteggi, anomalie, report) → conferma entro 24 ore, una sola volta, da chi ha caricato il file o da un Admin; registro degli import con file, hash, utente ed esito;
 - permessi: contratti, date e quadratura per Admin ed Editor, che importano solo nei propri cluster; piano dei conti e struttura solo Admin;
 - import della struttura: tutto o niente, idempotente, nessuna cancellazione di conti e WBS (si dismettono con fine validità o "non attiva"); il foglio Responsabili, se compilato, è l'elenco completo delle assegnazioni.

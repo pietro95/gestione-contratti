@@ -1,6 +1,6 @@
 """Struttura dell'ufficio ICTDINN (F9.2): cluster, responsabili, piano dei conti e WBS.
 
-Modello ``2026.10.02_PFE_Modello_import_struttura_ICTDINN_Rev00`` (fogli Cluster,
+Modello ``GestioneContratti_ModelloImport_Struttura`` (fogli Cluster,
 Responsabili, Conti, WBS; il foglio Istruzioni e la colonna «Controllo» si ignorano).
 
 - Tutto o niente: un errore su una riga blocca il file, nulla è scritto.

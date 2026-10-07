@@ -170,5 +170,5 @@ def importazione_modello(request, tipo):
     tipo = _tipo(tipo)
     if tipo.modello is None or not imp_svc.puo_usare(request.user, tipo):
         raise Http404
-    nome = tipo.nome_modello or f"Modello_import_{tipo.codice}.xlsx"
+    nome = f"GestioneContratti_ModelloImport_{tipo.oggetti_modello or tipo.codice}.xlsx"
     return xlsx.risposta(tipo.modello(), nome)

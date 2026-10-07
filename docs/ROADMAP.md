@@ -311,7 +311,7 @@ Rev02: realizzata (v1.5.0). Rev01: risposte di Pietro del 02/10/2026.
 - Piano ordini: di default solo i propri cluster, come le altre viste.
 - Import: gli Editor importano contratti e date solo nei propri cluster; l'import della
   struttura (cluster, responsabili, conti, WBS) è solo Admin, con il modello
-  `2026.10.02_PFE_Modello_import_struttura_ICTDINN_Rev00` (fogli Cluster, Responsabili,
+  `GestioneContratti_ModelloImport_Struttura` (fogli Cluster, Responsabili,
   Conti, WBS), accettato da Pietro.
 
 **Quota CAPEX e quota OPEX nello stesso contratto (nota del 02/10/2026, da decidere)**
