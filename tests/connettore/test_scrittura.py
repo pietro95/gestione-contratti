@@ -11,7 +11,10 @@ from accounts.roles import ADMIN, EDITOR, READER
 from connettore import protocollo
 from connettore.models import OperazioneMCP
 from connettore.strumenti import STRUMENTI, Contesto
+from connettore.strumenti.operazione import NOMI_VISTE
 from contratti import models as m
+from contratti.engine.tipi import Livello
+from reports.budget import VISTE, Filtri, calcola_budget
 from tests import factories as f
 
 pytestmark = pytest.mark.django_db
@@ -150,6 +153,61 @@ def test_anteprima_con_effetti_calcolati(editor, contratto_in_alert):
     (contratto,) = fab["contratti"]
     assert contratto["prima"]["pratica"] == "Non avviata"
     assert contratto["dopo"]["pratica"] == "Offerta richiesta"
+
+
+def budget_probabile(cluster: str, anno: int) -> dict:
+    """Budget del cluster al livello probabile, calcolato come la vista web."""
+    b = calcola_budget(Filtri(anno=anno, area=(cluster,)), OGGI)
+    return {
+        (s.filtri.natura, vista): s.totali()["totale"][vista][Livello.PROBABILE]
+        for s in b.sezioni()
+        for vista in VISTE
+    }
+
+
+def test_nuovo_fabbisogno_vuoto_non_sposta_il_budget(editor, contratto_in_alert):
+    """Il «prima» è il budget attuale del cluster, non zero: un fabbisogno senza contratti
+    né previsti non cambia nulla (errore visto in produzione il 07/10/2026)."""
+    cluster = contratto_in_alert.fabbisogno.cluster.codice
+    assert any(budget_probabile(cluster, 2026).values())  # il cluster ha già un budget
+    dati = ok(ctx(editor), "crea_fabbisogno", {"descrizione": "Nuovo servizio", "cluster": cluster})
+    assert dati["effetti"]["budget_livello_probabile"] == []
+    (fab,) = dati["effetti"]["fabbisogni"]
+    assert fab["nuovo"] is True
+
+
+def test_budget_prima_e_dopo_sono_quelli_del_cluster(editor, contratto_in_alert):
+    c = contratto_in_alert
+    cluster = c.fabbisogno.cluster.codice
+    attuale = budget_probabile(cluster, 2026)
+    dati = ok(ctx(editor), "archivia", {"tipo": "contratto", "id": c.pk})
+    righe = [r for r in dati["effetti"]["budget_livello_probabile"] if r["anno"] == 2026]
+    assert righe
+    for r in righe:
+        assert r["cluster"] == cluster
+        assert Decimal(r["prima"]) != 0
+        chiave = next(k for k in attuale if k[0] == r["natura"] and NOMI_VISTE[k[1]] == r["vista"])
+        assert Decimal(r["prima"]) == attuale[chiave]
+        assert Decimal(r["dopo"]) == Decimal(r["prima"]) + Decimal(r["differenza"])
+
+
+def test_fabbisogno_spostato_di_cluster(editor, contratto_in_alert):
+    """Il budget esce da un cluster ed entra nell'altro: tutti e due con il loro «prima»."""
+    fab = contratto_in_alert.fabbisogno
+    f.cluster("TLC")
+    origine = budget_probabile("IT", 2026)
+    dati = ok(ctx(editor), "modifica_fabbisogno", {"id": fab.pk, "cluster": "TLC"})
+    righe = [r for r in dati["effetti"]["budget_livello_probabile"] if r["anno"] == 2026]
+    assert {r["cluster"] for r in righe} == {"IT", "TLC"}
+    for r in righe:
+        if r["cluster"] == "IT":
+            chiave = next(
+                k for k in origine if k[0] == r["natura"] and NOMI_VISTE[k[1]] == r["vista"]
+            )
+            assert Decimal(r["prima"]) == origine[chiave] != 0
+            assert Decimal(r["dopo"]) == 0
+        else:
+            assert Decimal(r["prima"]) == 0 and Decimal(r["dopo"]) != 0
 
 
 def test_anteprima_di_dati_non_validi(editor):

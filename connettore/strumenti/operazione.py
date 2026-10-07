@@ -196,16 +196,30 @@ def _fabbisogno_di(record) -> int | None:
     return None
 
 
-def _stato(fabbisogni: set[int], oggi: datetime.date) -> dict:
-    """Date, alert e previsti dei fabbisogni toccati; budget dei loro cluster."""
+def _cluster_toccati(fabbisogni: set[int], registrati: list) -> set[str]:
+    """Cluster dei fabbisogni toccati, prima e dopo l'operazione (dentro la transazione).
+
+    Il budget si confronta su questo insieme in tutti e due gli stati: un fabbisogno creato
+    dall'operazione non esiste più dopo l'annullamento, e uno spostato di cluster cambia
+    cluster tra i due stati.
+    """
+    cluster = set(
+        m.Fabbisogno.objects.filter(pk__in=fabbisogni).values_list("cluster__codice", flat=True)
+    )
+    for record in registrati:
+        if record.instance_type is m.Fabbisogno and record.prev_record is not None:
+            cluster.add(record.prev_record.cluster.codice)
+    return cluster
+
+
+def _stato(fabbisogni: set[int], cluster: set[str], oggi: datetime.date) -> dict:
+    """Date, alert e previsti dei fabbisogni toccati; budget dei cluster indicati."""
     stato = {"fabbisogni": {}, "budget": {}}
-    cluster = set()
     with adapters.parametri_in_cache():
         for pk in sorted(fabbisogni):
             f = m.Fabbisogno.objects.select_related("cluster").filter(pk=pk).first()
             if f is None:
                 continue
-            cluster.add(f.cluster.codice)
             righe = selettori.righe_contratti(
                 selettori.contratti_base().filter(fabbisogno=f, archiviato=False), oggi
             )
@@ -303,12 +317,13 @@ def anteprima(ctx: Contesto, scrittura: Scrittura, argomenti: dict) -> dict:
             with esecuzione(ctx.utente, f"MCP {scrittura.nome} anteprima") as es:
                 risultato = scrittura.applica(ctx, argomenti)
             fabbisogni = {f for f in map(_fabbisogno_di, es.registrati) if f}
-            dopo = _stato(fabbisogni, ctx.oggi)
+            cluster = _cluster_toccati(fabbisogni, es.registrati)
+            dopo = _stato(fabbisogni, cluster, ctx.oggi)
             modifiche = _modifiche(es.registrati)
             transaction.set_rollback(True)  # l'anteprima non scrive niente
     except ERRORI_DI_DOMINIO as exc:
         raise ErroreTool(f"Operazione non ammessa (nessuna modifica): {_messaggio(exc)}") from None
-    prima = _stato(fabbisogni, ctx.oggi)
+    prima = _stato(fabbisogni, cluster, ctx.oggi)
     adesso = timezone.now()
     # Solo gli oggetti già esistenti: quelli creati nell'anteprima non esistono ancora.
     esistenti = [o for o in risultato.get("oggetti", []) if _esiste(o)]
