@@ -185,7 +185,7 @@ Rev00: note raccolte dal responsabile del progetto dopo il primo uso in produzio
 
 **Accettazione:**
 - test verdi, compresi quelli nel browser sulle nuove pagine (accessibilità, flusso Sposta);
-- Pietro: data di emissione caricata da SAP sui contratti reali, un accorpamento e uno
+- Responsabile del progetto: data di emissione caricata da SAP sui contratti reali, un accorpamento e uno
   spostamento sui dati reali, budget OPEX e CAPEX confrontati con le attese.
 
 ## F9.1 — Import dall'interfaccia
@@ -544,7 +544,7 @@ delle tabelle SAP).
 - Configurazione: richiedenti SAP, gruppi merci, gruppi acquisti (ciascuno con al più un
   predefinito), cartella base delle RDA per cluster, funzione «Amministrazione acquisti» per utente (anche
   nell'import della struttura: rinviato, il modello della struttura è approvato e non si
-  tocca senza Pietro; per ora dall'amministrazione); parametri «RDA ferma» (30 giorni) e «fattura ferma» (15
+  modifica senza approvazione formale; per ora dall'amministrazione); parametri «RDA ferma» (30 giorni) e «fattura ferma» (15
   giorni), provvisori.
 - Data migration: il n. RDA dei contratti diventa una RDA collegata (SPEC §7).
 - Import delle tabelle SAP da Excel (richiedenti, gruppi merci, gruppi acquisti), solo Admin,
