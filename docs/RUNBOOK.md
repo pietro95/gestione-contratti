@@ -151,7 +151,7 @@ L'app si fida dei domain controller tramite il certificato **pubblico** della CA
 
 ## 4. Primo avvio
 
-La versione da installare è un tag git (lo crea Pietro su GitHub: Releases → Draft a new
+La versione da installare è un tag git (creato dal responsabile del rilascio su GitHub: Releases → Draft a new
 release, oppure `git tag v1.0 && git push origin v1.0`).
 
 ```bash
@@ -266,7 +266,7 @@ Se LDAPS non è ancora pronto (§3.1), l'app parte con gli account locali:
    ./manage.sh createsuperuser
    ```
 3. Da Amministrazione → Utenti crea gli account dei colleghi:
-   - **nome utente identico a quello di dominio** (il sAMAccountName, in minuscolo, es. `pverro`);
+   - **nome utente identico a quello di dominio** (il sAMAccountName, in minuscolo, es. `mrossi`);
    - il gruppo **Admin**, **Editor** o **Reader**.
 4. Quando LDAPS è pronto:
    1. imposta `LDAP_SERVER_URI=ldaps://<dc>:636` e le altre variabili `LDAP_*`;
