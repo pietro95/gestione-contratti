@@ -198,6 +198,31 @@
     });
   }
 
+  // Selezione multipla (fatture): la casella data-seleziona-tutte="nome" spunta o toglie
+  // tutte le caselle con quel nome; il contatore data-selezionate="nome" mostra quante sono.
+  function selezioni(radice) {
+    radice.querySelectorAll("[data-seleziona-tutte]").forEach(function (tutte) {
+      if (tutte._selezione) return;
+      tutte._selezione = true;
+      var nome = tutte.dataset.selezionaTutte;
+      var caselle = function () { return document.querySelectorAll('input[type=checkbox][name="' + nome + '"]'); };
+      var aggiorna = function () {
+        var n = Array.prototype.filter.call(caselle(), function (c) { return c.checked; }).length;
+        document.querySelectorAll('[data-selezionate="' + nome + '"]').forEach(function (el) {
+          el.textContent = n === 1 ? "1 selezionata" : n + " selezionate";
+        });
+        tutte.checked = n > 0 && n === caselle().length;
+        tutte.indeterminate = n > 0 && n < caselle().length;
+      };
+      tutte.addEventListener("change", function () {
+        caselle().forEach(function (c) { c.checked = tutte.checked; });
+        aggiorna();
+      });
+      caselle().forEach(function (c) { c.addEventListener("change", aggiorna); });
+      aggiorna();
+    });
+  }
+
   function inizializza(radice) {
     tendine(radice);
     cluster(radice);
@@ -206,6 +231,7 @@
     scorrimenti(radice);
     copie(radice);
     formset(radice);
+    selezioni(radice);
   }
 
   document.addEventListener("DOMContentLoaded", function () {

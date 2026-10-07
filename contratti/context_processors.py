@@ -18,6 +18,9 @@ def navigazione(request):
         "puo_importare": can_write(user),
         "connettore_attivo": bool(settings.MCP_URL_PUBBLICO),
         "proposte_aperte": aperte,
+        "fatture_da_prendere": m.Fattura.objects.filter(
+            referente__isnull=True, fuori_registro=False, archiviato=False
+        ).count(),
         "piani_da_verificare": selettori.voci_piano_da_verificare(
             permessi.codici_filtro(user, [])
         ).count(),

@@ -28,6 +28,7 @@ from contratti.importer import modello_struttura as modello_struttura_rev00
 from contratti.importer.carica import importa as importa_excel
 from contratti.importer.conti import importa_conti
 from contratti.importer.date_emissione import importa_date
+from contratti.importer.fatture import importa_fatture
 from contratti.importer.report import Report
 from contratti.importer.struttura import importa_struttura
 from contratti.importer.tabelle import FileNonValido
@@ -99,6 +100,10 @@ def _struttura(percorso, dry_run, opzioni):
 
 def _tabelle_sap(percorso, dry_run, opzioni):
     return serializza(importa_tabelle_sap(percorso, dry_run=dry_run)), None
+
+
+def _fatture(percorso, dry_run, opzioni):
+    return serializza(importa_fatture(percorso, dry_run=dry_run)), None
 
 
 def _quadratura(percorso, dry_run, opzioni):
@@ -199,6 +204,28 @@ def modello_tabelle_sap() -> Workbook:
             "proporre il gruppo merci.",
             "Un errore (due predefiniti, codici ripetuti, categoria inesistente) annulla il file.",
             "Esempio (fittizio): 999901 | Ufficio di prova | sì",
+        ],
+    )
+
+
+def modello_fatture() -> Workbook:
+    return _modello(
+        [
+            (
+                "Fatture",
+                ["Fornitore", "Numero Documento", "Data", "Importo SAP"],
+                {"Fornitore", "Numero Documento", "Data", "Importo SAP"},
+            )
+        ],
+        [
+            "Fatture dall'estrazione SAP settimanale",
+            "Si legge il primo foglio; l'intestazione è la riga con «Fornitore» e «Numero "
+            "Documento» (sopra può esserci la riga di revisione). Le altre colonne si ignorano.",
+            "Fornitore: ragione sociale o nome breve come in anagrafica. Data gg.mm.aaaa, "
+            "gg.mm.aa o gg/mm/aaaa. Importo SAP: importo del documento.",
+            "Le fatture entrano da prendere in carico, senza contratto; una fattura già "
+            "registrata (stesso fornitore e numero) non si duplica e non si modifica.",
+            "Esempio (fittizio): Fornitore Prova A S.r.l. | FA-1/2026 | 04.09.2026 | 1220",
         ],
     )
 
@@ -329,6 +356,26 @@ TIPI: dict[str, Tipo] = {
             },
             solo_admin=True,
             modello=modello_tabelle_sap,
+        ),
+        Tipo(
+            "fatture",
+            "Fatture (estrazione SAP)",
+            "Import settimanale delle fatture: entrano da prendere in carico, con il contratto "
+            "e il referente proposti.",
+            (".xlsx", ".xlsm"),
+            _fatture,
+            {
+                "righe_lette": "Righe lette",
+                "create": "Fatture create",
+                "gia_presenti": "Già registrate",
+                "non_importate": "Non importate",
+                "con_contratto_proposto": "Con contratto proposto",
+            },
+            modello=modello_fatture,
+            note=[
+                "Dopo la conferma le fatture sono in «Fatture da prendere in carico», visibili a "
+                "tutti.",
+            ],
         ),
         Tipo(
             "quadratura",

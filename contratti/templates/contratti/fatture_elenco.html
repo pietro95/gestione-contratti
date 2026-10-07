@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load registro %}
+{% block title %}{{ titolo_vista }}{% endblock %}
+{% block titolo_pagina %}Fatture{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">Le fatture arrivano dall'import settimanale (Gestione → Import) senza referente: chi le prende in carico le abbina al contratto, le convalida e le segue fino al trasferimento.</div>{% endblock %}
+{% block azioni %}{% if scrive %}<a class="btn btn-outline-primary" href="{% url 'contratti:fattura_nuova' %}"><i class="bi bi-receipt" aria-hidden="true"></i> Registra una fattura</a>{% endif %}{% endblock %}
+{% block content %}
+<ul class="nav nav-pills mb-3" aria-label="Viste">
+  {% for chiave, titolo in viste.items %}
+  <li class="nav-item"><a class="nav-link{% if chiave == vista %} active{% endif %}" {% if chiave == vista %}aria-current="page"{% endif %} href="?vista={{ chiave }}">{{ titolo }}{% if chiave == "da_prendere" and da_prendere %} <span class="badge text-bg-light">{{ da_prendere }}</span>{% endif %}</a></li>
+  {% endfor %}
+</ul>
+
+<form method="get" class="filtri">
+  <input type="hidden" name="vista" value="{{ vista }}">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-6 col-xl-4"><label class="form-label" for="f-q">Cerca</label><input id="f-q" type="search" name="q" value="{{ filtri.q }}" class="form-control" placeholder="Numero, fornitore, n. contratto, RdC, MAP/MIGO"></div>
+    {% if vista == "da_prendere" %}
+    <div class="col-sm-6 col-xl-4">
+      <input type="hidden" name="proposte" value="0">
+      <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="proposte" value="1" id="f-proposte" {% if solo_proposte %}checked{% endif %}><label class="form-check-label" for="f-proposte">Solo le proposte a me{% if proposte_a_me %} ({{ proposte_a_me }}){% endif %}</label></div>
+    </div>
+    {% else %}
+    <div class="col-sm-4 col-xl-3"><label class="form-label" for="f-passo">Passo</label><select id="f-passo" name="passo" class="form-select"><option value="">Tutti</option>{% for v, t in passi %}<option value="{{ v }}" {% if filtri.passo == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+    {% if vista == "tutte" %}
+    <div class="col-sm-4 col-xl-3">
+      <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="fuori_registro" value="1" id="f-fuori" {% if filtri.fuori_registro %}checked{% endif %}><label class="form-check-label" for="f-fuori">Includi le fuori registro</label></div>
+      <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="archiviate" value="1" id="f-arch" {% if filtri.archiviate %}checked{% endif %}><label class="form-check-label" for="f-arch">Includi le archiviate</label></div>
+    </div>
+    {% endif %}
+    {% endif %}
+  </div>
+  <button class="btn btn-primary mt-3" type="submit">Applica</button>
+</form>
+{% include "contratti/_filtri_attivi.html" %}
+
+{% if vista == "da_prendere" and solo_proposte %}<p class="small text-body-secondary">Sono mostrate solo le fatture proposte a te ({{ totale }}). Togli «Solo le proposte a me» per vederle tutte.</p>{% endif %}
+
+<form method="post" action="{% url 'contratti:fatture_azione' %}">
+{% csrf_token %}
+<input type="hidden" name="ritorno" value="{{ vista }}">
+{% with selezione=scrive %}
+{% if selezione and vista != "mie" %}
+<div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+  <span class="small text-body-secondary" data-selezionate="fattura" aria-live="polite">0 selezionate</span>
+  {% if vista == "da_prendere" %}<button class="btn btn-primary btn-sm" type="submit" name="azione" value="prendi"><i class="bi bi-person-check" aria-hidden="true"></i> Prendi in carico</button>{% endif %}
+  {% if gestisce and vista == "da_prendere" %}<button class="btn btn-outline-primary btn-sm" type="submit" name="azione" value="assegna_proposti"><i class="bi bi-people" aria-hidden="true"></i> Assegna ai referenti proposti</button>{% endif %}
+  <button class="btn btn-outline-secondary btn-sm" type="submit" name="azione" value="fuori_registro" data-conferma="Le fatture selezionate escono dalle viste di lavorazione. Si può tornare indietro dalla fattura." data-conferma-etichetta="Fuori registro"><i class="bi bi-slash-circle" aria-hidden="true"></i> Fuori registro</button>
+</div>
+{% endif %}
+<div class="tabella-card">
+<div class="table-responsive">
+<table class="table table-hover align-middle">
+  <thead><tr>
+    {% if selezione and vista != "mie" %}<th scope="col"><input class="form-check-input" type="checkbox" data-seleziona-tutte="fattura" aria-label="Seleziona tutte"></th>{% endif %}
+    <th>Fattura</th><th>Fornitore</th><th class="text-end">Importo</th>
+    <th>{% if vista == "da_prendere" %}Contratto proposto{% else %}Contratto{% endif %}</th>
+    <th>{% if vista == "da_prendere" %}Referente proposto{% else %}Passo{% endif %}</th>
+    <th>Registrata</th>
+  </tr></thead>
+  <tbody>
+  {% for r in pagina %}{% url 'contratti:fattura' r.f.pk as link %}
+    <tr data-href="{{ link }}"{% if r.f.archiviato or r.f.fuori_registro %} class="text-body-secondary"{% endif %}>
+      {% if selezione and vista != "mie" %}<td><input class="form-check-input" type="checkbox" name="fattura" value="{{ r.f.pk|stringformat:"d" }}" id="sel-{{ r.f.pk|stringformat:"d" }}" aria-label="Seleziona la fattura {{ r.f.numero }}"></td>{% endif %}
+      <td><a href="{{ link }}" class="fw-semibold">{{ r.f.numero }}</a><div class="small text-body-secondary">del {{ r.f.data|date:"d/m/Y" }}{% if r.f.fuori_registro %} · fuori registro{% endif %}{% for a in r.anomalie %} · <span class="text-warning-emphasis">{{ a }}</span>{% endfor %}</div></td>
+      <td>{{ r.f.fornitore.nome_breve|default:r.f.fornitore.ragione_sociale }}</td>
+      <td class="text-end">{{ r.f.importo_documento|euro }}{% if r.f.valore_base is not None %}<div class="small text-body-secondary">base {{ r.f.valore_base|euro }}</div>{% endif %}</td>
+      <td>{% if r.f.contratto %}<a href="{% url 'contratti:contratto' r.f.contratto.pk %}">{% include "contratti/_contratto_breve.html" with x=r.f.contratto %}</a>{% elif r.contratto_proposto %}{% include "contratti/_contratto_breve.html" with x=r.contratto_proposto %} <span class="small text-body-secondary">(proposto)</span>{% else %}<span class="text-body-secondary">da assegnare</span>{% endif %}</td>
+      <td>{% if vista == "da_prendere" %}{% if r.referente_proposto %}{{ r.referente_proposto.get_full_name|default:r.referente_proposto.username }}{% if r.referente_proposto == user %} <span class="stato stato-blu">tu</span>{% endif %}{% else %}<span class="text-body-secondary">senza referente proposto</span>{% endif %}{% else %}{{ r.passo|passo_badge }}{% if r.f.referente %}<div class="small text-body-secondary">{{ r.f.referente.get_full_name|default:r.f.referente.username }}</div>{% endif %}{% endif %}</td>
+      <td class="text-nowrap">{{ r.f.data_registrazione|date:"d/m/Y" }}<div class="small {% if r.ferma %}text-danger fw-semibold{% else %}text-body-secondary{% endif %}">{{ r.giorni }} giorni{% if r.ferma %} · ferma{% endif %}</div></td>
+    </tr>
+  {% empty %}<tr><td colspan="7"><div class="vuoto"><i class="bi bi-inbox" aria-hidden="true"></i>{% if vista == "da_prendere" %}Nessuna fattura da prendere in carico.{% elif vista == "mie" %}Nessuna fattura in carico a te da lavorare.{% else %}Nessuna fattura con questi filtri.{% endif %}</div></td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "contratti/_paginazione.html" %}
+</div>
+{% endwith %}
+</form>
+{% endblock %}

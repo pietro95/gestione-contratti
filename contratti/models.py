@@ -1476,19 +1476,30 @@ class EventoRDA(models.Model):
 
 
 class Fattura(Archiviabile):
-    """Fattura del fornitore registrata sul contratto (SPEC §4, Rev11–Rev13).
+    """Fattura del fornitore (SPEC §4, Rev11–Rev15).
 
-    Il fornitore è quello del contratto, copiato qui per il vincolo «stesso numero dello
-    stesso fornitore una volta sola».
+    Entra dall'import settimanale senza referente e senza contratto: la prende in carico un
+    referente, la abbina al contratto e la convalida; poi RdC → MAP/MIGO → trasferimento.
+    Se c'è il contratto, il fornitore è il suo.
     """
 
-    contratto = models.ForeignKey(Contratto, on_delete=models.PROTECT, related_name="fatture")
-    fornitore = models.ForeignKey(
-        Fornitore, on_delete=models.PROTECT, related_name="fatture", editable=False
+    class Esito(models.TextChoices):
+        DA_VALUTARE = "da_valutare", "Da valutare"
+        CONVALIDABILE = "convalidabile", "Convalidabile"
+        NON_CONVALIDABILE = "non_convalidabile", "Non convalidabile"
+        IN_ATTESA = "in_attesa", "In attesa"
+
+    contratto = models.ForeignKey(
+        Contratto, on_delete=models.PROTECT, null=True, blank=True, related_name="fatture"
     )
-    numero = models.CharField(max_length=40)
+    fornitore = models.ForeignKey(Fornitore, on_delete=models.PROTECT, related_name="fatture")
+    numero = models.CharField(max_length=60)
     data = models.DateField()
-    imponibile = importo("imponibile")
+    # Rev15: l'«Importo SAP» dell'estrazione; il residuo del contratto usa il valore base.
+    importo_documento = importo("importo del documento")
+    valore_base = importo("valore base prelevato dal contratto", null=True, blank=True)
+    oneri = importo("oneri previdenziali", null=True, blank=True)
+    bollo = importo("bollo", null=True, blank=True)
     voce = models.ForeignKey(
         VoceContratto, on_delete=models.PROTECT, null=True, blank=True, related_name="fatture"
     )
@@ -1499,6 +1510,26 @@ class Fattura(Archiviabile):
         blank=True,
         related_name="fattura",
         help_text="Rata dello scadenzario a cui corrisponde.",
+    )
+    # Presa in carico (Rev15): chi la lavora come referente.
+    referente = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="fatture_in_carico",
+        verbose_name="in carico a",
+    )
+    data_presa_in_carico = models.DateField("presa in carico il", null=True, blank=True)
+    # Convalida del referente (Rev15).
+    esito_convalida = models.CharField(
+        "esito della convalida", max_length=20, choices=Esito.choices, default=Esito.DA_VALUTARE
+    )
+    nota_convalida = models.TextField("nota della convalida", blank=True)
+    bloccata_fino_al = models.DateField(null=True, blank=True)
+    data_convalida = models.DateField("esito registrato il", null=True, blank=True)
+    fuori_registro = models.BooleanField(
+        default=False, help_text="Non riguarda il registro: resta fuori dalle viste di lavorazione."
     )
     data_registrazione = models.DateField("registrata il", default=timezone.localdate)
     # Ultimo passo della lavorazione (Rev14): solo la data, senza numero SAP.
@@ -1515,10 +1546,17 @@ class Fattura(Archiviabile):
     class Meta:
         verbose_name = "fattura"
         verbose_name_plural = "fatture"
-        ordering = ["contratto", "data", "id"]
+        ordering = ["data", "id"]
         constraints = [
             models.CheckConstraint(
-                condition=Q(imponibile__gte=0), name="contratti_fattura_imponibile_non_negativo"
+                condition=Q(importo_documento__gte=0),
+                name="contratti_fattura_importo_non_negativo",
+            ),
+            models.CheckConstraint(
+                condition=(Q(valore_base__isnull=True) | Q(valore_base__gte=0))
+                & (Q(oneri__isnull=True) | Q(oneri__gte=0))
+                & (Q(bollo__isnull=True) | Q(bollo__gte=0)),
+                name="contratti_fattura_importi_non_negativi",
             ),
             models.UniqueConstraint(
                 fields=["fornitore", "numero"],
@@ -1535,15 +1573,22 @@ class Fattura(Archiviabile):
             self.fornitore_id = self.contratto.fornitore_id
         super().save(*args, **kwargs)
 
+    def get_absolute_url(self):
+        from django.urls import reverse
+
+        return reverse("contratti:fattura", args=[self.pk])
+
     def clean(self):
         super().clean()
-        if self.voce_id and self.contratto_id and self.voce.contratto_id != self.contratto_id:
-            raise ValidationError({"voce": "La voce deve essere dello stesso contratto."})
         if (
-            self.rata_id
-            and self.contratto_id
-            and self.rata.piano.voce.contratto_id != self.contratto_id
+            self.contratto_id
+            and self.fornitore_id
+            and self.contratto.fornitore_id != self.fornitore_id
         ):
+            raise ValidationError({"contratto": "Il contratto è di un altro fornitore."})
+        if self.voce_id and self.voce.contratto_id != self.contratto_id:
+            raise ValidationError({"voce": "La voce deve essere dello stesso contratto."})
+        if self.rata_id and self.rata.piano.voce.contratto_id != self.contratto_id:
             raise ValidationError({"rata": "La rata deve essere dello stesso contratto."})
 
 

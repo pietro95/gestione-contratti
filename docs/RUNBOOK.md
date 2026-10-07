@@ -328,6 +328,16 @@ qui sotto restano per l'emergenza: fanno la stessa cosa con lo stesso codice.
    ```
    La cartella base delle RDA di ogni cluster (es. `smb://<nas>/Share/ICTDINN/00_IT/RDA_Ordini`)
    e la funzione «Amministrazione acquisti» degli addetti si impostano dall'amministrazione.
+   **Fatture** (F11.3, ogni settimana): l'estrazione SAP delle fatture (primo foglio, colonne
+   `Fornitore`, `Numero Documento`, `Data`, `Importo SAP`; le altre si ignorano) da
+   Gestione → Import, «Fatture (estrazione SAP)», Admin ed Editor. Le fatture entrano da
+   prendere in carico, visibili a tutti nel menu «Fatture»; una fattura già registrata non si
+   duplica né si modifica. I fornitori non riconosciuti (ragione sociale o nome breve) sono nel
+   report: si aggiungono e si ripete l'import.
+   ```bash
+   ./manage.sh import_fatture /import/estrazione_fatture.xlsx --dry-run
+   ./manage.sh import_fatture /import/estrazione_fatture.xlsx
+   ```
 5. **Quadratura con l'Excel**:
    ```bash
    ./manage.sh quadratura_excel /import/<Contratti_IT.xlsx> --area IT

@@ -115,7 +115,17 @@ def pagina(browser, live_server, make_user, dati):
 
 
 def violazioni_axe(pg) -> list[dict]:
-    """Violazioni WCAG 2.1 A/AA di impatto grave o critico nella pagina corrente."""
+    """Violazioni WCAG 2.1 A/AA di impatto grave o critico nella pagina corrente.
+
+    Prima si aspetta la fine della dissolvenza delle notifiche: a metà animazione il testo è
+    semitrasparente e axe misura un contrasto che non è quello reale.
+    """
+    pg.wait_for_function(
+        """() => [...document.querySelectorAll('.toast')].every(t => {
+            const s = getComputedStyle(t);
+            return s.display === 'none' || s.opacity === '1';
+        })"""
+    )
     pg.add_script_tag(path=str(AXE))
     risultato = pg.evaluate(
         """async () => await axe.run(document, {

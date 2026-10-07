@@ -1,0 +1,170 @@
+"""Form delle fatture (F11.3, SPEC Rev14–Rev15): registrazione, contratto, convalida,
+importi, documenti SAP, trasferimento, documenti di esecuzione del contratto."""
+
+from django import forms
+from django.contrib.auth import get_user_model
+from django.db.models import Q
+
+from accounts.roles import WRITE_ROLES
+from contratti import models as m
+from contratti.forms import FormBase, ImportoField, ModelFormBootstrap
+
+Tipo = m.DocumentoEsecuzione.Tipo
+
+
+def _contratti_del_fornitore(fornitore_id):
+    return (
+        m.Contratto.objects.filter(
+            fornitore_id=fornitore_id, archiviato=False, data_chiusura__isnull=True
+        )
+        .select_related("fabbisogno", "fornitore")
+        .order_by("-data_inizio", "pk")
+    )
+
+
+class FatturaForm(ModelFormBootstrap):
+    """Fattura registrata a mano (di norma arriva dall'import settimanale)."""
+
+    class Meta:
+        model = m.Fattura
+        fields = ["fornitore", "numero", "data", "importo_documento", "note"]
+        widgets = {"note": forms.Textarea(attrs={"rows": 2})}
+
+    def __init__(self, *args, contratto: m.Contratto | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.contratto = contratto
+        if contratto is not None:
+            del self.fields["fornitore"]
+        else:
+            self.fields["fornitore"].queryset = m.Fornitore.objects.filter(archiviato=False)
+            self.fields["fornitore"].widget.attrs["class"] += " js-cerca"
+        self.fields["importo_documento"].help_text = "L'importo del documento (Importo SAP)."
+
+    def clean(self):
+        dati = super().clean()
+        fornitore = self.contratto.fornitore if self.contratto else dati.get("fornitore")
+        numero = (dati.get("numero") or "").strip()
+        if fornitore and numero:
+            doppia = m.Fattura.objects.filter(fornitore=fornitore, numero=numero, archiviato=False)
+            if doppia.exists():
+                self.add_error("numero", "Fattura già registrata per questo fornitore.")
+        return dati
+
+
+class ContrattoFatturaForm(FormBase):
+    contratto = forms.ModelChoiceField(queryset=m.Contratto.objects.none(), label="Contratto")
+    voce = forms.ModelChoiceField(
+        queryset=m.VoceContratto.objects.none(),
+        required=False,
+        label="Voce",
+        help_text="Vuota: l'unica voce del contratto, se ce n'è una sola.",
+    )
+
+    def __init__(self, *args, fattura: m.Fattura, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["contratto"].queryset = _contratti_del_fornitore(fattura.fornitore_id)
+        self.fields["contratto"].widget.attrs["class"] += " js-cerca"
+        self.fields["voce"].queryset = m.VoceContratto.objects.filter(
+            contratto__fornitore_id=fattura.fornitore_id, archiviato=False
+        ).select_related("contratto")
+
+    def clean(self):
+        dati = super().clean()
+        voce, contratto = dati.get("voce"), dati.get("contratto")
+        if voce and contratto and voce.contratto_id != contratto.pk:
+            self.add_error("voce", "La voce è di un altro contratto.")
+        return dati
+
+
+class ConvalidaForm(ModelFormBootstrap):
+    class Meta:
+        model = m.Fattura
+        fields = ["esito_convalida", "nota_convalida", "bloccata_fino_al"]
+        widgets = {"nota_convalida": forms.Textarea(attrs={"rows": 2})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["nota_convalida"].help_text = (
+            "Obbligatoria per «Non convalidabile» e «In attesa» (es. in attesa di prove di "
+            "funzionamento in campo)."
+        )
+        self.fields["bloccata_fino_al"].help_text = "Stanziata e bloccata fino a questa data."
+
+
+class ImportiForm(FormBase):
+    valore_base = ImportoField(
+        max_digits=14, decimal_places=2, min_value=0, required=False,
+        label="Valore base prelevato dal contratto",
+    )  # fmt: skip
+    oneri = ImportoField(
+        max_digits=14, decimal_places=2, min_value=0, required=False, label="Oneri previdenziali"
+    )
+    bollo = ImportoField(max_digits=14, decimal_places=2, min_value=0, required=False)
+    voce = forms.ModelChoiceField(queryset=m.VoceContratto.objects.none(), required=False)
+    rata = forms.ModelChoiceField(
+        queryset=m.Rata.objects.none(),
+        required=False,
+        label="Rata dello scadenzario",
+        help_text="La rata diventa consuntivo e riceve il numero di fattura.",
+    )
+
+    def __init__(self, *args, fattura: m.Fattura, **kwargs):
+        super().__init__(*args, **kwargs)
+        if fattura.contratto_id:
+            self.fields["voce"].queryset = fattura.contratto.voci.filter(archiviato=False)
+            self.fields["rata"].queryset = (
+                m.Rata.objects.filter(piano__voce__contratto_id=fattura.contratto_id)
+                .filter(Q(fattura__isnull=True) | Q(fattura=fattura))
+                .select_related("piano__voce")
+                .order_by("data_fattura", "pk")
+            )
+        else:
+            del self.fields["voce"]
+            del self.fields["rata"]
+
+
+class DocumentoFatturaForm(FormBase):
+    tipo = forms.ChoiceField(
+        choices=[(Tipo.ODA, "RdC (ODA/RDC)"), (Tipo.MAP, "MAP"), (Tipo.MIGO, "MIGO")]
+    )
+    numero = forms.CharField(max_length=40)
+    data = forms.DateField()
+
+
+class TrasferimentoForm(FormBase):
+    data = forms.DateField(label="Trasferita per il pagamento il")
+
+
+class RiassegnaForm(FormBase):
+    utente = forms.ModelChoiceField(queryset=get_user_model().objects.none(), label="Assegna a")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        utenti = (
+            get_user_model()
+            .objects.filter(is_active=True)
+            .filter(Q(is_superuser=True) | Q(groups__name__in=WRITE_ROLES))
+        )
+        self.fields["utente"].queryset = utenti.distinct().order_by("username")
+        self.fields["utente"].widget.attrs["class"] += " js-cerca"
+
+
+class DocumentoEsecuzioneForm(ModelFormBootstrap):
+    """Documenti di esecuzione del contratto (DDT, attestazione, ricezione, ...)."""
+
+    class Meta:
+        model = m.DocumentoEsecuzione
+        fields = ["tipo", "numero", "data", "importo", "voce", "finale", "note"]
+        widgets = {"note": forms.Textarea(attrs={"rows": 2})}
+
+    def __init__(self, *args, contratto: m.Contratto, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.instance.contratto = contratto
+        self.fields["voce"].queryset = contratto.voci.filter(archiviato=False)
+        self.fields["finale"].help_text = "Solo per attestazione e modello di ricezione."
+
+    def clean(self):
+        dati = super().clean()
+        if dati.get("finale") and dati.get("tipo") not in (Tipo.ATTESTAZIONE, Tipo.RICEZIONE):
+            self.add_error("finale", "Solo un'attestazione o un modello di ricezione è finale.")
+        return dati

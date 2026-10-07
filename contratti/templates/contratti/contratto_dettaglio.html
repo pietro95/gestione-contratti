@@ -48,6 +48,7 @@
   <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#voci" type="button" role="tab" aria-controls="voci" aria-selected="false">Voci e scadenzario <span class="badge rounded-pill text-bg-light">{{ voci|length }}</span></button></li>
   <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rinnovi" type="button" role="tab" aria-controls="rinnovi" aria-selected="false">Proroghe e rinnovi</button></li>
   <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pratica" type="button" role="tab" aria-controls="pratica" aria-selected="false">Pratica</button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#esecuzione" type="button" role="tab" aria-controls="esecuzione" aria-selected="false">Esecuzione <span class="badge rounded-pill text-bg-light">{{ fatture|length }}</span></button></li>
   <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#storico" type="button" role="tab" aria-controls="storico" aria-selected="false">Storico modifiche</button></li>
 </ul>
 <div class="tab-content mb-4">
@@ -172,6 +173,9 @@
 
   <div class="tab-pane fade" id="pratica" role="tabpanel" tabindex="0">
     {% include "contratti/_pratica.html" with tipo_pratica="contratto" oggetto_pratica=c %}
+  </div>
+  <div class="tab-pane fade" id="esecuzione" role="tabpanel" tabindex="0">
+    {% include "contratti/_esecuzione.html" %}
   </div>
   <div class="tab-pane fade" id="storico" role="tabpanel" tabindex="0">
     {% include "contratti/_storico.html" %}
