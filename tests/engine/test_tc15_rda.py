@@ -8,13 +8,16 @@ from contratti.engine.acquisti import (
     DatiRDA,
     EventoRDA,
     Fase,
+    PassoFattura,
     TipoEvento,
     attende_referente,
     azione_addetto,
     data_fase,
+    documento_accettazione,
     fase,
     fattura_da_lavorare,
     fattura_ferma,
+    passo_fattura,
     rda_ferma,
     stato_pratica,
 )
@@ -172,14 +175,36 @@ def test_tc15_e_ferme():
     )
     assert not rda_ferma(inserita, D(2026, 7, 15), 30)
     assert rda_ferma(inserita, D(2026, 7, 16), 30)
-    registrata = D(2026, 3, 1)
-    assert fattura_da_lavorare([], D(2026, 3, 16))
-    assert not fattura_ferma(registrata, [], D(2026, 3, 16), 15)
-    assert fattura_ferma(registrata, [], D(2026, 3, 17), 15)
-    con_map = [("MAP", D(2026, 3, 18))]
-    assert fattura_ferma(registrata, con_map, D(2026, 3, 17), 15)
-    assert not fattura_da_lavorare(con_map, D(2026, 3, 18))
-    assert not fattura_ferma(registrata, con_map, D(2026, 3, 18), 15)
+
+
+FA1_REGISTRATA = D(2026, 3, 1)
+RDC = ("ODA_RDC", D(2026, 3, 5))
+MAP = ("MAP", D(2026, 3, 18))
+TRASFERITA = D(2026, 3, 20)
+
+
+@pytest.mark.parametrize(
+    ("oggi", "passo", "ferma"),
+    [
+        (D(2026, 3, 2), PassoFattura.RDC, False),
+        (D(2026, 3, 6), PassoFattura.MAP_MIGO, False),
+        (D(2026, 3, 16), PassoFattura.MAP_MIGO, False),
+        (D(2026, 3, 17), PassoFattura.MAP_MIGO, True),
+        (D(2026, 3, 19), PassoFattura.TRASFERIMENTO, True),
+        (D(2026, 3, 21), None, False),
+    ],
+)
+def test_tc15_e_lavorazione_della_fattura(oggi, passo, ferma):
+    documenti = [RDC, MAP]
+    assert passo_fattura(documenti, oggi, TRASFERITA) == passo
+    assert fattura_da_lavorare(documenti, oggi, TRASFERITA) is (passo is not None)
+    assert fattura_ferma(FA1_REGISTRATA, documenti, oggi, 15, TRASFERITA) is ferma
+
+
+def test_tc15_e_fuori_ordine_e_documento_proposto():
+    assert passo_fattura([MAP], D(2026, 3, 19)) == PassoFattura.RDC
+    assert documento_accettazione("servizio") == "MAP"
+    assert documento_accettazione("fornitura") == "MIGO"
 
 
 def test_tc15_f_rda_registrata_a_mano():

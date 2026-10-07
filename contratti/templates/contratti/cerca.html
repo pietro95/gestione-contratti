@@ -19,6 +19,14 @@
 <div class="col-lg-6"><h2 class="sezione-titolo">Fabbisogni <span class="badge rounded-pill text-bg-light">{{ risultati.fabbisogni|length }}</span></h2>
 <div class="card"><ul class="list-group list-group-flush">{% for f in risultati.fabbisogni %}<li class="list-group-item"><a href="{% url 'contratti:fabbisogno' f.pk %}">{{ f.descrizione }}</a> <span class="small text-body-secondary">{{ f.area }} · {{ f.categoria }}</span></li>{% endfor %}</ul></div></div>
 {% endif %}
+{% if risultati.fatture %}
+<div class="col-lg-6"><h2 class="sezione-titolo">Fatture <span class="badge rounded-pill text-bg-light">{{ risultati.fatture|length }}</span></h2>
+<div class="card"><ul class="list-group list-group-flush">{% for x in risultati.fatture %}<li class="list-group-item"><a href="{% url 'contratti:fattura' x.pk %}">Fattura {{ x.numero }}</a> <span class="small text-body-secondary">del {{ x.data|date:"d/m/Y" }} · {{ x.fornitore }}{% if x.contratto %} · {{ x.contratto.numero_contratto|default:"contratto" }}{% endif %}</span></li>{% endfor %}</ul></div></div>
+{% endif %}
+{% if risultati.rda %}
+<div class="col-lg-6"><h2 class="sezione-titolo">Richieste di RDA <span class="badge rounded-pill text-bg-light">{{ risultati.rda|length }}</span></h2>
+<div class="card"><ul class="list-group list-group-flush">{% for r in risultati.rda %}<li class="list-group-item"><a href="{% url 'contratti:rda' r.pk %}">{{ r.intestazione|default:r.descrizione }}</a> <span class="small text-body-secondary">{{ r.numero_rda|default:"senza numero SAP" }} · {{ r.cluster.codice }}</span></li>{% endfor %}</ul></div></div>
+{% endif %}
 {% if risultati.fornitori %}
 <div class="col-lg-6"><h2 class="sezione-titolo">Fornitori <span class="badge rounded-pill text-bg-light">{{ risultati.fornitori|length }}</span></h2>
 <div class="card"><ul class="list-group list-group-flush">{% for f in risultati.fornitori %}<li class="list-group-item"><a href="{% url 'contratti:fornitore' f.pk %}">{{ f.ragione_sociale }}</a> <span class="small text-body-secondary">{% if f.codice_sap %}SAP {{ f.codice_sap }}{% endif %}{% if f.partita_iva %} · P.IVA {{ f.partita_iva }}{% endif %}</span></li>{% endfor %}</ul></div></div>

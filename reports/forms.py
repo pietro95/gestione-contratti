@@ -149,3 +149,95 @@ class FiltriPianoForm(FormBase):
 
     def descrizione(self) -> str:
         return "; ".join(self.voci())
+
+
+class FiltriClusterForm(FormBase):
+    """Solo il cluster: contratti da chiudere, anomalie dell'esecuzione (F11.4)."""
+
+    area = _campo_cluster()
+
+    def __init__(self, dati, *, utente=None):
+        dati = dati.copy()
+        self.utente = utente
+        _cluster_default(dati, utente)
+        super().__init__(dati)
+        self.fields["area"].choices = _scelte_cluster(utente)
+
+    def codici_cluster(self) -> tuple[str, ...]:
+        return _codici(self.utente, self.cleaned_data.get("area"))
+
+    def voci(self) -> list[str]:
+        return [permessi.descrivi_filtro(self.codici_cluster())]
+
+    def descrizione(self) -> str:
+        return "; ".join(self.voci())
+
+
+class FiltriRdaForm(FiltriClusterForm):
+    """Stato delle RDA (SPEC §5.7): cluster, referente, fase, anno, fornitore, WBS."""
+
+    fase = forms.MultipleChoiceField(
+        choices=[],
+        required=False,
+        widget=forms.SelectMultiple(attrs={"class": "form-select js-cluster"}),
+    )
+    anno = forms.IntegerField(min_value=2000, max_value=2100, required=False)
+    referente = forms.ModelChoiceField(
+        queryset=None, required=False, empty_label="Tutti i referenti"
+    )
+    fornitore = forms.ModelChoiceField(
+        queryset=m.Fornitore.objects.filter(archiviato=False).order_by("ragione_sociale"),
+        required=False,
+        empty_label="Tutti i fornitori",
+    )
+    wbs = forms.CharField(required=False, label="WBS")
+    q = forms.CharField(required=False, label="Cerca")
+
+    def __init__(self, dati, *, utente=None):
+        from django.contrib.auth import get_user_model
+
+        from contratti.engine.acquisti import ETICHETTE_FASE
+
+        super().__init__(dati, utente=utente)
+        self.fields["fase"].choices = list(ETICHETTE_FASE.items())
+        self.fields["referente"].queryset = (
+            get_user_model()
+            .objects.filter(richieste_acquisto__isnull=False)
+            .distinct()
+            .order_by("username")
+        )
+        self.fields["fornitore"].widget.attrs["class"] += " js-cerca"
+        self.fields["q"].widget.attrs["placeholder"] = "N. RDA, descrizione, referente"
+
+    def filtri(self):
+        from reports.acquisti import FiltriRDA
+
+        d = self.cleaned_data
+        return FiltriRDA(
+            cluster=self.codici_cluster(),
+            referente=d["referente"].pk if d.get("referente") else None,
+            fasi=tuple(d.get("fase") or ()),
+            anno=d.get("anno"),
+            fornitore=d["fornitore"].pk if d.get("fornitore") else None,
+            wbs=(d.get("wbs") or "").strip(),
+            testo=(d.get("q") or "").strip(),
+        )
+
+    def voci(self) -> list[str]:
+        from contratti.engine.acquisti import ETICHETTE_FASE
+
+        d = self.cleaned_data
+        voci = [permessi.descrivi_filtro(self.codici_cluster())]
+        if d.get("fase"):
+            voci.append("fase " + ", ".join(ETICHETTE_FASE[f].lower() for f in d["fase"]))
+        if d.get("anno"):
+            voci.append(f"anno {d['anno']}")
+        if d.get("referente"):
+            voci.append(f"referente {d['referente'].get_username()}")
+        if d.get("fornitore"):
+            voci.append(f"fornitore {d['fornitore']}")
+        if d.get("wbs"):
+            voci.append(f"WBS {d['wbs']}")
+        if d.get("q"):
+            voci.append(f"testo «{d['q']}»")
+        return voci

@@ -8,6 +8,13 @@
   <a class="btn btn-outline-primary" href="{% url 'contratti:cruscotto' %}"><i class="bi bi-bell" aria-hidden="true"></i> Tutti gli alert</a>
 {% endblock %}
 {% block content %}
+{% if puo_modificare and fatture_da_prendere_home or fatture_proposte %}
+<div class="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2">
+  <span><i class="bi bi-receipt" aria-hidden="true"></i> {{ fatture_da_prendere_home }} fattur{{ fatture_da_prendere_home|pluralize:"a,e" }} da prendere in carico{% if fatture_proposte %}, <strong>{{ fatture_proposte|length }} proposte a te</strong>{% endif %}.</span>
+  <a class="btn btn-sm btn-primary" href="{% url 'contratti:fatture' %}">Vai alle fatture</a>
+</div>
+{% endif %}
+{% if addetto %}<p class="small"><i class="bi bi-clipboard-data" aria-hidden="true"></i> <a href="{% url 'reports:cruscotto_acquisti' %}">Cruscotto acquisti</a>: RDA da processare, fatture da lavorare, contratti da chiudere.</p>{% endif %}
 <div class="row g-3 mb-4">
   <div class="col-sm-6 col-xl-3"><a class="card kpi rosso" href="{% url 'contratti:cruscotto' %}#rosso"><div class="card-body"><div class="kpi-etichetta">Scaduti senza rinnovo</div><div class="kpi-valore">{{ conteggi.rosso }}</div><div class="kpi-nota">servizio non coperto da contratto</div></div></a></div>
   <div class="col-sm-6 col-xl-3"><a class="card kpi arancione" href="{% url 'contratti:cruscotto' %}#arancione"><div class="card-body"><div class="kpi-etichetta">Oltre la data limite</div><div class="kpi-valore">{{ conteggi.arancione }}</div><div class="kpi-nota">pratica di rinnovo non avviata</div></div></a></div>
@@ -51,6 +58,17 @@
       </ul>
       {% else %}<div class="vuoto py-4">Nessun contratto in scadenza nei prossimi 90 giorni.</div>{% endif %}
     </div>
+    {% if mie_rda or mie_fatture or fatture_proposte %}
+    <div class="card" id="miei-acquisti">
+      <div class="card-header"><i class="bi bi-person-workspace" aria-hidden="true"></i> I miei acquisti</div>
+      <ul class="list-group list-group-flush">
+        {% for r in mie_rda|slice:":6" %}<li class="list-group-item d-flex justify-content-between gap-3"><a href="{% url 'contratti:rda' r.rda.pk %}" class="text-truncate">RDA · {{ r.rda.intestazione|default:r.rda.descrizione }}</a>{{ r.fase|fase_badge }}</li>{% endfor %}
+        {% for r in mie_fatture|slice:":6" %}<li class="list-group-item d-flex justify-content-between gap-3"><a href="{% url 'contratti:fattura' r.fattura.pk %}" class="text-truncate">Fattura {{ r.fattura.numero }} · {{ r.fattura.fornitore }}</a>{{ r.passo|passo_badge }}</li>{% endfor %}
+        {% for r in fatture_proposte|slice:":6" %}<li class="list-group-item d-flex justify-content-between gap-3"><a href="{% url 'contratti:fattura' r.fattura.pk %}" class="text-truncate">Fattura {{ r.fattura.numero }} · {{ r.fattura.fornitore }}</a><span class="stato stato-blu">proposta a te</span></li>{% endfor %}
+      </ul>
+      <div class="card-footer small"><a href="{% url 'contratti:rda_elenco' %}?mie=1">tutte le mie RDA ({{ mie_rda|length }})</a> · <a href="{% url 'contratti:fatture' %}?vista=mie">le mie fatture ({{ mie_fatture|length }})</a></div>
+    </div>
+    {% endif %}
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-cash-stack" aria-hidden="true"></i> Budget {{ oggi|date:"Y" }} <span class="fw-normal text-body-secondary small">livello probabile, con i previsti</span></span><a class="small" href="{% url 'reports:budget' %}">dettaglio</a></div>
       {% if budget %}
@@ -58,7 +76,7 @@
         <thead><tr><th scope="col">Vista</th>{% for n in budget.nature %}<th scope="col" class="text-end">{{ n }}</th>{% endfor %}</tr></thead>
         <tbody>{% for vista, importi in budget.righe %}<tr{% if forloop.first %} class="fw-semibold"{% endif %}><th scope="row" class="fw-normal">{{ vista }}</th>{% for i in importi %}<td class="text-end">{{ i|euro }}</td>{% endfor %}</tr>{% endfor %}</tbody>
       </table></div>
-      <div class="card-footer small text-body-secondary">OPEX e CAPEX sono budget distinti.{% if piani_da_verificare %} <a href="{% url 'contratti:piani_da_verificare' %}">{{ piani_da_verificare }} voci con piano da verificare</a>: il loro fatturato è stimato a pro-rata.{% endif %}</div>
+      <div class="card-footer small text-body-secondary">OPEX e CAPEX sono budget distinti.{% if piani_da_verificare %} <a class="text-decoration-underline" href="{% url 'contratti:piani_da_verificare' %}">{{ piani_da_verificare }} voci con piano da verificare</a>: il loro fatturato è stimato a pro-rata.{% endif %}</div>
       {% else %}<div class="vuoto py-4">Budget non calcolabile: parametri di configurazione mancanti.</div>{% endif %}
     </div>
   </div>

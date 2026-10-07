@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% load registro %}
+{% block title %}Fattura {{ f.numero }}{% endblock %}
+{% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'contratti:fatture' %}">Fatture</a></li>{% if f.contratto %}<li class="breadcrumb-item"><a href="{% url 'contratti:contratto' f.contratto.pk %}">{{ f.contratto.numero_contratto|default:f.contratto }}</a></li>{% endif %}<li class="breadcrumb-item active" aria-current="page">{{ f.numero }}</li></ol></nav>{% endblock %}
+{% block titolo_pagina %}Fattura {{ f.numero }}{% endblock %}
+{% block sottotitolo %}
+<div class="sottotitolo">
+  {{ r.passo|passo_badge }}{% if f.fuori_registro %} <span class="stato stato-grigio">fuori registro</span>{% endif %}{% if f.archiviato %} <span class="stato stato-grigio">archiviata</span>{% endif %}{% if r.ferma %} <span class="stato stato-rosso">ferma</span>{% endif %}
+  <span>· <a href="{% url 'contratti:fornitore' f.fornitore.pk %}">{{ f.fornitore }}</a></span>
+  <span>· del {{ f.data|date:"d/m/Y" }}</span>
+  <span>· registrata il {{ f.data_registrazione|date:"d/m/Y" }} ({{ r.giorni }} giorni)</span>
+</div>
+{% endblock %}
+{% block azioni %}
+{% if scrive and not f.referente and not f.fuori_registro %}<form method="post" action="{% url 'contratti:fattura_prendi' f.pk %}" class="m-0">{% csrf_token %}<button class="btn btn-primary" type="submit"><i class="bi bi-person-check" aria-hidden="true"></i> Prendi in carico</button></form>{% endif %}
+{% if f.referente and scrive %}{% if f.referente == user or gestisce %}<form method="post" action="{% url 'contratti:fattura_lascia' f.pk %}" class="m-0" data-conferma="La fattura torna tra quelle da prendere in carico." data-conferma-etichetta="Lascia">{% csrf_token %}<button class="btn btn-outline-secondary" type="submit"><i class="bi bi-person-dash" aria-hidden="true"></i> Lascia</button></form>{% endif %}{% endif %}
+{% if scrive %}<form method="post" action="{% url 'contratti:fattura_fuori_registro' f.pk %}" class="m-0">{% csrf_token %}<input type="hidden" name="valore" value="{% if f.fuori_registro %}0{% else %}1{% endif %}"><button class="btn btn-outline-secondary" type="submit"><i class="bi bi-slash-circle" aria-hidden="true"></i> {% if f.fuori_registro %}Rimetti nel registro{% else %}Fuori registro{% endif %}</button></form>{% endif %}
+{% endblock %}
+{% block content %}
+{% for a in r.anomalie %}<div class="alert alert-warning small"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> {% if a == "IMPORTO_NON_QUADRA" %}Valore base + oneri + bollo ({{ f.valore_base|euro }} + {{ f.oneri|euro }} + {{ f.bollo|euro }}) diverso dall'importo del documento ({{ f.importo_documento|euro }}).{% elif a == "VALORE_BASE_MANCANTE" %}Manca il valore base prelevato dal contratto: la fattura non conta nel fatturato del contratto.{% else %}{{ a }}{% endif %}</div>{% endfor %}
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Passo da fare</div><div class="kpi-valore fs-5">{{ r.passo_label }}</div><div class="kpi-nota">{% if f.data_trasferimento %}trasferita il {{ f.data_trasferimento|date:"d/m/Y" }}{% endif %}</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">Importo del documento</div><div class="kpi-valore">{{ f.importo_documento|euro }}</div><div class="kpi-nota">Importo SAP</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi verde"><div class="card-body"><div class="kpi-etichetta">Valore base dal contratto</div><div class="kpi-valore">{{ f.valore_base|euro }}</div><div class="kpi-nota">{% if f.oneri %}oneri {{ f.oneri|euro }}{% endif %}{% if f.bollo %} · bollo {{ f.bollo|euro }}{% endif %}</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">In carico a</div><div class="kpi-valore fs-6">{% if f.referente %}{{ f.referente.get_full_name|default:f.referente.username }}{% else %}nessuno{% endif %}</div><div class="kpi-nota">{% if f.data_presa_in_carico %}dal {{ f.data_presa_in_carico|date:"d/m/Y" }}{% elif referente_proposto %}proposto: {{ referente_proposto.get_full_name|default:referente_proposto.username }}{% else %}nessun referente proposto{% endif %}</div></div></div></div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-6">
+    <section class="card mb-4" aria-labelledby="t-contratto"><div class="card-body">
+      <h2 class="h6 text-uppercase text-body-secondary" id="t-contratto">1 · Contratto</h2>
+      {% if f.contratto %}
+        <p class="mb-2"><a href="{% url 'contratti:contratto' f.contratto.pk %}">{% include "contratti/_contratto_breve.html" with x=f.contratto %}</a>{% if f.voce %}<br><span class="small text-body-secondary">voce: {{ f.voce.descrizione }}</span>{% endif %}</p>
+      {% elif proposto %}<p class="small">Contratto proposto: {% include "contratti/_contratto_breve.html" with x=proposto %} (l'unico del fornitore in servizio alla data della fattura). Va confermato.</p>
+      {% else %}<p class="small text-body-secondary">Nessun contratto proposto: il fornitore non ha contratti in servizio alla data della fattura, o ne ha più di uno.</p>{% endif %}
+      {% if puo_lavorare %}
+      <form method="post" action="{% url 'contratti:fattura_contratto' f.pk %}" class="row g-2">
+        {% csrf_token %}
+        <div class="col-12"><label class="form-label" for="{{ form_contratto.contratto.id_for_label }}">{% if f.contratto %}Cambia contratto{% else %}Contratto{% endif %}</label>{{ form_contratto.contratto }}</div>
+        <div class="col-12"><label class="form-label" for="{{ form_contratto.voce.id_for_label }}">Voce</label>{{ form_contratto.voce }}<div class="form-text">{{ form_contratto.voce.help_text }}</div></div>
+        <div class="col-12 d-flex gap-2"><button class="btn btn-primary" type="submit">{% if f.contratto %}Aggiorna{% else %}Assegna al contratto{% endif %}</button>
+        {% if f.contratto and not documenti %}<button class="btn btn-outline-danger" type="submit" name="scollega" value="1" formnovalidate>Togli il contratto</button>{% endif %}</div>
+      </form>
+      {% elif not f.referente %}<p class="small text-body-secondary mb-0">Si assegna dopo la presa in carico.</p>{% endif %}
+    </div></section>
+
+    <section class="card mb-4" aria-labelledby="t-convalida"><div class="card-body">
+      <h2 class="h6 text-uppercase text-body-secondary" id="t-convalida">2 · Convalida del referente</h2>
+      <dl class="dati mb-2"><dt>Esito</dt><dd>{{ f.get_esito_convalida_display }}{% if f.data_convalida %} · {{ f.data_convalida|date:"d/m/Y" }}{% endif %}</dd>{% if f.nota_convalida %}<dt>Nota</dt><dd>{{ f.nota_convalida }}</dd>{% endif %}{% if f.bloccata_fino_al %}<dt>Bloccata fino al</dt><dd>{{ f.bloccata_fino_al|date:"d/m/Y" }}</dd>{% endif %}</dl>
+      {% if puo_convalidare %}
+      <form method="post" action="{% url 'contratti:fattura_convalida' f.pk %}" class="row g-2" novalidate>
+        {% csrf_token %}
+        <div class="col-sm-6"><label class="form-label" for="{{ form_convalida.esito_convalida.id_for_label }}">Esito</label>{{ form_convalida.esito_convalida }}</div>
+        <div class="col-sm-6"><label class="form-label" for="{{ form_convalida.bloccata_fino_al.id_for_label }}">Bloccata fino al</label>{{ form_convalida.bloccata_fino_al }}</div>
+        <div class="col-12"><label class="form-label" for="{{ form_convalida.nota_convalida.id_for_label }}">Nota</label>{{ form_convalida.nota_convalida }}<div class="form-text">{{ form_convalida.nota_convalida.help_text }}</div></div>
+        <div class="col-12"><button class="btn btn-primary" type="submit">Registra l'esito</button></div>
+      </form>
+      {% elif f.referente %}<p class="small text-body-secondary mb-0">La convalida la registra {{ f.referente.get_full_name|default:f.referente.username }}, che ha in carico la fattura.</p>{% endif %}
+    </div></section>
+
+    <section class="card mb-4" aria-labelledby="t-importi"><div class="card-body">
+      <h2 class="h6 text-uppercase text-body-secondary" id="t-importi">Importi e rata</h2>
+      {% if puo_lavorare %}
+      <form method="post" action="{% url 'contratti:fattura_importi' f.pk %}" class="row g-2" novalidate>
+        {% csrf_token %}
+        <div class="col-sm-4"><label class="form-label" for="{{ form_importi.valore_base.id_for_label }}">Valore base</label>{{ form_importi.valore_base }}</div>
+        <div class="col-sm-4"><label class="form-label" for="{{ form_importi.oneri.id_for_label }}">Oneri previdenziali</label>{{ form_importi.oneri }}</div>
+        <div class="col-sm-4"><label class="form-label" for="{{ form_importi.bollo.id_for_label }}">Bollo</label>{{ form_importi.bollo }}</div>
+        {% if f.valore_base is None %}<div class="col-12 form-text">Proposto: importo del documento meno oneri e bollo. Si salva solo confermando.</div>{% endif %}
+        {% if form_importi.voce %}<div class="col-sm-6"><label class="form-label" for="{{ form_importi.voce.id_for_label }}">Voce</label>{{ form_importi.voce }}</div>
+        <div class="col-sm-6"><label class="form-label" for="{{ form_importi.rata.id_for_label }}">Rata dello scadenzario</label>{{ form_importi.rata }}<div class="form-text">{{ form_importi.rata.help_text }}</div></div>{% endif %}
+        <div class="col-12"><button class="btn btn-primary" type="submit">Salva gli importi</button></div>
+      </form>
+      {% else %}
+      <dl class="dati mb-0"><dt>Valore base</dt><dd>{{ f.valore_base|euro }}</dd><dt>Oneri</dt><dd>{{ f.oneri|euro }}</dd><dt>Bollo</dt><dd>{{ f.bollo|euro }}</dd><dt>Rata</dt><dd>{{ f.rata|default:"—" }}</dd></dl>
+      {% endif %}
+    </div></section>
+
+    {% if gestisce %}
+    <section class="card mb-4" aria-labelledby="t-riassegna"><div class="card-body">
+      <h2 class="h6 text-uppercase text-body-secondary" id="t-riassegna">Assegna a un referente</h2>
+      <form method="post" action="{% url 'contratti:fattura_riassegna' f.pk %}" class="row g-2">
+        {% csrf_token %}
+        <div class="col-12"><label class="form-label" for="{{ form_riassegna.utente.id_for_label }}">Assegna a</label>{{ form_riassegna.utente }}{% if referente_proposto %}<div class="form-text">Proposto: {{ referente_proposto.get_full_name|default:referente_proposto.username }}.</div>{% endif %}</div>
+        <div class="col-12"><button class="btn btn-outline-primary" type="submit">Assegna</button></div>
+      </form>
+    </div></section>
+    {% endif %}
+  </div>
+
+  <div class="col-xl-6">
+    <section class="card mb-4" aria-labelledby="t-sap"><div class="card-body">
+      <h2 class="h6 text-uppercase text-body-secondary" id="t-sap">3 · RdC e {{ documento_proposto }}</h2>
+      <div class="mb-3">
+        <label class="form-label" for="indicazioni">Indicazioni per la validazione</label>
+        <div class="input-group"><input id="indicazioni" class="form-control small" value="{{ indicazioni }}" readonly><button type="button" class="btn btn-outline-secondary" data-copia="indicazioni"><i class="bi bi-clipboard" aria-hidden="true"></i> Copia</button></div>
+      </div>
+      <div class="tabella-card mb-3"><div class="table-responsive"><table class="table table-sm align-middle scheda-sap">
+        <thead><tr><th>Documento</th><th>Numero</th><th>Data</th></tr></thead>
+        <tbody>{% for d in documenti %}<tr><td>{{ d.get_tipo_display }}</td><td>{{ d.numero|default:"—" }}</td><td>{{ d.data|date:"d/m/Y" }}</td></tr>{% empty %}<tr><td colspan="3" class="text-body-secondary small">Nessun documento SAP registrato.</td></tr>{% endfor %}</tbody>
+      </table></div></div>
+      {% if puo_lavorare and f.contratto %}
+      <form method="post" action="{% url 'contratti:fattura_documento' f.pk %}" class="row g-2" novalidate>
+        {% csrf_token %}
+        <div class="col-sm-4"><label class="form-label" for="{{ form_documento.tipo.id_for_label }}">Documento</label>{{ form_documento.tipo }}</div>
+        <div class="col-sm-4"><label class="form-label" for="{{ form_documento.numero.id_for_label }}">Numero</label>{{ form_documento.numero }}</div>
+        <div class="col-sm-4"><label class="form-label" for="{{ form_documento.data.id_for_label }}">Data</label>{{ form_documento.data }}</div>
+        <div class="col-12"><button class="btn btn-primary" type="submit">Registra il documento</button></div>
+      </form>
+      {% elif not f.contratto %}<p class="small text-body-secondary mb-0">I documenti SAP si registrano dopo l'assegnazione al contratto.</p>{% endif %}
+    </div></section>
+
+    <section class="card mb-4" aria-labelledby="t-pac"><div class="card-body">
+      <h2 class="h6 text-uppercase text-body-secondary" id="t-pac">4 · Trasferimento per il pagamento</h2>
+      <label class="form-label" for="commento-pac">Commento per PAC</label>
+      <textarea id="commento-pac" class="form-control font-monospace small" rows="9" readonly>{{ commento_pac }}</textarea>
+      <button type="button" class="btn btn-sm btn-outline-primary mt-2 mb-3" data-copia="commento-pac"><i class="bi bi-clipboard" aria-hidden="true"></i> Copia il commento per PAC</button>
+      {% if f.data_trasferimento %}
+        <p class="mb-2">Trasferita il {{ f.data_trasferimento|date:"d/m/Y" }}{% if f.trasferita_da %} da {{ f.trasferita_da }}{% endif %}.</p>
+        {% if puo_lavorare %}<form method="post" action="{% url 'contratti:fattura_trasferisci' f.pk %}" data-conferma="La fattura torna da trasferire." data-conferma-etichetta="Annulla il trasferimento">{% csrf_token %}<button class="btn btn-sm btn-outline-danger" type="submit" name="annulla" value="1">Annulla il trasferimento</button></form>{% endif %}
+      {% elif puo_lavorare and f.contratto %}
+      <form method="post" action="{% url 'contratti:fattura_trasferisci' f.pk %}" class="row g-2" novalidate>
+        {% csrf_token %}
+        <div class="col-sm-6"><label class="form-label" for="{{ form_trasferimento.data.id_for_label }}">Trasferita il</label>{{ form_trasferimento.data }}</div>
+        <div class="col-12"><button class="btn btn-primary" type="submit">Registra il trasferimento</button></div>
+      </form>
+      {% endif %}
+    </div></section>
+
+    <section class="card mb-4" aria-labelledby="t-storico"><div class="card-body">
+      <h2 class="h6 text-uppercase text-body-secondary" id="t-storico">Storico modifiche</h2>
+      {% include "contratti/_storico.html" %}
+    </div></section>
+  </div>
+</div>
+{% endblock %}

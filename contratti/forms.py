@@ -216,6 +216,7 @@ class FabbisognoForm(ModelFormBootstrap):
 CAMPI_CONTRATTO = [
     "fornitore",
     "descrizione",
+    "tipo_acquisto",
     "senza_contratto",
     "numero_contratto",
     "data_emissione",
@@ -236,7 +237,10 @@ CAMPI_CONTRATTO = [
 
 class ContrattoForm(ModelFormBootstrap):
     sezioni = [
-        ("Oggetto e fornitore", ["fabbisogno", "fornitore", "descrizione", "senza_contratto"]),
+        (
+            "Oggetto e fornitore",
+            ["fabbisogno", "fornitore", "descrizione", "tipo_acquisto", "senza_contratto"],
+        ),
         (
             "Ordine e procedura",
             [
@@ -274,6 +278,14 @@ class ContrattoForm(ModelFormBootstrap):
         _solo_attivi(self, "fabbisogno", fabbisogni)
         _solo_attivi(self, "fornitore", m.Fornitore.objects.filter(archiviato=False))
         _solo_attivi(self, "procedura", m.Procedura.objects.filter(attiva=True))
+        if "tipo_acquisto" in self.fields:
+            # Chi non lo indica (connettore, form di prima) tiene il valore registrato.
+            self.fields["tipo_acquisto"].required = False
+            self.fields["tipo_acquisto"].help_text = "Propone MAP (servizi) o MIGO (forniture)."
+
+    def clean_tipo_acquisto(self):
+        valore = self.cleaned_data.get("tipo_acquisto")
+        return valore or self.instance.tipo_acquisto or m.Contratto.TipoAcquisto.SERVIZIO
 
 
 class ContrattoModificaForm(ContrattoForm):
@@ -577,7 +589,15 @@ class ProrogaForm(FormBase):
         return dati
 
 
+# Da Rev11 a mano si registrano solo i passaggi che precedono la RDA: da «RDA richiesta» in poi
+# lo stato si ricava dalle RDA collegate alla pratica (SPEC §4, §5.7).
+STATI_PRATICA_MANUALI = [
+    (s.value, s.label)
+    for s in (m.StatoPratica.Stato.OFFERTA_RICHIESTA, m.StatoPratica.Stato.OFFERTA_RICEVUTA)
+]
+
+
 class PassaggioPraticaForm(FormBase):
-    stato = forms.ChoiceField(choices=m.StatoPratica.Stato.choices)
+    stato = forms.ChoiceField(choices=STATI_PRATICA_MANUALI)
     data = forms.DateField()
     note = forms.CharField(widget=forms.TextInput, required=False)

@@ -1,0 +1,21 @@
+{% extends "reports/pdf/base.html" %}
+{% load registro %}
+{% block sottotitolo %}Al {{ oggi|date:"d/m/Y" }} · fase ricavata da invio, dati SAP e contratti · importi imponibili{% endblock %}
+{% block contenuto %}
+<table class="kpi"><tr>
+  <td><div class="etichetta">RDA</div><div class="valore">{{ righe|length }}</div><div class="nota">{{ ferme }} ferme</div></td>
+  <td><div class="etichetta">Importo</div><div class="valore">{{ totale|euro }}</div><div class="nota">somma delle posizioni</div></td>
+  <td><div class="etichetta">Per fase</div><div class="nota">{% for f, etichetta, n, importo in per_fase %}{{ etichetta }}: {{ n }} ({{ importo|euro }}){% if not forloop.last %} · {% endif %}{% endfor %}</div></td>
+</tr></table>
+<table class="dati" id="stato-rda">
+  <thead><tr><th class="sx">RDA</th><th class="sx">Fabbisogno</th><th class="sx">Referente</th><th class="sx">Fornitore</th><th class="sx">Fase</th><th>Dal</th><th class="num">Importo</th></tr></thead>
+  <tbody>
+  {% for r in righe %}
+    <tr><td class="sx"><b>{{ r.rda.intestazione|default:r.rda.descrizione }}</b><div class="tenue">{{ r.rda.numero_rda|default:"senza numero SAP" }} · {{ r.rda.cluster.codice }}</div></td>
+      <td class="sx">{{ r.fabbisogno.descrizione|default:"—" }}</td><td class="sx">{{ r.rda.nome_referente|default:"—" }}</td><td class="sx">{{ r.fornitore|default:"—" }}</td>
+      <td class="sx">{{ r.fase_label }}{% if r.ferma %} (ferma){% endif %}</td><td class="num">{{ r.data_fase|date:"d/m/Y"|default:"—" }}</td><td class="num">{{ r.importo|euro }}</td></tr>
+  {% empty %}<tr><td colspan="7" class="vuoto">Nessuna RDA con questi filtri.</td></tr>{% endfor %}
+  {% if righe %}<tr class="totale"><td class="sx" colspan="6">Totale</td><td class="num">{{ totale|euro }}</td></tr>{% endif %}
+  </tbody>
+</table>
+{% endblock %}

@@ -235,13 +235,90 @@ def rda_ferma(d: DatiRDA, oggi: datetime.date, giorni: int) -> bool:
     return inizio is not None and (oggi - inizio).days > giorni
 
 
-# Documenti SAP che «lavorano» una fattura.
-TIPI_LAVORAZIONE = frozenset({"MAP", "MIGO"})
+# Lavorazione della fattura (Rev14, Rev15): presa in carico → assegnazione al contratto →
+# convalida del referente → RdC → MAP o MIGO → trasferimento per il pagamento.
+class PassoFattura(StrEnum):
+    PRESA_IN_CARICO = "presa_in_carico"
+    ASSEGNAZIONE = "assegnazione"
+    CONVALIDA = "convalida"
+    RDC = "rdc"
+    MAP_MIGO = "map_migo"
+    TRASFERIMENTO = "trasferimento"
 
 
-def fattura_da_lavorare(documenti: Iterable[tuple[str, datetime.date]], oggi) -> bool:
-    """Senza un MAP o un MIGO collegato (con data fino a oggi)."""
-    return not any(tipo in TIPI_LAVORAZIONE and data <= oggi for tipo, data in documenti)
+ETICHETTE_PASSO = {
+    PassoFattura.PRESA_IN_CARICO: "Da prendere in carico",
+    PassoFattura.ASSEGNAZIONE: "Da assegnare",
+    PassoFattura.CONVALIDA: "Da convalidare",
+    PassoFattura.RDC: "RdC da fare",
+    PassoFattura.MAP_MIGO: "MAP/MIGO da fare",
+    PassoFattura.TRASFERIMENTO: "Da trasferire",
+}
+TIPI_ACCETTAZIONE = frozenset({"MAP", "MIGO"})
+CONVALIDABILE = "convalidabile"
+
+
+@dataclass(frozen=True)
+class LavorazioneFattura:
+    """Fatti della fattura prima dei documenti SAP (Rev15).
+
+    I default descrivono una fattura già presa in carico, assegnata e convalidata (TC-15 e).
+    """
+
+    in_carico_dal: datetime.date | None = datetime.date.min
+    assegnata: bool = True
+    esito: str = CONVALIDABILE
+    convalidata_il: datetime.date | None = datetime.date.min
+    bloccata_fino_al: datetime.date | None = None
+    fuori_registro: bool = False
+
+
+GIA_CONVALIDATA = LavorazioneFattura()
+
+
+def convalidata(lav: LavorazioneFattura, oggi: datetime.date) -> bool:
+    """Esito «Convalidabile» registrato entro oggi e nessun blocco ancora in corso."""
+    if lav.esito != CONVALIDABILE:
+        return False
+    if lav.convalidata_il is not None and lav.convalidata_il > oggi:
+        return False
+    return lav.bloccata_fino_al is None or lav.bloccata_fino_al < oggi
+
+
+def passo_fattura(
+    documenti: Iterable[tuple[str, datetime.date]],
+    oggi: datetime.date,
+    trasferita: datetime.date | None = None,
+    lavorazione: LavorazioneFattura = GIA_CONVALIDATA,
+) -> PassoFattura | None:
+    """Il primo passo che manca, nell'ordine; ``None`` se la fattura è trasferita (TC-15 e,
+    TC-18)."""
+    if trasferita is not None and trasferita <= oggi:
+        return None
+    if lavorazione.in_carico_dal is None or lavorazione.in_carico_dal > oggi:
+        return PassoFattura.PRESA_IN_CARICO
+    if not lavorazione.assegnata:
+        return PassoFattura.ASSEGNAZIONE
+    if not convalidata(lavorazione, oggi):
+        return PassoFattura.CONVALIDA
+    tipi = {tipo for tipo, data in documenti if data <= oggi}
+    if "ODA_RDC" not in tipi:
+        return PassoFattura.RDC
+    if not tipi & TIPI_ACCETTAZIONE:
+        return PassoFattura.MAP_MIGO
+    return PassoFattura.TRASFERIMENTO
+
+
+def fattura_da_lavorare(
+    documenti: Iterable[tuple[str, datetime.date]],
+    oggi: datetime.date,
+    trasferita: datetime.date | None = None,
+    lavorazione: LavorazioneFattura = GIA_CONVALIDATA,
+) -> bool:
+    """Da lavorare finché non è trasferita, salvo se fuori registro (Rev15)."""
+    if lavorazione.fuori_registro:
+        return False
+    return passo_fattura(documenti, oggi, trasferita, lavorazione) is not None
 
 
 def fattura_ferma(
@@ -249,8 +326,44 @@ def fattura_ferma(
     documenti: Iterable[tuple[str, datetime.date]],
     oggi: datetime.date,
     giorni: int,
+    trasferita: datetime.date | None = None,
+    lavorazione: LavorazioneFattura = GIA_CONVALIDATA,
 ) -> bool:
-    return fattura_da_lavorare(documenti, oggi) and (oggi - registrata).days > giorni
+    return (
+        fattura_da_lavorare(documenti, oggi, trasferita, lavorazione)
+        and (oggi - registrata).days > giorni
+    )
+
+
+def primo_referente(candidati: Iterable[object | None]) -> object | None:
+    """Referente proposto (Rev15): il primo candidato presente, nell'ordine della SPEC §4
+    (ultima fattura del contratto, referente del fabbisogno, referente della RDA d'origine,
+    ultima fattura del fornitore)."""
+    return next((c for c in candidati if c is not None), None)
+
+
+def importo_quadra(
+    importo_documento: Decimal,
+    valore_base: Decimal | None,
+    oneri: Decimal | None,
+    bollo: Decimal | None,
+) -> bool:
+    """Valore base + oneri + bollo = importo del documento; senza valore base non si giudica."""
+    if valore_base is None:
+        return True
+    return valore_base + (oneri or ZERO) + (bollo or ZERO) == importo_documento
+
+
+def valore_base_proposto(
+    importo_documento: Decimal, oneri: Decimal | None, bollo: Decimal | None
+) -> Decimal:
+    """Proposta: importo del documento meno oneri e bollo (SPEC §4)."""
+    return arrotonda(importo_documento - (oneri or ZERO) - (bollo or ZERO))
+
+
+def documento_accettazione(tipo_acquisto: str) -> str:
+    """MAP per i servizi, MIGO per le forniture (Rev14)."""
+    return "MIGO" if tipo_acquisto == "fornitura" else "MAP"
 
 
 # --- Esecuzione, residuo, contratti da chiudere (SPEC §5.8) -----------------------------
@@ -278,8 +391,11 @@ class DocumentoEseguito:
 
 @dataclass(frozen=True)
 class FatturaRegistrata:
+    """Fattura assegnata al contratto: conta il valore base (Rev15), non l'importo del
+    documento; senza valore base non conta ed è segnalata."""
+
     data: datetime.date
-    imponibile: Decimal
+    valore_base: Decimal | None
     numero: str = ""
     fornitore: object = None
 
@@ -296,6 +412,10 @@ def _percentuale(parte: Decimal, totale: Decimal) -> int:
     return int((parte * 100 / totale).quantize(Decimal(1), rounding=ROUND_HALF_UP))
 
 
+def _fatturato(fatture: Iterable[FatturaRegistrata]) -> Decimal:
+    return sum((f.valore_base for f in fatture if f.valore_base is not None), ZERO)
+
+
 def esecuzione(
     fisso: Decimal,
     massimale: Decimal,
@@ -303,7 +423,7 @@ def esecuzione(
     oggi: datetime.date,
 ) -> Esecuzione:
     """Fatturato, residui e avanzamento (fisso e massimale delle voci, proroghe comprese)."""
-    fatturato = sum((f.imponibile for f in fatture if f.data <= oggi), ZERO)
+    fatturato = _fatturato(f for f in fatture if f.data <= oggi)
     if fisso > 0:
         avanzamento = _percentuale(fatturato, fisso)
     elif massimale > 0:
@@ -365,8 +485,10 @@ def anomalie_esecuzione(
     """Codici di SPEC §5.8 (``FATTURA_DOPO_CHIUSURA`` è dell'import)."""
     codici = []
     valide = [f for f in fatture if f.data <= oggi]
-    if sum((f.imponibile for f in valide), ZERO) > fisso + massimale:
+    if _fatturato(valide) > fisso + massimale:
         codici.append("FATTURATO_OLTRE_MASSIMO")
+    if any(f.valore_base is None for f in valide):
+        codici.append("VALORE_BASE_MANCANTE")
     if data_chiusura is not None and data_chiusura <= oggi and not attestato(documenti, oggi):
         codici.append("CHIUSO_SENZA_ATTESTAZIONE")
     chiavi = [(f.fornitore, f.numero.strip().upper()) for f in valide if f.numero.strip()]
@@ -421,6 +543,11 @@ def formato_euro(valore: Decimal) -> str:
     """1348.98 → «1.348,98 €»."""
     testo = f"{arrotonda(Decimal(valore)):,.2f}"
     return testo.replace(",", "§").replace(".", ",").replace("§", ".") + " €"
+
+
+def formato_numero(valore: Decimal) -> str:
+    """1504.17 → «1.504,17» (senza simbolo)."""
+    return formato_euro(valore).removesuffix(" €")
 
 
 def formato_quantita(valore: Decimal) -> str:
@@ -490,3 +617,52 @@ def componi_testo_richiesta(s: SchedaRDA) -> str:
     if s.percorso:
         righe.append(f"(Campo informativo) File server: {s.percorso}")
     return "\n".join(righe) + "\n"
+
+
+# --- Indicazioni per la validazione e commento per PAC (SPEC §5.9, Rev15) ---------------
+
+DA_REGISTRARE = "(da registrare)"
+NESSUNO = "--"
+
+
+@dataclass(frozen=True)
+class DatiPAC:
+    numero_rdc: str | None
+    accettazione: str  # «MAP» o «MIGO»
+    numero_accettazione: str | None
+    centro_costo: str | None
+    conto: str | None
+    wbs: str | None
+    valore_base: Decimal | None
+    oneri: Decimal | None = None
+    bollo: Decimal | None = None
+
+
+def _euro(valore: Decimal | None) -> str:
+    return DA_REGISTRARE if valore is None else "€ " + formato_numero(valore)
+
+
+def indicazioni_validazione(d: DatiPAC) -> str:
+    """«Valore base da prelevare € …. COGE: …, CDC: …, WBS: …» (TC-18)."""
+    return (
+        f"Valore base da prelevare {_euro(d.valore_base)}. "
+        f"COGE: {d.conto or NESSUNO}, CDC: {d.centro_costo or NESSUNO}, WBS: {d.wbs or NESSUNO}"
+    )
+
+
+def commento_pac(d: DatiPAC) -> str:
+    """Il commento per PAC nel formato usato finora (TC-18)."""
+    righe = [
+        f"ODA : {d.numero_rdc or DA_REGISTRARE}",
+        f"{d.accettazione}: {d.numero_accettazione or DA_REGISTRARE}",
+        f"CDC: {d.centro_costo or NESSUNO}",
+        f"COGE: {d.conto or NESSUNO}",
+        f"WBS: {d.wbs or NESSUNO}",
+        "",
+        f"Valore base prelevato da contratto: {_euro(d.valore_base)}",
+    ]
+    if d.oneri:
+        righe.append(f"Oneri previdenziali: {_euro(d.oneri)}")
+    if d.bollo:
+        righe.append(f"Bollo: {_euro(d.bollo)}")
+    return "\n".join(righe)

@@ -18,7 +18,7 @@ from django.views.decorators.http import require_POST
 
 from accounts.permissions import editor_required
 from accounts.roles import ADMIN, role_of
-from contratti import adapters, forms, permessi, selettori, servizi
+from contratti import acquisti, adapters, forms, forms_rda, permessi, selettori, servizi
 from contratti import models as m
 from contratti.engine.budget import valore
 from contratti.engine.scadenzario import genera_rate
@@ -128,11 +128,21 @@ def home(request):
         }
     except adapters.ParametroMancante:
         pass
+    from reports import acquisti as viste_acquisti
+
     return render(
         request,
         "home.html",
         {
             "oggi": oggi,
+            # F11.4 (SPEC §5.7): le mie RDA, le mie fatture, le fatture proposte a me.
+            "mie_rda": viste_acquisti.mie_rda(request.user, oggi),
+            "mie_fatture": viste_acquisti.mie_fatture(request.user, oggi),
+            "fatture_proposte": viste_acquisti.fatture_proposte_a(request.user, oggi),
+            "fatture_da_prendere_home": m.Fattura.objects.filter(
+                referente__isnull=True, fuori_registro=False, archiviato=False
+            ).count(),
+            "addetto": permessi.e_addetto(request.user),
             "conteggi": {colore.value: len(gruppi[colore]) for colore in priorita},
             "attivi": sum(1 for r in righe if r.stato == "attivo"),
             "da_fare": da_fare[:8],
@@ -326,6 +336,8 @@ def _contratto(pk):
 
 @login_required
 def contratto_dettaglio(request, pk):
+    from contratti import views_fatture, views_rda
+
     oggi = oggi_richiesta(request)
     contratto = _contratto(pk)
     riga = selettori.riga_contratto(contratto, oggi, selettori.finestra_alert(oggi))
@@ -366,6 +378,14 @@ def contratto_dettaglio(request, pk):
             and not contratto.archiviato,
             "pratica": contratto.stati_pratica.select_related("utente").order_by("-data", "-id"),
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
+            **views_rda.contesto_pratica(contratto, oggi),
+            "rda_proposta": acquisti.rda_proposta(contratto),
+            **views_fatture.contesto_esecuzione(contratto, oggi),
+            "form_rda": forms_rda.CollegaRdaForm(contratto=contratto),
+            "puo_chiedere_rda": not contratto.una_tantum
+            and successore is None
+            and not contratto.confluito_in_id
+            and not contratto.archiviato,
             "storico": storico(contratto),
             "catena": selettori.catena(contratto),
             "previsti": selettori.previsti_dopo(contratto, oggi),
@@ -985,6 +1005,8 @@ def fabbisogni_elenco(request):
 
 @login_required
 def fabbisogno_dettaglio(request, pk):
+    from contratti import views_rda
+
     oggi = oggi_richiesta(request)
     f = get_object_or_404(m.Fabbisogno.objects.select_related("categoria", "impianto"), pk=pk)
     contratti = selettori.righe_contratti(
@@ -1006,6 +1028,8 @@ def fabbisogno_dettaglio(request, pk):
             ],
             "pratica": f.stati_pratica.order_by("-data", "-id"),
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
+            **views_rda.contesto_pratica(f, oggi),
+            "richieste": views_rda.richieste_del_fabbisogno(f, oggi),
             "storico": storico(f),
             "puo_modificare": permessi.puo_modificare(request.user, f.cluster_id),
         },

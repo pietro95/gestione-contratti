@@ -54,6 +54,60 @@ def stato_badge(valore):
     return _badge(classe, testo)
 
 
+# Fasi della RDA (SPEC §5.7): grigio = aspetta il referente, giallo = l'addetto o SAP,
+# blu = il contratto, verde = esecuzione e chiusura.
+FASE_RDA = {
+    "bozza": ("grigio", "Bozza"),
+    "da_correggere": ("arancione", "Da correggere"),
+    "inviata": ("giallo", "Inviata"),
+    "inserita": ("giallo", "Inserita in SAP"),
+    "rilasciata": ("giallo", "Rilasciata"),
+    "contratto_emesso": ("blu", "Contratto emesso"),
+    "in_esecuzione": ("verde", "In esecuzione"),
+    "chiusa": ("verde", "Chiusa"),
+    "annullata": ("grigio", "Annullata"),
+}
+
+
+@register.filter
+def quantita(valore):
+    """2.000 → «2», 2.500 → «2,5» (come nella scheda SAP)."""
+    from contratti.engine.acquisti import formato_quantita
+
+    return "" if valore in (None, "") else formato_quantita(Decimal(valore))
+
+
+@register.filter
+def importo_sap(valore):
+    """1348.98 → «1.348,98», senza simbolo: da incollare in SAP."""
+    from contratti.engine.acquisti import formato_euro
+
+    return "" if valore in (None, "") else formato_euro(Decimal(valore)).removesuffix(" €")
+
+
+@register.filter
+def fase_badge(valore):
+    classe, testo = FASE_RDA.get(str(valore), ("grigio", valore))
+    return _badge(classe, testo)
+
+
+PASSO_FATTURA = {
+    "presa_in_carico": ("arancione", "Da prendere in carico"),
+    "assegnazione": ("giallo", "Da assegnare"),
+    "convalida": ("giallo", "Da convalidare"),
+    "rdc": ("blu", "RdC da fare"),
+    "map_migo": ("blu", "MAP/MIGO da fare"),
+    "trasferimento": ("blu", "Da trasferire"),
+    "None": ("verde", "Trasferita"),
+}
+
+
+@register.filter
+def passo_badge(valore):
+    classe, testo = PASSO_FATTURA.get(str(valore), ("grigio", valore))
+    return _badge(classe, testo)
+
+
 @register.filter
 def iniziali(utente):
     nome = (utente.get_full_name() or utente.get_username()).replace(".", " ").split()

@@ -6,7 +6,8 @@
 {% block sottotitolo %}<div class="sottotitolo"><span class="stato stato-blu">{{ f.get_decisione_display }}</span>{% if f.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %} <span>· {{ f.area }} · {{ f.categoria }}{% if f.impianto %} · {{ f.impianto }}{% endif %}{% if f.referente %} · referente {{ f.referente }}{% endif %}</span></div>{% endblock %}
 {% block azioni %}
 {% if puo_modificare %}
-  <a class="btn btn-primary" href="{% url 'contratti:contratto_nuovo' %}?fabbisogno={{ f.pk|stringformat:"d" }}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuovo contratto</a>
+  {% if not f.archiviato %}<a class="btn btn-primary" href="{% url 'contratti:rda_nuova' f.pk %}"><i class="bi bi-cart-plus" aria-hidden="true"></i> Nuova richiesta di RDA</a>{% endif %}
+  <a class="btn btn-outline-primary" href="{% url 'contratti:contratto_nuovo' %}?fabbisogno={{ f.pk|stringformat:"d" }}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuovo contratto</a>
   <a class="btn btn-outline-primary" href="{% url 'contratti:contratto_nuovo' %}?fabbisogno={{ f.pk|stringformat:"d" }}&amp;senza_contratto=1"><i class="bi bi-receipt" aria-hidden="true"></i> Nuovo senza contratto</a>
   <a class="btn btn-outline-primary" href="{% url 'contratti:fabbisogno_modifica' f.pk %}"><i class="bi bi-pencil" aria-hidden="true"></i> Modifica</a>
   {% if not f.archiviato %}<a class="btn btn-outline-primary" href="{% url 'contratti:fabbisogno_accorpa' f.pk %}"><i class="bi bi-intersect" aria-hidden="true"></i> Accorpa in…</a>{% endif %}
@@ -60,6 +61,16 @@
   {% for r in contratti %}{% url 'contratti:contratto' r.contratto.pk as link %}
     <tr data-href="{{ link }}"><td><a href="{{ link }}">{{ r.contratto.numero_contratto|default:r.contratto.cig|default:r.contratto.pk }}</a>{% if r.contratto.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}{% if r.contratto.senza_contratto %} <span class="stato stato-grigio">senza contratto</span>{% endif %}</td><td>{{ r.contratto.fornitore }}</td><td class="text-nowrap">{{ r.contratto.data_inizio|date:"d/m/Y"|default:"—" }}</td><td class="text-nowrap">{{ r.fine|date:"d/m/Y"|default:"—" }}</td><td>{{ r.stato|stato_badge }}</td><td>{{ r.alert|alert_badge }}</td></tr>
   {% empty %}<tr><td colspan="6"><div class="vuoto py-4">Nessun contratto.{% if puo_modificare %} <a href="{% url 'contratti:contratto_nuovo' %}?fabbisogno={{ f.pk|stringformat:"d" }}">Inserisci il primo</a>.{% endif %}</div></td></tr>{% endfor %}
+  </tbody>
+</table></div></div>
+
+<h2 class="sezione-titolo">Richieste di RDA <span class="badge rounded-pill text-bg-light">{{ richieste|length }}</span></h2>
+<div class="tabella-card mb-4"><div class="table-responsive">
+<table class="table table-sm table-hover align-middle">
+  <thead><tr><th>RDA</th><th>Scopo</th><th>Referente</th><th>Fase</th><th class="text-end">Importo</th></tr></thead>
+  <tbody>
+  {% for x in richieste %}{% url 'contratti:rda' x.rda.pk as link %}<tr data-href="{{ link }}"><td><a href="{{ link }}">{{ x.rda.intestazione|default:x.rda.descrizione }}</a><div class="small text-body-secondary">{{ x.rda.numero_rda|default:"senza numero SAP" }}</div></td><td>{{ x.rda.get_scopo_display|default:"—" }}</td><td>{{ x.rda.nome_referente|default:"—" }}</td><td>{{ x.fase|fase_badge }}</td><td class="text-end">{{ x.importo|euro }}</td></tr>
+  {% empty %}<tr><td colspan="5"><div class="vuoto py-3">Nessuna richiesta di RDA.{% if puo_modificare and not f.archiviato %} <a href="{% url 'contratti:rda_nuova' f.pk %}">Nuova richiesta</a>: se il fabbisogno ha contratti è impostata come rinnovo.{% endif %}</div></td></tr>{% endfor %}
   </tbody>
 </table></div></div>
 

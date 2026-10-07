@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load registro %}
+{% block title %}{{ titolo }}{% endblock %}
+{% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'contratti:rda_elenco' %}">Richieste di RDA</a></li>{% if fabbisogno %}<li class="breadcrumb-item"><a href="{% url 'contratti:fabbisogno' fabbisogno.pk %}">{{ fabbisogno.descrizione }}</a></li>{% endif %}{% if rda %}<li class="breadcrumb-item"><a href="{% url 'contratti:rda' rda.pk %}">{{ rda }}</a></li>{% endif %}<li class="breadcrumb-item active" aria-current="page">{{ titolo }}</li></ol></nav>{% endblock %}
+{% block titolo_pagina %}{{ titolo }}{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">{% if fabbisogno %}{{ fabbisogno.descrizione }} · {{ fabbisogno.area }}{% else %}RDA non collegata a un fabbisogno{% endif %}</div><div class="sottotitolo small">I campi con <span class="text-danger">*</span> sono obbligatori.</div>{% endblock %}
+{% block content %}
+{% if proposta %}
+<div class="alert alert-info">
+  {% if proposta.scopo == "rinnovo" %}
+    <p class="mb-1"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> <strong>Rinnovo</strong> di <a class="alert-link" href="{% url 'contratti:contratto' proposta.contratto_in_scadenza.pk %}">{% include "contratti/_contratto_breve.html" with x=proposta.contratto_in_scadenza %}</a>: posizioni precompilate dal rinnovo previsto, per l'importo massimo (fisso + massimale).</p>
+    {% if proposta.alternative %}<p class="small mb-1">Catena interrotta: puoi rinnovare un altro contratto senza successore —{% for x in proposta.alternative %} <a class="alert-link" href="?contratto={{ x.pk|stringformat:"d" }}">{% include "contratti/_contratto_breve.html" with x=x %}</a>{% if not forloop.last %};{% endif %}{% endfor %}.</p>{% endif %}
+    <p class="small mb-0">Non è un rinnovo ma un acquisto in più (es. licenze aggiuntive)? <a class="alert-link" href="?aggiuntivo=1">Acquisto aggiuntivo</a>: non tocca la pratica di rinnovo e il contratto sarà una tantum.</p>
+  {% elif proposta.scopo == "aggiuntivo" %}
+    <p class="mb-0"><i class="bi bi-plus-circle" aria-hidden="true"></i> <strong>Acquisto aggiuntivo</strong>: non tocca la pratica di rinnovo del contratto in scadenza; il contratto che ne nascerà è proposto come una tantum. <a class="alert-link" href="?">Torna al rinnovo</a>.</p>
+  {% else %}
+    <p class="mb-0"><i class="bi bi-stars" aria-hidden="true"></i> <strong>Primo acquisto</strong>: il fabbisogno non ha contratti; la posizione parte dalla stima del prossimo importo e dal previsto del fabbisogno.</p>
+  {% endif %}
+</div>
+{% endif %}
+{% if correzione %}<div class="alert alert-warning"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> La richiesta è già stata inviata: la modifica è una <strong>correzione diretta</strong> e resta nella storia delle modifiche. In alternativa l'addetto può rimandarla al referente.</div>{% endif %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% if aggiuntivo %}<input type="hidden" name="aggiuntivo" value="1">{% endif %}
+  {% if proposta.contratto_in_scadenza %}<input type="hidden" name="contratto" value="{{ proposta.contratto_in_scadenza.pk|stringformat:"d" }}">{% endif %}
+  {% include "contratti/_campi.html" with form=form %}
+  <div class="card form-sezione">
+    <div class="card-header">Posizioni</div>
+    <div class="card-body">
+      <p class="small text-body-secondary">Importo della posizione = quantità × importo unitario (imponibile). In SAP la RDA va per l'importo massimo: «di cui variabile» è la quota a consumo compresa nell'importo. Conto, centro di costo e WBS sono campi informativi.</p>
+      {{ formset.management_form }}
+      {% if formset.non_form_errors %}<div class="alert alert-danger">{{ formset.non_form_errors|join:" " }}</div>{% endif %}
+      <div id="pos-forms">
+      {% for f in formset %}{% include "contratti/_posizione_rda.html" with f=f numero=forloop.counter %}{% endfor %}
+      </div>
+      <template id="pos-vuota">{% include "contratti/_posizione_rda.html" with f=formset.empty_form numero="" %}</template>
+      <button type="button" class="btn btn-sm btn-outline-primary" data-aggiungi-form="pos"><i class="bi bi-plus-lg" aria-hidden="true"></i> Aggiungi posizione</button>
+    </div>
+  </div>
+  <div class="form-azioni">
+    {% if nuova or puo_inviare %}<button type="submit" name="invia" value="1" class="btn btn-primary"><i class="bi bi-send" aria-hidden="true"></i> Salva e invia all'addetto</button>{% endif %}
+    <button type="submit" class="btn {% if nuova or puo_inviare %}btn-outline-primary{% else %}btn-primary{% endif %}"><i class="bi bi-check-lg" aria-hidden="true"></i> {% if nuova or puo_inviare %}Salva in bozza{% else %}Salva la correzione{% endif %}</button>
+    <a class="btn btn-outline-secondary" href="{% if rda %}{% url 'contratti:rda' rda.pk %}{% elif fabbisogno %}{% url 'contratti:fabbisogno' fabbisogno.pk %}{% else %}{% url 'contratti:rda_elenco' %}{% endif %}">Annulla</a>
+  </div>
+</form>
+{% endblock %}

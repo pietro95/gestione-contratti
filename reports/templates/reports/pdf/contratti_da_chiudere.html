@@ -1,0 +1,10 @@
+{% extends "reports/pdf/base.html" %}
+{% load registro %}
+{% block sottotitolo %}Al {{ oggi|date:"d/m/Y" }} · prestazione finita, contratto non chiuso · fatturato sui valori base{% endblock %}
+{% block contenuto %}
+<table class="kpi"><tr><td><div class="etichetta">Da chiudere</div><div class="valore">{{ righe|length }}</div></td>{% for motivo, n in per_motivo.items %}<td><div class="etichetta">{{ motivo }}</div><div class="valore">{{ n }}</div></td>{% endfor %}</tr></table>
+<table class="dati" id="da-chiudere">
+  <thead><tr><th class="sx">Contratto</th><th>Fine effettiva</th><th class="num">Fatturato</th><th class="num">Residuo sul fisso</th><th class="num">Avanzamento</th><th class="sx">Motivo</th></tr></thead>
+  <tbody>{% for r in righe %}<tr>{% include "reports/pdf/_righe_esecuzione.html" %}<td class="sx">{{ r.motivo_label }}</td></tr>{% empty %}<tr><td colspan="6" class="vuoto">Nessun contratto da chiudere.</td></tr>{% endfor %}</tbody>
+</table>
+{% endblock %}

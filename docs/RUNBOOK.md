@@ -328,6 +328,30 @@ qui sotto restano per l'emergenza: fanno la stessa cosa con lo stesso codice.
    ```
    La cartella base delle RDA di ogni cluster (es. `smb://<nas>/Share/ICTDINN/00_IT/RDA_Ordini`)
    e la funzione «Amministrazione acquisti» degli addetti si impostano dall'amministrazione.
+   **Fatture** (F11.3, ogni settimana): l'estrazione SAP delle fatture (primo foglio, colonne
+   `Fornitore`, `Numero Documento`, `Data`, `Importo SAP`; le altre si ignorano) da
+   Gestione → Import, «Fatture (estrazione SAP)», Admin ed Editor. Le fatture entrano da
+   prendere in carico, visibili a tutti nel menu «Fatture»; una fattura già registrata non si
+   duplica né si modifica. I fornitori non riconosciuti (ragione sociale o nome breve) sono nel
+   report: si aggiungono e si ripete l'import.
+   ```bash
+   ./manage.sh import_fatture /import/estrazione_fatture.xlsx --dry-run
+   ./manage.sh import_fatture /import/estrazione_fatture.xlsx
+   ```
+   **Riepilogo RDA Ordini** (F11.4, una volta, solo Admin): il file «Riepilogo RDA Ordini»
+   così com'è, da Gestione → Import «Riepilogo RDA Ordini (una tantum)» o da riga di comando.
+   Prima caricare struttura (conti con il cluster) e tabelle SAP: le RDA entrano solo con data
+   dal 01/04/2025 e un conto di un cluster ICTDINN. Guardare il report in anteprima:
+   `CONTRATTO_CREATO` (contratti creati nel fabbisogno «Acquisti una tantum <cluster> (dal
+   Riepilogo)», da spostare nei fabbisogni giusti), `FORNITORE_CREATO`, `CONTO_CDC_SCAMBIATI`,
+   `REFERENTE_MANCANTE` (il referente si assegna dalla pagina della RDA). Rieseguire con lo
+   stesso file non crea duplicati.
+   ```bash
+   ./manage.sh import_riepilogo /import/Riepilogo_RDA_Ordini.xlsx --dry-run --report /import/riepilogo_anomalie.csv
+   ./manage.sh import_riepilogo /import/Riepilogo_RDA_Ordini.xlsx
+   ```
+   Dati letti in SAP dopo l'avvio: modello «Esecuzione (modello XLSX)» (fogli RDA, Documenti,
+   Fatture), `./manage.sh import_esecuzione /import/esecuzione.xlsx`.
 5. **Quadratura con l'Excel**:
    ```bash
    ./manage.sh quadratura_excel /import/<Contratti_IT.xlsx> --area IT

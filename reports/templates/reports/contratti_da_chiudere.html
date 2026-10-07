@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load registro %}
+{% block title %}Contratti da chiudere{% endblock %}
+{% block titolo_pagina %}Contratti da chiudere{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">Al {{ oggi|date:"d/m/Y" }} · prestazione finita (fine effettiva prima di oggi), contratto non chiuso · fatturato sui valori base</div>{% endblock %}
+{% block azioni %}{% include "reports/_azioni.html" %}{% endblock %}
+{% block content %}
+{% include "reports/_filtri.html" %}
+{% if righe is not None %}
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Da chiudere</div><div class="kpi-valore">{{ righe|length }}</div><div class="kpi-nota">contratti</div></div></div></div>
+  {% for motivo, n in per_motivo.items %}<div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">{{ motivo }}</div><div class="kpi-valore">{{ n }}</div></div></div></div>{% endfor %}
+</div>
+<div class="tabella-card"><div class="table-responsive">
+<table class="table table-hover align-middle" id="da-chiudere">
+  <thead><tr><th>Contratto</th><th>Fine effettiva</th><th class="text-end">Fatturato</th><th class="text-end">Residuo sul fisso</th><th class="text-end">Avanzamento</th><th>Motivo</th></tr></thead>
+  <tbody>{% for r in righe %}<tr>{% include "reports/_tabella_esecuzione.html" %}<td><span class="stato {% if r.riepilogo.motivo_da_chiudere == 'pronto_da_chiudere' %}stato-verde{% else %}stato-giallo{% endif %}">{{ r.motivo_label }}</span></td></tr>
+  {% empty %}<tr><td colspan="6"><div class="vuoto">Nessun contratto da chiudere.</div></td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endif %}
+{% endblock %}

@@ -273,7 +273,10 @@ class StatoPraticaContrattoInline(InlineSenzaCancellazione):
 
 class FatturaInline(InlineSenzaCancellazione):
     model = m.Fattura
-    fields = ("numero", "data", "imponibile", "voce", "rata", "data_registrazione", "archiviato")
+    fields = (
+        "numero", "data", "importo_documento", "valore_base", "voce", "rata",
+        "data_registrazione", "data_trasferimento", "archiviato",
+    )  # fmt: skip
     raw_id_fields = ("voce", "rata")
 
 
@@ -323,7 +326,17 @@ class ContrattoAdmin(ArchiviabileAdmin):
             "Date",
             {"fields": ("data_stipula", "data_inizio", "durata_mesi", "data_fine_override")},
         ),
-        ("Rinnovo", {"fields": ("tacito_rinnovo", "preavviso_disdetta_giorni", "una_tantum")}),
+        (
+            "Rinnovo",
+            {
+                "fields": (
+                    "tacito_rinnovo",
+                    "preavviso_disdetta_giorni",
+                    "una_tantum",
+                    "tipo_acquisto",
+                )
+            },
+        ),
         ("Processo d'acquisto", {"fields": ("rda", "rup", "cup", "data_chiusura", "chiuso_da")}),
         (
             "Documenti e note",
@@ -400,10 +413,13 @@ class RichiestaAcquistoAdmin(ArchiviabileAdmin):
 
 @admin.register(m.Fattura)
 class FatturaAdmin(ArchiviabileAdmin):
-    list_display = ("numero", "data", "imponibile", "contratto", "fornitore", "archiviato")
-    list_filter = ("archiviato",)
+    list_display = (
+        "numero", "data", "importo_documento", "valore_base", "fornitore", "contratto",
+        "referente", "esito_convalida", "fuori_registro", "archiviato",
+    )  # fmt: skip
+    list_filter = ("esito_convalida", "fuori_registro", "archiviato")
     search_fields = ("numero", "contratto__numero_contratto", "fornitore__ragione_sociale")
-    autocomplete_fields = ("contratto",)
+    autocomplete_fields = ("contratto", "fornitore", "referente")
     raw_id_fields = ("voce", "rata")
     date_hierarchy = "data"
 

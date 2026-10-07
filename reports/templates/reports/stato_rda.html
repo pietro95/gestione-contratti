@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load registro %}
+{% block title %}Stato delle RDA{% endblock %}
+{% block titolo_pagina %}Stato delle RDA{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">Al {{ oggi|date:"d/m/Y" }} · fase di ogni RDA ricavata da invio, dati SAP e contratti · importi imponibili</div>{% endblock %}
+{% block azioni %}{% include "reports/_azioni.html" %}{% endblock %}
+{% block content %}
+{% include "reports/_filtri.html" %}
+{% if righe is not None %}
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">RDA</div><div class="kpi-valore">{{ righe|length }}</div><div class="kpi-nota">{{ ferme }} ferme</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi verde"><div class="card-body"><div class="kpi-etichetta">Importo</div><div class="kpi-valore">{{ totale|euro }}</div><div class="kpi-nota">somma delle posizioni</div></div></div></div>
+  <div class="col-xl-6"><div class="card h-100"><div class="card-body small">{% for f, etichetta, n, importo in per_fase %}<span class="me-3">{{ f|fase_badge }} {{ n }} · {{ importo|euro }}</span>{% empty %}Nessuna RDA.{% endfor %}</div></div></div>
+</div>
+<div class="tabella-card"><div class="table-responsive">
+<table class="table table-hover align-middle" id="stato-rda">
+  <thead><tr><th>RDA</th><th>Fabbisogno</th><th>Referente</th><th>Fornitore</th><th>Fase</th><th>Dal</th><th class="text-end">Importo</th></tr></thead>
+  <tbody>
+  {% for r in righe %}{% url 'contratti:rda' r.rda.pk as link %}
+    <tr data-href="{{ link }}">
+      <td><a href="{{ link }}" class="fw-semibold">{{ r.rda.intestazione|default:r.rda.descrizione }}</a><div class="small text-body-secondary">{{ r.rda.numero_rda|default:"senza numero SAP" }} · {{ r.rda.cluster.codice }}{% for c in r.contratti %} · {{ c.numero_contratto|default:"contratto" }}{% endfor %}</div></td>
+      <td>{{ r.fabbisogno.descrizione|default:"—" }}</td>
+      <td>{{ r.rda.nome_referente|default:"—" }}</td>
+      <td>{{ r.fornitore|default:"—" }}</td>
+      <td>{{ r.fase|fase_badge }}{% if r.ferma %} <span class="stato stato-rosso">ferma</span>{% endif %}</td>
+      <td class="text-nowrap">{{ r.data_fase|date:"d/m/Y"|default:"—" }}{% if r.giorni is not None %}<div class="small text-body-secondary">{{ r.giorni }} giorni</div>{% endif %}</td>
+      <td class="text-end">{{ r.importo|euro }}</td>
+    </tr>
+  {% empty %}<tr><td colspan="7"><div class="vuoto">Nessuna RDA con questi filtri.</div></td></tr>{% endfor %}
+  {% if righe %}<tr class="fw-semibold"><td colspan="6">Totale</td><td class="text-end">{{ totale|euro }}</td></tr>{% endif %}
+  </tbody>
+</table></div></div>
+{% endif %}
+{% endblock %}
