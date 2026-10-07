@@ -1,6 +1,6 @@
 # Istruzioni di progetto — Registro contratti ICTDINN
 
-Rev12 — 05/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
+Rev13 — 07/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
@@ -16,6 +16,7 @@ Storico revisioni:
 - Rev10 (05/10/2026): decisione di Pietro, testo scritto da Claude, da approvare. Connettore MCP in sola lettura per Claude, specificato in `docs/SPEC_MCP.md` (§8.1). **Deroga** all'accesso solo interno: su Internet si espone solo il connettore, su un host dedicato raggiungibile solo dalla rete di uscita di Anthropic; login, interfaccia e amministrazione restano interni (§8.2).
 - Rev11 (05/10/2026): decisioni di Pietro per la release 2.0, testo scritto da Claude, **bozza da approvare**. Il registro traccia anche il processo d'acquisto dell'ufficio ICTDINN e sostituisce il file «Riepilogo RDA Ordini» (§1, §2.3). Nuove entità: **richiesta d'acquisto (RDA)**, **documento di esecuzione** (ODA/RDC, DDT, MIGO, MAP, attestazione di regolare esecuzione, modello di ricezione materiale) e **fattura**; chiusura del contratto; RUP, CUP, richiedente e percorso dei documenti (§4). Contratto **una tantum**: fuori dalla catena dei rinnovi, dagli alert e dai previsti, dentro il budget (§4, §5.1, §5.3, §5.4). Gli stati della pratica da `RDA richiesta` in poi si **ricavano dalla RDA** collegata (§4, §5.7, TC-15). Esecuzione, residuo da fatturare e contratti da chiudere (§5.8, TC-16). Import manuale da modello XLSX e import del Riepilogo dal 01/04/2025 (§7). Nuove decisioni aperte (§9).
 - Rev12 (05/10/2026): decisione di Pietro, testo scritto da Claude, da approvare. Il connettore MCP prevede anche la scrittura (sotto-fase F10.1, `docs/SPEC_MCP.md` Rev05 §8): solo Admin ed Editor, scope separato, anteprima con gli effetti calcolati e conferma, stesse validazioni e permessi dell'interfaccia, nessuna cancellazione (§8.1).
+- Rev13 (07/10/2026): decisioni di Pietro, testo scritto da Claude, **bozza da approvare**. Rivisto il processo d'acquisto della release 2.0 (Rev11) sul flusso reale: il **referente** compila sul portale la **richiesta di RDA** con le posizioni e i campi SAP; l'**addetto amministrativo** la inserisce in SAP aiutato da una **scheda SAP** con i campi già pronti e riporta sul portale i dati di SAP; il contratto lo registrano l'addetto o il referente; le fatture e i documenti SAP che le accompagnano li registra l'addetto, con la scheda SAP della fattura (§4, §5.7, §5.9). Funzione «Amministrazione acquisti» assegnata per utente, senza nuovo ruolo AD (§8.1). Cruscotti dell'addetto (RDA da processare, fatture da lavorare) e del referente (le mie RDA) (§5.7). La richiesta di RDA **parte dal fabbisogno**: se il fabbisogno ha contratti è impostata come rinnovo del contratto in scadenza e precompilata dal suo rinnovo previsto (§4, §5.9). RDA e contratti si inseriscono anche a mano, scollegati, e si collegano dopo (§4, §7). Nessuna mail inviata dal portale: il portale prepara il testo (§5.9). Nuove tabelle di configurazione, con import da Excel: richiedenti SAP, gruppi merci e gruppi acquisti, ciascuna con un valore predefinito; cartella base delle RDA per cluster (§4, §7). Chiusura del contratto: addetto o referente (§4). TC-15 aggiornato, nuovo TC-17.
 
 ## 1. Obiettivo
 
@@ -78,7 +79,7 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
 
 ## 4. Modello dati (logico)
 
-**Fornitore**: ragione sociale, P.IVA, codice SAP, note.
+**Fornitore**: ragione sociale, P.IVA, codice SAP, **nome breve** (facoltativo, Rev13: per l'intestazione della RDA e il nome della cartella, §5.9), note.
 - La P.IVA è facoltativa e, se presente, univoca.
 - Il codice SAP non è univoco: nei file attuali lo stesso codice è assegnato a più fornitori (§2.2). Il sistema lo ammette e lo segnala.
 
@@ -104,7 +105,7 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
 - classificazione: natura e WBS stanno sulle voci. La natura del contratto si ricava dalle voci (OPEX, CAPEX o mista); il contratto è **finanziato** se ha almeno una voce su una WBS a progetto;
 - documenti: link al protocollo o a SharePoint, oppure percorso sul server aziendale (`X:\…`, `\\nas…`, Rev11), senza caricare file;
 - **una tantum** (sì/no, Rev11): acquisto che non si rinnova, tipicamente una fornitura (§5.1, §5.3). Non ha predecessore né successore, non entra nella catena, non va in alert e non genera previsti; entra nel budget come ogni contratto. Default: fatturazione `Una tantum`, inizio alla data di emissione, durata 1 mese (da confermare, §9). Sta su un fabbisogno come gli altri contratti, anche insieme a una catena (es. licenze aggiuntive acquistate una volta) o su un fabbisogno di sole forniture;
-- **chiusura** (Rev11): data e utente della chiusura amministrativa (prestazione attestata, fatture registrate). È un atto deciso, si salva; si può annullare. Su un contratto chiuso non si registrano documenti di esecuzione né fatture: prima si annulla la chiusura;
+- **chiusura** (Rev11): data e utente della chiusura amministrativa (prestazione attestata, fatture registrate). È un atto deciso, si salva; si può annullare. La registrano l'addetto amministrativo o il referente (Rev13: ogni Editor del cluster, §8.1). Su un contratto chiuso non si registrano documenti di esecuzione né fatture: prima si annulla la chiusura;
 - **senza contratto** (sì/no): acquisto senza documento contrattuale, per esempio con fattura diretta (§5.6). Numero di contratto, data di emissione e tacito rinnovo non servono; tutto il resto vale come per un contratto.
 
 **Proroga** (0..n per contratto): proroga effettivamente esercitata, anche più volte sullo stesso contratto.
@@ -148,31 +149,40 @@ Regole di generazione:
 - con quote per periodo, ogni quota si fattura come una voce a sé con lo stesso piano (la prima fattura esplicita vale solo per la prima quota); la numerazione delle rate prosegue. La `Una tantum` resta una sola rata dell'intero fisso.
 
 **Stato pratica di rinnovo** (workflow): `Non avviata` → `Offerta richiesta` → `Offerta ricevuta` → `RDA richiesta` → `RDA predisposta` → `RDA approvata` → `Contratto emesso` → `Contratto attivo`.
-- `RDA richiesta`: l'IT ha chiesto l'inserimento della RDA in SAP; diventa `RDA predisposta` quando la RDA è inserita.
+- `RDA richiesta`: l'IT ha chiesto l'inserimento della RDA in SAP; diventa `RDA predisposta` quando la RDA è inserita. Da Rev13 corrispondono alle fasi `Inviata` e `Inserita` della richiesta di RDA (§5.7).
 - La pratica si lega al **contratto in scadenza**; per un fabbisogno nuovo, senza contratti, si lega al fabbisogno. Mai a entrambi.
 - Si conserva lo storico dei passaggi (stato, data, utente, note).
 - **Rev11, stati ricavati dalla RDA**: da `RDA richiesta` in poi lo stato si ricava dalle RDA collegate alla pratica (§5.7), non si registra a mano. A mano si registrano solo `Offerta richiesta` e `Offerta ricevuta`. I passaggi registrati prima della 2.0 (anche dall'import) restano nello storico.
 - Lo **stato corrente** è il più avanzato, nell'ordine del workflow, tra l'ultimo passaggio registrato e lo stato ricavato dalle RDA (TC-15); senza passaggi e senza RDA vale `Non avviata`. Il passaggio a `Contratto attivo` che «Registra rinnovo» scrive oggi resta solo per le pratiche senza RDA collegate; con una RDA lo stato si ricava.
 
-**Richiesta d'acquisto (RDA)** (Rev11), legata alla pratica come la pratica stessa: al contratto in scadenza oppure, per un fabbisogno nuovo o un acquisto una tantum, al fabbisogno. Mai a entrambi.
-- numero SAP (10 cifre, di norma inizia con 51; vuoto finché la RDA non è inserita), descrizione, data della richiesta (quando l'ufficio chiede l'inserimento), data di inserimento in SAP, data dell'ultimo rilascio (approvazione), annullata (con data e motivo);
-- richiedente (gestore SAP: testo, più un collegamento facoltativo all'utente), RUP, CUP;
-- imputazione prevista: natura, conto, centro di costo, WBS (stesse regole della voce), importo stimato (imponibile);
-- percorso dei documenti, note;
-- una RDA genera **zero o più contratti** (campo RDA d'origine sul contratto); il contratto generato di norma è il successore del contratto in scadenza;
-- il cluster è quello del fabbisogno; valgono i permessi per cluster (§8.1).
+**Richiesta d'acquisto (RDA)** (Rev11, rivista in Rev13). Nasce sul portale come **richiesta di RDA** compilata dal referente; l'addetto amministrativo la inserisce in SAP e vi riporta i dati che SAP restituisce (§5.9). In migrazione si può anche registrare direttamente una RDA già inserita in SAP.
+- **cluster** (obbligatorio; per la richiesta nata sul portale è quello del fabbisogno) e **referente** (utente dell'applicazione, obbligatorio per le richieste nate sul portale; per le RDA registrate a mano o importate anche solo testo);
+- **la richiesta nasce dal fabbisogno** (Rev13): si crea dalla pagina del fabbisogno (o dal contratto, che porta al suo fabbisogno); un acquisto nuovo richiede prima il fabbisogno. Lo **scopo** si imposta da solo:
+  - **rinnovo**, se il fabbisogno ha contratti che non siano tutti una tantum: la RDA si lega al **contratto in scadenza**, cioè il contratto senza successore che scade per ultimo, lo stesso da cui partono i previsti (§5.3); con la catena interrotta (più contratti senza successore) si propone questo e si può sceglierne un altro. I campi si precompilano dal **rinnovo previsto** (§5.9);
+  - **primo acquisto**, se il fabbisogno non ha contratti (o solo contratti una tantum): la RDA si lega al fabbisogno; i campi si precompilano dal previsto manuale del fabbisogno, se c'è;
+  - **acquisto aggiuntivo**, a scelta dell'utente al posto del rinnovo (es. licenze in più a metà contratto): la RDA si lega al fabbisogno e non tocca la pratica del contratto in scadenza; il contratto che ne nasce è proposto come una tantum;
+- legami modificabili dopo: fabbisogno, oppure contratto in scadenza (la pratica, mai entrambi); contratti generati (campo RDA d'origine sul contratto). Solo le RDA registrate a mano (già in SAP) o importate possono restare **senza legami**: si collegano in seguito da una parte o dall'altra; il portale propone il collegamento quando il n. RDA scritto su un contratto coincide con una RDA registrata (proposta da confermare, §7);
+- **campi della richiesta** (li compila il referente, nell'ordine della scheda SAP): intestazione (default «nome breve del fornitore proposto − descrizione», §5.9), fornitore proposto (facoltativo), richiedente SAP e gruppo acquisti (dalle tabelle, default il valore predefinito; si può scegliere anche il richiedente di un altro ufficio), note al buyer, allegati (testo: cosa è allegato e dove si trova; il portale non conserva file), percorso sul file server (proposto, §5.9), RUP, CUP, note interne;
+- **posizioni** (1..n, numerate): descrizione breve, gruppo merci, quantità (fino a 3 decimali), importo unitario (imponibile), importo della posizione = quantità × importo unitario arrotondato `ROUND_HALF_UP` al centesimo; **di cui variabile** (informativo, Rev13: la parte dell'importo della posizione che è massimale a consumo; in SAP la RDA va sempre per l'importo massimo, perché il contratto si stipula per tutto l'importo e poi si può consumare di meno); campi informativi: natura, conto COGE, centro di costo, WBS (stesse regole della voce: CAPEX ⇔ WBS, conto e WBS di cluster del cluster della RDA). L'importo della RDA è la somma delle posizioni;
+- **campi da SAP** (li compila l'addetto, o il referente, §8.1): numero RDA (10 cifre, di norma inizia con 51), data di inserimento, data dell'ultimo rilascio;
+- **storico della richiesta** (fatti decisi, si salvano): invio all'addetto, rimando al referente con la nota di cosa correggere, annullamento con motivo; ciascuno con data e utente. Dopo l'invio i campi della richiesta si modificano in due modi, entrambi ammessi: rimandandola al referente, oppure correggendoli direttamente (chi può modificare la RDA, §8.1), con traccia nella storia delle modifiche;
+- una RDA genera **zero o più contratti**; «Registra contratto da RDA» precompila fornitore, voci (una per posizione, con descrizione, importo fisso = importo della posizione − di cui variabile, massimale variabile = di cui variabile, natura, conto, centro di costo e WBS), RUP, CUP, fabbisogno e predecessore (il contratto in scadenza). Gli importi del contratto restano quelli emessi: la differenza tra il massimo del contratto (fisso + massimale) e l'importo della RDA si mostra, non si corregge;
+- valgono i permessi per cluster (§8.1).
 
-**Documento di esecuzione** (Rev11, 0..n per contratto): tipo (`ODA/RDC`, `DDT`, `MIGO`, `MAP`, `Attestazione di regolare esecuzione`, `Modello di ricezione materiale`), numero, data, importo facoltativo, voce facoltativa, parziale o finale (solo per attestazione e modello di ricezione), note. I numeri si conservano come arrivano; le anomalie di formato vanno nel report d'import.
+**Documento di esecuzione** (Rev11, 0..n per contratto): tipo (`ODA/RDC`, `DDT`, `MIGO`, `MAP`, `Attestazione di regolare esecuzione`, `Modello di ricezione materiale`), numero, data, importo facoltativo, voce facoltativa, parziale o finale (solo per attestazione e modello di ricezione), **fattura** a cui si riferisce (facoltativa, Rev13: i documenti SAP predisposti a supporto della fattura, es. MAP o MIGO), note. I numeri si conservano come arrivano; le anomalie di formato vanno nel report d'import.
 
-**Fattura** (Rev11, 0..n per contratto): numero, data, imponibile, voce facoltativa, note. Una fattura si può abbinare a una rata dello scadenzario: la rata diventa consuntivo e riceve il numero di fattura; il suo importo non cambia da solo (resta modificabile a mano, tracciato). Lo stesso numero di fattura dello stesso fornitore non si registra due volte.
+**Fattura** (Rev11, 0..n per contratto): numero, data, imponibile, voce facoltativa, note. Una fattura si può abbinare a una rata dello scadenzario: la rata diventa consuntivo e riceve il numero di fattura; il suo importo non cambia da solo (resta modificabile a mano, tracciato). Lo stesso numero di fattura dello stesso fornitore non si registra due volte. (Rev13) La registra l'addetto amministrativo (o il referente); una fattura è **da lavorare** finché non ha almeno un documento di esecuzione collegato di tipo `MAP` o `MIGO` (§5.7); la scheda SAP della fattura propone i campi (§5.9).
 
 **Tabelle di configurazione**:
 - lead time per procedura, in mesi;
 - soglie per l'importo, con validità temporale;
 - piano dei conti con validità temporale, mappatura vecchio→nuovo (sostituisce la colonna "Nuovo codice conto da 01/01/26") e **cluster** del conto (ogni conto appartiene a un solo cluster). Si carica dall'interfaccia (import del piano dei conti o della struttura, §7) o dall'amministrazione; i conti reali non entrano nel repository;
 - cluster, WBS e **assegnazioni dei cluster agli utenti** (§8.1), caricati con l'import della struttura;
-- parametri con validità temporale: giorni di pagamento, pagamento a fine mese, adeguamento dei rinnovi previsti, finestra dell'alert giallo, orizzonte della previsione; (Rev11) giorni oltre i quali una RDA è «ferma» in una fase (§5.7);
-- categorie dei fabbisogni.
+- parametri con validità temporale: giorni di pagamento, pagamento a fine mese, adeguamento dei rinnovi previsti, finestra dell'alert giallo, orizzonte della previsione; (Rev11) giorni oltre i quali una RDA è «ferma» in una fase (§5.7); (Rev13) giorni oltre i quali una fattura è «ferma» da lavorare (§5.7);
+- categorie dei fabbisogni;
+- (Rev13) **richiedenti SAP** (codice, ufficio o descrizione, attivo, **predefinito**: uno solo, oggi il codice dell'ufficio ICTDINN; gli altri servono per richieste a nome di altri uffici), **gruppi merci** (codice SAP, descrizione, attivo, predefinito; facoltativa la categoria di fabbisogno a cui si propone) e **gruppi acquisti** (codice, nome, attivo, predefinito: il gruppo legato all'ufficio, che si usa quasi sempre; gli altri si scelgono sulla singola RDA). Al più un predefinito per tabella. Si caricano con l'**import da Excel** (§7) o dall'amministrazione, solo Admin; i codici reali non entrano nel repository;
+- (Rev13) **cartella base delle RDA** del cluster sul file server (es. `smb://<nas>/Share/ICTDINN/00_IT/RDA_Ordini`);
+- (Rev13) **funzioni degli utenti**: «Amministrazione acquisti», assegnata per nome utente di dominio come i cluster (§8.1).
 
 I valori iniziali sono caricati come **provvisori** e si modificano dall'amministrazione.
 
@@ -270,23 +280,36 @@ Un fabbisogno può proseguire senza documento contrattuale (es. un dominio rinno
 - **Piano ordini**: fuori, sia il periodo registrato sia i suoi previsti (§5.4). Un rinnovo registrato poi come contratto vero rientra nelle regole ordinarie.
 - Si può alternare: dopo un rinnovo senza contratto si può registrare un contratto, e viceversa.
 
-### 5.7 Fase della RDA e stato della pratica (Rev11)
+### 5.7 Fase della RDA, stato della pratica, cruscotti (Rev11, rivista in Rev13)
 
 La fase di una RDA si ricava dai suoi dati; vale la prima regola che si applica, dall'alto:
 
-| Fase | Condizione |
-|---|---|
-| `Annullata` | RDA annullata |
-| `Chiusa` | almeno un contratto generato e tutti i contratti generati chiusi |
-| `In esecuzione` | almeno un contratto generato con almeno un documento di esecuzione o una fattura |
-| `Contratto emesso` | almeno un contratto generato |
-| `Approvata` | data dell'ultimo rilascio presente |
-| `Predisposta` | numero SAP presente |
-| `Richiesta` | negli altri casi |
+| Fase | Condizione | Chi deve agire |
+|---|---|---|
+| `Annullata` | ultimo evento dello storico: annullamento | — |
+| `Chiusa` | almeno un contratto generato e tutti i contratti generati chiusi | — |
+| `In esecuzione` | almeno un contratto generato con almeno un documento di esecuzione o una fattura | addetto (fatture) |
+| `Contratto emesso` | almeno un contratto generato | — |
+| `Rilasciata` | data dell'ultimo rilascio presente | Procurement (sollecito dell'addetto) |
+| `Inserita` | numero RDA presente | approvatori SAP (sollecito dell'addetto) |
+| `Da correggere` | ultimo evento dello storico: rimando al referente | referente |
+| `Inviata` | ultimo evento dello storico: invio | addetto (inserimento in SAP) |
+| `Bozza` | negli altri casi | referente |
 
-Stato della pratica ricavato (§4): si considerano le RDA collegate alla pratica non annullate e si prende la più avanzata. `Richiesta` → `RDA richiesta`; `Predisposta` → `RDA predisposta`; `Approvata` → `RDA approvata`; `Contratto emesso`, `In esecuzione`, `Chiusa` → `Contratto emesso` se nessun contratto generato è iniziato (data di inizio > oggi), altrimenti `Contratto attivo`. Una RDA annullata non conta: lo stato torna all'ultimo passaggio registrato (TC-15). La data dello stato ricavato è la data del fatto che lo determina (richiesta, inserimento, rilascio, emissione, inizio).
+Una RDA registrata a mano già con il numero SAP non ha bisogno dell'invio: la fase si ricava dai campi SAP e dai contratti.
 
-Una RDA è **ferma** se è in `Richiesta`, `Predisposta` o `Approvata` da più dei giorni indicati dal parametro (valore iniziale provvisorio: 30), contati dalla data che l'ha portata in quella fase.
+Stato della pratica ricavato (§4): si considerano le RDA collegate alla pratica e si prende la più avanzata. `Inviata` → `RDA richiesta`; `Inserita` → `RDA predisposta`; `Rilasciata` → `RDA approvata`; `Contratto emesso`, `In esecuzione`, `Chiusa` → `Contratto emesso` se nessun contratto generato è iniziato (data di inizio > oggi), altrimenti `Contratto attivo`. `Bozza`, `Da correggere` e `Annullata` non contano, né le RDA di acquisto aggiuntivo (non sono legate a una pratica): lo stato è quello dell'ultimo passaggio registrato (TC-15). La data dello stato ricavato è la data del fatto che lo determina (invio, inserimento, rilascio, emissione, inizio).
+
+Una RDA è **ferma** se è in `Inviata`, `Inserita` o `Rilasciata` da più dei giorni indicati dal parametro (valore iniziale provvisorio: 30), contati dalla data che l'ha portata in quella fase. Una fattura è **ferma** se è da lavorare da più dei giorni del parametro (provvisorio: 15) dalla sua registrazione.
+
+**Cruscotto dell'addetto** (utenti con la funzione «Amministrazione acquisti», di default su tutti i cluster che può vedere):
+- **RDA da processare**, raggruppate per azione: da inserire in SAP (`Inviata`), da sollecitare per il rilascio (`Inserita`), da sollecitare al Procurement (`Rilasciata`); per ciascuna referente, cluster, importo, giorni nella fase, «ferma» in evidenza, accesso diretto alla scheda SAP;
+- **fatture da lavorare** (senza MAP o MIGO collegato), con i giorni dalla registrazione;
+- **contratti da chiudere** (§5.8).
+
+**Le mie RDA** (ogni utente, sulle RDA di cui è referente; anche come scheda del cruscotto): fase, data della fase, giorni, numero SAP, contratto generato; in evidenza quelle in `Bozza` e `Da correggere`, che aspettano il referente.
+
+La vista **Stato delle RDA** (tutte le RDA, filtri per cluster, referente, fase, anno, fornitore, WBS) resta per tutti i ruoli.
 
 ### 5.8 Esecuzione, residuo e chiusura (Rev11)
 
@@ -302,6 +325,29 @@ Per un contratto, con importi imponibili e voci delle proroghe comprese:
 3. `Pronto da chiudere`: negli altri casi.
 
 Il budget non cambia: resta basato sullo scadenzario (§5.2). Le fatture servono all'esecuzione e, abbinate alle rate, al consuntivo (TC-16).
+
+### 5.9 Scheda SAP e testo della richiesta (Rev13)
+
+Il portale non si collega a SAP: aiuta l'addetto a compilarlo. La **scheda SAP** mostra i campi nell'ordine di SAP, ciascuno con il pulsante «Copia», separando i campi SAP da quelli informativi.
+
+**Scheda SAP della RDA** (stesso contenuto della mail usata finora):
+- campi SAP: intestazione; per ogni posizione descrizione breve, gruppo merci, quantità, importo unitario; richiedente; gruppo acquisti; note al buyer (facoltative); allegati;
+- campi informativi: per ogni posizione codice WBS (`--` se manca), conto, centro di costo; percorso sul file server;
+- «Copia testo della richiesta»: lo stesso contenuto come testo pronto per una mail («Si deve predisporre la seguente RDA. …»), per chi la vuole ancora mandare;
+- sotto, i campi da riportare dopo l'inserimento: numero RDA, data di inserimento, data dell'ultimo rilascio.
+
+Regole di proposta (modificabili prima dell'invio):
+- **intestazione** = nome breve del fornitore proposto (o la ragione sociale), « - », descrizione; senza fornitore, la sola descrizione. Prima descrizione breve uguale all'intestazione;
+- **percorso sul file server** = cartella base del cluster / anno della data di creazione / `AAAA_MM_GG_<Fornitore>_<Descrizione>`, con data di creazione, nome breve del fornitore (se c'è) e descrizione; le lettere accentate perdono l'accento (à → a); spazi e ogni carattere diverso da lettere senza accento, cifre, `-` e `_` diventano `_`, senza `_` ripetuti, iniziali o finali;
+- richiedente e gruppo acquisti: il predefinito della tabella; gruppo merci: quello indicato per la categoria del fabbisogno, altrimenti il predefinito;
+- **descrizione** = descrizione del fabbisogno; **fornitore proposto** = fornitore del contratto in scadenza (rinnovo) o nessuno;
+- **posizioni del rinnovo**: una per ogni voce del rinnovo previsto (§5.3: voci del contratto in scadenza escluse le proroghe, adeguamento o stima manuale applicati), con descrizione breve = descrizione della voce (la prima = intestazione), quantità 1, importo unitario = **massimo** della voce prevista (fisso + massimale) e di cui variabile = massimale della voce prevista, natura, conto, centro di costo e WBS dei rinnovi (o della voce); RUP e CUP dal contratto in scadenza;
+- **posizioni del primo acquisto**: una sola, con importo la stima del prossimo importo del fabbisogno (se c'è), natura, conto e WBS previsti; senza previsto, vuota;
+- **acquisto aggiuntivo**: una posizione vuota, con natura, conto, centro di costo e WBS della prima voce del contratto in scadenza.
+
+**Scheda SAP della fattura**: numero e data della fattura, imponibile, fornitore e codice SAP, numero di contratto SAP, RDA, voce e periodo della rata abbinata (se c'è), testo breve proposto («<numero contratto> - <descrizione contratto> - fattura <numero> del <data>»). I campi esatti dei documenti SAP a supporto (MAP, MIGO) sono da confermare (§9). Sotto, i documenti da riportare dopo la registrazione in SAP (tipo, numero, data).
+
+I casi di verifica sono in `docs/TEST_CASES.md`, TC-17.
 
 ## 6. Perimetro funzionale
 
@@ -326,8 +372,10 @@ Il budget non cambia: resta basato sullo scadenzario (§5.2). Le fatture servono
 
 **Release 2.0** (Rev11, decisioni di Pietro del 05/10/2026): processo d'acquisto dell'ufficio ICTDINN.
 - RDA, documenti di esecuzione, fatture e chiusura (§4); contratti una tantum;
+- (Rev13) flusso: richiesta di RDA del referente → inserimento in SAP dell'addetto con la scheda SAP → contratto registrato dall'addetto o dal referente → fatture e documenti SAP registrati dall'addetto (§4, §5.9);
 - stato della pratica ricavato dalle RDA (§5.7);
-- viste: stato delle RDA, contratti da chiudere, anomalie dell'esecuzione; scheda «Esecuzione» del contratto; schede nel cruscotto (§5.7, §5.8);
+- viste: cruscotto dell'addetto, le mie RDA, stato delle RDA, contratti da chiudere, anomalie dell'esecuzione; scheda «Esecuzione» del contratto (§5.7, §5.8);
+- nessuna mail inviata dal portale: la mail resta facoltativa, con il testo preparato dal portale (§5.9);
 - inserimento a mano e import XLSX, import del Riepilogo dal 01/04/2025 (§7).
 
 **Fuori perimetro**: gestione documentale (restano protocollo e SharePoint), workflow autorizzativi SAP, gestione gare.
@@ -355,9 +403,10 @@ Regole di dettaglio dell'import (comando `import_excel`, Rev05):
 - **Catene da ricucire**: dopo un accorpamento il sistema propone il collegamento tra un contratto senza successore e il contratto senza predecessore che inizia dopo di lui e finisce dopo, con l'inizio più vicino al giorno dopo la fine; il rinnovo può iniziare prima della scadenza (periodi sovrapposti, segnalati). Le proposte si confermano a mano; il collegamento si può fare o togliere anche dal contratto. Lo stesso contratto registrato due volte si unisce: si tiene quello con più dati, l'altro si archivia.
 
 Regole di dettaglio per la release 2.0 (Rev11):
-- **Import dell'esecuzione** (modello XLSX dell'applicazione, un foglio per tipo: RDA, documenti di esecuzione, fatture): per caricare in blocco ciò che si legge in SAP, a mano o da un'estrazione riportata nel modello. Nessun collegamento a SAP. Le righe si legano al contratto per numero di contratto SAP (o CIG) e alla RDA per numero SAP; senza corrispondenza vanno nel report (`CONTRATTO_NON_TROVATO`, `RDA_NON_TROVATA`). Idempotente: chiave per tipo, numero e data (fatture: fornitore e numero). Stessi passaggi degli altri import (anteprima, conferma, registro). Le estrazioni SAP standard, se disponibili, si mappano sul modello in una fase successiva.
-- **Import del Riepilogo RDA Ordini**, una volta: solo le RDA con data dal 01/04/2025 (numerazione SAP) e solo ICTDINN, cioè con un conto di un cluster del registro; le altre vanno nel report (`FUORI_PERIMETRO`). Le righe unite si ricompongono per RDA; le celle con più valori si dividono per riga (a capo); stati, date e importi si normalizzano come in §7.1 e ogni sostituzione si segnala. Contratto già registrato → si collega (stesse regole di riconoscimento dell'import dei contratti); altrimenti si crea come proposta da confermare, una tantum se non ha inizio e fine delle prestazioni. «Chiuso» diventa chiusura alla data dell'import; «Chiuso» senza attestazione è segnalato (`CHIUSO_SENZA_ATTESTAZIONE`). Il basket del masterplan non si importa. Lo storico precedente resta nel file.
-- **Dati esistenti**: il n. RDA già registrato sui contratti diventa una RDA collegata come RDA d'origine (data migration), senza date; il testo originale resta nelle note se non è un numero valido.
+- **Import dell'esecuzione** (modello XLSX dell'applicazione, un foglio per tipo: RDA con una riga per posizione, documenti di esecuzione, fatture): per caricare in blocco ciò che si legge in SAP, a mano o da un'estrazione riportata nel modello. Nessun collegamento a SAP. Le righe si legano al contratto per numero di contratto SAP (o CIG) e alla RDA per numero SAP; senza corrispondenza vanno nel report (`CONTRATTO_NON_TROVATO`, `RDA_NON_TROVATA`). Idempotente: chiave per tipo, numero e data (fatture: fornitore e numero). Stessi passaggi degli altri import (anteprima, conferma, registro). Le estrazioni SAP standard, se disponibili, si mappano sul modello in una fase successiva.
+- **Import del Riepilogo RDA Ordini**, una volta: solo le RDA con data dal 01/04/2025 (numerazione SAP) e solo ICTDINN, cioè con un conto di un cluster del registro; le altre vanno nel report (`FUORI_PERIMETRO`). Le righe unite si ricompongono per RDA; le celle con più valori si dividono per riga (a capo); stati, date e importi si normalizzano come in §7.1 e ogni sostituzione si segnala. Contratto già registrato → si collega (stesse regole di riconoscimento dell'import dei contratti); altrimenti si crea come proposta da confermare, una tantum se non ha inizio e fine delle prestazioni. «Chiuso» diventa chiusura alla data dell'import; «Chiuso» senza attestazione è segnalato (`CHIUSO_SENZA_ATTESTAZIONE`). Il basket del masterplan non si importa. (Rev13) Ogni RDA importata ha una sola posizione (descrizione, conto, centro di costo, WBS dell'Excel; quantità 1; importo = importo base del contratto, se c'è); il «Gestore/Richiedente SAP» va nel richiedente SAP, il referente resta vuoto e si assegna dopo (anomalia `REFERENTE_MANCANTE`); nessuno storico di invio. Lo storico precedente resta nel file.
+- **Import delle tabelle SAP** (Rev13, Gestione → Import, solo Admin): un file Excel con un foglio per tabella (`Richiedenti`, `Gruppi merci`, `Gruppi acquisti`), colonne codice, descrizione (per i gruppi acquisti: nome), predefinito (sì/no) e, per i gruppi merci, categoria facoltativa. Tutto o niente, idempotente per codice; nessuna cancellazione: un codice assente dal file resta com'è, si disattiva dall'amministrazione. Più di un predefinito nello stesso foglio, codici doppi o categorie inesistenti sono errori bloccanti; anteprima, conferma e registro come gli altri import.
+- **Dati esistenti**: il n. RDA già registrato sui contratti diventa una RDA collegata come RDA d'origine (data migration), senza date, con il cluster del fabbisogno del contratto e senza referente (Rev13); il testo originale resta nelle note se non è un numero valido.
 
 Import dall'interfaccia (Gestione → Import), con lo stesso codice dei comandi da riga di comando:
 - tipi: Excel dei contratti, date di emissione (estrazione SAP), piano dei conti, struttura dell'ufficio (cluster, responsabili, conti, WBS, dal modello `2026.10.02_PFE_Modello_import_struttura_ICTDINN_Rev00`), quadratura con l'Excel;
@@ -392,6 +441,7 @@ Import dall'interfaccia (Gestione → Import), con lo stesso codice dei comandi 
   - i cluster si assegnano agli utenti nell'applicazione (amministrazione o import della struttura), per nome utente di dominio, anche prima del primo accesso; non con gruppi AD. Un'assegnazione `TUTTI` abilita tutti i cluster (es. addetto amministrativo). Un'assegnazione tolta si archivia;
   - l'Editor modifica solo i fabbisogni e i contratti dei cluster assegnati; spostare o accorpare tra cluster diversi richiede il permesso su entrambi. I fornitori sono in comune;
   - ogni utente vede di default i propri cluster (cruscotto, elenchi, budget, piano ordini, Spese per WBS); gli altri a richiesta, in lettura. Chi non ha cluster assegnati vede tutto;
+  - **funzione «Amministrazione acquisti»** (Rev13): si assegna per nome utente di dominio, come i cluster (amministrazione o import della struttura); un'assegnazione tolta si archivia. Non è un ruolo e non dà permessi: chi la ha è di norma Editor con cluster `TUTTI`. Decide il cruscotto e le viste di default (RDA da processare, fatture da lavorare). I campi da SAP della RDA, le fatture e i documenti di esecuzione li può scrivere ogni Editor del cluster, quindi anche il referente;
   - **transizione**: finché non è mai stata registrata un'assegnazione, gli Editor modificano tutti i cluster; dalla prima assegnazione valgono le regole per cluster, anche se in seguito le assegnazioni si archiviano.
   - Un solo account locale di emergenza (break-glass), con password lunga (almeno 24 caratteri) custodita fuori dall'applicazione.
   - Tutti i parametri LDAP arrivano da variabili d'ambiente. Senza server LDAP configurato vale solo il login locale (sviluppo).
@@ -425,7 +475,10 @@ Import dall'interfaccia (Gestione → Import), con lo stesso codice dei comandi 
   - una sola RDA per pratica o più (es. RDA annullata e riemessa): il modello ne ammette più;
   - fabbisogno per le forniture una tantum: uno per acquisto o uno per categoria e cluster (es. «Forniture hardware OT»);
   - formato delle estrazioni SAP disponibili (RDA, ordini, entrate merci, fatture), per mapparle sul modello d'import;
-  - soglia di RDA «ferma» (30 giorni provvisori).
+  - soglia di RDA «ferma» (30 giorni provvisori);
+  - (Rev13) campi dei documenti SAP a supporto della fattura (MAP per i servizi, MIGO per le forniture?) e chi li registra in SAP: serve un esempio come la mail della RDA, per completare la scheda SAP della fattura (Pietro lo fornirà più avanti; fino ad allora la scheda della fattura resta quella di §5.9);
+  - (Rev13) se proporre il gruppo merci dalla categoria del fabbisogno (previsto, facoltativo);
+  - (Rev13) notifiche mail dal portale (invio, rimando, solleciti): escluse da F11, da valutare dopo l'uso; servirebbe un relay SMTP interno.
 
 ## 10. Regole di lavoro per Claude in questo progetto
 

@@ -514,64 +514,96 @@ TC-12 e TC-14 ricostruiti via MCP.
 
 ## F11 — Release 2.0: processo d'acquisto (RDA → esecuzione → chiusura)
 
-Rev00: bozza da approvare. Decisioni di Pietro del 05/10/2026 (SPEC Rev11): solo ICTDINN; le
+Rev01: bozza da approvare. Decisioni di Pietro del 05/10/2026 (SPEC Rev11): solo ICTDINN; le
 forniture una tantum entrano come contratti; stati della pratica ricavati dalla RDA;
 inserimento a mano e import XLSX, nessun collegamento a SAP; CUP sì, basket del masterplan
-no. Casi numerici: TC-15, TC-16. Uscita prevista come `v2.0.0` alla fine di F11.4; le
-sotto-fasi si possono rilasciare prima come versioni 1.x successive a quella di F10.
+no. Decisioni del 07/10/2026 (SPEC Rev13): flusso referente → addetto amministrativo con la
+richiesta di RDA e la scheda SAP; funzione «Amministrazione acquisti» assegnata per utente,
+nessun nuovo ruolo AD; i campi da SAP li scrive anche il referente; più posizioni per RDA;
+nessuna mail dal portale, solo il testo da copiare; RDA e contratti inseriti a mano, scollegati,
+collegabili dopo. Decisioni del 07/10/2026 (seconda parte): la richiesta di RDA parte dal
+fabbisogno ed è impostata da sola come rinnovo del contratto in scadenza; tabelle dei
+richiedenti SAP (con un predefinito), dei gruppi merci e dei gruppi acquisti caricate da Excel;
+chiusura del contratto per addetto e referente; i campi SAP della fattura arriveranno più
+avanti. Casi numerici: TC-15, TC-16, TC-17. Uscita prevista come `v2.0.0` alla fine
+di F11.4; le sotto-fasi si possono rilasciare prima come versioni 1.x successive a quella di
+F10.
 
 ### F11.1 — Modello e motore
 
-- Modelli (SPEC §4): `RichiestaAcquisto`, `DocumentoEsecuzione`, `Fattura`; sul contratto RDA
-  d'origine, una tantum, CUP, RUP, percorso dei documenti, chiusura (data, utente). Storia
-  delle modifiche, nessuna cancellazione, vincoli nel database (RDA legata a contratto o a
-  fabbisogno, mai a entrambi; una tantum senza predecessore, successore e confluenze;
-  fattura unica per fornitore e numero).
-- Data migration: il n. RDA dei contratti diventa una RDA collegata (SPEC §7); parametro
-  «RDA ferma» (30 giorni, provvisorio).
-- Motore puro: fase della RDA, stato della pratica ricavato (massimo tra passaggi e RDA),
-  residuo, avanzamento, motivi «da chiudere», anomalie (SPEC §5.7, §5.8); una tantum esclusa
-  da alert, previsti, catena e piano ordini.
+- Modelli (SPEC §4): `RichiestaAcquisto` con posizioni (`PosizioneRDA`) e storico
+  (invio, rimando, annullamento); `DocumentoEsecuzione` (con fattura facoltativa), `Fattura`;
+  sul contratto RDA d'origine, una tantum, CUP, RUP, percorso dei documenti, chiusura (data,
+  utente); nome breve del fornitore. Storia delle modifiche, nessuna cancellazione, vincoli
+  nel database (RDA mai legata sia a contratto sia a fabbisogno; una tantum senza
+  predecessore, successore e confluenze; fattura unica per fornitore e numero; quantità e
+  importi ≥ 0).
+- Configurazione: richiedenti SAP, gruppi merci, gruppi acquisti (ciascuno con al più un
+  predefinito), cartella base delle RDA per cluster, funzione «Amministrazione acquisti» per utente (anche
+  nell'import della struttura); parametri «RDA ferma» (30 giorni) e «fattura ferma» (15
+  giorni), provvisori.
+- Data migration: il n. RDA dei contratti diventa una RDA collegata (SPEC §7).
+- Import delle tabelle SAP da Excel (richiedenti, gruppi merci, gruppi acquisti), solo Admin,
+  con anteprima, conferma e registro (SPEC §7).
+- Motore puro: fase della RDA, scopo e proposte della richiesta dal fabbisogno (rinnovo dal
+  contratto in scadenza e dal suo previsto, primo acquisto, acquisto aggiuntivo), stato della pratica ricavato (massimo tra passaggi e RDA),
+  RDA e fatture ferme, proposte della scheda SAP (intestazione, cartella, testo della
+  richiesta), residuo, avanzamento, motivi «da chiudere», anomalie (SPEC §5.7–§5.9); una
+  tantum esclusa da alert, previsti, catena e piano ordini.
 - Admin per le nuove entità.
 
-**Accettazione:** TC-15 e TC-16 come test parametrizzati; TC-01 … TC-14 invariati e verdi;
-`makemigrations --check` pulito.
+**Accettazione:** TC-15, TC-16 e TC-17 come test parametrizzati; import delle tabelle SAP
+idempotente, con errore per più predefiniti o codici doppi; TC-01 … TC-14 invariati e
+verdi; `makemigrations --check` pulito.
 
-### F11.2 — Interfaccia operativa
+### F11.2 — Richiesta di RDA e scheda SAP
 
-- RDA: elenco, dettaglio, form; «Nuova RDA» dal contratto in scadenza e dal fabbisogno;
-  «Registra contratto da RDA» (rinnovo o una tantum, precompilato con imputazione e importo).
+- Referente: «Nuova richiesta di RDA» dalla pagina del fabbisogno (e dal contratto, che porta al
+  suo fabbisogno); scopo impostato da solo (rinnovo del contratto in scadenza o primo
+  acquisto), con la scelta «acquisto aggiuntivo»; form con posizioni precompilate (SPEC §5.9) e
+  anteprima del testo; «Invia all'addetto»; correzione dopo il rimando.
+- Addetto (e referente): scheda SAP con «Copia» per campo e «Copia testo della richiesta»;
+  campi da SAP (numero, inserimento, rilascio); «Rimanda al referente» con nota; «Annulla».
+- RDA registrata a mano (già in SAP), senza legami; «Collega» RDA ↔ fabbisogno, contratto in
+  scadenza, contratto generato, da entrambi i lati; proposte di collegamento per n. RDA.
+- «Registra contratto da RDA» (rinnovo o una tantum), precompilato dalle posizioni, con la
+  differenza dall'importo della RDA.
 - Pratica: il form registra a mano solo `Offerta richiesta` e `Offerta ricevuta`; lo stato
   ricavato mostra la RDA che lo determina.
+- Ricerca globale anche per numero RDA.
+
+**Accettazione:** test di permesso per ogni vista (Reader → 403, Editor solo nei propri
+cluster, referente non Editor del cluster → 403); test nel browser del flusso «richiesta →
+invio → rimando → invio → campi SAP → contratto» e accessibilità (axe-core); testo copiato
+uguale a TC-17.
+
+### F11.3 — Esecuzione e fatture
+
 - Contratto: scheda «Esecuzione» (documenti, fatture, abbinamento alle rate, residuo,
   avanzamento, anomalie); «Chiudi» / «Annulla chiusura» in finestra modale; etichetta
   «una tantum».
-- Ricerca globale anche per numero RDA, ODA, fattura.
+- Fattura: registrazione, scheda SAP della fattura (campi da completare con l'esempio che
+  Pietro fornirà), documenti SAP a supporto (MAP, MIGO, …)
+  collegati alla fattura.
+- Ricerca globale anche per ODA e numero di fattura.
 
-**Accettazione:** test di permesso per ogni vista (Reader → 403, Editor solo nei propri
-cluster); test nel browser del flusso «RDA → contratto → fatture → chiusura» e accessibilità
-(axe-core).
+**Accettazione:** test di permesso; test nel browser del flusso «contratto → fattura →
+MAP/MIGO → chiusura»; TC-16.
 
-### F11.3 — Viste e report
+### F11.4 — Cruscotti, viste e import
 
-- **Stato delle RDA**: una riga per RDA con fase, data della fase, giorni nella fase, «ferma»,
-  fabbisogno, contratto in scadenza o generato, importo stimato; filtri per cluster, anno,
-  fase, richiedente, fornitore, WBS; export XLSX e PDF.
-- **Contratti da chiudere**: motivo, fine, fatturato, residuo; filtri e export.
-- **Anomalie dell'esecuzione** (SPEC §5.8).
-- Cruscotto: schede «RDA ferme» e «Contratti da chiudere».
-
-**Accettazione:** i totali delle viste sulle fixture coincidono con il motore (test); export
-e PDF con i filtri in evidenza come in F9.5.4.
-
-### F11.4 — Import
-
-- Modello XLSX dell'esecuzione (RDA, documenti, fatture) nell'import dall'interfaccia, con
-  anteprima, conferma, registro e report delle anomalie (SPEC §7).
-- Import una tantum del Riepilogo RDA Ordini dal 01/04/2025, solo ICTDINN (SPEC §7): celle
-  unite e multi-valore, normalizzazione, proposte da confermare.
+- **Cruscotto dell'addetto** (funzione «Amministrazione acquisti»): RDA da processare per
+  azione (da inserire, da sollecitare per il rilascio, da sollecitare al Procurement), fatture
+  da lavorare, contratti da chiudere; ferme in evidenza.
+- **Le mie RDA** per il referente, anche come scheda del cruscotto.
+- **Stato delle RDA** (tutti i ruoli), **Contratti da chiudere**, **Anomalie dell'esecuzione**;
+  filtri, export XLSX e PDF.
+- Modello XLSX dell'esecuzione (RDA con posizioni, documenti, fatture) nell'import
+  dall'interfaccia, con anteprima, conferma, registro e report delle anomalie (SPEC §7).
+- Import una tantum del Riepilogo RDA Ordini dal 01/04/2025, solo ICTDINN (SPEC §7).
 - Fixture anonimizzate con la stessa struttura del Riepilogo (celle unite, celle con più
   valori, stati scritti in modi diversi, righe fuori perimetro).
 
-**Accettazione:** import completo della fixture senza eccezioni; report con tutte le anomalie
-note (SPEC §2.3); idempotenza (secondo import senza modifiche).
+**Accettazione:** i totali delle viste sulle fixture coincidono con il motore (test); export
+e PDF con i filtri in evidenza come in F9.5.4; import completo della fixture senza eccezioni,
+report con tutte le anomalie note (SPEC §2.3), idempotenza.
