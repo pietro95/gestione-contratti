@@ -889,6 +889,17 @@ con il cruscotto dell'app.
   contratto, `registra_proroga`, `crea_voce`, `modifica_voce`), `archivia` e `ripristina`, catena
   (`collega_rinnovo`, `scollega_predecessore`, `confluisci`, `togli_confluenza`). Solo
   dall'interfaccia: spostamento, accorpamento, doppioni, import, configurazione.
+- **Processo d'acquisto** (F12.2, SPEC_MCP §11.3): RDA (`crea_rda`, `modifica_rda`,
+  `invia_rda`, `rimanda_rda`, `annulla_rda`, `dati_sap_rda`, `registra_rda`, `collega_rda`,
+  `registra_contratto_da_rda`), fatture (`registra_fattura`, `prendi_in_carico`,
+  `segna_fuori_registro`, `assegna_ai_referenti_proposti`, `lascia_fattura`,
+  `riassegna_fattura`, `assegna_contratto_fattura`, `convalida_fattura`, `importi_fattura`,
+  `documento_fattura`, `trasferisci_fattura`), esecuzione (`documento_esecuzione`,
+  `chiudi_contratto`, `annulla_chiusura`). Presa in carico, fuori registro e assegnazione ai
+  proposti valgono anche su più fatture (al massimo 50): l'anteprima dice quali passano e
+  quali no. Gli import (fatture settimanali, esecuzione, Riepilogo, tabelle SAP) restano solo
+  nell'interfaccia. L'utente PostgreSQL del container `mcp` riceve i privilegi sulle tabelle
+  nuove da `ruolo_db_mcp`, che il deploy esegue.
 - **Come**: ogni tool di scrittura restituisce un'anteprima (modifiche campo per campo, effetti
   su date, alert, previsti e budget) e un codice; si esegue solo con `conferma_operazione`, entro
   15 minuti (parametro `mcp_minuti_operazione`) e solo se nel frattempo nessuno ha modificato gli

@@ -34,18 +34,18 @@ DOMINIO = [
 ESCLUSI = {"id", "registrato_il"}
 
 
-def soglie() -> dict:
+def soglie(dominio=DOMINIO) -> dict:
     """Ultimo id di ogni tabella di dominio prima dell'operazione."""
     return {
-        M: (M.objects.order_by("-pk").values_list("pk", flat=True).first() or 0) for M in DOMINIO
+        M: (M.objects.order_by("-pk").values_list("pk", flat=True).first() or 0) for M in dominio
     }
 
 
-def stato(soglia: dict | None = None) -> dict:
+def stato(soglia: dict | None = None, dominio=DOMINIO) -> dict:
     """Dati di dominio confrontabili. Gli oggetti creati dall'operazione (id oltre la soglia)
     hanno id diversi tra esecuzione web annullata e connettore: si indicano con l'ordine di
     creazione, anche nelle chiavi esterne che li riferiscono."""
-    soglia = soglia or soglie()
+    soglia = soglia or soglie(dominio)
     nuovi = {
         M: {
             pk: f"nuovo-{i}"
@@ -53,7 +53,7 @@ def stato(soglia: dict | None = None) -> dict:
                 M.objects.filter(pk__gt=soglia[M]).order_by("pk").values_list("pk", flat=True)
             )
         }
-        for M in DOMINIO
+        for M in dominio
     }
 
     def valore(o, c):
@@ -67,12 +67,12 @@ def stato(soglia: dict | None = None) -> dict:
             tuple(valore(o, c) for c in M._meta.fields if c.attname not in ESCLUSI)
             for o in M.objects.all()
         )
-        for M in DOMINIO
+        for M in dominio
     }
 
 
-def mcp(utente, nome, argomenti) -> dict:
-    c = Contesto(utente, OGGI, scrittura=True, client_id="prova")
+def mcp(utente, nome, argomenti, oggi=OGGI) -> dict:
+    c = Contesto(utente, oggi, scrittura=True, client_id="prova")
 
     def chiama(n, a):
         messaggio = {
@@ -89,18 +89,19 @@ def mcp(utente, nome, argomenti) -> dict:
     return chiama("conferma_operazione", {"id_operazione": codice})
 
 
-def equivalente(client, editor, web, nome, argomenti):
-    soglia = soglie()
-    iniziale = stato(soglia)
+def equivalente(client, editor, web, nome, argomenti, dominio=DOMINIO, oggi=OGGI):
+    soglia = soglie(dominio)
+    iniziale = stato(soglia, dominio)
     with transaction.atomic():
         risposta = web(client)
         assert risposta.status_code in (200, 302), risposta.content[:300]
-        atteso = stato(soglia)
+        atteso = stato(soglia, dominio)
         transaction.set_rollback(True)
-    assert stato(soglia) == iniziale
+    assert stato(soglia, dominio) == iniziale
     assert atteso != iniziale, "la vista web non ha modificato niente"
-    mcp(editor, nome, argomenti)
-    assert stato(soglia) == atteso
+    esito = mcp(editor, nome, argomenti, oggi)
+    assert stato(soglia, dominio) == atteso
+    return esito
 
 
 @pytest.fixture

@@ -24,7 +24,7 @@ from accounts.roles import WRITE_ROLES
 from connettore import serializza
 from connettore.esecuzione import esecuzione
 from connettore.models import OperazioneMCP
-from contratti import adapters, permessi, selettori, servizi
+from contratti import acquisti, adapters, permessi, selettori, servizi
 from contratti import models as m
 from contratti.engine.budget import valore
 from contratti.engine.tipi import Livello
@@ -36,6 +36,7 @@ ZERO = Decimal("0.00")
 NOMI_VISTE = {"cassa": "fatturato", "impegno": "ordinato", "competenza": "competenza"}
 ERRORI_DI_DOMINIO = (
     servizi.OperazioneNonAmmessa,
+    acquisti.OperazioneNonAmmessa,
     servizi.ScadenzarioBloccato,
     ValidationError,
 )
@@ -83,6 +84,11 @@ class Scrittura:
     applica: Callable[[Contesto, dict], dict]
     # I fornitori sono in comune: nessun controllo di cluster (come l'interfaccia).
     senza_cluster: bool = False
+    # Permessi propri (RDA, fatture: SPEC_MCP §11.3) al posto del controllo per cluster.
+    permesso: Callable[[Contesto, list], None] | None = None
+    # Stato del processo d'acquisto degli oggetti toccati (fase, passo, residuo, commento
+    # per PAC), calcolato prima e dopo l'operazione: effetti dell'anteprima (F12.2).
+    stato: Callable[[Contesto, dict, dict], dict] | None = None
 
 
 SCRITTURE: dict[str, Scrittura] = {}
@@ -114,6 +120,9 @@ def trova(queryset, pk, nome: str):
 
 def _verifica_permessi(ctx: Contesto, scrittura: Scrittura, oggetti: list) -> None:
     if scrittura.senza_cluster:
+        return
+    if scrittura.permesso is not None:
+        scrittura.permesso(ctx, oggetti)
         return
     try:
         for o in oggetti:
@@ -153,6 +162,8 @@ def _valore(campo, valore, creati: set):
     """Un riferimento a un oggetto creato dall'operazione non ha ancora un id."""
     if (campo.many_to_one or campo.one_to_one) and (campo.related_model, valore) in creati:
         return NUOVO
+    if isinstance(valore, Decimal) and getattr(campo, "decimal_places", 2) != 2:
+        return str(valore.normalize())  # quantità: non sono importi, niente centesimi
     return valore
 
 
@@ -179,7 +190,7 @@ def _modifiche(registrati: list, creati: set) -> list[dict]:
             cambi = r.diff_against(precedente).changes if precedente else []
             voce["campi"] = {
                 c.field: {
-                    "prima": c.old,
+                    "prima": _valore(modello._meta.get_field(c.field), c.old, set()),
                     "dopo": _valore(modello._meta.get_field(c.field), c.new, creati),
                 }
                 for c in cambi
@@ -340,10 +351,17 @@ def anteprima(ctx: Contesto, scrittura: Scrittura, argomenti: dict) -> dict:
             dopo = _stato(fabbisogni, cluster, ctx.oggi)
             creati = _creati(es.registrati)
             modifiche = _modifiche(es.registrati, creati)
+            processo_dopo = scrittura.stato(ctx, argomenti, risultato) if scrittura.stato else None
             transaction.set_rollback(True)  # l'anteprima non scrive niente
     except ERRORI_DI_DOMINIO as exc:
         raise ErroreTool(f"Operazione non ammessa (nessuna modifica): {_messaggio(exc)}") from None
     prima = _stato(fabbisogni, cluster, ctx.oggi)
+    effetti = _effetti(prima, dopo, creati)
+    if scrittura.stato is not None:
+        effetti["processo_acquisto"] = {
+            "prima": scrittura.stato(ctx, argomenti, risultato),
+            "dopo": processo_dopo,
+        }
     adesso = timezone.now()
     # Solo gli oggetti già esistenti: quelli creati nell'anteprima non esistono ancora.
     esistenti = [o for o in risultato.get("oggetti", []) if _esiste(o)]
@@ -352,8 +370,10 @@ def anteprima(ctx: Contesto, scrittura: Scrittura, argomenti: dict) -> dict:
             "tool": scrittura.nome,
             "argomenti": argomenti,
             "modifiche": modifiche,
-            "effetti": _effetti(prima, dopo, creati),
+            "effetti": effetti,
             "oggetti_esistenti": esistenti,
+            # Operazioni su più fatture (D15): quelle che passano e quelle rifiutate.
+            **{k: risultato[k] for k in ("esito_per_fattura", "avvisi") if risultato.get(k)},
         }
     )
     op = OperazioneMCP.objects.create(
