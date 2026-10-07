@@ -2,8 +2,9 @@
 
 Tipi ``object`` (con ``properties``, ``required``, ``additionalProperties: false``),
 ``string`` (``enum``, ``minLength``, ``maxLength``, ``format: date``), ``integer``
-(``minimum``, ``maximum``), ``boolean`` e ``array`` di stringhe. Gli errori sono in
-italiano, perché il modello li legge e corregge la chiamata.
+(``minimum``, ``maximum``), ``boolean`` e ``array`` (``items``, ``minItems``, ``maxItems``);
+``["string", "null"]`` per un valore da togliere. Gli errori sono in italiano, perché il
+modello li legge e corregge la chiamata.
 """
 
 import datetime
@@ -29,6 +30,10 @@ def _tipo(valore, tipo: str) -> bool:
 
 def _valida(valore, schema: dict, nome: str) -> None:
     tipo = schema["type"]
+    if isinstance(tipo, list):  # es. ["string", "null"]: null ammesso
+        if valore is None and "null" in tipo:
+            return
+        tipo = next(t for t in tipo if t != "null")
     if not _tipo(valore, tipo):
         raise ArgomentiNonValidi(f"«{nome}»: atteso {tipo}.")
     if "enum" in schema and valore not in schema["enum"]:
@@ -50,6 +55,10 @@ def _valida(valore, schema: dict, nome: str) -> None:
         if "maximum" in schema and valore > schema["maximum"]:
             raise ArgomentiNonValidi(f"«{nome}»: al massimo {schema['maximum']}.")
     if tipo == "array":
+        if len(valore) < schema.get("minItems", 0):
+            raise ArgomentiNonValidi(f"«{nome}»: almeno {schema['minItems']} elementi.")
+        if "maxItems" in schema and len(valore) > schema["maxItems"]:
+            raise ArgomentiNonValidi(f"«{nome}»: al massimo {schema['maxItems']} elementi.")
         for i, elemento in enumerate(valore):
             _valida(elemento, schema["items"], f"{nome}[{i}]")
     if tipo == "object":

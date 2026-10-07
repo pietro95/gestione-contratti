@@ -25,7 +25,7 @@ SCRITTURA = {
     ("connettore", "RegistroChiamata"): "INSERT",
     ("connettore", "OperazioneMCP"): "INSERT, UPDATE",
 }
-# Dominio scritto dai tool del connettore (F10.1): con la storia di ciascuno.
+# Dominio scritto dai tool del connettore (F10.1, F12.2): con la storia di ciascuno.
 DOMINIO = {
     "Fornitore": "INSERT, UPDATE",
     "Fabbisogno": "INSERT, UPDATE",
@@ -37,6 +37,12 @@ DOMINIO = {
     "PianoFatturazione": "INSERT, UPDATE",
     "Rata": "INSERT, UPDATE, DELETE",
     "StatoPratica": "INSERT, UPDATE",
+    # Processo d'acquisto (F12.2, SPEC_MCP §11.3).
+    "RichiestaAcquisto": "INSERT, UPDATE",
+    "PosizioneRDA": "INSERT, UPDATE",
+    "EventoRDA": "INSERT, UPDATE",
+    "Fattura": "INSERT, UPDATE",
+    "DocumentoEsecuzione": "INSERT, UPDATE",
 }
 
 
