@@ -162,34 +162,45 @@ def _attivo(utente):
     return utente if utente is not None and utente.is_active else None
 
 
-def _ultimi_referenti(fatture_qs, chiave: str) -> dict[int, object]:
-    """Per ogni contratto (o fornitore): chi ha in carico l'ultima fattura, per data."""
+def _in_carico(**filtri) -> list[m.Fattura]:
+    return list(
+        m.Fattura.objects.filter(referente__isnull=False, archiviato=False, **filtri)
+        .select_related("referente")
+        .order_by("data", "pk")
+    )
+
+
+def _ultimo_per(fatture: list[m.Fattura], chiave) -> dict:
+    """Chi ha in carico l'ultima fattura (per data) di ciascuna chiave; solo utenti attivi."""
     risultato = {}
-    for f in fatture_qs.filter(referente__isnull=False, archiviato=False).select_related(
-        "referente"
-    ).order_by("data", "pk"):  # fmt: skip
-        if f.referente.is_active:
-            risultato[getattr(f, chiave)] = f.referente
+    for f in fatture:
+        k = chiave(f)
+        if k is not None and f.referente.is_active:
+            risultato[k] = f.referente
     return risultato
 
 
 def referenti_proposti(fatture: list[m.Fattura]) -> dict[int, object]:
     """Referente proposto per ciascuna fattura non in carico: il primo utente attivo tra
-    ultima fattura del contratto, referente del fabbisogno, referente della RDA d'origine e,
-    senza contratto, ultima fattura del fornitore."""
+    ultima fattura del contratto (assegnato o proposto), referente del fabbisogno, referente
+    della RDA d'origine e, senza contratto, ultima fattura del fornitore."""
     da_proporre = [f for f in fatture if not f.referente_id]
     if not da_proporre:
         return {}
     contratti = contratti_proposti(da_proporre)
     riferimento = {f.pk: contratto_di_riferimento(f, contratti.get(f.pk)) for f in da_proporre}
     pk_contratti = {c.pk for c in riferimento.values() if c is not None}
-    per_contratto = _ultimi_referenti(
-        m.Fattura.objects.filter(contratto_id__in=pk_contratti), "contratto_id"
-    )
-    per_fornitore = _ultimi_referenti(
-        m.Fattura.objects.filter(fornitore_id__in={f.fornitore_id for f in da_proporre}),
-        "fornitore_id",
-    )
+    fornitori = {f.fornitore_id for f in da_proporre}
+    in_carico = _in_carico(fornitore_id__in=fornitori)
+    # Anche le fatture in carico non ancora abbinate contano per il contratto proposto.
+    proposti_altre = contratti_proposti([f for f in in_carico if not f.contratto_id])
+
+    def contratto_effettivo(f):
+        c = f.contratto_id or getattr(proposti_altre.get(f.pk), "pk", None)
+        return c if c in pk_contratti else None
+
+    per_contratto = _ultimo_per(in_carico, contratto_effettivo)
+    per_fornitore = _ultimo_per(in_carico, lambda f: f.fornitore_id)
     dettagli = {
         c.pk: c
         for c in m.Contratto.objects.filter(pk__in=pk_contratti).select_related(
