@@ -14,7 +14,10 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import F, Q
+from django.utils import timezone
 from simple_history.models import HistoricalRecords
+
+from contratti.engine.acquisti import importo_posizione
 
 
 def importo(verbose_name, **kwargs):
@@ -134,6 +137,9 @@ class Parametro(ConfigurazioneProvvisoria):
             "mcp_minuti_operazione",
             "connettore MCP: validità dell'anteprima da confermare (minuti)",
         )
+        # Processo d'acquisto (SPEC §5.7, F11).
+        RDA_FERMA_GIORNI = "rda_ferma_giorni", "RDA ferma in una fase dell'addetto (giorni)"
+        FATTURA_FERMA_GIORNI = "fattura_ferma_giorni", "fattura ferma da lavorare (giorni)"
 
     chiave = models.CharField(max_length=40, choices=Chiave.choices)
     valore = models.DecimalField(max_digits=10, decimal_places=4)
@@ -286,6 +292,13 @@ class Cluster(Archiviabile):
 
     codice = models.CharField(max_length=10, unique=True)
     nome = models.CharField(max_length=100)
+    # Cartella base delle RDA sul file server (SPEC §5.9): il percorso proposto parte da qui.
+    cartella_rda = models.CharField(
+        "cartella base delle RDA",
+        max_length=500,
+        blank=True,
+        help_text="Es. smb://<nas>/Share/ICTDINN/00_IT/RDA_Ordini",
+    )
     note = models.TextField(blank=True)
     history = HistoricalRecords()
 
@@ -341,6 +354,108 @@ class AssegnazioneCluster(Archiviabile):
         super().save(*args, **kwargs)
 
 
+class FunzioneUtente(Archiviabile):
+    """Funzione di un utente nel processo d'acquisto (SPEC §8.1, Rev13).
+
+    Non è un ruolo e non dà permessi: decide cruscotto e viste di default. Per nome utente di
+    dominio, come le assegnazioni di cluster; una funzione tolta si archivia.
+    """
+
+    class Funzione(models.TextChoices):
+        AMMINISTRAZIONE_ACQUISTI = "amministrazione_acquisti", "Amministrazione acquisti"
+
+    username = models.CharField("utente", max_length=150, db_index=True)
+    funzione = models.CharField(max_length=40, choices=Funzione.choices)
+    note = models.CharField(max_length=200, blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "funzione dell'utente"
+        verbose_name_plural = "funzioni degli utenti"
+        ordering = ["username", "funzione"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["username", "funzione"], name="contratti_funzione_unica"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.username} → {self.get_funzione_display()}"
+
+    def save(self, *args, **kwargs):
+        self.username = self.username.strip().lower()
+        super().save(*args, **kwargs)
+
+
+class TabellaSAP(models.Model):
+    """Codici SAP caricati da Excel (SPEC §4, §7, Rev13): al più un predefinito per tabella."""
+
+    codice = models.CharField(max_length=20, unique=True)
+    descrizione = models.CharField(max_length=200, blank=True)
+    attivo = models.BooleanField(default=True)
+    predefinito = models.BooleanField(default=False)
+
+    class Meta:
+        abstract = True
+        ordering = ["codice"]
+
+    def __str__(self):
+        return f"{self.codice} — {self.descrizione}" if self.descrizione else self.codice
+
+    @classmethod
+    def predefinito_attivo(cls):
+        return cls.objects.filter(predefinito=True, attivo=True).first()
+
+
+def _un_predefinito(nome: str) -> models.UniqueConstraint:
+    return models.UniqueConstraint(
+        fields=["predefinito"],
+        condition=Q(predefinito=True),
+        name=f"contratti_{nome}_predefinito",
+    )
+
+
+class RichiedenteSAP(TabellaSAP):
+    """Codice del richiedente SAP; il predefinito è quello dell'ufficio (Rev13)."""
+
+    history = HistoricalRecords()
+
+    class Meta(TabellaSAP.Meta):
+        verbose_name = "richiedente SAP"
+        verbose_name_plural = "richiedenti SAP"
+        constraints = [_un_predefinito("richiedente")]
+
+
+class GruppoAcquisti(TabellaSAP):
+    """Gruppo acquisti SAP (codice e nome); il predefinito è quello dell'ufficio (Rev13)."""
+
+    history = HistoricalRecords()
+
+    class Meta(TabellaSAP.Meta):
+        verbose_name = "gruppo acquisti"
+        verbose_name_plural = "gruppi acquisti"
+        constraints = [_un_predefinito("gruppo_acquisti")]
+
+
+class GruppoMerci(TabellaSAP):
+    """Gruppo merci SAP; facoltativa la categoria di fabbisogno a cui si propone (Rev13)."""
+
+    categoria = models.ForeignKey(
+        Categoria,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="gruppi_merci",
+        help_text="Categoria dei fabbisogni a cui si propone questo gruppo merci.",
+    )
+    history = HistoricalRecords()
+
+    class Meta(TabellaSAP.Meta):
+        verbose_name = "gruppo merci"
+        verbose_name_plural = "gruppi merci"
+        constraints = [_un_predefinito("gruppo_merci")]
+
+
 def scelte_cluster() -> list[tuple[str, str]]:
     """(codice, nome) dei cluster attivi, per filtri e tendine."""
     return [(c.codice, c.nome) for c in Cluster.objects.filter(archiviato=False)]
@@ -361,6 +476,8 @@ class Fornitore(Archiviabile):
     )
     # Non univoco: nei file attuali lo stesso codice è su più fornitori (SPEC §2.2).
     codice_sap = models.CharField("codice SAP", max_length=20, blank=True, db_index=True)
+    # Per l'intestazione della RDA e il nome della cartella (SPEC §5.9, Rev13).
+    nome_breve = models.CharField("nome breve", max_length=40, blank=True)
     note = models.TextField(blank=True)
     history = HistoricalRecords()
 
@@ -383,6 +500,11 @@ class Fornitore(Archiviabile):
         from django.urls import reverse
 
         return reverse("contratti:fornitore", args=[self.pk])
+
+    @property
+    def nome_per_rda(self) -> str:
+        """Nome breve se c'è, altrimenti la ragione sociale (intestazione e cartella)."""
+        return self.nome_breve.strip() or self.ragione_sociale
 
     def fornitori_stesso_codice_sap(self):
         """Altri fornitori con lo stesso codice SAP: da verificare, non da bloccare."""
@@ -605,6 +727,41 @@ class Contratto(Archiviabile):
 
     link_documenti = HttpsURLField("link ai documenti", max_length=500, blank=True)
     note = models.TextField(blank=True)
+
+    # Processo d'acquisto (F11, SPEC §4 Rev11–Rev13).
+    rda = models.ForeignKey(
+        "RichiestaAcquisto",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="contratti_generati",
+        verbose_name="RDA d'origine",
+    )
+    una_tantum = models.BooleanField(
+        "una tantum",
+        default=False,
+        help_text="Acquisto che non si rinnova: fuori dalla catena, dagli alert e dai previsti; "
+        "dentro il budget.",
+    )
+    cup = models.CharField("CUP", max_length=20, blank=True)
+    rup = models.CharField("RUP", max_length=150, blank=True)
+    percorso_documenti = models.CharField(
+        "percorso sul file server",
+        max_length=500,
+        blank=True,
+        help_text=r"Es. X:\… oppure \\nas\Share\…",
+    )
+    # Chiusura amministrativa: atto deciso, si salva; si può annullare (SPEC §4).
+    data_chiusura = models.DateField("data di chiusura", null=True, blank=True)
+    chiuso_da = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="chiuso da",
+    )
+
     # Chiave stabile della riga Excel di provenienza: rende l'import idempotente.
     chiave_import = models.CharField(  # noqa: DJ001
         max_length=64, unique=True, null=True, blank=True, editable=False
@@ -634,6 +791,12 @@ class Contratto(Archiviabile):
                 | Q(data_inizio__isnull=True)
                 | Q(data_fine_override__gte=F("data_inizio")),
                 name="contratti_contratto_fine_dopo_inizio",
+            ),
+            # Una tantum: fuori dalla catena dei rinnovi (Rev11).
+            models.CheckConstraint(
+                condition=Q(una_tantum=False)
+                | Q(predecessore__isnull=True, confluito_in__isnull=True),
+                name="contratti_contratto_una_tantum_fuori_catena",
             ),
         ]
 
@@ -668,8 +831,22 @@ class Contratto(Archiviabile):
                 return self.Finanziamento.FINANZIATO
         return self.Finanziamento.ORDINARIO
 
+    @property
+    def chiuso(self) -> bool:
+        return self.data_chiusura is not None
+
     def clean(self):
         super().clean()
+        if self.una_tantum and (self.predecessore_id or self.confluito_in_id):
+            raise ValidationError(
+                {"una_tantum": "Un contratto una tantum non ha predecessore né confluenze."}
+            )
+        if self.una_tantum and self.pk and self._ha_successori():
+            raise ValidationError({"una_tantum": "Un contratto una tantum non ha successori."})
+        if self.predecessore_id and self.predecessore.una_tantum:
+            raise ValidationError({"predecessore": "Un contratto una tantum non si rinnova."})
+        if self.confluito_in_id and self.confluito_in.una_tantum:
+            raise ValidationError({"confluito_in": "Non si confluisce in un contratto una tantum."})
         if (
             self.predecessore_id
             and self.fabbisogno_id
@@ -696,6 +873,11 @@ class Contratto(Archiviabile):
                 raise ValidationError(
                     {"confluito_in": "Il contratto ha già un successore: un solo successore."}
                 )
+
+    def _ha_successori(self) -> bool:
+        return Contratto.objects.filter(
+            Q(predecessore_id=self.pk) | Q(confluito_in_id=self.pk)
+        ).exists()
 
 
 class OpzioneContratto(models.Model):
@@ -1003,6 +1185,414 @@ class StatoPratica(models.Model):
 
     def __str__(self):
         return f"{self.get_stato_display()} ({self.data:%d/%m/%Y})"
+
+
+# ---------------------------------------------------------------------------
+# Processo d'acquisto (F11, SPEC §4 Rev11–Rev13)
+# ---------------------------------------------------------------------------
+
+
+class RichiestaAcquisto(Archiviabile):
+    """Richiesta d'acquisto (RDA).
+
+    Nasce sul portale come richiesta compilata dal referente a partire dal fabbisogno;
+    l'addetto amministrativo la inserisce in SAP e vi riporta i dati di SAP. La fase (bozza,
+    inviata, inserita, ...) non si salva: la ricava il motore dai dati, dallo storico
+    (``eventi``) e dai contratti generati (SPEC §5.7). In migrazione si registrano anche RDA
+    già inserite in SAP, eventualmente senza legami, da collegare dopo.
+    """
+
+    class Origine(models.TextChoices):
+        PORTALE = "portale", "Richiesta dal portale"
+        MANUALE = "manuale", "Registrata a mano"
+        IMPORT = "import", "Importata"
+
+    class Scopo(models.TextChoices):
+        RINNOVO = "rinnovo", "Rinnovo"
+        PRIMO_ACQUISTO = "primo_acquisto", "Primo acquisto"
+        AGGIUNTIVO = "aggiuntivo", "Acquisto aggiuntivo"
+
+    origine = models.CharField(max_length=10, choices=Origine.choices, default=Origine.PORTALE)
+    scopo = models.CharField(max_length=20, choices=Scopo.choices, blank=True)
+    cluster = models.ForeignKey(
+        Cluster, on_delete=models.PROTECT, related_name="richieste_acquisto"
+    )
+    # La pratica: il contratto in scadenza (rinnovo) oppure il fabbisogno. Mai entrambi.
+    fabbisogno = models.ForeignKey(
+        Fabbisogno,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="richieste_acquisto",
+    )
+    contratto_in_scadenza = models.ForeignKey(
+        "Contratto",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="rda_pratica",
+        verbose_name="contratto in scadenza",
+    )
+    referente_utente = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="richieste_acquisto",
+        verbose_name="referente",
+    )
+    referente = models.CharField(
+        "referente (testo)",
+        max_length=150,
+        blank=True,
+        help_text="Per le RDA registrate a mano o importate.",
+    )
+
+    # Campi della richiesta, nell'ordine della scheda SAP (SPEC §5.9).
+    descrizione = models.CharField(max_length=250)
+    intestazione = models.CharField(max_length=250, blank=True)
+    fornitore_proposto = models.ForeignKey(
+        Fornitore, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    richiedente = models.ForeignKey(
+        RichiedenteSAP,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="richiedente SAP",
+    )
+    gruppo_acquisti = models.ForeignKey(
+        GruppoAcquisti,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="gruppo acquisti",
+    )
+    note_buyer = models.TextField("note al buyer", blank=True)
+    allegati = models.TextField(blank=True, help_text="Cosa è allegato e dove si trova.")
+    percorso_file_server = models.CharField("percorso sul file server", max_length=500, blank=True)
+    rup = models.CharField("RUP", max_length=150, blank=True)
+    cup = models.CharField("CUP", max_length=20, blank=True)
+    note = models.TextField("note interne", blank=True)
+    data_creazione = models.DateField("data di creazione", default=timezone.localdate)
+
+    # Campi da SAP.
+    numero_rda = models.CharField(  # noqa: DJ001
+        "numero RDA", max_length=20, null=True, blank=True
+    )
+    data_inserimento = models.DateField("data di inserimento in SAP", null=True, blank=True)
+    data_rilascio = models.DateField("data dell'ultimo rilascio", null=True, blank=True)
+
+    chiave_import = models.CharField(  # noqa: DJ001
+        max_length=64, unique=True, null=True, blank=True, editable=False
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "richiesta d'acquisto (RDA)"
+        verbose_name_plural = "richieste d'acquisto (RDA)"
+        ordering = ["-data_creazione", "-id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(fabbisogno__isnull=True) | Q(contratto_in_scadenza__isnull=True),
+                name="contratti_rda_fabbisogno_o_contratto",
+            ),
+            models.CheckConstraint(
+                condition=~Q(scopo="rinnovo") | Q(contratto_in_scadenza__isnull=False),
+                name="contratti_rda_rinnovo_su_contratto",
+            ),
+            models.CheckConstraint(
+                condition=~Q(scopo__in=["primo_acquisto", "aggiuntivo"])
+                | Q(fabbisogno__isnull=False),
+                name="contratti_rda_acquisto_su_fabbisogno",
+            ),
+            # La richiesta nata sul portale parte dal fabbisogno e ha un referente.
+            models.CheckConstraint(
+                condition=~Q(origine="portale")
+                | (
+                    Q(referente_utente__isnull=False)
+                    & (Q(fabbisogno__isnull=False) | Q(contratto_in_scadenza__isnull=False))
+                ),
+                name="contratti_rda_portale_completa",
+            ),
+            models.UniqueConstraint(
+                fields=["numero_rda"],
+                condition=Q(numero_rda__isnull=False, archiviato=False) & ~Q(numero_rda=""),
+                name="contratti_rda_numero_unico",
+            ),
+        ]
+
+    def __str__(self):
+        return f"RDA {self.numero_rda}" if self.numero_rda else f"Richiesta di RDA #{self.pk}"
+
+    @property
+    def nome_referente(self) -> str:
+        if self.referente_utente_id:
+            u = self.referente_utente
+            return u.get_full_name() or u.username
+        return self.referente
+
+    def fabbisogno_della_pratica(self) -> Fabbisogno | None:
+        if self.contratto_in_scadenza_id:
+            return self.contratto_in_scadenza.fabbisogno
+        return self.fabbisogno
+
+    def clean(self):
+        super().clean()
+        if self.contratto_in_scadenza_id and self.contratto_in_scadenza.una_tantum:
+            raise ValidationError(
+                {"contratto_in_scadenza": "Un contratto una tantum non si rinnova."}
+            )
+        fabbisogno = self.fabbisogno_della_pratica()
+        if fabbisogno is not None and self.cluster_id and fabbisogno.cluster_id != self.cluster_id:
+            raise ValidationError({"cluster": "Il cluster è quello del fabbisogno."})
+        if (
+            self.data_rilascio
+            and self.data_inserimento
+            and self.data_rilascio < self.data_inserimento
+        ):
+            raise ValidationError(
+                {"data_rilascio": "Il rilascio non può precedere l'inserimento in SAP."}
+            )
+
+
+class PosizioneRDA(models.Model):
+    """Posizione della RDA. L'importo (quantità × importo unitario) si calcola, non si salva.
+
+    In SAP la RDA va per l'importo massimo: ``di_cui_variabile`` è la parte a consumo, da cui
+    il contratto registrato ricava il massimale variabile.
+    """
+
+    rda = models.ForeignKey(RichiestaAcquisto, on_delete=models.PROTECT, related_name="posizioni")
+    numero = models.PositiveSmallIntegerField()
+    descrizione_breve = models.CharField("descrizione breve", max_length=250)
+    gruppo_merci = models.ForeignKey(
+        GruppoMerci, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    quantita = models.DecimalField("quantità", max_digits=12, decimal_places=3, default=1)
+    importo_unitario = importo("importo unitario (imponibile)")
+    di_cui_variabile = importo("di cui variabile", default=0)
+    # Campi informativi: stesse regole della voce (CAPEX ⇔ WBS).
+    natura = models.CharField(max_length=5, choices=Natura.choices, default=Natura.OPEX)
+    conto = models.ForeignKey(
+        ContoCoge,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="conto COGE",
+    )
+    centro_costo = models.CharField("centro di costo", max_length=20, blank=True)
+    wbs = models.ForeignKey(
+        WBS, on_delete=models.PROTECT, null=True, blank=True, related_name="+", verbose_name="WBS"
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "posizione della RDA"
+        verbose_name_plural = "posizioni della RDA"
+        ordering = ["rda", "numero"]
+        constraints = [
+            models.UniqueConstraint(fields=["rda", "numero"], name="contratti_posizione_numero"),
+            models.CheckConstraint(
+                condition=Q(numero__gt=0), name="contratti_posizione_numero_positivo"
+            ),
+            models.CheckConstraint(
+                condition=Q(quantita__gt=0), name="contratti_posizione_quantita_positiva"
+            ),
+            models.CheckConstraint(
+                condition=Q(importo_unitario__gte=0),
+                name="contratti_posizione_importo_non_negativo",
+            ),
+            models.CheckConstraint(
+                condition=Q(di_cui_variabile__gte=0),
+                name="contratti_posizione_variabile_non_negativo",
+            ),
+            models.CheckConstraint(
+                condition=Q(natura="OPEX", wbs__isnull=True) | Q(natura="CAPEX", wbs__isnull=False),
+                name="contratti_posizione_capex_se_wbs",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.numero}. {self.descrizione_breve}"
+
+    @property
+    def importo(self):
+        return importo_posizione(self.quantita, self.importo_unitario)
+
+    def clean(self):
+        super().clean()
+        if (
+            self.importo_unitario is not None
+            and self.quantita
+            and self.di_cui_variabile is not None
+            and self.di_cui_variabile > self.importo
+        ):
+            raise ValidationError(
+                {"di_cui_variabile": "Il variabile non può superare l'importo della posizione."}
+            )
+
+
+class EventoRDA(models.Model):
+    """Storico della richiesta: invio all'addetto, rimando al referente, annullamento."""
+
+    class Tipo(models.TextChoices):
+        INVIO = "invio", "Inviata all'addetto"
+        RIMANDO = "rimando", "Rimandata al referente"
+        ANNULLAMENTO = "annullamento", "Annullata"
+
+    rda = models.ForeignKey(RichiestaAcquisto, on_delete=models.PROTECT, related_name="eventi")
+    tipo = models.CharField(max_length=20, choices=Tipo.choices)
+    data = models.DateField()
+    nota = models.TextField(blank=True)
+    utente = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    registrato_il = models.DateTimeField(auto_now_add=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "evento della RDA"
+        verbose_name_plural = "storico della RDA"
+        ordering = ["rda", "data", "id"]
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} ({self.data:%d/%m/%Y})"
+
+
+class Fattura(Archiviabile):
+    """Fattura del fornitore registrata sul contratto (SPEC §4, Rev11–Rev13).
+
+    Il fornitore è quello del contratto, copiato qui per il vincolo «stesso numero dello
+    stesso fornitore una volta sola».
+    """
+
+    contratto = models.ForeignKey(Contratto, on_delete=models.PROTECT, related_name="fatture")
+    fornitore = models.ForeignKey(
+        Fornitore, on_delete=models.PROTECT, related_name="fatture", editable=False
+    )
+    numero = models.CharField(max_length=40)
+    data = models.DateField()
+    imponibile = importo("imponibile")
+    voce = models.ForeignKey(
+        VoceContratto, on_delete=models.PROTECT, null=True, blank=True, related_name="fatture"
+    )
+    rata = models.OneToOneField(
+        Rata,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="fattura",
+        help_text="Rata dello scadenzario a cui corrisponde.",
+    )
+    data_registrazione = models.DateField("registrata il", default=timezone.localdate)
+    note = models.TextField(blank=True)
+    chiave_import = models.CharField(  # noqa: DJ001
+        max_length=64, unique=True, null=True, blank=True, editable=False
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "fattura"
+        verbose_name_plural = "fatture"
+        ordering = ["contratto", "data", "id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(imponibile__gte=0), name="contratti_fattura_imponibile_non_negativo"
+            ),
+            models.UniqueConstraint(
+                fields=["fornitore", "numero"],
+                condition=Q(archiviato=False),
+                name="contratti_fattura_numero_unico",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Fattura {self.numero} del {self.data:%d/%m/%Y}"
+
+    def save(self, *args, **kwargs):
+        if self.contratto_id and not self.fornitore_id:
+            self.fornitore_id = self.contratto.fornitore_id
+        super().save(*args, **kwargs)
+
+    def clean(self):
+        super().clean()
+        if self.voce_id and self.contratto_id and self.voce.contratto_id != self.contratto_id:
+            raise ValidationError({"voce": "La voce deve essere dello stesso contratto."})
+        if (
+            self.rata_id
+            and self.contratto_id
+            and self.rata.piano.voce.contratto_id != self.contratto_id
+        ):
+            raise ValidationError({"rata": "La rata deve essere dello stesso contratto."})
+
+
+class DocumentoEsecuzione(Archiviabile):
+    """Documento dell'esecuzione del contratto (SPEC §4).
+
+    ODA/RDC, DDT, MIGO, MAP, attestazione di regolare esecuzione, modello di ricezione
+    materiale. Se è un documento SAP a supporto di una fattura (es. MAP o MIGO) si collega
+    alla fattura.
+    """
+
+    class Tipo(models.TextChoices):
+        ODA = "ODA_RDC", "ODA/RDC"
+        DDT = "DDT", "DDT"
+        MIGO = "MIGO", "MIGO"
+        MAP = "MAP", "MAP"
+        ATTESTAZIONE = "ATTESTAZIONE", "Attestazione di regolare esecuzione"
+        RICEZIONE = "RICEZIONE", "Modello di ricezione materiale"
+
+    contratto = models.ForeignKey(
+        Contratto, on_delete=models.PROTECT, related_name="documenti_esecuzione"
+    )
+    tipo = models.CharField(max_length=15, choices=Tipo.choices)
+    numero = models.CharField(max_length=40, blank=True)
+    data = models.DateField()
+    importo = importo("importo", null=True, blank=True)
+    voce = models.ForeignKey(
+        VoceContratto, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    finale = models.BooleanField(
+        default=False, help_text="Attestazione o modello di ricezione finale (non parziale)."
+    )
+    fattura = models.ForeignKey(
+        Fattura, on_delete=models.PROTECT, null=True, blank=True, related_name="documenti"
+    )
+    note = models.TextField(blank=True)
+    chiave_import = models.CharField(  # noqa: DJ001
+        max_length=64, unique=True, null=True, blank=True, editable=False
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "documento di esecuzione"
+        verbose_name_plural = "documenti di esecuzione"
+        ordering = ["contratto", "data", "id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(importo__isnull=True) | Q(importo__gte=0),
+                name="contratti_documento_importo_non_negativo",
+            ),
+            models.CheckConstraint(
+                condition=Q(finale=False) | Q(tipo__in=["ATTESTAZIONE", "RICEZIONE"]),
+                name="contratti_documento_finale_solo_attestazioni",
+            ),
+        ]
+
+    def __str__(self):
+        numero = f" {self.numero}" if self.numero else ""
+        return f"{self.get_tipo_display()}{numero} ({self.data:%d/%m/%Y})"
+
+    def clean(self):
+        super().clean()
+        if self.fattura_id and self.contratto_id and self.fattura.contratto_id != self.contratto_id:
+            raise ValidationError({"fattura": "La fattura deve essere dello stesso contratto."})
+        if self.voce_id and self.contratto_id and self.voce.contratto_id != self.contratto_id:
+            raise ValidationError({"voce": "La voce deve essere dello stesso contratto."})
 
 
 # ---------------------------------------------------------------------------

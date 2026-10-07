@@ -183,6 +183,8 @@ def registra_rinnovo(
     ``sostituisce``: altri contratti dello stesso fabbisogno che il nuovo sostituisce (F9.3,
     es. SIM voce e SIM M2M in un contratto solo): confluiscono nel nuovo.
     """
+    if predecessore.una_tantum:
+        raise OperazioneNonAmmessa("Un contratto una tantum non si rinnova.")
     if adapters.ha_successore(predecessore):
         raise OperazioneNonAmmessa("Il contratto ha già un successore registrato.")
     ammessi = {c.pk for c in candidati_sostituiti(predecessore)}
@@ -213,6 +215,8 @@ def registra_rinnovo(
     for sostituito in (predecessore, *sostituisce):
         if sostituito.pk != predecessore.pk:
             _confluisci(sostituito, contratto, f"Sostituito dal rinnovo #{contratto.pk}")
+        if sostituito.rda_pratica.filter(archiviato=False).exists():
+            continue  # con una RDA lo stato della pratica si ricava (SPEC §4, Rev11)
         m.StatoPratica.objects.create(
             contratto=sostituito,
             stato=m.StatoPratica.Stato.CONTRATTO_ATTIVO,
@@ -320,7 +324,7 @@ def candidati_sostituiti(predecessore: m.Contratto) -> list[m.Contratto]:
     non archiviati, senza successore."""
     return [
         c
-        for c in predecessore.fabbisogno.contratti.filter(archiviato=False)
+        for c in predecessore.fabbisogno.contratti.filter(archiviato=False, una_tantum=False)
         .exclude(pk=predecessore.pk)
         .select_related("confluito_in", "fornitore")
         .order_by("data_inizio", "pk")
@@ -331,13 +335,13 @@ def candidati_sostituiti(predecessore: m.Contratto) -> list[m.Contratto]:
 def candidati_confluenza(nuovo: m.Contratto) -> list[m.Contratto]:
     """Contratti che possono confluire in ``nuovo``: senza successore, dello stesso
     fabbisogno, iniziati prima del nuovo e fuori dalla sua catena."""
-    if nuovo.data_inizio is None:
+    if nuovo.data_inizio is None or nuovo.una_tantum:
         return []
     catena = {c.pk for c in contratto_e_predecessori(nuovo)}
     return [
         c
         for c in nuovo.fabbisogno.contratti.filter(
-            archiviato=False, data_inizio__lt=nuovo.data_inizio
+            archiviato=False, una_tantum=False, data_inizio__lt=nuovo.data_inizio
         )
         .select_related("confluito_in", "fornitore")
         .order_by("data_inizio", "pk")
@@ -638,7 +642,10 @@ def proponi_collegamenti(contratti) -> tuple[list[tuple[m.Contratto, m.Contratto
     fine: il rinnovo può anche partire prima della scadenza (periodi sovrapposti). Ogni
     contratto si usa una volta sola, prima le coppie più vicine.
     """
-    attivi = [c for c in contratti if not c.archiviato and c.data_inizio is not None]
+    # I contratti una tantum non sono anelli della catena (Rev11).
+    attivi = [
+        c for c in contratti if not c.archiviato and not c.una_tantum and c.data_inizio is not None
+    ]
     ultimi = [c for c in attivi if not hasattr(c, "successore") and not c.confluito_in_id]
     primi = [c for c in attivi if c.predecessore_id is None]
     fini = {c.pk: adapters.data_fine_effettiva(c) for c in attivi}
@@ -691,7 +698,7 @@ def candidati_rinnovo(contratto: m.Contratto) -> list[m.Contratto]:
     Senza predecessore, non archiviati, con inizio successivo a quello del contratto; per
     primi quelli che iniziano più vicino al giorno dopo la sua fine.
     """
-    if contratto.data_inizio is None or adapters.ha_successore(contratto):
+    if contratto.data_inizio is None or contratto.una_tantum or adapters.ha_successore(contratto):
         return []
     catena = {c.pk for c in contratto_e_predecessori(contratto)}
     candidati = [
@@ -748,7 +755,7 @@ def collegamenti_del_fabbisogno(f: m.Fabbisogno) -> list[tuple[m.Contratto, m.Co
 
 def _qs_collegamenti(fabbisogni):
     return (
-        m.Contratto.objects.filter(fabbisogno__in=fabbisogni, archiviato=False)
+        m.Contratto.objects.filter(fabbisogno__in=fabbisogni, archiviato=False, una_tantum=False)
         .exclude(data_inizio__isnull=True)
         .select_related("procedura", "fornitore", "fabbisogno", "successore")
         .prefetch_related("proroghe")
