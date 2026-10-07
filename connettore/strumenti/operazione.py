@@ -43,8 +43,10 @@ ISTRUZIONI = (
     "Nulla è stato ancora modificato. Mostra all'utente modifiche ed effetti e chiedi se "
     "confermare; solo dopo il suo consenso esplicito chiama «conferma_operazione» con "
     "«id_operazione». Se l'utente cambia qualcosa, chiama di nuovo il tool per una nuova "
-    "anteprima."
+    "anteprima. Gli oggetti nuovi non hanno ancora un id: lo assegna la conferma, che lo "
+    "restituisce."
 )
+NUOVO = "nuovo (id assegnato alla conferma)"
 
 
 class ErroreValidazione(ErroreTool):
@@ -141,21 +143,33 @@ def _impronta(argomenti: dict) -> str:
 CAMPI_ESCLUSI = {"id", "chiave_import"}
 
 
+def _creati(registrati: list) -> set[tuple[type, int]]:
+    """Oggetti creati dall'operazione: nell'anteprima il loro id è provvisorio (la sequenza
+    di PostgreSQL non torna indietro con l'annullamento), quindi non si mostra."""
+    return {(r.instance_type, r.id) for r in registrati if r.history_type == "+"}
+
+
+def _valore(campo, valore, creati: set):
+    """Un riferimento a un oggetto creato dall'operazione non ha ancora un id."""
+    if (campo.many_to_one or campo.one_to_one) and (campo.related_model, valore) in creati:
+        return NUOVO
+    return valore
+
+
 def _etichetta(record) -> str:
     return f"{record.instance_type._meta.verbose_name}"
 
 
-def _modifiche(registrati: list) -> list[dict]:
+def _modifiche(registrati: list, creati: set) -> list[dict]:
     """Dai record della storia creati dall'operazione: cosa si crea, cambia o sostituisce."""
     uscita = []
     for r in registrati:
         modello = r.instance_type
-        voce = {"oggetto": _etichetta(r), "id": r.id}
+        voce = {"oggetto": _etichetta(r), "id": None if (modello, r.id) in creati else r.id}
         if r.history_type == "+":
-            voce["id"] = None  # l'id vero si conosce solo alla conferma
             voce["tipo"] = "creato"
             voce["campi"] = {
-                f.attname: getattr(r, f.attname)
+                f.attname: _valore(f, getattr(r, f.attname), creati)
                 for f in modello._meta.fields
                 if f.attname not in CAMPI_ESCLUSI and getattr(r, f.attname) not in (None, "")
             }
@@ -164,7 +178,10 @@ def _modifiche(registrati: list) -> list[dict]:
             precedente = r.prev_record
             cambi = r.diff_against(precedente).changes if precedente else []
             voce["campi"] = {
-                c.field: {"prima": c.old, "dopo": c.new}
+                c.field: {
+                    "prima": c.old,
+                    "dopo": _valore(modello._meta.get_field(c.field), c.new, creati),
+                }
                 for c in cambi
                 if c.field not in CAMPI_ESCLUSI
             }
@@ -196,16 +213,30 @@ def _fabbisogno_di(record) -> int | None:
     return None
 
 
-def _stato(fabbisogni: set[int], oggi: datetime.date) -> dict:
-    """Date, alert e previsti dei fabbisogni toccati; budget dei loro cluster."""
+def _cluster_toccati(fabbisogni: set[int], registrati: list) -> set[str]:
+    """Cluster dei fabbisogni toccati, prima e dopo l'operazione (dentro la transazione).
+
+    Il budget si confronta su questo insieme in tutti e due gli stati: un fabbisogno creato
+    dall'operazione non esiste più dopo l'annullamento, e uno spostato di cluster cambia
+    cluster tra i due stati.
+    """
+    cluster = set(
+        m.Fabbisogno.objects.filter(pk__in=fabbisogni).values_list("cluster__codice", flat=True)
+    )
+    for record in registrati:
+        if record.instance_type is m.Fabbisogno and record.prev_record is not None:
+            cluster.add(record.prev_record.cluster.codice)
+    return cluster
+
+
+def _stato(fabbisogni: set[int], cluster: set[str], oggi: datetime.date) -> dict:
+    """Date, alert e previsti dei fabbisogni toccati; budget dei cluster indicati."""
     stato = {"fabbisogni": {}, "budget": {}}
-    cluster = set()
     with adapters.parametri_in_cache():
         for pk in sorted(fabbisogni):
             f = m.Fabbisogno.objects.select_related("cluster").filter(pk=pk).first()
             if f is None:
                 continue
-            cluster.add(f.cluster.codice)
             righe = selettori.righe_contratti(
                 selettori.contratti_base().filter(fabbisogno=f, archiviato=False), oggi
             )
@@ -243,18 +274,20 @@ def _stato(fabbisogni: set[int], oggi: datetime.date) -> dict:
     return stato
 
 
-def _effetti(prima: dict, dopo: dict) -> dict:
+def _effetti(prima: dict, dopo: dict, creati: set) -> dict:
     fabbisogni = []
     for pk in sorted(set(prima["fabbisogni"]) | set(dopo["fabbisogni"])):
         p, d = prima["fabbisogni"].get(pk), dopo["fabbisogni"].get(pk)
-        voce = {"fabbisogno_id": pk, "descrizione": (d or p)["descrizione"]}
-        if p is None:
+        nuovo = (m.Fabbisogno, pk) in creati
+        voce = {"fabbisogno_id": NUOVO if nuovo else pk, "descrizione": (d or p)["descrizione"]}
+        if nuovo:
             voce["nuovo"] = True
         contratti = []
         pc, dc = (p or {}).get("contratti", {}), (d or {}).get("contratti", {})
         for c in sorted(set(pc) | set(dc)):
             if pc.get(c) != dc.get(c):
-                contratti.append({"contratto_id": c, "prima": pc.get(c), "dopo": dc.get(c)})
+                cid = NUOVO if (m.Contratto, c) in creati else c
+                contratti.append({"contratto_id": cid, "prima": pc.get(c), "dopo": dc.get(c)})
         if contratti:
             voce["contratti"] = contratti
         if (p or {}).get("previsti") != (d or {}).get("previsti"):
@@ -303,12 +336,14 @@ def anteprima(ctx: Contesto, scrittura: Scrittura, argomenti: dict) -> dict:
             with esecuzione(ctx.utente, f"MCP {scrittura.nome} anteprima") as es:
                 risultato = scrittura.applica(ctx, argomenti)
             fabbisogni = {f for f in map(_fabbisogno_di, es.registrati) if f}
-            dopo = _stato(fabbisogni, ctx.oggi)
-            modifiche = _modifiche(es.registrati)
+            cluster = _cluster_toccati(fabbisogni, es.registrati)
+            dopo = _stato(fabbisogni, cluster, ctx.oggi)
+            creati = _creati(es.registrati)
+            modifiche = _modifiche(es.registrati, creati)
             transaction.set_rollback(True)  # l'anteprima non scrive niente
     except ERRORI_DI_DOMINIO as exc:
         raise ErroreTool(f"Operazione non ammessa (nessuna modifica): {_messaggio(exc)}") from None
-    prima = _stato(fabbisogni, ctx.oggi)
+    prima = _stato(fabbisogni, cluster, ctx.oggi)
     adesso = timezone.now()
     # Solo gli oggetti già esistenti: quelli creati nell'anteprima non esistono ancora.
     esistenti = [o for o in risultato.get("oggetti", []) if _esiste(o)]
@@ -317,7 +352,7 @@ def anteprima(ctx: Contesto, scrittura: Scrittura, argomenti: dict) -> dict:
             "tool": scrittura.nome,
             "argomenti": argomenti,
             "modifiche": modifiche,
-            "effetti": _effetti(prima, dopo),
+            "effetti": _effetti(prima, dopo, creati),
             "oggetti_esistenti": esistenti,
         }
     )

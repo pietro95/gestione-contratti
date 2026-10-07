@@ -446,21 +446,22 @@ anche senza contratto ogni rinnovo va gestito con scadenza e alert.
 
 ## F10 — Connettore MCP in sola lettura
 
-Rev01: in corso. Decisioni di Pietro del 05/10/2026 (SPEC Rev10, `docs/SPEC_MCP.md`
-Rev03). Rilasciata con F10.1 nella v1.7.0. Claude interroga il registro con gli stessi
+Rev02: realizzata. Decisioni di Pietro del 05/10/2026 (SPEC Rev10, `docs/SPEC_MCP.md`
+Rev03). Rilasciata con F10.1 nella v1.7.0; in produzione dal 07/10/2026, prova D8 superata
+(SPEC_MCP Rev07). Claude interroga il registro con gli stessi
 numeri dell'interfaccia.
 
 **Parte 1, realizzata**: OAuth con login interno, `/mcp`, container `mcp` con
 utente PostgreSQL limitato, registro e limite, tool `riferimenti`, `cerca`, `scadenze`,
-`crea_client_mcp`, `verifica_mcp.sh`, RUNBOOK §12. Serve alla prova D8 in produzione.
+`crea_client_mcp`, `verifica_mcp.sh`, RUNBOOK §12.
 **Parte 2, realizzata**: gli altri otto tool (`contratto`, `fabbisogno`,
 `fornitore`, `scadenzario`, `budget`, `piano_ordini`, `spese_wbs`, `piani_da_verificare`),
 `versione` negli oggetti letti (per F10.1), tool per ruolo come le pagine, pagina «Connettore
-MCP» dell'utente con revoca, limite di dimensione della risposta. Resta la prova D8.
+MCP» dell'utente con revoca, limite di dimensione della risposta.
 
 - **Primo passo, prima del resto**: prova con claude.ai di un flusso OAuth con la pagina di
   autorizzazione sull'host interno e i metadati e il token endpoint sull'host pubblico
-  (SPEC_MCP §2.1). Se Claude non lo accetta, fermarsi e chiedere a Pietro (D8).
+  (SPEC_MCP §2.1). Esito: accettato (D8, 07/10/2026).
 - App `mcp/`: `POST /mcp` Streamable HTTP stateless, solo JSON; `initialize`, `ping`,
   `tools/list`, `tools/call`. Undici tool di sola lettura (SPEC_MCP §5), con importi come
   stringhe decimali e date ISO; logica oggi nelle viste (`cerca`, fornitore, catena del

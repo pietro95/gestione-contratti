@@ -499,6 +499,7 @@ Segnaposto usati sotto (annotali prima di iniziare):
 | `<NOME_DNS>` | `contratti.siciliacque.local` | primo valore di `DJANGO_ALLOWED_HOSTS` nel `.env` |
 | `<MCP_HOST>` | `mcp-contratti.siciliacque.it` | nome nuovo, nel dominio **pubblico** |
 | `<APP_BIND>` | `172.17.0.1` | `APP_BIND` nel `.env` |
+| `<MCP_BIND>` | `172.17.0.1` | indirizzo su cui ascolta il connettore (fase 3) |
 | `<MCP_PORT>` | `18472` | porta nuova, libera (fase 3) |
 | `<IP_PUBBLICO>` | — | IP pubblico con cui il firewall pubblica il proxy |
 | `<IP_INTERNO_PROXY>` | — | IP interno del server di Nginx Proxy Manager |
@@ -553,11 +554,19 @@ Qui ci si può fermare: l'app funziona come prima, il connettore è spento.
 2. **DNS interno** (split horizon): record A `<MCP_HOST>` → `<IP_INTERNO_PROXY>`. Da un PC
    interno `nslookup <MCP_HOST>` deve dare l'IP interno; `nslookup <MCP_HOST> 1.1.1.1` l'IP
    pubblico.
-3. **Firewall perimetrale**: inoltro TCP 443 da `<IP_PUBBLICO>` a `<IP_INTERNO_PROXY>`:443,
-   **solo** con origine `160.79.104.0/21` (intervallo aggiornato:
-   <https://platform.claude.com/docs/en/api/ip-addresses>). Niente porta 80. L'inoltro non deve
-   cambiare l'IP di origine (nessun SNAT o *masquerade* in ingresso): l'Access List del proxy
-   (fase 4) decide in base a quell'IP. La verifica «esterno» della fase 4 lo controlla.
+3. **Firewall perimetrale**: inoltro TCP 443 da `<IP_PUBBLICO>` al proxy pubblico. Due casi:
+   - **IP pubblico dedicato al connettore**: ammetti solo l'origine `160.79.104.0/21`
+     (intervallo aggiornato: <https://platform.claude.com/docs/en/api/ip-addresses>);
+   - **IP e porta 443 condivisi con altri siti** (il caso di Siciliacque): il firewall non può
+     filtrare per nome host, quindi l'unico filtro per IP è l'Access List del proxy (fase 4).
+
+   In entrambi i casi:
+   - nessun filtro geografico, IPS o reputazione IP deve scartare `160.79.104.0/21`: sono
+     indirizzi negli Stati Uniti. Se c'è, serve un'eccezione per quell'intervallo. Sintomo:
+     Claude «impossibile raggiungere» e nessuna riga da `160.79.x.x` nel log del proxy;
+   - l'inoltro non deve cambiare l'IP di origine (nessun SNAT o *masquerade* in ingresso):
+     l'Access List decide in base a quell'IP;
+   - niente porta 80.
 4. **Certificato** in Nginx Proxy Manager: SSL Certificates → Add SSL Certificate →
    *Let's Encrypt* → Domain Names `<MCP_HOST>`, *Use a DNS Challenge*, provider e credenziali API
    del DNS, email → Save. Deve comparire con scadenza a circa 90 giorni; NPM lo rinnova da solo.
@@ -600,24 +609,31 @@ Qui ci si può fermare: l'app funziona come prima, il connettore è spento.
    /appdata/gestione-contratti/app/deploy/deploy.sh v1.7.1
    ```
    Rispetto alla fase 1 compaiono `Utente PostgreSQL del connettore MCP (privilegi limitati)` e
-   `Attesa del connettore MCP su <APP_BIND>:<MCP_PORT> … ok`. Il dump pre-aggiornamento viene
+   `Attesa del connettore MCP su <MCP_BIND>:<MCP_PORT> … ok`. Il dump pre-aggiornamento viene
    rifatto, la build usa la cache, le migration non hanno niente da applicare. Se si ferma su
    una variabile, il messaggio dice quale.
 5. Verifica:
    ```bash
    cd /appdata/gestione-contratti/app/deploy && source comune.sh && compose ps
-   curl -s -H "Host: <MCP_HOST>" -H "X-Forwarded-Proto: https" http://<APP_BIND>:<MCP_PORT>/healthz
+   curl -s -H "Host: <MCP_HOST>" -H "X-Forwarded-Proto: https" http://<MCP_BIND>:<MCP_PORT>/healthz
    ```
    Compare `gestione-contratti-mcp-1` `Up`; `curl` risponde `{"status": "ok"}`. Nell'app, dal
    browser, compare la voce di menu «Connettore MCP».
 
 #### Fase 4 — Host pubblico in Nginx Proxy Manager e verifica
 
+Se ci sono due istanze di Nginx Proxy Manager, una per Internet (es. `NPM-WAN`) e una per la
+rete interna, tutto quanto segue si fa sull'**istanza per Internet**: è lì che arrivano le
+richieste di Claude. Il DNS interno di `<MCP_HOST>` (fase 2) deve puntare a un proxy che ha lo
+stesso Proxy Host: l'istanza per Internet, se raggiungibile dalla rete interna, oppure una copia
+del Proxy Host (stessa Access List e stesso filtro) sull'istanza interna.
+
 1. **Access List** (Access Lists → Add Access List): nome `connettore-mcp`, *Satisfy Any*
    spento, nessun utente; nella scheda *Access*: `allow 160.79.104.0/21`, `allow <rete interna>`
    (le sottoreti dei PC, es. `10.0.0.0/8`), `deny all`.
 2. **Proxy Host** (Hosts → Proxy Hosts → Add Proxy Host):
-   - *Details*: Domain Names `<MCP_HOST>`; Scheme `http`; Forward Hostname/IP `<APP_BIND>`;
+   - *Details*: Domain Names `<MCP_HOST>`; Scheme `http`; Forward Hostname/IP `<MCP_BIND>` (o
+     l'indirizzo con cui questo proxy raggiunge il server, se è su un'altra macchina);
      Forward Port `<MCP_PORT>`; *Block Common Exploits* attivo; Access List `connettore-mcp`;
    - *SSL*: il certificato della fase 2, *Force SSL* e *HTTP/2 Support* attivi;
    - *Advanced*: il blocco di §12.3 (solo i percorsi del connettore, il resto 404).
@@ -643,10 +659,9 @@ Qui ci si può fermare: l'app funziona come prima, il connettore è spento.
    ```bash
    bash verifica_mcp.sh https://<MCP_HOST> esterno
    ```
-   Atteso: «Verifica superata.», con «nessuna risposta: bloccato dal firewall» (il firewall
-   della fase 2 scarta chi non viene da `160.79.104.0/21`) o 403 (Access List). Ogni 200 o 401
-   da fuori vuol dire che l'host è aperto a tutti: spegni il proxy host e correggi firewall e
-   Access List prima di andare avanti.
+   Atteso: «Verifica superata.», con 403 (Access List) o «nessuna risposta: bloccato dal
+   firewall» (IP pubblico dedicato, fase 2). Ogni 200 o 401 da fuori vuol dire che l'host è
+   aperto a tutti: spegni il proxy host e correggi firewall e Access List prima di andare avanti.
 
    Senza `bash`, su Windows: `curl.exe -s -o NUL -w "%{http_code}" https://<MCP_HOST>/.well-known/oauth-authorization-server`
    dà `200` da dentro e `403` o `000` (nessuna risposta) da fuori.
@@ -671,7 +686,7 @@ Da Owner, su claude.ai (le voci dei menu possono cambiare):
 
 Il connettore compare a tutti i membri, ma ognuno deve collegarlo con le proprie credenziali.
 
-#### Fase 7 — Prima prova di Pietro (D8)
+#### Fase 7 — Primo collegamento
 
 Dalla rete interna o da VPN:
 1. claude.ai → Impostazioni → Connettori → `Registro contratti` → **Connetti**.
@@ -684,9 +699,9 @@ Dalla rete interna o da VPN:
    Connettore MCP → Chiamate mostra le chiamate appena fatte.
 
 Se al punto 2 la pagina non si apre o al punto 3 Claude dà errore: fermati, annota il
-messaggio e le righe di Amministrazione → Connettore MCP → Chiamate, e vedi §12.9. Se Claude
-non accetta l'autorizzazione sull'host interno, è il caso D8 della SPEC_MCP: va deciso il piano
-B, non si aggira.
+messaggio e le righe di Amministrazione → Connettore MCP → Chiamate, e vedi §12.9. Il login
+sull'host interno è verificato (D8, 07/10/2026): se il browser apre l'host pubblico, il problema
+è `MCP_URL_INTERNO`.
 
 #### Fase 8 — Prova della scrittura
 
@@ -735,8 +750,10 @@ l'utente PostgreSQL (`manage.py ruolo_db_mcp`), avvia il container `mcp` e aspet
 1. **DNS pubblico**: record A di `MCP_HOST` verso l'IP pubblico del proxy.
 2. **DNS interno** (split horizon): lo stesso nome verso l'IP interno del proxy, così Claude Code
    usa lo stesso URL dalla rete aziendale.
-3. **Firewall perimetrale**: 443 in ingresso verso il proxy **solo** da `160.79.104.0/21`
-   (verifica l'intervallo aggiornato su <https://platform.claude.com/docs/en/api/ip-addresses>).
+3. **Firewall perimetrale**: 443 in ingresso verso il proxy pubblico; solo da `160.79.104.0/21`
+   se l'IP pubblico è dedicato, altrimenti il filtro per IP è l'Access List (§12.3). Nessun
+   filtro geografico o IPS deve bloccare `160.79.104.0/21` (intervallo aggiornato su
+   <https://platform.claude.com/docs/en/api/ip-addresses>).
 4. **Certificato di una CA pubblica** per `MCP_HOST` (Let's Encrypt da Nginx Proxy Manager): il
    cloud di Anthropic non si fida della CA interna. Con la porta 80 chiusa da Internet serve la
    verifica DNS (*DNS Challenge*) del provider DNS.
@@ -799,13 +816,10 @@ claude mcp add --transport http --client-id <ID del client claude-code> \
 ```
 poi `/mcp` in Claude Code → Authenticate.
 
-### 12.6 Prima prova (D8, ROADMAP F10)
+### 12.6 Primo collegamento di un utente
 
-Primo collegamento da claude.ai di un utente di prova. Esiti:
-- **la pagina di login interna si apre e dopo «Autorizza» Claude mostra il connettore
-  collegato**: D8 risolta, il login resta interno;
-- Claude rifiuta i metadati o non apre la pagina: fermarsi, annotare il messaggio di errore e il
-  contenuto di Amministrazione → Connettore MCP → Chiamate, e decidere il piano B (SPEC_MCP §9).
+Prova D8 superata in produzione il 07/10/2026: la pagina di login interna si apre e dopo
+«Autorizza» Claude mostra il connettore collegato. Se a un utente non riesce, §12.9.
 
 Poi, in una chat: «Quali contratti dei miei cluster sono in alert?». Il risultato deve coincidere
 con il cruscotto dell'app.

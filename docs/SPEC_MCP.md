@@ -1,6 +1,6 @@
 # Connettore MCP — specifica (bozza)
 
-Rev06 — 05/10/2026 — testo scritto da Claude, decisioni di Pietro Verro, da approvare. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalla fase F10 di `docs/ROADMAP.md`.
+Rev07 — 07/10/2026 — testo scritto da Claude, decisioni di Pietro Verro, da approvare. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalla fase F10 di `docs/ROADMAP.md`.
 
 Storico revisioni:
 - Rev00 (05/10/2026): prima bozza, raccomandata l'opzione «solo rete interna con ponte locale».
@@ -10,6 +10,7 @@ Storico revisioni:
 - Rev04 (05/10/2026): decisione di Pietro: il connettore prevede anche la scrittura (§8, sotto-fase F10.1), con anteprima e conferma in due passi, scope OAuth separato, solo Admin ed Editor. Aggiornati §1, §2.2, §4.2, §4.5, §5, §9, §10.
 - Rev05 (05/10/2026): decisioni di Pietro. D11: perimetro dei gruppi A–E. D12: conferma nella chat. D13: nessun limite giornaliero di operazioni.
 - Rev06 (05/10/2026): decisione di Pietro, a valle della realizzazione di F10.1: tre limiti dei tool del gruppo C (§8.2): `modifica_voce` non cambia le quote per periodo esistenti, `crea_contratto` e `modifica_contratto` non gestiscono le note, `registra_rinnovo` non genera le rate.
+- Rev07 (07/10/2026): D8 chiusa con esito positivo: nella prova in produzione Claude ha accettato l'autorizzazione sull'host interno (§2.1); il piano B non serve. Nessuna decisione aperta.
 
 ## 1. Obiettivo
 
@@ -43,7 +44,7 @@ I connettori di claude.ai, Desktop, Cowork e mobile si collegano al server **dal
 
 Il punto chiave: l'autorizzazione è un redirect nel browser dell'utente, quindi la pagina di login e consenso resta sull'host interno. **Il login AD non è mai esposto.** Conseguenza: il collegamento del connettore (e la sua ripetizione ogni 7 giorni, §4.4) si fa dalla rete aziendale o da VPN. Una volta collegato, Claude lo usa anche da fuori (es. app mobile), perché le chiamate passano dal cloud di Anthropic.
 
-Confidenza media che Claude accetti un `authorization_endpoint` su un host diverso dall'emittente (RFC 8414 lo ammette; la documentazione Anthropic dice che il server di autorizzazione può stare su un host diverso dal server MCP, ma non tratta questo caso). Primo test da fare all'avvio della fase; se fallisce, piano B in §9 (D8).
+Verificato in produzione il 07/10/2026 (D8): Claude accetta un `authorization_endpoint` su un host diverso dall'emittente (ammesso da RFC 8414) e apre nel browser la pagina di login interna; metadati e scambio dei token restano sull'host pubblico.
 
 ### 2.2 Difesa in profondità
 
@@ -255,8 +256,9 @@ Prese:
 - D12 (Rev05): conferma nella chat, con anteprima e `conferma_operazione` (§8.1), per tutti i gruppi.
 - D13 (Rev05): nessun limite al numero di operazioni confermate.
 
-Aperte:
-- **D8 — Piano B se Claude non accetta l'authorize su host interno** (§2.1): pubblicare anche `/oauth/authorize` e il login (sconsigliato), oppure delegare il login a un IdP aziendale già pubblico (Entra ID/ADFS), se esiste.
+- D8 (Rev07): chiusa con esito positivo. Prova in produzione del 07/10/2026: Claude apre `/oauth/authorize/` sull'host interno indicato nei metadati, il collegamento riesce e i tool rispondono (§2.1). Il piano B (login pubblicato o IdP esterno) non serve.
+
+Aperte: nessuna.
 
 ## 10. Stima
 
