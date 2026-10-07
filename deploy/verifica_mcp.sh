@@ -14,13 +14,19 @@
 set -uo pipefail
 read -ra EXTRA <<<"${CURL_OPZIONI:-}"
 
+# curl con le opzioni in più. ${EXTRA[@]+...}: con bash 3.2 (macOS) e set -u un array vuoto
+# espanso con "${EXTRA[@]}" è «unbound variable».
+richiesta() {
+  curl ${EXTRA[@]+"${EXTRA[@]}"} "$@"
+}
+
 [ $# -eq 2 ] || { echo "uso: $0 <url pubblico> ammesso|esterno" >&2; exit 2; }
 BASE="${1%/}"
 MODO="$2"
 FALLITI=0
 
 codice() {  # metodo percorso → codice HTTP (000 se la connessione fallisce)
-  curl "${EXTRA[@]}" -sS -o /dev/null -w '%{http_code}' --max-time 10 -X "$1" \
+  richiesta -sS -o /dev/null -w '%{http_code}' --max-time 10 -X "$1" \
     -H 'Content-Type: application/json' --data-binary "${3:-}" "$BASE$2" 2>/dev/null || true
 }
 
@@ -71,7 +77,7 @@ case "$MODO" in
     ;;
   ammesso)
     # Senza -k: il certificato deve essere valido per una CA pubblica.
-    if curl "${EXTRA[@]}" -sS -o /dev/null --max-time 10 "$BASE/.well-known/oauth-protected-resource"; then
+    if richiesta -sS -o /dev/null --max-time 10 "$BASE/.well-known/oauth-protected-resource"; then
       echo "ok    certificato TLS valido"
     else
       echo "ERRORE certificato TLS non valido o host non raggiungibile"
@@ -81,12 +87,12 @@ case "$MODO" in
       read -r metodo percorso <<<"$voce"
       verifica "$metodo $percorso" 200 "$(codice "$metodo" "$percorso")"
     done
-    risorsa=$(curl "${EXTRA[@]}" -sS --max-time 10 "$BASE/.well-known/oauth-protected-resource" || true)
+    risorsa=$(richiesta -sS --max-time 10 "$BASE/.well-known/oauth-protected-resource" || true)
     case "$risorsa" in
       *"\"resource\": \"$BASE/mcp\""* | *"\"resource\":\"$BASE/mcp\""*) echo "ok    resource = $BASE/mcp" ;;
       *) echo "ERRORE resource diversa da $BASE/mcp: $risorsa"; FALLITI=1 ;;
     esac
-    intestazioni=$(curl "${EXTRA[@]}" -sS -o /dev/null -D - --max-time 10 -X POST \
+    intestazioni=$(richiesta -sS -o /dev/null -D - --max-time 10 -X POST \
       -H 'Content-Type: application/json' --data '{}' "$BASE/mcp" || true)
     verifica "POST /mcp senza token" 401 "$(awk 'NR==1 {print $2}' <<<"$intestazioni")"
     if grep -qi '^www-authenticate: Bearer .*resource_metadata=' <<<"$intestazioni"; then
