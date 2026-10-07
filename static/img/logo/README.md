@@ -1,6 +1,6 @@
 # Logo Siciliacque
 
-File forniti da Pietro Verro (ottobre 2026), esportati da Adobe Illustrator. Uso riservato
+File dell'identità visiva aziendale (ottobre 2026), esportati da Adobe Illustrator. Uso riservato
 all'applicazione interna.
 
 | File | Uso |
