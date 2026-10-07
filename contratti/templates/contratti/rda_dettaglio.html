@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% load registro %}
+{% block title %}{{ rda.intestazione|default:rda.descrizione }}{% endblock %}
+{% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'contratti:rda_elenco' %}">Richieste di RDA</a></li>{% if r.fabbisogno %}<li class="breadcrumb-item"><a href="{% url 'contratti:fabbisogno' r.fabbisogno.pk %}">{{ r.fabbisogno.descrizione }}</a></li>{% endif %}<li class="breadcrumb-item active" aria-current="page">{{ rda }}</li></ol></nav>{% endblock %}
+{% block titolo_pagina %}{{ rda.intestazione|default:rda.descrizione }}{% endblock %}
+{% block sottotitolo %}
+<div class="sottotitolo">
+  {{ r.fase|fase_badge }}{% if rda.archiviato %} <span class="stato stato-grigio">archiviata</span>{% endif %}
+  <span>· {{ rda.numero_rda|default:"senza numero SAP" }}</span>
+  <span>· {{ rda.cluster.codice }}</span>
+  {% if rda.scopo %}<span>· {{ rda.get_scopo_display }}</span>{% endif %}
+  {% if rda.nome_referente %}<span>· referente {{ rda.nome_referente }}</span>{% endif %}
+</div>
+{% endblock %}
+{% block azioni %}
+{% if puo_modificare and not chiusa %}
+  {% if puo_inviare %}<form method="post" action="{% url 'contratti:rda_invia' rda.pk %}" class="m-0">{% csrf_token %}<button class="btn btn-primary" type="submit"><i class="bi bi-send" aria-hidden="true"></i> Invia all'addetto</button></form>{% endif %}
+  {% if r.fase in "inserita rilasciata contratto_emesso in_esecuzione" %}<a class="btn btn-primary" href="{% url 'contratti:rda_contratto' rda.pk %}"><i class="bi bi-file-earmark-plus" aria-hidden="true"></i> Registra contratto</a>{% endif %}
+  <a class="btn btn-outline-primary" href="{% url 'contratti:rda_modifica' rda.pk %}"><i class="bi bi-pencil" aria-hidden="true"></i> {% if puo_inviare %}Modifica{% else %}Correggi{% endif %}</a>
+  <button class="btn btn-outline-danger" type="button" data-bs-toggle="collapse" data-bs-target="#annulla-rda" aria-expanded="false" aria-controls="annulla-rda"><i class="bi bi-x-circle" aria-hidden="true"></i> Annulla la RDA</button>
+{% endif %}
+{% endblock %}
+{% block content %}
+{% if puo_modificare and not chiusa %}
+<div class="collapse mb-3" id="annulla-rda"><div class="card card-body">
+  <form method="post" action="{% url 'contratti:rda_annulla' rda.pk %}" data-conferma="La RDA risulterà annullata e non conterà più per la pratica. L'operazione resta nello storico." data-conferma-etichetta="Annulla la RDA" data-conferma-stile="btn-danger">
+    {% csrf_token %}
+    <label class="form-label" for="motivo-annullo">Motivo dell'annullamento</label>
+    <textarea id="motivo-annullo" name="nota" class="form-control" rows="2" required></textarea>
+    <button class="btn btn-danger mt-2" type="submit">Annulla la RDA</button>
+  </form>
+</div></div>
+{% endif %}
+{% if r.fase == "da_correggere" %}{% with ultimo=eventi.0 %}<div class="alert alert-warning"><i class="bi bi-arrow-return-left" aria-hidden="true"></i> Rimandata al referente il {{ ultimo.data|date:"d/m/Y" }}{% if ultimo.utente %} da {{ ultimo.utente }}{% endif %}: {{ ultimo.nota }}</div>{% endwith %}{% endif %}
+{% if proposti and puo_modificare %}<div class="alert alert-info small"><i class="bi bi-link-45deg" aria-hidden="true"></i> Contratti con lo stesso n. RDA scritto e senza RDA d'origine: {% for c in proposti %}<form method="post" action="{% url 'contratti:rda_collega_contratto' rda.pk %}" class="d-inline">{% csrf_token %}<input type="hidden" name="contratto" value="{{ c.pk|stringformat:"d" }}"><button class="btn btn-link btn-sm p-0 align-baseline" type="submit">collega {% include "contratti/_contratto_breve.html" with x=c %}</button></form>{% if not forloop.last %}; {% endif %}{% endfor %}</div>{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Fase</div><div class="kpi-valore">{{ r.fase_label }}</div><div class="kpi-nota">{% if r.data_fase %}dal {{ r.data_fase|date:"d/m/Y" }} · {{ r.giorni }} giorni{% endif %}</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">Importo della RDA</div><div class="kpi-valore">{{ r.importo|euro }}</div><div class="kpi-nota">{{ rda.posizioni.all|length }} posizioni, imponibile</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">Pratica</div><div class="kpi-valore fs-6">{% if rda.contratto_in_scadenza %}<a href="{% url 'contratti:contratto' rda.contratto_in_scadenza.pk %}">Rinnovo di {{ rda.contratto_in_scadenza.numero_contratto|default:rda.contratto_in_scadenza.fornitore }}</a>{% elif rda.fabbisogno %}<a href="{% url 'contratti:fabbisogno' rda.fabbisogno.pk %}">{{ rda.fabbisogno.descrizione }}</a>{% else %}non collegata{% endif %}</div><div class="kpi-nota">{% if stato_pratica %}stato: {{ stato_pratica.0|lower }}{% if stato_pratica.1 %} dal {{ stato_pratica.1|date:"d/m/Y" }}{% endif %}{% elif rda.scopo == "aggiuntivo" %}acquisto aggiuntivo: non tocca la pratica{% endif %}</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi verde"><div class="card-body"><div class="kpi-etichetta">Contratti generati</div><div class="kpi-valore">{{ generati|length }}</div><div class="kpi-nota">{% for c, diff in generati %}{% if diff %}differenza {{ diff|euro }}{% endif %}{% endfor %}</div></div></div></div>
+</div>
+
+<ul class="nav nav-tabs" role="tablist">
+  <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#scheda" type="button" role="tab" aria-controls="scheda" aria-selected="true">Scheda SAP</button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#collegamenti" type="button" role="tab" aria-controls="collegamenti" aria-selected="false">Collegamenti</button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#eventi" type="button" role="tab" aria-controls="eventi" aria-selected="false">Storico della richiesta</button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#storico" type="button" role="tab" aria-controls="storico" aria-selected="false">Storico modifiche</button></li>
+</ul>
+<div class="tab-content mb-4">
+  <div class="tab-pane fade show active" id="scheda" role="tabpanel" tabindex="0">
+    {% include "contratti/_scheda_sap.html" %}
+    <div class="row g-4 mt-1">
+      <div class="col-lg-6">
+        <h2 class="h6 text-uppercase text-body-secondary">Da riportare dopo l'inserimento in SAP</h2>
+        {% if puo_modificare and not chiusa %}
+        <form method="post" action="{% url 'contratti:rda_dati_sap' rda.pk %}" class="row g-3" novalidate>
+          {% csrf_token %}
+          <div class="col-sm-12"><label class="form-label" for="{{ form_sap.numero_rda.id_for_label }}">Numero RDA</label>{{ form_sap.numero_rda }}<div class="form-text">{{ form_sap.numero_rda.help_text }}</div></div>
+          <div class="col-sm-6"><label class="form-label" for="{{ form_sap.data_inserimento.id_for_label }}">Data di inserimento</label>{{ form_sap.data_inserimento }}</div>
+          <div class="col-sm-6"><label class="form-label" for="{{ form_sap.data_rilascio.id_for_label }}">Data dell'ultimo rilascio</label>{{ form_sap.data_rilascio }}</div>
+          <div class="col-12"><button class="btn btn-primary" type="submit">Salva i dati SAP</button></div>
+        </form>
+        {% else %}
+        <dl class="dati"><dt>Numero RDA</dt><dd>{{ rda.numero_rda|default:"—" }}</dd><dt>Inserita il</dt><dd>{{ rda.data_inserimento|date:"d/m/Y"|default:"—" }}</dd><dt>Rilasciata il</dt><dd>{{ rda.data_rilascio|date:"d/m/Y"|default:"—" }}</dd></dl>
+        {% endif %}
+      </div>
+      {% if puo_modificare and puo_rimandare %}
+      <div class="col-lg-6">
+        <h2 class="h6 text-uppercase text-body-secondary">Manca qualcosa?</h2>
+        <form method="post" action="{% url 'contratti:rda_rimanda' rda.pk %}">
+          {% csrf_token %}
+          <label class="form-label" for="nota-rimando">Cosa correggere</label>
+          <textarea id="nota-rimando" name="nota" class="form-control" rows="2" required></textarea>
+          <button class="btn btn-outline-secondary mt-2" type="submit"><i class="bi bi-arrow-return-left" aria-hidden="true"></i> Rimanda al referente</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="collegamenti" role="tabpanel" tabindex="0">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <h2 class="h6 text-uppercase text-body-secondary">Pratica</h2>
+        <p class="small text-body-secondary">La RDA avanza la pratica del contratto in scadenza (rinnovo) o del fabbisogno nuovo. Una RDA registrata a mano può restare senza legami e collegarsi dopo.</p>
+        {% if puo_modificare and not chiusa %}
+        <form method="post" action="{% url 'contratti:rda_collega_pratica' rda.pk %}" class="row g-3">
+          {% csrf_token %}
+          <div class="col-12"><label class="form-label" for="{{ form_pratica.contratto.id_for_label }}">{{ form_pratica.contratto.label }}</label>{{ form_pratica.contratto }}</div>
+          <div class="col-12"><label class="form-label" for="{{ form_pratica.fabbisogno.id_for_label }}">{{ form_pratica.fabbisogno.label }}</label>{{ form_pratica.fabbisogno }}</div>
+          <div class="col-12"><button class="btn btn-outline-primary" type="submit">Aggiorna la pratica</button></div>
+        </form>
+        {% endif %}
+      </div>
+      <div class="col-lg-6">
+        <h2 class="h6 text-uppercase text-body-secondary">Contratti nati da questa RDA</h2>
+        <ul class="list-group mb-3">
+          {% for c, diff in generati %}
+          <li class="list-group-item d-flex justify-content-between align-items-center small">
+            <span><a href="{% url 'contratti:contratto' c.pk %}">{% include "contratti/_contratto_breve.html" with x=c %}</a>{% if c.una_tantum %} <span class="stato stato-grigio">una tantum</span>{% endif %}{% if diff %}<br><span class="text-body-secondary">differenza dalla RDA: {{ diff|euro }}</span>{% endif %}</span>
+            {% if puo_modificare %}<form method="post" action="{% url 'contratti:contratto_scollega_rda' c.pk %}" data-conferma="Il contratto non avrà più questa RDA d'origine." data-conferma-etichetta="Scollega">{% csrf_token %}<input type="hidden" name="ritorno" value="rda"><button class="btn btn-sm btn-outline-danger" type="submit">Scollega</button></form>{% endif %}
+          </li>
+          {% empty %}<li class="list-group-item small text-body-secondary">Nessun contratto registrato.</li>{% endfor %}
+        </ul>
+        {% if puo_modificare %}
+        <form method="post" action="{% url 'contratti:rda_collega_contratto' rda.pk %}" class="row g-2">
+          {% csrf_token %}
+          <div class="col-12"><label class="form-label" for="{{ form_contratto.contratto.id_for_label }}">Collega un contratto già registrato</label>{{ form_contratto.contratto }}</div>
+          <div class="col-12"><button class="btn btn-outline-primary" type="submit">Collega</button></div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="eventi" role="tabpanel" tabindex="0">
+    <ol class="timeline">
+      {% for e in eventi %}
+        <li><div class="fw-semibold">{{ e.get_tipo_display }}</div>
+          <div class="small text-body-secondary">{{ e.data|date:"d/m/Y" }}{% if e.utente %} · {{ e.utente }}{% endif %}</div>
+          {% if e.nota %}<div class="small">{{ e.nota }}</div>{% endif %}</li>
+      {% endfor %}
+      <li><div class="fw-semibold">Creata</div><div class="small text-body-secondary">{{ rda.data_creazione|date:"d/m/Y" }} · {{ rda.get_origine_display }}</div></li>
+    </ol>
+  </div>
+  <div class="tab-pane fade" id="storico" role="tabpanel" tabindex="0">
+    {% include "contratti/_storico.html" %}
+  </div>
+</div>
+{% endblock %}

@@ -531,8 +531,8 @@ F10.
 
 ### F11.1 — Modello e motore
 
-Stato: realizzata, in revisione (nessuna interfaccia nuova oltre all'amministrazione e
-all'import delle tabelle SAP). Scelte e deviazioni nella PR.
+Stato: realizzata (PR #33; nessuna interfaccia nuova oltre all'amministrazione e all'import
+delle tabelle SAP).
 
 - Modelli (SPEC §4): `RichiestaAcquisto` con posizioni (`PosizioneRDA`) e storico
   (invio, rimando, annullamento); `DocumentoEsecuzione` (con fattura facoltativa), `Fattura`;
@@ -561,6 +561,10 @@ idempotente, con errore per più predefiniti o codici doppi; TC-01 … TC-14 inv
 verdi; `makemigrations --check` pulito.
 
 ### F11.2 — Richiesta di RDA e scheda SAP
+
+Stato: realizzata, in revisione. Oltre a quanto previsto: elenco «Richieste di RDA» nel menu
+(filtri per cluster, fase, «le mie»), in attesa dei cruscotti di F11.4. Il testo della
+richiesta si vede nella scheda SAP dopo il primo salvataggio (anche in bozza), non nel form.
 
 - Referente: «Nuova richiesta di RDA» dalla pagina del fabbisogno (e dal contratto, che porta al
   suo fabbisogno); scopo impostato da solo (rinnovo del contratto in scadenza o primo

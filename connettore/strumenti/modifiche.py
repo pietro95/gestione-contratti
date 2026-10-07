@@ -234,12 +234,13 @@ STRUMENTI = [
         Scrittura("avanza_pratica", lambda a: [_soggetto_pratica(a)], _avanza_pratica),
         "Avanza la pratica di rinnovo",
         "Registra un passaggio della pratica sul contratto in scadenza (o sul fabbisogno nuovo, "
-        "senza contratti): stato, data, nota facoltativa.",
+        "senza contratti): stato, data, nota facoltativa. A mano solo «offerta richiesta» e "
+        "«offerta ricevuta»: da «RDA richiesta» in poi lo stato si ricava dalle RDA collegate.",
         _schema(
             {
                 "contratto_id": SCHEMA_ID,
                 "fabbisogno_id": SCHEMA_ID,
-                "stato": {"type": "string", "enum": list(m.StatoPratica.Stato.values)},
+                "stato": {"type": "string", "enum": [v for v, _ in forms.STATI_PRATICA_MANUALI]},
                 "data": SCHEMA_DATA,
                 "note": {"type": "string", "maxLength": 500},
             },

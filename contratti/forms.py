@@ -577,7 +577,15 @@ class ProrogaForm(FormBase):
         return dati
 
 
+# Da Rev11 a mano si registrano solo i passaggi che precedono la RDA: da «RDA richiesta» in poi
+# lo stato si ricava dalle RDA collegate alla pratica (SPEC §4, §5.7).
+STATI_PRATICA_MANUALI = [
+    (s.value, s.label)
+    for s in (m.StatoPratica.Stato.OFFERTA_RICHIESTA, m.StatoPratica.Stato.OFFERTA_RICEVUTA)
+]
+
+
 class PassaggioPraticaForm(FormBase):
-    stato = forms.ChoiceField(choices=m.StatoPratica.Stato.choices)
+    stato = forms.ChoiceField(choices=STATI_PRATICA_MANUALI)
     data = forms.DateField()
     note = forms.CharField(widget=forms.TextInput, required=False)

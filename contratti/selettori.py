@@ -214,7 +214,7 @@ def voci_piano_da_verificare(codici: list[str] | None = None):
 
 
 # Ricerca globale (barra superiore e connettore MCP): stessi criteri e stessi limiti.
-LIMITE_CERCA = {"contratti": 25, "fabbisogni": 15, "fornitori": 15}
+LIMITE_CERCA = {"contratti": 25, "fabbisogni": 15, "fornitori": 15, "rda": 15}
 
 
 def cerca(q: str, oggi: datetime.date) -> dict[str, list]:
@@ -222,7 +222,7 @@ def cerca(q: str, oggi: datetime.date) -> dict[str, list]:
 
     Meno di 2 caratteri: nessun risultato. Gli archiviati in fondo.
     """
-    risultati = {"contratti": [], "fabbisogni": [], "fornitori": []}
+    risultati = {"contratti": [], "fabbisogni": [], "fornitori": [], "rda": []}
     q = q.strip()
     if len(q) < 2:
         return risultati
@@ -248,6 +248,13 @@ def cerca(q: str, oggi: datetime.date) -> dict[str, list]:
             | Q(partita_iva__icontains=q)
             | Q(codice_sap__icontains=q)
         ).order_by("archiviato", "ragione_sociale")[: LIMITE_CERCA["fornitori"]]
+    )
+    risultati["rda"] = list(
+        m.RichiestaAcquisto.objects.filter(
+            Q(numero_rda__icontains=q) | Q(descrizione__icontains=q) | Q(intestazione__icontains=q)
+        )
+        .select_related("cluster")
+        .order_by("archiviato", "-data_creazione")[: LIMITE_CERCA["rda"]]
     )
     return risultati
 

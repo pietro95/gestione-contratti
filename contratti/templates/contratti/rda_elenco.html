@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load registro %}
+{% block title %}Richieste di RDA{% endblock %}
+{% block titolo_pagina %}Richieste di RDA{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">La richiesta parte dal fabbisogno («Nuova richiesta di RDA»); l'addetto la inserisce in SAP dalla scheda SAP.</div>{% endblock %}
+{% block azioni %}{% if puo_scrivere %}<a class="btn btn-outline-primary" href="{% url 'contratti:rda_registra' %}"><i class="bi bi-journal-plus" aria-hidden="true"></i> Registra una RDA già in SAP</a>{% endif %}{% endblock %}
+{% block content %}
+<form method="get" class="filtri">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-6 col-xl-4"><label class="form-label" for="f-q">Cerca</label><input id="f-q" type="search" name="q" value="{{ filtri.q }}" class="form-control" placeholder="N. RDA, descrizione, fabbisogno, referente"></div>
+    <div class="col-sm-4 col-xl-3"><label class="form-label" for="f-area">Cluster</label><select id="f-area" name="area" class="form-select js-cluster" multiple>{% for v, t in aree %}<option value="{{ v }}" {% if v in area_scelte %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+    <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-fase">Fase</label><select id="f-fase" name="fase" class="form-select"><option value="">Tutte</option>{% for v, t in fasi %}<option value="{{ v }}" {% if filtri.fase == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+    <div class="col-sm-4 col-xl-3"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="mie" value="1" id="f-mie" {% if filtri.mie %}checked{% endif %}><label class="form-check-label" for="f-mie">Solo le mie (referente)</label></div>
+      <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="archiviate" value="1" id="f-arch" {% if filtri.archiviate %}checked{% endif %}><label class="form-check-label" for="f-arch">Includi le archiviate</label></div></div>
+  </div>
+  <button class="btn btn-primary mt-3" type="submit">Applica</button>
+</form>
+{% include "contratti/_filtri_attivi.html" %}
+<div class="tabella-card">
+<div class="table-responsive">
+<table class="table table-hover align-middle">
+  <thead><tr><th>RDA</th><th>Fabbisogno</th><th>Referente</th><th>Fase</th><th>Dal</th><th class="text-end">Importo</th></tr></thead>
+  <tbody>
+  {% for r in pagina %}{% url 'contratti:rda' r.rda.pk as link %}
+    <tr data-href="{{ link }}"{% if r.rda.archiviato %} class="text-body-secondary"{% endif %}>
+      <td><a href="{{ link }}" class="fw-semibold">{{ r.rda.intestazione|default:r.rda.descrizione }}</a><div class="small text-body-secondary">{{ r.rda.numero_rda|default:"senza numero SAP" }} · {{ r.rda.cluster.codice }}{% if r.rda.scopo %} · {{ r.rda.get_scopo_display|lower }}{% endif %}</div></td>
+      <td>{% if r.fabbisogno %}<a href="{% url 'contratti:fabbisogno' r.fabbisogno.pk %}">{{ r.fabbisogno.descrizione }}</a>{% else %}<span class="text-body-secondary">non collegata</span>{% endif %}</td>
+      <td>{{ r.rda.nome_referente|default:"—" }}</td>
+      <td>{{ r.fase|fase_badge }}{% if r.rda.archiviato %} <span class="stato stato-grigio">archiviata</span>{% endif %}</td>
+      <td class="text-nowrap">{{ r.data_fase|date:"d/m/Y"|default:"—" }}{% if r.giorni is not None %}<div class="small text-body-secondary">{{ r.giorni }} giorni</div>{% endif %}</td>
+      <td class="text-end">{{ r.importo|euro }}</td>
+    </tr>
+  {% empty %}<tr><td colspan="6"><div class="vuoto"><i class="bi bi-inbox" aria-hidden="true"></i>Nessuna RDA con questi filtri. Una richiesta nuova parte dalla pagina del fabbisogno.</div></td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "contratti/_paginazione.html" %}
+</div>
+{% endblock %}

@@ -1,0 +1,16 @@
+<fieldset class="posizione-rda border rounded p-3 mb-3">
+  <legend class="fs-6 fw-semibold float-none w-auto px-1 mb-0">Posizione {{ numero }}</legend>
+  {{ f.pk }}
+  {% for e in f.non_field_errors %}<div class="alert alert-danger py-1 small">{{ e }}</div>{% endfor %}
+  <div class="row g-2">
+    <div class="col-md-6"><label class="form-label small" for="{{ f.descrizione_breve.id_for_label }}">Descrizione breve</label>{{ f.descrizione_breve }}{% for e in f.descrizione_breve.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
+    <div class="col-md-6"><label class="form-label small" for="{{ f.gruppo_merci.id_for_label }}">Gruppo merci</label>{{ f.gruppo_merci }}</div>
+    <div class="col-sm-4 col-lg-2"><label class="form-label small" for="{{ f.quantita.id_for_label }}">Quantità</label>{{ f.quantita }}{% for e in f.quantita.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
+    <div class="col-sm-4 col-lg-3"><label class="form-label small" for="{{ f.importo_unitario.id_for_label }}">Importo unitario</label>{{ f.importo_unitario }}{% for e in f.importo_unitario.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
+    <div class="col-sm-4 col-lg-3"><label class="form-label small" for="{{ f.di_cui_variabile.id_for_label }}">Di cui variabile</label>{{ f.di_cui_variabile }}{% for e in f.di_cui_variabile.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
+    <div class="col-sm-4 col-lg-2"><label class="form-label small" for="{{ f.natura.id_for_label }}">Natura</label>{{ f.natura }}</div>
+    <div class="col-sm-6 col-lg-4"><label class="form-label small" for="{{ f.conto.id_for_label }}">Conto (informativo)</label>{{ f.conto }}</div>
+    <div class="col-sm-6 col-lg-3"><label class="form-label small" for="{{ f.centro_costo.id_for_label }}">Centro di costo</label>{{ f.centro_costo }}</div>
+    <div class="col-sm-6 col-lg-5"><label class="form-label small" for="{{ f.wbs.id_for_label }}">WBS (solo CAPEX)</label>{{ f.wbs }}{% for e in f.wbs.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
+  </div>
+</fieldset>

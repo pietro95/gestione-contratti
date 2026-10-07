@@ -199,14 +199,15 @@ def test_proroga_prima_della_fine_rifiutata(editor, dati):
 
 
 def test_avanzamento_pratica(editor, dati):
+    """A mano solo le offerte (SPEC Rev11): «RDA richiesta» si ricava dalla RDA."""
     c = dati["contratto"]
-    editor.post(
-        reverse("contratti:pratica_avanza", args=["contratto", c.pk]),
-        {"stato": "rda_richiesta", "data": "2026-09-01", "note": "chiesta a SAP"},
-    )
+    url = reverse("contratti:pratica_avanza", args=["contratto", c.pk])
+    editor.post(url, {"stato": "rda_richiesta", "data": "2026-09-01"})
+    assert not c.stati_pratica.exists()
+    editor.post(url, {"stato": "offerta_ricevuta", "data": "2026-09-01", "note": "chiesta"})
     passaggio = c.stati_pratica.get()
     assert (passaggio.stato, passaggio.data, passaggio.utente.username) == (
-        "rda_richiesta",
+        "offerta_ricevuta",
         D(2026, 9, 1),
         "u_editor",
     )

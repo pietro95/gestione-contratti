@@ -1,0 +1,29 @@
+{% load registro %}
+<p class="small text-body-secondary mb-2">I campi nell'ordine di SAP: «Copia» mette il valore negli appunti. I campi informativi non vanno in SAP ma servono a chi inserisce la RDA.</p>
+<div class="tabella-card mb-3"><div class="table-responsive"><table class="table table-sm align-middle scheda-sap">
+  <thead><tr><th>Campo</th><th>Valore</th><th class="d-print-none"><span class="visually-hidden">Copia</span></th></tr></thead>
+  <tbody>
+    {% include "contratti/_riga_sap.html" with etichetta="Intestazione" valore=scheda.intestazione sap=True %}
+    {% for p in scheda.posizioni %}
+      <tr class="table-light"><th colspan="3" scope="rowgroup">Posizione {{ forloop.counter }} · {{ p.importo|euro }}{% if p.di_cui_variabile %} (di cui variabile {{ p.di_cui_variabile|euro }}){% endif %}</th></tr>
+      {% include "contratti/_riga_sap.html" with etichetta="Descrizione breve" valore=p.descrizione_breve sap=True %}
+      {% include "contratti/_riga_sap.html" with etichetta="Gruppo merci" valore=p.gruppo_merci sap=True %}
+      {% include "contratti/_riga_sap.html" with etichetta="Quantità" valore=p.quantita|quantita sap=True %}
+      {% include "contratti/_riga_sap.html" with etichetta="Importo unitario" valore=p.importo_unitario|importo_sap sap=True %}
+      {% include "contratti/_riga_sap.html" with etichetta="Codice WBS" valore=p.wbs|default:"--" %}
+      {% include "contratti/_riga_sap.html" with etichetta="Codice conto" valore=p.conto|default:"--" %}
+      {% include "contratti/_riga_sap.html" with etichetta="Centro di costo" valore=p.centro_costo|default:"--" %}
+    {% empty %}<tr><td colspan="3" class="text-body-secondary">Nessuna posizione.</td></tr>{% endfor %}
+    {% include "contratti/_riga_sap.html" with etichetta="Richiedente" valore=scheda.richiedente sap=True %}
+    {% include "contratti/_riga_sap.html" with etichetta="Gruppo acquisti" valore=scheda.gruppo_acquisti sap=True %}
+    {% if scheda.note_buyer %}{% include "contratti/_riga_sap.html" with etichetta="Note al buyer" valore=scheda.note_buyer sap=True %}{% endif %}
+    {% if scheda.allegati %}{% include "contratti/_riga_sap.html" with etichetta="Allegati" valore=scheda.allegati sap=True %}{% endif %}
+    {% include "contratti/_riga_sap.html" with etichetta="Importo totale" valore=scheda.importo_totale|importo_sap %}
+    {% include "contratti/_riga_sap.html" with etichetta="File server" valore=scheda.percorso %}
+  </tbody>
+</table></div></div>
+<div class="mb-3">
+  <label class="form-label" for="testo-richiesta">Testo della richiesta (come la mail usata finora)</label>
+  <textarea id="testo-richiesta" class="form-control font-monospace small" rows="12" readonly>{{ testo }}</textarea>
+  <button type="button" class="btn btn-sm btn-outline-primary mt-2" data-copia="testo-richiesta"><i class="bi bi-clipboard" aria-hidden="true"></i> Copia testo della richiesta</button>
+</div>
