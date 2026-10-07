@@ -411,8 +411,8 @@ def scheda(rda: m.RichiestaAcquisto) -> motore.SchedaRDA:
     )
 
 
-def testo_richiesta(rda: m.RichiestaAcquisto) -> str:
-    return motore.testo_richiesta(scheda(rda))
+def testo_della_richiesta(rda: m.RichiestaAcquisto) -> str:
+    return motore.componi_testo_richiesta(scheda(rda))
 
 
 def importo_rda(rda: m.RichiestaAcquisto) -> Decimal:

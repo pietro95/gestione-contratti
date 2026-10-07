@@ -462,7 +462,7 @@ class SchedaRDA:
         return sum((p.importo for p in self.posizioni), ZERO)
 
 
-def testo_richiesta(s: SchedaRDA) -> str:
+def componi_testo_richiesta(s: SchedaRDA) -> str:
     """Il testo della mail usata finora, con gli stessi campi (TC-17)."""
     righe = ["Si deve predisporre la seguente RDA.", ""]
     righe += [f"(Campo SAP) Intestazione: {s.intestazione}", ""]
