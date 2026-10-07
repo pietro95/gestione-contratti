@@ -1,0 +1,6 @@
+{% load registro %}
+<td><a href="{% url 'contratti:contratto' r.contratto.pk %}#esecuzione" class="fw-semibold">{{ r.contratto.fabbisogno.descrizione }}</a><div class="small text-body-secondary">{{ r.contratto.numero_contratto|default:"senza numero" }} · {{ r.contratto.fornitore }} · {{ r.contratto.fabbisogno.cluster.codice }}{% if r.contratto.una_tantum %} · una tantum{% endif %}</div></td>
+<td class="text-nowrap">{{ r.fine|date:"d/m/Y"|default:"—" }}{% if r.contratto.data_chiusura %}<div class="small text-body-secondary">chiuso il {{ r.contratto.data_chiusura|date:"d/m/Y" }}</div>{% endif %}</td>
+<td class="text-end">{{ r.riepilogo.esecuzione.fatturato|euro }}</td>
+<td class="text-end">{{ r.riepilogo.esecuzione.residuo_fisso|euro }}</td>
+<td class="text-end">{% if r.riepilogo.esecuzione.avanzamento_pct is not None %}{{ r.riepilogo.esecuzione.avanzamento_pct }}%{% else %}—{% endif %}</td>
