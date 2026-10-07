@@ -408,6 +408,7 @@ TIPI: dict[str, Tipo] = {
                 "con_contratto_proposto": "Con contratto proposto",
             },
             modello=modello_fatture,
+            oggetti_modello="Fatture",
             note=[
                 "Dopo la conferma le fatture sono in «Fatture da prendere in carico», visibili a "
                 "tutti.",
@@ -430,6 +431,7 @@ TIPI: dict[str, Tipo] = {
             },
             solo_admin=True,
             modello=modello_esecuzione,
+            oggetti_modello="Esecuzione",
         ),
         Tipo(
             "riepilogo",

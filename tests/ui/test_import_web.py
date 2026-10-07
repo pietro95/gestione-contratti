@@ -13,6 +13,7 @@ from django.utils import timezone
 
 from accounts.roles import ADMIN, EDITOR
 from contratti import models as m
+from contratti.importazioni import TIPI
 
 from .. import factories as f
 from .conftest import PASSWORD
@@ -221,3 +222,15 @@ def test_xlsx_che_si_espande_troppo_rifiutato(editor, dati):
     risposta = _carica(editor, "date_emissione", _file("bomba.xlsx", buffer.getvalue()))
     assert risposta.status_code == 302
     assert m.Importazione.objects.count() == 1
+
+
+def test_nomi_dei_modelli_di_import(come):
+    """Ogni modello si scarica come GestioneContratti_ModelloImport_<oggetti>.xlsx."""
+    admin = come(ADMIN)
+    con_modello = [t for t in TIPI.values() if t.modello is not None]
+    assert con_modello
+    for tipo in con_modello:
+        assert tipo.oggetti_modello, tipo.codice
+        risposta = admin.get(reverse("contratti:importazione_modello", args=[tipo.codice]))
+        nome = f"GestioneContratti_ModelloImport_{tipo.oggetti_modello}.xlsx"
+        assert f'filename="{nome}"' in risposta["Content-Disposition"]
