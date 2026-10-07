@@ -592,7 +592,7 @@ successore, due voci:
 
 | Caso | Scopo e legame | Posizioni proposte |
 |---|---|---|
-| (a) «Nuova richiesta di RDA» dal fabbisogno | rinnovo di C1 (pratica di C1) | 1: «Canone licenze», q 1 × 1.030,00, conto 600001; 2: «Assistenza a consumo», q 1 × 206,00, conto 600003, segnalato il massimale (515,00 nel previsto) non compreso. Totale 1.236,00 |
+| (a) «Nuova richiesta di RDA» dal fabbisogno | rinnovo di C1 (pratica di C1) | 1: «Canone licenze», q 1 × 1.030,00, conto 600001; 2: «Assistenza a consumo», q 1 × 721,00 (fisso 206,00 + massimale 515,00), di cui variabile 515,00, conto 600003. Totale 1.751,00 |
 | (b) come (a), scelta «acquisto aggiuntivo» | fabbisogno, nessuna pratica | 1 posizione vuota, OPEX, conto 600001, C0001 |
 | (c) fabbisogno senza contratti, previsto manuale OPEX conto 600001, stima 5.000,00 | primo acquisto (pratica del fabbisogno) | 1 posizione «Licenze CAD di prova», q 1 × 5.000,00, conto 600001 |
 | (d) fabbisogno con due contratti senza successore, C1 (fine 31/12/2026) e C0 (fine 30/06/2026) | rinnovo di C1 proposto, C0 selezionabile | come (a) |
@@ -602,3 +602,6 @@ intestazione `SWPROVA - Licenze CAD di prova`, prima descrizione breve uguale al
 seconda «Assistenza a consumo»; gruppo merci `GM-TEST01` (predefinito) su entrambe; RUP «Rossi».
 Inviata la richiesta, la pratica di C1 passa a `RDA richiesta` (TC-15); in (b) la pratica di C1
 non cambia.
+
+Registrando il contratto da (a), la voce 2 ha fisso 206,00 e massimale 515,00 (721,00 − 515,00 =
+206,00); il massimo del contratto proposto è 1.751,00 e la differenza dalla RDA è 0,00.
