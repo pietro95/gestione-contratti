@@ -322,3 +322,54 @@ def test_tc14_via_mcp(editor):
     ]:
         assert adapters.alert_contratto(c2, oggi) == atteso, oggi
     assert c2.voci.get().importo_fisso == Decimal("25.00")
+
+
+# --- Id degli oggetti nuovi nell'anteprima -------------------------------------------------------
+
+
+def test_anteprima_senza_id_provvisori(editor):
+    """Gli id degli oggetti creati nell'anteprima vengono da una sequenza che l'annullamento non
+    riporta indietro: alla conferma sono diversi (errore visto in produzione il 07/10/2026).
+    L'anteprima non li mostra; ogni id che mostra è di un oggetto che esiste già."""
+    from django.apps import apps
+
+    from connettore import protocollo
+    from connettore.strumenti import Contesto
+    from connettore.strumenti.operazione import NUOVO
+    from tests.connettore.test_scrittura_equivalenza import OGGI
+
+    fab = f.fabbisogno("Servizio da contrattualizzare")
+    argomenti = {
+        "fabbisogno": fab.pk,
+        "fornitore": f.fornitore("Fornitore Nuovo S.r.l.").pk,
+        "descrizione": "Servizio 2027",
+        "numero_contratto": "4600000777",
+        "data_inizio": "2027-01-01",
+        "durata_mesi": 12,
+        "voci": [VOCE_MCP],
+    }
+    messaggio = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": "crea_contratto", "arguments": argomenti},
+    }
+    c = Contesto(editor, OGGI, scrittura=True, client_id="prova")
+    dati = protocollo.gestisci(messaggio, c)[0]["result"]["structuredContent"]
+
+    modelli = {mod._meta.verbose_name: mod for mod in apps.get_app_config("contratti").get_models()}
+    creati = [x for x in dati["modifiche"] if x["tipo"] == "creato"]
+    nome_voce = m.VoceContratto._meta.verbose_name
+    assert {x["oggetto"] for x in creati} >= {m.Contratto._meta.verbose_name, nome_voce}
+    assert all(x["id"] is None for x in creati)
+    for x in creati:
+        for campo, valore in x["campi"].items():
+            if not campo.endswith("_id") or valore == NUOVO:
+                continue
+            correlato = modelli[x["oggetto"]]._meta.get_field(campo).related_model
+            assert correlato.objects.filter(pk=valore).exists(), (x["oggetto"], campo, valore)
+    voce = next(x for x in creati if x["oggetto"] == nome_voce)
+    assert voce["campi"]["contratto_id"] == NUOVO
+    (effetto,) = dati["effetti"]["fabbisogni"]
+    assert effetto["fabbisogno_id"] == fab.pk  # esiste già
+    assert [x["contratto_id"] for x in effetto["contratti"]] == [NUOVO]
