@@ -6,8 +6,10 @@ referenti né note libere (minimizzazione, SPEC_MCP §5).
 
 from decimal import Decimal
 
+from django.db.models import Q
+
 from accounts.roles import WRITE_ROLES
-from contratti import adapters, selettori
+from contratti import acquisti, adapters, selettori
 from contratti import models as m
 from contratti.engine import scadenze as motore_scadenze
 from contratti.engine.budget import valore
@@ -120,6 +122,13 @@ def contratto(ctx: Contesto, argomenti: dict) -> dict:
         **contratto_breve(riga),
         "versione": versione(c),
         "numero_rda": c.numero_rda,
+        # F12.1 (SPEC_MCP §11.2): processo d'acquisto.
+        "rda_origine": {"id": c.rda_id, "numero_rda": c.rda.numero_rda} if c.rda_id else None,
+        "tipo_acquisto": c.tipo_acquisto,
+        "una_tantum": c.una_tantum,
+        "rup": c.rup or None,
+        "cup": c.cup or None,
+        "chiuso_il": c.data_chiusura,
         "data_emissione": c.data_emissione,
         "data_stipula": c.data_stipula,
         "durata_mesi": c.durata_mesi,
@@ -220,6 +229,19 @@ def fabbisogno(ctx: Contesto, argomenti: dict) -> dict:
             {"stato": p.get_stato_display(), "data": p.data}
             for p in f.stati_pratica.order_by("-data", "-id")
         ],
+        # F12.1 (SPEC_MCP §11.2): richieste di RDA del fabbisogno, con la fase.
+        "richieste_rda": [
+            {
+                "id": r.pk,
+                "numero_rda": r.numero_rda,
+                "descrizione": r.intestazione or r.descrizione,
+                "scopo": r.scopo or None,
+                "fase": acquisti.fase(r, ctx.oggi),
+            }
+            for r in acquisti.QS_RDA.filter(
+                Q(fabbisogno=f) | Q(contratto_in_scadenza__fabbisogno=f)
+            ).order_by("-data_creazione", "-pk")
+        ],  # fmt: skip
         "link": link("contratti:fabbisogno", f.pk),
     }
 

@@ -242,6 +242,83 @@ def mie_fatture(utente, oggi: datetime.date) -> list[RigaFattura]:
     return sorted(righe, key=lambda r: (r.passo not in aspettano, -r.giorni))
 
 
+VISTE_FATTURE = {
+    "da_prendere": "Da prendere in carico",
+    "mie": "Le mie fatture",
+    "tutte": "Tutte le fatture",
+}
+
+
+def riga_fattura(f: m.Fattura, oggi, contratto_proposto=None, referente_proposto=None) -> dict:
+    passo = fatture.passo_fattura(f, oggi)
+    return {
+        "f": f,
+        "passo": passo,
+        "passo_label": motore.ETICHETTE_PASSO[passo] if passo else "Trasferita",
+        "giorni": (oggi - f.data_registrazione).days,
+        "ferma": not f.fuori_registro and fatture.ferma(f, oggi),
+        "contratto_proposto": contratto_proposto,
+        "referente_proposto": referente_proposto,
+        "anomalie": fatture.anomalie(f),
+    }
+
+
+@dataclass
+class ElencoFatture:
+    vista: str
+    righe: list[dict]
+    proposte_a_me: int
+    solo_proposte: bool
+
+
+def elenco_fatture(
+    utente,
+    oggi: datetime.date,
+    vista: str = "da_prendere",
+    *,
+    testo: str = "",
+    passo: str = "",
+    proposte: bool | None = None,
+    fuori_registro: bool = False,
+    archiviate: bool = False,
+) -> ElencoFatture:
+    """Le tre viste delle fatture (SPEC §5.7, Rev15). ``proposte`` None: «proposte a me»
+    attivo di default per chi ha almeno una proposta."""
+    vista = vista if vista in VISTE_FATTURE else "da_prendere"
+    qs = fatture.QS_FATTURE.all()
+    if vista == "da_prendere":
+        qs = qs.filter(referente__isnull=True, fuori_registro=False, archiviato=False)
+    elif vista == "mie":
+        qs = qs.filter(
+            referente=utente, fuori_registro=False, archiviato=False,
+            data_trasferimento__isnull=True,
+        )  # fmt: skip
+    else:
+        if not archiviate:
+            qs = qs.filter(archiviato=False)
+        if not fuori_registro:
+            qs = qs.filter(fuori_registro=False)
+    if testo := testo.strip():
+        qs = qs.filter(
+            Q(numero__icontains=testo)
+            | Q(fornitore__ragione_sociale__icontains=testo)
+            | Q(fornitore__nome_breve__icontains=testo)
+            | Q(contratto__numero_contratto__icontains=testo)
+            | Q(documenti__numero__icontains=testo)
+        ).distinct()
+    lista = list(qs.order_by("data", "pk"))
+    contratti = fatture.contratti_proposti(lista) if vista != "mie" else {}
+    referenti = fatture.referenti_proposti(lista) if vista != "mie" else {}
+    proposte_a_me = sum(1 for u in referenti.values() if u == utente)
+    solo = vista == "da_prendere" and (proposte is True or (proposte is None and proposte_a_me > 0))
+    righe = [riga_fattura(f, oggi, contratti.get(f.pk), referenti.get(f.pk)) for f in lista]
+    if solo:
+        righe = [r for r in righe if r["referente_proposto"] == utente]
+    if passo:
+        righe = [r for r in righe if (r["passo"] or "trasferita") == passo]
+    return ElencoFatture(vista, righe, proposte_a_me, solo)
+
+
 # --- Contratti da chiudere e anomalie dell'esecuzione (SPEC §5.8) ------------------------
 
 
