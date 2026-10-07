@@ -512,6 +512,35 @@ def annulla_chiusura(contratto: m.Contratto) -> None:
     contratto.save(update_fields=["data_chiusura", "chiuso_da"])
 
 
+# --- Lavorazione della fattura (Rev14) --------------------------------------------------------
+
+
+def documenti_fattura(fattura: m.Fattura) -> list[tuple[str, datetime.date]]:
+    return [(d.tipo, d.data) for d in fattura.documenti.all() if not d.archiviato]
+
+
+def passo_fattura(fattura: m.Fattura, oggi: datetime.date | None = None):
+    """RdC → MAP/MIGO → trasferimento: il primo che manca; ``None`` se trasferita."""
+    return motore.passo_fattura(
+        documenti_fattura(fattura), oggi or timezone.localdate(), fattura.data_trasferimento
+    )
+
+
+def documento_proposto(fattura: m.Fattura) -> str:
+    """MAP per un contratto di servizi, MIGO per una fornitura."""
+    return motore.documento_accettazione(fattura.contratto.tipo_acquisto)
+
+
+def trasferisci(fattura: m.Fattura, utente=None, data=None) -> None:
+    """Ultimo passo: la fattura è trasferita per il pagamento (solo data)."""
+    if fattura.data_trasferimento is not None:
+        raise OperazioneNonAmmessa("La fattura è già trasferita.")
+    fattura.data_trasferimento = data or timezone.localdate()
+    fattura.trasferita_da = utente
+    _salva(fattura, "Trasferita per il pagamento", update_fields=["data_trasferimento",
+                                                                    "trasferita_da"])  # fmt: skip
+
+
 # --- Parametri ------------------------------------------------------------------------------
 
 
@@ -682,6 +711,9 @@ def iniziali_contratto(rda: m.RichiestaAcquisto, oggi: datetime.date | None = No
         else m.Procedura.objects.filter(codice="affidamento_diretto").first(),
         "durata_mesi": predecessore.durata_mesi if predecessore else (1 if una_tantum else 12),
         "una_tantum": una_tantum,
+        "tipo_acquisto": predecessore.tipo_acquisto
+        if predecessore
+        else m.Contratto.TipoAcquisto.SERVIZIO,
         "rup": rda.rup,
         "cup": rda.cup,
         "percorso_documenti": rda.percorso_file_server,

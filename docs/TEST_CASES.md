@@ -2,7 +2,7 @@
 
 Ogni caso descrive: input, output atteso, regola della SPEC che verifica.
 
-Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (scritto da Claude su richiesta di Pietro del 02/10/2026). F9.4: aggiunto TC-13 (scritto da Claude su richiesta di Pietro del 05/10/2026). F9.5: aggiunto TC-14 (scritto da Claude su richiesta di Pietro del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (scritto da Claude su decisione di Pietro del 05/10/2026, da approvare). SPEC Rev11: aggiunti TC-15 e TC-16 (scritti da Claude su decisione di Pietro del 05/10/2026, bozza da approvare). SPEC Rev13: TC-15 riscritto sulle fasi della richiesta di RDA, aggiunto TC-17 (scritti da Claude su decisione di Pietro del 07/10/2026, bozza da approvare).
+Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (scritto da Claude su richiesta di Pietro del 02/10/2026). F9.4: aggiunto TC-13 (scritto da Claude su richiesta di Pietro del 05/10/2026). F9.5: aggiunto TC-14 (scritto da Claude su richiesta di Pietro del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (scritto da Claude su decisione di Pietro del 05/10/2026, da approvare). SPEC Rev11: aggiunti TC-15 e TC-16 (scritti da Claude su decisione di Pietro del 05/10/2026, bozza da approvare). SPEC Rev13: TC-15 riscritto sulle fasi della richiesta di RDA, aggiunto TC-17 (scritti da Claude su decisione di Pietro del 07/10/2026, bozza da approvare). SPEC Rev14: TC-15 (e) aggiornato ai tre passi della fattura (stessa origine, bozza da approvare).
 
 I valori sono stati calcolati a mano e verificati con uno script indipendente. **Se un test non passa, l'errore è nel codice, non nel caso.** Un caso si modifica solo con l'approvazione di Pietro e insieme a una nuova revisione della SPEC.
 
@@ -449,9 +449,20 @@ Nuova RDA R2 inviata il 20/09/2026: al 25/09/2026 lo stato è `RDA richiesta` (2
 importato il 01/10/2026. Al 02/10/2026 lo stato è `RDA predisposta`.
 
 **(e) Ferme**: R1 inserita il 15/06/2026, senza rilascio, non è ferma al 15/07/2026 (30
-giorni) ed è ferma al 16/07/2026 (31 giorni). Una fattura registrata il 01/03/2026 senza MAP né
-MIGO è da lavorare; non è ferma al 16/03/2026 (15 giorni), è ferma al 17/03/2026 (16 giorni);
-collegato un MAP il 18/03/2026, non è più da lavorare.
+giorni) ed è ferma al 16/07/2026 (31 giorni).
+
+Fattura FA-1 di un contratto di **servizi**, registrata il 01/03/2026 (Rev14):
+
+| Oggi | Documenti collegati, trasferimento | Passo da fare | Ferma (15 giorni) |
+|---|---|---|---|
+| 02/03/2026 | — | RdC | no |
+| 06/03/2026 | RdC del 05/03/2026 | MAP (proposto; MIGO per una fornitura) | no |
+| 16/03/2026 | RdC | MAP | no (15 giorni) |
+| 17/03/2026 | RdC | MAP | sì (16 giorni) |
+| 19/03/2026 | RdC, MAP del 18/03/2026 | trasferimento | sì |
+| 21/03/2026 | RdC, MAP, trasferita il 20/03/2026 | — (trasferita) | no |
+
+Fuori ordine: con il solo MAP registrato (senza RdC) il passo da fare è la RdC.
 
 **(f) RDA registrata a mano, scollegata, poi collegata**: R3 registrata il 03/02/2026 con
 numero SAP e data di inserimento 02/02/2026, senza storico di invio, senza fabbisogno né

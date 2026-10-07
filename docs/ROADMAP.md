@@ -590,9 +590,10 @@ uguale a TC-17.
 - Contratto: scheda «Esecuzione» (documenti, fatture, abbinamento alle rate, residuo,
   avanzamento, anomalie); «Chiudi» / «Annulla chiusura» in finestra modale; etichetta
   «una tantum».
-- Fattura: registrazione, scheda SAP della fattura (campi da completare con l'esempio che
-  Pietro fornirà), documenti SAP a supporto (MAP, MIGO, …)
-  collegati alla fattura.
+- Fattura: registrazione e lavorazione in tre passi (SPEC Rev14): RdC → MAP (servizi) o MIGO
+  (forniture), proposto dal tipo d'acquisto del contratto → trasferimento per il pagamento;
+  scheda SAP della fattura divisa per passo (nomi dei campi da completare con l'esempio che
+  Pietro fornirà).
 - Ricerca globale anche per ODA e numero di fattura.
 
 **Accettazione:** test di permesso; test nel browser del flusso «contratto → fattura →

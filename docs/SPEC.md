@@ -1,6 +1,6 @@
 # Istruzioni di progetto — Registro contratti ICTDINN
 
-Rev13 — 07/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
+Rev14 — 07/10/2026 — autore: Pietro Verro (IT Manager, Siciliacque S.p.A.)
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
@@ -17,6 +17,7 @@ Storico revisioni:
 - Rev11 (05/10/2026): decisioni di Pietro per la release 2.0, testo scritto da Claude, **bozza da approvare**. Il registro traccia anche il processo d'acquisto dell'ufficio ICTDINN e sostituisce il file «Riepilogo RDA Ordini» (§1, §2.3). Nuove entità: **richiesta d'acquisto (RDA)**, **documento di esecuzione** (ODA/RDC, DDT, MIGO, MAP, attestazione di regolare esecuzione, modello di ricezione materiale) e **fattura**; chiusura del contratto; RUP, CUP, richiedente e percorso dei documenti (§4). Contratto **una tantum**: fuori dalla catena dei rinnovi, dagli alert e dai previsti, dentro il budget (§4, §5.1, §5.3, §5.4). Gli stati della pratica da `RDA richiesta` in poi si **ricavano dalla RDA** collegata (§4, §5.7, TC-15). Esecuzione, residuo da fatturare e contratti da chiudere (§5.8, TC-16). Import manuale da modello XLSX e import del Riepilogo dal 01/04/2025 (§7). Nuove decisioni aperte (§9).
 - Rev12 (05/10/2026): decisione di Pietro, testo scritto da Claude, da approvare. Il connettore MCP prevede anche la scrittura (sotto-fase F10.1, `docs/SPEC_MCP.md` Rev05 §8): solo Admin ed Editor, scope separato, anteprima con gli effetti calcolati e conferma, stesse validazioni e permessi dell'interfaccia, nessuna cancellazione (§8.1).
 - Rev13 (07/10/2026): decisioni di Pietro, testo scritto da Claude, **bozza da approvare**. Rivisto il processo d'acquisto della release 2.0 (Rev11) sul flusso reale: il **referente** compila sul portale la **richiesta di RDA** con le posizioni e i campi SAP; l'**addetto amministrativo** la inserisce in SAP aiutato da una **scheda SAP** con i campi già pronti e riporta sul portale i dati di SAP; il contratto lo registrano l'addetto o il referente; le fatture e i documenti SAP che le accompagnano li registra l'addetto, con la scheda SAP della fattura (§4, §5.7, §5.9). Funzione «Amministrazione acquisti» assegnata per utente, senza nuovo ruolo AD (§8.1). Cruscotti dell'addetto (RDA da processare, fatture da lavorare) e del referente (le mie RDA) (§5.7). La richiesta di RDA **parte dal fabbisogno**: se il fabbisogno ha contratti è impostata come rinnovo del contratto in scadenza e precompilata dal suo rinnovo previsto (§4, §5.9). RDA e contratti si inseriscono anche a mano, scollegati, e si collegano dopo (§4, §7). Nessuna mail inviata dal portale: il portale prepara il testo (§5.9). Nuove tabelle di configurazione, con import da Excel: richiedenti SAP, gruppi merci e gruppi acquisti, ciascuna con un valore predefinito; cartella base delle RDA per cluster (§4, §7). Chiusura del contratto: addetto o referente (§4). TC-15 aggiornato, nuovo TC-17.
+- Rev14 (07/10/2026): decisioni di Pietro, testo scritto da Claude, **bozza da approvare**. Lavorazione della fattura in tre passi, uno dopo l'altro e per ogni fattura: **RdC** (richiesta di consegna) → **MAP** per i servizi o **MIGO** per le forniture → **trasferimento per il pagamento** (solo data). Tipo d'acquisto (servizio o fornitura) sul contratto, che propone MAP o MIGO (§4, §5.7, §5.9). TC-15 (e) aggiornato.
 
 ## 1. Obiettivo
 
@@ -105,6 +106,7 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
 - classificazione: natura e WBS stanno sulle voci. La natura del contratto si ricava dalle voci (OPEX, CAPEX o mista); il contratto è **finanziato** se ha almeno una voce su una WBS a progetto;
 - documenti: link al protocollo o a SharePoint, oppure percorso sul server aziendale (`X:\…`, `\\nas…`, Rev11), senza caricare file;
 - **una tantum** (sì/no, Rev11): acquisto che non si rinnova, tipicamente una fornitura (§5.1, §5.3). Non ha predecessore né successore, non entra nella catena, non va in alert e non genera previsti; entra nel budget come ogni contratto. Default: fatturazione `Una tantum`, inizio alla data di emissione, durata 1 mese (da confermare, §9). Sta su un fabbisogno come gli altri contratti, anche insieme a una catena (es. licenze aggiuntive acquistate una volta) o su un fabbisogno di sole forniture;
+- **tipo d'acquisto** (Rev14): `Servizio` (default) o `Fornitura`; propone MAP (servizio) o MIGO (fornitura) nella lavorazione delle fatture (§5.9);
 - **chiusura** (Rev11): data e utente della chiusura amministrativa (prestazione attestata, fatture registrate). È un atto deciso, si salva; si può annullare. La registrano l'addetto amministrativo o il referente (Rev13: ogni Editor del cluster, §8.1). Su un contratto chiuso non si registrano documenti di esecuzione né fatture: prima si annulla la chiusura;
 - **senza contratto** (sì/no): acquisto senza documento contrattuale, per esempio con fattura diretta (§5.6). Numero di contratto, data di emissione e tacito rinnovo non servono; tutto il resto vale come per un contratto.
 
@@ -171,7 +173,9 @@ Regole di generazione:
 
 **Documento di esecuzione** (Rev11, 0..n per contratto): tipo (`ODA/RDC`, `DDT`, `MIGO`, `MAP`, `Attestazione di regolare esecuzione`, `Modello di ricezione materiale`), numero, data, importo facoltativo, voce facoltativa, parziale o finale (solo per attestazione e modello di ricezione), **fattura** a cui si riferisce (facoltativa, Rev13: i documenti SAP predisposti a supporto della fattura, es. MAP o MIGO), note. I numeri si conservano come arrivano; le anomalie di formato vanno nel report d'import.
 
-**Fattura** (Rev11, 0..n per contratto): numero, data, imponibile, voce facoltativa, note. Una fattura si può abbinare a una rata dello scadenzario: la rata diventa consuntivo e riceve il numero di fattura; il suo importo non cambia da solo (resta modificabile a mano, tracciato). Lo stesso numero di fattura dello stesso fornitore non si registra due volte. (Rev13) La registra l'addetto amministrativo (o il referente); una fattura è **da lavorare** finché non ha almeno un documento di esecuzione collegato di tipo `MAP` o `MIGO` (§5.7); la scheda SAP della fattura propone i campi (§5.9).
+**Fattura** (Rev11, 0..n per contratto): numero, data, imponibile, voce facoltativa, note. Una fattura si può abbinare a una rata dello scadenzario: la rata diventa consuntivo e riceve il numero di fattura; il suo importo non cambia da solo (resta modificabile a mano, tracciato). Lo stesso numero di fattura dello stesso fornitore non si registra due volte. (Rev13) La registra l'addetto amministrativo (o il referente); la scheda SAP della fattura propone i campi (§5.9).
+- **Lavorazione** (Rev14), per ogni fattura, tre passi in quest'ordine: (1) **RdC**, documento di esecuzione `ODA/RDC` collegato alla fattura, una per fattura; (2) **MAP** (servizi) o **MIGO** (forniture), documento collegato alla fattura, proposto dal tipo d'acquisto del contratto e modificabile; (3) **trasferimento per il pagamento**: data e utente sulla fattura, senza numero SAP.
+- Il **passo da fare** è il primo che manca, nell'ordine: `RdC da fare` → `MAP/MIGO da fare` → `Da trasferire`; con il trasferimento registrato la fattura è `Trasferita`. Una fattura è **da lavorare** finché non è trasferita. Un passo registrato fuori ordine si accetta: conta il primo mancante.
 
 **Tabelle di configurazione**:
 - lead time per procedura, in mesi;
@@ -300,11 +304,11 @@ Una RDA registrata a mano già con il numero SAP non ha bisogno dell'invio: la f
 
 Stato della pratica ricavato (§4): si considerano le RDA collegate alla pratica e si prende la più avanzata. `Inviata` → `RDA richiesta`; `Inserita` → `RDA predisposta`; `Rilasciata` → `RDA approvata`; `Contratto emesso`, `In esecuzione`, `Chiusa` → `Contratto emesso` se nessun contratto generato è iniziato (data di inizio > oggi), altrimenti `Contratto attivo`. `Bozza`, `Da correggere` e `Annullata` non contano, né le RDA di acquisto aggiuntivo (non sono legate a una pratica): lo stato è quello dell'ultimo passaggio registrato (TC-15). La data dello stato ricavato è la data del fatto che lo determina (invio, inserimento, rilascio, emissione, inizio).
 
-Una RDA è **ferma** se è in `Inviata`, `Inserita` o `Rilasciata` da più dei giorni indicati dal parametro (valore iniziale provvisorio: 30), contati dalla data che l'ha portata in quella fase. Una fattura è **ferma** se è da lavorare da più dei giorni del parametro (provvisorio: 15) dalla sua registrazione.
+Una RDA è **ferma** se è in `Inviata`, `Inserita` o `Rilasciata` da più dei giorni indicati dal parametro (valore iniziale provvisorio: 30), contati dalla data che l'ha portata in quella fase. Una fattura è **ferma** se è da lavorare (non ancora trasferita) da più dei giorni del parametro (provvisorio: 15) dalla sua registrazione.
 
 **Cruscotto dell'addetto** (utenti con la funzione «Amministrazione acquisti», di default su tutti i cluster che può vedere):
 - **RDA da processare**, raggruppate per azione: da inserire in SAP (`Inviata`), da sollecitare per il rilascio (`Inserita`), da sollecitare al Procurement (`Rilasciata`); per ciascuna referente, cluster, importo, giorni nella fase, «ferma» in evidenza, accesso diretto alla scheda SAP;
-- **fatture da lavorare** (senza MAP o MIGO collegato), con i giorni dalla registrazione;
+- **fatture da lavorare**, raggruppate per passo da fare (RdC, MAP/MIGO, trasferimento), con i giorni dalla registrazione;
 - **contratti da chiudere** (§5.8).
 
 **Le mie RDA** (ogni utente, sulle RDA di cui è referente; anche come scheda del cruscotto): fase, data della fase, giorni, numero SAP, contratto generato; in evidenza quelle in `Bozza` e `Da correggere`, che aspettano il referente.
@@ -345,7 +349,13 @@ Regole di proposta (modificabili prima dell'invio):
 - **posizioni del primo acquisto**: una sola, con importo la stima del prossimo importo del fabbisogno (se c'è), natura, conto e WBS previsti; senza previsto, vuota;
 - **acquisto aggiuntivo**: una posizione vuota, con natura, conto, centro di costo e WBS della prima voce del contratto in scadenza.
 
-**Scheda SAP della fattura**: numero e data della fattura, imponibile, fornitore e codice SAP, numero di contratto SAP, RDA, voce e periodo della rata abbinata (se c'è), testo breve proposto («<numero contratto> - <descrizione contratto> - fattura <numero> del <data>»). I campi esatti dei documenti SAP a supporto (MAP, MIGO) sono da confermare (§9). Sotto, i documenti da riportare dopo la registrazione in SAP (tipo, numero, data).
+**Scheda SAP della fattura** (Rev14), divisa per passo; per ogni passo i dati da copiare e, sotto, quelli da riportare dopo la registrazione in SAP:
+- dati comuni: numero e data della fattura, imponibile, fornitore e codice SAP, numero di contratto SAP, RDA, voce e periodo della rata abbinata (se c'è), testo breve proposto («<numero contratto> - <descrizione contratto> - fattura <numero> del <data>»);
+- **RdC**: numero di contratto SAP, voce, importo = imponibile della fattura, testo breve; da riportare numero e data della RdC;
+- **MAP** o **MIGO** (proposto dal tipo d'acquisto): numero della RdC, importo, periodo o data della prestazione (dalla rata abbinata), testo breve; da riportare numero e data;
+- **trasferimento per il pagamento**: da riportare la data.
+
+I nomi esatti dei campi SAP di RdC, MAP e MIGO restano da confermare (§9).
 
 I casi di verifica sono in `docs/TEST_CASES.md`, TC-17.
 
@@ -476,7 +486,7 @@ Import dall'interfaccia (Gestione → Import), con lo stesso codice dei comandi 
   - fabbisogno per le forniture una tantum: uno per acquisto o uno per categoria e cluster (es. «Forniture hardware OT»);
   - formato delle estrazioni SAP disponibili (RDA, ordini, entrate merci, fatture), per mapparle sul modello d'import;
   - soglia di RDA «ferma» (30 giorni provvisori);
-  - (Rev13) campi dei documenti SAP a supporto della fattura (MAP per i servizi, MIGO per le forniture?) e chi li registra in SAP: serve un esempio come la mail della RDA, per completare la scheda SAP della fattura (Pietro lo fornirà più avanti; fino ad allora la scheda della fattura resta quella di §5.9);
+  - (Rev14) nomi esatti dei campi SAP di RdC, MAP e MIGO: la sequenza è decisa (RdC → MAP/MIGO → trasferimento); per completare la scheda serve un esempio come la mail della RDA (Pietro lo fornirà più avanti);
   - (Rev13) se proporre il gruppo merci dalla categoria del fabbisogno (previsto, facoltativo);
   - (Rev13) notifiche mail dal portale (invio, rimando, solleciti): escluse da F11, da valutare dopo l'uso; servirebbe un relay SMTP interno.
 

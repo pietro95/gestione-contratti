@@ -235,13 +235,44 @@ def rda_ferma(d: DatiRDA, oggi: datetime.date, giorni: int) -> bool:
     return inizio is not None and (oggi - inizio).days > giorni
 
 
-# Documenti SAP che «lavorano» una fattura.
-TIPI_LAVORAZIONE = frozenset({"MAP", "MIGO"})
+# Lavorazione della fattura (Rev14): RdC → MAP o MIGO → trasferimento per il pagamento.
+class PassoFattura(StrEnum):
+    RDC = "rdc"
+    MAP_MIGO = "map_migo"
+    TRASFERIMENTO = "trasferimento"
 
 
-def fattura_da_lavorare(documenti: Iterable[tuple[str, datetime.date]], oggi) -> bool:
-    """Senza un MAP o un MIGO collegato (con data fino a oggi)."""
-    return not any(tipo in TIPI_LAVORAZIONE and data <= oggi for tipo, data in documenti)
+ETICHETTE_PASSO = {
+    PassoFattura.RDC: "RdC da fare",
+    PassoFattura.MAP_MIGO: "MAP/MIGO da fare",
+    PassoFattura.TRASFERIMENTO: "Da trasferire",
+}
+TIPI_ACCETTAZIONE = frozenset({"MAP", "MIGO"})
+
+
+def passo_fattura(
+    documenti: Iterable[tuple[str, datetime.date]],
+    oggi: datetime.date,
+    trasferita: datetime.date | None = None,
+) -> PassoFattura | None:
+    """Il primo passo che manca, nell'ordine; ``None`` se la fattura è trasferita (TC-15 e)."""
+    if trasferita is not None and trasferita <= oggi:
+        return None
+    tipi = {tipo for tipo, data in documenti if data <= oggi}
+    if "ODA_RDC" not in tipi:
+        return PassoFattura.RDC
+    if not tipi & TIPI_ACCETTAZIONE:
+        return PassoFattura.MAP_MIGO
+    return PassoFattura.TRASFERIMENTO
+
+
+def fattura_da_lavorare(
+    documenti: Iterable[tuple[str, datetime.date]],
+    oggi: datetime.date,
+    trasferita: datetime.date | None = None,
+) -> bool:
+    """Da lavorare finché non è trasferita per il pagamento."""
+    return passo_fattura(documenti, oggi, trasferita) is not None
 
 
 def fattura_ferma(
@@ -249,8 +280,14 @@ def fattura_ferma(
     documenti: Iterable[tuple[str, datetime.date]],
     oggi: datetime.date,
     giorni: int,
+    trasferita: datetime.date | None = None,
 ) -> bool:
-    return fattura_da_lavorare(documenti, oggi) and (oggi - registrata).days > giorni
+    return fattura_da_lavorare(documenti, oggi, trasferita) and (oggi - registrata).days > giorni
+
+
+def documento_accettazione(tipo_acquisto: str) -> str:
+    """MAP per i servizi, MIGO per le forniture (Rev14)."""
+    return "MIGO" if tipo_acquisto == "fornitura" else "MAP"
 
 
 # --- Esecuzione, residuo, contratti da chiudere (SPEC §5.8) -----------------------------

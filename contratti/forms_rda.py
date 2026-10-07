@@ -319,6 +319,7 @@ CAMPI_CONTRATTO_DA_RDA = [
     "data_inizio",
     "durata_mesi",
     "una_tantum",
+    "tipo_acquisto",
     "senza_contratto",
     "rup",
     "cup",
@@ -332,7 +333,8 @@ class ContrattoDaRdaForm(ModelFormBootstrap):
         ("Contratto emesso", ["fabbisogno", "fornitore", "descrizione", "numero_contratto",
                               "data_emissione", "cig"]),
         ("Procedura e durata", ["procedura", "lead_time_mesi_override", "data_inizio",
-                                "durata_mesi", "una_tantum", "senza_contratto"]),
+                                "durata_mesi", "una_tantum", "tipo_acquisto",
+                                "senza_contratto"]),
         ("Fatturazione delle voci", ["modalita", "periodicita"]),
         ("Riferimenti", ["rup", "cup", "percorso_documenti", "note"]),
     ]  # fmt: skip

@@ -751,6 +751,18 @@ class Contratto(Archiviabile):
         blank=True,
         help_text=r"Es. X:\… oppure \\nas\Share\…",
     )
+
+    class TipoAcquisto(models.TextChoices):
+        SERVIZIO = "servizio", "Servizio"
+        FORNITURA = "fornitura", "Fornitura"
+
+    # Propone MAP (servizio) o MIGO (fornitura) nella lavorazione delle fatture (Rev14).
+    tipo_acquisto = models.CharField(
+        "tipo d'acquisto",
+        max_length=10,
+        choices=TipoAcquisto.choices,
+        default=TipoAcquisto.SERVIZIO,
+    )
     # Chiusura amministrativa: atto deciso, si salva; si può annullare (SPEC §4).
     data_chiusura = models.DateField("data di chiusura", null=True, blank=True)
     chiuso_da = models.ForeignKey(
@@ -1489,6 +1501,11 @@ class Fattura(Archiviabile):
         help_text="Rata dello scadenzario a cui corrisponde.",
     )
     data_registrazione = models.DateField("registrata il", default=timezone.localdate)
+    # Ultimo passo della lavorazione (Rev14): solo la data, senza numero SAP.
+    data_trasferimento = models.DateField("trasferita per il pagamento il", null=True, blank=True)
+    trasferita_da = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
     note = models.TextField(blank=True)
     chiave_import = models.CharField(  # noqa: DJ001
         max_length=64, unique=True, null=True, blank=True, editable=False

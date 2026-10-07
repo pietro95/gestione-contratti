@@ -221,6 +221,7 @@ def test_flusso_completo(editor, rinnovo):
             "procedura": c1.procedura_id,
             "data_inizio": "01/01/2027",
             "durata_mesi": "12",
+            "tipo_acquisto": "servizio",
             "modalita": "anticipata",
             "periodicita": "annuale",
             "voci-TOTAL_FORMS": "1",
