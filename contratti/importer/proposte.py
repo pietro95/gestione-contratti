@@ -20,7 +20,7 @@ def _gruppi(area: str):
     """Contratti importati raggruppati per descrizione normalizzata + fornitore."""
     gruppi = defaultdict(list)
     contratti = (
-        m.Contratto.objects.filter(chiave_import__isnull=False, archiviato=False)
+        m.Contratto.objects.filter(chiave_import__isnull=False, archiviato=False, una_tantum=False)
         .filter(fabbisogno__cluster__codice=area)
         .select_related("fornitore", "procedura")
     )

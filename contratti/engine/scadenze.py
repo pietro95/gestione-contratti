@@ -46,9 +46,13 @@ def alert_date(
     stato_pratica: str | None,
     ha_successore: bool,
     finestra_mesi: int,
+    una_tantum: bool = False,
 ) -> Alert | None:
-    """Regole di SPEC §5.1 su date già calcolate; vale la prima che si applica."""
-    if decisione in DECISIONI_SENZA_ALERT or ha_successore:
+    """Regole di SPEC §5.1 su date già calcolate; vale la prima che si applica.
+
+    Un contratto una tantum non si rinnova e non va mai in alert (Rev13).
+    """
+    if decisione in DECISIONI_SENZA_ALERT or ha_successore or una_tantum:
         return None
     if oggi > fine:
         return Alert.ROSSO
@@ -68,8 +72,9 @@ def alert(
     stato_pratica: str | None,
     ha_successore: bool,
     finestra_mesi: int,
+    una_tantum: bool = False,
 ) -> Alert | None:
-    """Colore dell'alert di un contratto (TC-06, TC-10)."""
+    """Colore dell'alert di un contratto (TC-06, TC-10, TC-16)."""
     return alert_date(
         data_fine_effettiva(s),
         data_riferimento_alert(s),
@@ -78,6 +83,7 @@ def alert(
         stato_pratica=stato_pratica,
         ha_successore=ha_successore,
         finestra_mesi=finestra_mesi,
+        una_tantum=una_tantum,
     )
 
 

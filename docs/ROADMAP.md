@@ -531,6 +531,9 @@ F10.
 
 ### F11.1 — Modello e motore
 
+Stato: realizzata, in revisione (nessuna interfaccia nuova oltre all'amministrazione e
+all'import delle tabelle SAP). Scelte e deviazioni nella PR.
+
 - Modelli (SPEC §4): `RichiestaAcquisto` con posizioni (`PosizioneRDA`) e storico
   (invio, rimando, annullamento); `DocumentoEsecuzione` (con fattura facoltativa), `Fattura`;
   sul contratto RDA d'origine, una tantum, CUP, RUP, percorso dei documenti, chiusura (data,
@@ -540,7 +543,8 @@ F10.
   importi ≥ 0).
 - Configurazione: richiedenti SAP, gruppi merci, gruppi acquisti (ciascuno con al più un
   predefinito), cartella base delle RDA per cluster, funzione «Amministrazione acquisti» per utente (anche
-  nell'import della struttura); parametri «RDA ferma» (30 giorni) e «fattura ferma» (15
+  nell'import della struttura: rinviato, il modello della struttura è approvato e non si
+  tocca senza Pietro; per ora dall'amministrazione); parametri «RDA ferma» (30 giorni) e «fattura ferma» (15
   giorni), provvisori.
 - Data migration: il n. RDA dei contratti diventa una RDA collegata (SPEC §7).
 - Import delle tabelle SAP da Excel (richiedenti, gruppi merci, gruppi acquisti), solo Admin,

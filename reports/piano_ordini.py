@@ -14,7 +14,7 @@ from decimal import Decimal
 
 from django.db.models import Q
 
-from contratti import adapters
+from contratti import acquisti, adapters
 from contratti import models as m
 from contratti.engine.budget import valore
 from contratti.engine.date import UN_GIORNO, aggiungi_mesi
@@ -103,9 +103,9 @@ def soglie_valide(alla_data: datetime.date) -> list[m.Soglia]:
     return list(per_codice.values())
 
 
-def _ultimo_stato(oggetto) -> str | None:
-    ultimo = oggetto.stati_pratica.order_by("-data", "-id").first()
-    return ultimo.stato if ultimo else None
+def _ultimo_stato(oggetto, oggi: datetime.date) -> str | None:
+    """Stato della pratica: ultimo passaggio o stato ricavato dalle RDA (SPEC §5.7)."""
+    return acquisti.stato_pratica(oggetto, oggi)
 
 
 def _riga(
@@ -114,6 +114,7 @@ def _riga(
     p: ContrattoPrevisto,
     durata_mesi: int,
     procedura_default: m.Procedura | None,
+    oggi: datetime.date,
 ) -> RigaPiano:
     importi = {liv: sum((valore(v, liv) for v in p.voci), ZERO) for liv in LIVELLI}
     per_natura: dict[str, dict[Livello, Decimal]] = {}
@@ -130,14 +131,14 @@ def _riga(
         lead = adapters.scadenza(base).lead_time_mesi
         # Come la data limite del contratto: fine del periodo precedente − lead time.
         limite = aggiungi_mesi(p.inizio - UN_GIORNO, -lead)
-        stato = _ultimo_stato(base) if p.numero == 1 else None
+        stato = _ultimo_stato(base, oggi) if p.numero == 1 else None
     else:
         procedura = f.previsto_procedura or procedura_default
         lead = procedura.lead_time_mesi if procedura else 0
         if p.numero == 1:
             # Come nel cruscotto dei fabbisogni nuovi: avvio previsto − lead time.
             limite = aggiungi_mesi(p.inizio, -lead)
-            stato = _ultimo_stato(f)
+            stato = _ultimo_stato(f, oggi)
         else:
             limite = aggiungi_mesi(p.inizio - UN_GIORNO, -lead)
             stato = None
@@ -192,7 +193,7 @@ def _calcola_piano(anno: int, oggi: datetime.date, area, categoria: int | None, 
         if base is not None and base.senza_contratto:
             continue  # rinnovi senza contratto: nessun ordine al Procurement (SPEC §5.4, §5.6)
         durata = base.durata_mesi if base is not None else f.previsto_durata_mesi
-        righe += [_riga(f, base, p, durata, procedura_default) for p in previsti]
+        righe += [_riga(f, base, p, durata, procedura_default, oggi) for p in previsti]
     if natura:
         righe = [r for r in righe if natura in r.per_natura]
     righe.sort(key=lambda r: (r.data_limite, r.fabbisogno.descrizione))

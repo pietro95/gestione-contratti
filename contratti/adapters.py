@@ -218,9 +218,11 @@ def voci_contratto(
     return risultato, []
 
 
-def stato_pratica_corrente(contratto: m.Contratto) -> str | None:
-    ultimo = contratto.stati_pratica.order_by("-data", "-id").first()
-    return ultimo.stato if ultimo else None
+def stato_pratica_corrente(contratto: m.Contratto, oggi: datetime.date | None = None) -> str | None:
+    """Il più avanzato tra l'ultimo passaggio e lo stato ricavato dalle RDA (SPEC §5.7)."""
+    from contratti import acquisti
+
+    return acquisti.stato_pratica(contratto, oggi)
 
 
 def confluito(contratto: m.Contratto) -> bool:
@@ -242,9 +244,10 @@ def alert_contratto(contratto: m.Contratto, oggi: datetime.date) -> Alert | None
         s,
         oggi,
         decisione=contratto.fabbisogno.decisione,
-        stato_pratica=stato_pratica_corrente(contratto),
+        stato_pratica=stato_pratica_corrente(contratto, oggi),
         ha_successore=ha_successore(contratto),
         finestra_mesi=int(parametro(Chiave.FINESTRA_ALERT_MESI, oggi)),
+        una_tantum=contratto.una_tantum,
     )
 
 
@@ -270,16 +273,20 @@ def _prefetch_contratti(fabbisogno: m.Fabbisogno) -> bool:
 def contratti_terminali(fabbisogno: m.Fabbisogno):
     """Contratti del fabbisogno senza successore: da qui partono i rinnovi previsti.
 
-    Con ``PREFETCH_FABBISOGNO`` già caricato non fa query.
+    I contratti una tantum non sono nella catena dei rinnovi e non contano (Rev11). Con
+    ``PREFETCH_FABBISOGNO`` già caricato non fa query.
     """
     if _prefetch_contratti(fabbisogno):
         return [
             c
             for c in fabbisogno.contratti.all()
-            if not c.archiviato and c.data_inizio is not None and not _successore_attivo(c)
+            if not c.archiviato
+            and not c.una_tantum
+            and c.data_inizio is not None
+            and not _successore_attivo(c)
         ]
     return (
-        fabbisogno.contratti.filter(archiviato=False, data_inizio__isnull=False)
+        fabbisogno.contratti.filter(archiviato=False, una_tantum=False, data_inizio__isnull=False)
         .exclude(successore__archiviato=False)
         .exclude(confluito_in__archiviato=False)
         .select_related("procedura", "fornitore")
@@ -307,22 +314,27 @@ def previsti_fabbisogno(
         return []
     contratto = contratto_base_previsti(fabbisogno)
     if contratto is None:
-        if any(not c.archiviato for c in fabbisogno.contratti.all()):
+        # Con soli contratti una tantum valgono i dati del previsto manuale (Rev11).
+        if any(not c.archiviato and not c.una_tantum for c in fabbisogno.contratti.all()):
             return []
         return _previsti_manuali(fabbisogno, orizzonte)
-    voci, _ = voci_contratto(contratto, con_rate_salvate=False)
-    proroghe = {v.pk for v in contratto.voci.all() if v.proroga_id}
-    base = ContrattoBase(
-        fine_effettiva=scadenze.data_fine_effettiva(scadenza(contratto)),
-        durata_mesi=contratto.durata_mesi,
-        voci=tuple(v for v in voci if v.riferimento not in proroghe),
-    )
     return previsioni.previsti(
-        base,
+        contratto_base(contratto),
         decisione=fabbisogno.decisione,
         orizzonte=orizzonte,
         adeguamento=adeguamento_alla_data,
         stima_manuale=fabbisogno.stima_prossimo_importo,
+    )
+
+
+def contratto_base(contratto: m.Contratto) -> ContrattoBase:
+    """Il contratto come punto di partenza dei rinnovi: voci senza quelle delle proroghe."""
+    voci, _ = voci_contratto(contratto, con_rate_salvate=False)
+    proroghe = {v.pk for v in contratto.voci.all() if v.proroga_id}
+    return ContrattoBase(
+        fine_effettiva=scadenze.data_fine_effettiva(scadenza(contratto)),
+        durata_mesi=contratto.durata_mesi,
+        voci=tuple(v for v in voci if v.riferimento not in proroghe),
     )
 
 

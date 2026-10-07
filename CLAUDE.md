@@ -36,6 +36,7 @@ uv run python manage.py runserver
 uv run python manage.py import_excel <file.xlsx> --area IT --dry-run
 uv run python manage.py import_conti <piano_conti.csv> --dry-run
 uv run python manage.py import_date_contratti <date_contratti.csv|xlsx> --dry-run
+uv run python manage.py import_tabelle_sap <tabelle_sap.xlsx> --dry-run   # richiedenti, gruppi merci e acquisti (F11)
 uv run python manage.py quadratura_excel <file.xlsx> --area IT
 uv run pytest tests/e2e                   # solo i test nel browser (Chromium di Playwright)
 uv run pytest tests/connettore            # connettore MCP (F10)

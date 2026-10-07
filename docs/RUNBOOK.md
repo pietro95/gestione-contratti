@@ -317,6 +317,17 @@ qui sotto restano per l'emergenza: fanno la stessa cosa con lo stesso codice.
    ./manage.sh import_date_contratti /import/date_contratti.csv
    ```
    Finché la data manca, l'"Ordinato" di quel contratto cade nell'anno di inizio del servizio.
+   **Tabelle SAP delle RDA** (F11): richiedenti SAP, gruppi merci e gruppi acquisti, dal
+   modello «Tabelle SAP (RDA)» (Gestione → Import, solo Admin): un foglio per tabella,
+   colonne `codice`, `descrizione` (per i gruppi acquisti `nome`), `predefinito` (sì su una
+   sola riga: il richiedente e il gruppo acquisti dell'ufficio) e, per i gruppi merci,
+   `categoria`. Nessuna cancellazione; un errore annulla tutto il file:
+   ```bash
+   ./manage.sh import_tabelle_sap /import/tabelle_sap.xlsx --dry-run
+   ./manage.sh import_tabelle_sap /import/tabelle_sap.xlsx
+   ```
+   La cartella base delle RDA di ogni cluster (es. `smb://<nas>/Share/ICTDINN/00_IT/RDA_Ordini`)
+   e la funzione «Amministrazione acquisti» degli addetti si impostano dall'amministrazione.
 5. **Quadratura con l'Excel**:
    ```bash
    ./manage.sh quadratura_excel /import/<Contratti_IT.xlsx> --area IT

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from django.db.models import Count, F, Prefetch, Q
 
-from contratti import adapters
+from contratti import acquisti, adapters
 from contratti import models as m
 from contratti.engine import scadenze
 from contratti.engine.date import aggiungi_mesi
@@ -57,6 +57,7 @@ def contratti_base():
             # Natura e finanziamento del contratto si ricavano dalle voci.
             Prefetch("voci", queryset=m.VoceContratto.objects.select_related("wbs")),
             Prefetch("stati_pratica", queryset=m.StatoPratica.objects.order_by("-data", "-id")),
+            acquisti.PREFETCH_PRATICA_CONTRATTO,
         )
         .annotate(
             n_successori=Count("successore", filter=Q(successore__archiviato=False)),
@@ -66,8 +67,7 @@ def contratti_base():
 
 def riga_contratto(c: m.Contratto, oggi: datetime.date, finestra: int) -> RigaContratto:
     s = adapters.scadenza(c)
-    stato_pratica = next(iter(c.stati_pratica.all()), None)
-    stato_pratica = stato_pratica.stato if stato_pratica else None
+    stato_pratica = acquisti.stato_pratica(c, oggi)
     if s is None:
         return RigaContratto(c, None, None, None, "senza_data", stato_pratica, None)
     fine = scadenze.data_fine_effettiva(s)
@@ -79,6 +79,7 @@ def riga_contratto(c: m.Contratto, oggi: datetime.date, finestra: int) -> RigaCo
         stato_pratica=stato_pratica,
         ha_successore=getattr(c, "n_successori", 0) > 0 or adapters.confluito(c),
         finestra_mesi=finestra,
+        una_tantum=c.una_tantum,
     )
     return RigaContratto(
         contratto=c,
@@ -118,7 +119,8 @@ def righe_previsti_manuali(oggi: datetime.date, filtri: dict) -> list[RigaContra
         )
         .select_related("previsto_procedura", "categoria")
         .prefetch_related(
-            Prefetch("stati_pratica", queryset=m.StatoPratica.objects.order_by("-data", "-id"))
+            Prefetch("stati_pratica", queryset=m.StatoPratica.objects.order_by("-data", "-id")),
+            acquisti.PREFETCH_PRATICA_FABBISOGNO,
         )
     )
     if codici := codici_cluster(filtri.get("area")):
@@ -130,8 +132,7 @@ def righe_previsti_manuali(oggi: datetime.date, filtri: dict) -> list[RigaContra
     for f in qs:
         procedura = f.previsto_procedura or default
         lead = procedura.lead_time_mesi if procedura else 0
-        ultimo = next(iter(f.stati_pratica.all()), None)
-        stato = ultimo.stato if ultimo else None
+        stato = acquisti.stato_pratica(f, oggi)
         colore = scadenze.alert_previsto_manuale(
             f.previsto_data_avvio,
             lead,
@@ -157,10 +158,13 @@ def righe_previsti_manuali(oggi: datetime.date, filtri: dict) -> list[RigaContra
 
 
 def contratti_terminali():
-    """Contratti senza successore attivo: sono quelli che possono avere un alert."""
+    """Contratti senza successore attivo: sono quelli che possono avere un alert.
+
+    I contratti una tantum non si rinnovano e non vanno in alert (Rev11).
+    """
     return (
         contratti_base()
-        .filter(archiviato=False, data_inizio__isnull=False)
+        .filter(archiviato=False, una_tantum=False, data_inizio__isnull=False)
         .exclude(successore__archiviato=False)
         .exclude(confluito_in__archiviato=False)
     )
