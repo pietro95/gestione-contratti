@@ -1,5 +1,7 @@
 # Istruzioni di progetto — Registro contratti ICTDINN
 
+> Documento normativo per requisiti e regole di dominio. Per la vista tecnica consultare [ARCHITECTURE](ARCHITECTURE.md) e [DATA_MODEL](DATA_MODEL.md); per le procedure operative consultare [RUNBOOK](RUNBOOK.md) e [OPERATIONS](OPERATIONS.md).
+
 Rev15 — 07/10/2026 — responsabile: IT Manager ICTDINN, Siciliacque S.p.A.
 
 Storico revisioni:
