@@ -63,6 +63,10 @@ main() {
     MCP_HOST="$(valore_env MCP_HOST)"
     [ "$(valore_env MCP_URL_PUBBLICO)" = "https://$MCP_HOST" ] \
       || errore "MCP_URL_PUBBLICO deve essere https://\$MCP_HOST (senza percorso)."
+    # Login e consenso stanno sull'host interno dell'app: con l'URL pubblico Claude apre una
+    # pagina che il proxy pubblico non serve (404).
+    [ "$(valore_env MCP_URL_INTERNO)" = "https://$HOST_APP" ] \
+      || errore "MCP_URL_INTERNO deve essere https://$HOST_APP (l'host interno dell'app, primo valore di DJANGO_ALLOWED_HOSTS), non l'URL pubblico."
     case "$(valore_env MCP_DATABASE_URL)" in
       *"//$(valore_env POSTGRES_USER):"*) errore "MCP_DATABASE_URL deve usare un utente diverso da POSTGRES_USER." ;;
     esac

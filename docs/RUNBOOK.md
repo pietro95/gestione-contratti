@@ -587,6 +587,14 @@ Qui ci si può fermare: l'app funziona come prima, il connettore è spento.
    ```
    `<POSTGRES_DB>` è lo stesso nome di database di `DATABASE_URL`. `MCP_URL_PUBBLICO` senza `/`
    finale e senza percorso.
+   - `MCP_HOST`: il nome **pubblico** nuovo (fase 2), senza `https://`.
+   - `MCP_URL_INTERNO`: l'indirizzo con cui oggi si apre l'app dalla rete aziendale, **diverso**
+     da `MCP_URL_PUBBLICO`: lì Claude manda il browser per login e consenso, che sull'host
+     pubblico non esistono (404). `deploy.sh` lo controlla.
+   - `MCP_BIND`: l'indirizzo del server Docker a cui il Proxy Host pubblico inoltra (Forward
+     Hostname/IP della fase 4): lo stesso `APP_BIND` se il proxy pubblico è sullo stesso server
+     e sulla stessa rete Docker del proxy interno; altrimenti l'IP con cui quel proxy raggiunge il
+     server (controllo nella fase 4, punto 3).
 4. Rilancia lo stesso deploy:
    ```bash
    /appdata/gestione-contratti/app/deploy/deploy.sh v1.7.1
@@ -613,7 +621,16 @@ Qui ci si può fermare: l'app funziona come prima, il connettore è spento.
      Forward Port `<MCP_PORT>`; *Block Common Exploits* attivo; Access List `connettore-mcp`;
    - *SSL*: il certificato della fase 2, *Force SSL* e *HTTP/2 Support* attivi;
    - *Advanced*: il blocco di §12.3 (solo i percorsi del connettore, il resto 404).
-3. **Verifica da dentro**, da un PC della rete interna (non dal server: le connessioni che
+3. **Il proxy raggiunge il connettore?** Dal server del proxy pubblico (`<NPM>` è il nome del suo
+   container, `<FORWARD>` il Forward Hostname/IP appena scritto):
+   ```bash
+   docker exec <NPM> curl -s --max-time 5 -H "Host: <MCP_HOST>" -H "X-Forwarded-Proto: https" \
+     http://<FORWARD>:<MCP_PORT>/healthz
+   ```
+   Atteso `{"status": "ok"}`. Se resta appeso o rifiuta, il connettore non ascolta su quell'indirizzo
+   (`MCP_BIND`) o un firewall blocca il passaggio: Claude lo vede come «impossibile raggiungere» e
+   nel log del proxy compaiono righe 499.
+4. **Verifica da dentro**, da un PC della rete interna (non dal server: le connessioni che
    partono dal server verso il proxy sullo stesso host possono arrivare con un IP Docker non in
    allowlist). Lo script è in `deploy/verifica_mcp.sh` del repository (scaricalo da GitHub o
    copialo dal server con `scp`):
@@ -622,7 +639,7 @@ Qui ci si può fermare: l'app funziona come prima, il connettore è spento.
    ```
    Atteso: «Verifica superata.» (certificato valido, metadati 200, `/mcp` senza token 401,
    altri percorsi 404).
-4. **Verifica da fuori**, dallo stesso PC collegato all'hotspot del telefono:
+5. **Verifica da fuori**, dallo stesso PC collegato all'hotspot del telefono:
    ```bash
    bash verifica_mcp.sh https://<MCP_HOST> esterno
    ```
@@ -841,6 +858,9 @@ con il cruscotto dell'app.
 | Sintomo | Causa e rimedio |
 |---|---|
 | Claude: «Couldn't reach the MCP server» | firewall o Access List non ammettono `160.79.104.0/21`, certificato non pubblico, o `/.well-known/...` bloccati dall'Advanced del proxy: `verifica_mcp.sh ... ammesso` |
+| Claude «impossibile raggiungere», nel log del proxy nessuna riga da `160.79.x.x` | il traffico non arriva al proxy: DNS pubblico o firewall (anche filtri geografici o IPS, gli IP di Anthropic sono negli USA) |
+| Nel log del proxy righe **499** da `160.79.x.x` | il proxy non raggiunge il container `mcp` entro 5 secondi: Forward Hostname/IP diverso da `MCP_BIND` o firewall tra proxy e server (§12.0, fase 4, punto 3) |
+| Il browser apre `https://<MCP_HOST>/oauth/authorize/…` e riceve 404 | `MCP_URL_INTERNO` uguale all'URL pubblico: va l'URL interno dell'app, poi `deploy.sh` e riconnessione del connettore in Claude |
 | La pagina di login non si apre da casa | normale: login e consenso solo dalla rete interna o da VPN (§12.5) |
 | «Authorization with the MCP server failed» | client ID/secret errati nel connettore, o redirect non registrato: ricrea il client (§12.4) |
 | Claude chiede di ricollegarsi ogni settimana | regola dei 7 giorni: basta un login all'app nel frattempo |
