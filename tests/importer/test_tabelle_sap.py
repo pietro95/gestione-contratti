@@ -126,7 +126,9 @@ def test_dall_interfaccia_solo_admin(client, make_user):
     assert client.get(url).status_code == 404  # tipo non disponibile per l'Editor
     client.login(username="u_admin", password="password-locale-di-prova")
     wb = openpyxl.load_workbook(io.BytesIO(client.get(url).content))
-    assert wb.sheetnames == ["Richiedenti", "Gruppi merci", "Gruppi acquisti", "Istruzioni"]
+    assert wb.sheetnames == [
+        "Richiedenti", "Gruppi merci", "Gruppi acquisti", "Centri di costo", "Istruzioni",
+    ]  # fmt: skip
     wb["Richiedenti"].append(["999901", "Ufficio di prova", "sì"])
     buffer = io.BytesIO()
     wb.save(buffer)

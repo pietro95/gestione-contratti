@@ -204,14 +204,18 @@ def modello_tabelle_sap() -> Workbook:
             ("Richiedenti", ["codice", "descrizione", "predefinito"], {"codice"}),
             ("Gruppi merci", ["codice", "descrizione", "predefinito", "categoria"], {"codice"}),
             ("Gruppi acquisti", ["codice", "nome", "predefinito"], {"codice"}),
+            ("Centri di costo", ["codice", "descrizione", "predefinito"], {"codice"}),
         ],
         [
             "Tabelle SAP del processo d'acquisto",
             "Un foglio per tabella; si può caricare anche un foglio solo. Il codice identifica "
             "la riga: una riga già presente aggiorna descrizione (o nome) e categoria. Nessuna "
             "cancellazione: un codice tolto dal file resta, si disattiva dall'amministrazione.",
-            "predefinito: «sì» su una sola riga per foglio (es. il richiedente e il gruppo "
-            "acquisti dell'ufficio); diventa l'unico predefinito. Vuoto = no.",
+            "predefinito: «sì» su una sola riga per foglio (es. il richiedente, il gruppo "
+            "acquisti e il centro di costo dell'ufficio); diventa l'unico predefinito e si "
+            "propone su RDA, voci e posizioni nuove. Vuoto = no.",
+            "Centri di costo: dopo il caricamento il report elenca i codici già usati da voci e "
+            "posizioni che la tabella non ha (CENTRO_COSTO_NON_IN_TABELLA).",
             "categoria (solo gruppi merci, facoltativa): nome della categoria di fabbisogno a cui "
             "proporre il gruppo merci.",
             "Un errore (due predefiniti, codici ripetuti, categoria inesistente) annulla il file.",
@@ -377,7 +381,7 @@ TIPI: dict[str, Tipo] = {
         Tipo(
             "tabelle_sap",
             "Tabelle SAP (RDA)",
-            "Richiedenti SAP, gruppi merci e gruppi acquisti per le richieste di RDA: il "
+            "Richiedenti SAP, gruppi merci, gruppi acquisti e centri di costo: il "
             "modello, oppure gli elenchi di SAP così come sono (gruppi merci; codici di "
             "rilascio con unità, richiedente e gruppo acquisti). Configurazione: solo Admin.",
             (".xlsx",),
@@ -390,6 +394,9 @@ TIPI: dict[str, Tipo] = {
                 "gruppi_acquisti_creati": "Gruppi acquisti creati",
                 "gruppi_acquisti_aggiornati": "Gruppi acquisti aggiornati",
                 "richiedenti_collegati": "Richiedenti legati al gruppo acquisti",
+                "centri_costo_creati": "Centri di costo creati",
+                "centri_costo_aggiornati": "Centri di costo aggiornati",
+                "centri_costo_non_in_tabella": "Centri di costo usati e assenti dalla tabella",
             },
             solo_admin=True,
             modello=modello_tabelle_sap,

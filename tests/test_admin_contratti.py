@@ -71,6 +71,7 @@ def dati():
     m.FunzioneUtente.objects.create(username="addetto.prova", funzione="amministrazione_acquisti")
     m.RichiedenteSAP.objects.create(codice="999901", descrizione="Ufficio di prova")
     m.GruppoAcquisti.objects.create(codice="G01", descrizione="Gruppo di prova")
+    m.CentroCosto.objects.create(codice="C0001", descrizione="Centro di prova")
     m.GruppoMerci.objects.create(codice="GM-TEST01", descrizione="Gruppo merci di prova")
     rda = m.RichiestaAcquisto.objects.create(
         origine="manuale", cluster=it, descrizione="RDA di prova", numero_rda="5100000001"

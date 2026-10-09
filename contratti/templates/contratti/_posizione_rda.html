@@ -10,7 +10,7 @@
     <div class="col-sm-4 col-lg-3"><label class="form-label small" for="{{ f.di_cui_variabile.id_for_label }}">Di cui variabile</label>{{ f.di_cui_variabile }}{% for e in f.di_cui_variabile.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
     <div class="col-sm-4 col-lg-2"><label class="form-label small" for="{{ f.natura.id_for_label }}">Natura</label>{{ f.natura }}</div>
     <div class="col-sm-6 col-lg-4"><label class="form-label small" for="{{ f.conto.id_for_label }}">Conto (informativo)</label>{{ f.conto }}</div>
-    <div class="col-sm-6 col-lg-3"><label class="form-label small" for="{{ f.centro_costo.id_for_label }}">Centro di costo</label>{{ f.centro_costo }}</div>
+    <div class="col-sm-6 col-lg-3"><label class="form-label small" for="{{ f.centro_costo.id_for_label }}">Centro di costo</label>{{ f.centro_costo }}{% for e in f.centro_costo.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
     <div class="col-sm-6 col-lg-5"><label class="form-label small" for="{{ f.wbs.id_for_label }}">WBS (solo CAPEX)</label>{{ f.wbs }}{% for e in f.wbs.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
   </div>
 </fieldset>

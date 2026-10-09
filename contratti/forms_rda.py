@@ -12,6 +12,7 @@ from contratti.forms import (
     ImportoField,
     ModelFormBootstrap,
     _solo_attivi,
+    tendina_centro_costo,
     verifica_natura_wbs,
     wbs_ammesse,
 )
@@ -155,6 +156,8 @@ class PosizioneForm(FormBase):
         self.fields["conto"].queryset = conti
         self.fields["wbs"].queryset = wbs_ammesse(cluster)
         self.fields["quantita"].widget.attrs["inputmode"] = "decimal"
+        attuale = (self.initial or {}).get("centro_costo") or ""
+        tendina_centro_costo(self, attuale=attuale, nuovo=not (self.initial or {}).get("pk"))
 
     def vuota(self) -> bool:
         d = getattr(self, "cleaned_data", {}) or {}

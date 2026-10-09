@@ -449,6 +449,24 @@ class RichiedenteSAP(TabellaSAP):
         constraints = [_un_predefinito("richiedente")]
 
 
+class CentroCosto(TabellaSAP):
+    """Centro di costo SAP: voci e posizioni lo scelgono da qui; il predefinito si propone
+    sulle voci e sulle posizioni nuove. Voci e posizioni conservano il codice (testo): un
+    codice già registrato e assente dalla tabella resta e si segnala."""
+
+    history = HistoricalRecords()
+
+    class Meta(TabellaSAP.Meta):
+        verbose_name = "centro di costo"
+        verbose_name_plural = "centri di costo"
+        constraints = [_un_predefinito("centro_costo")]
+
+    @classmethod
+    def codice_predefinito(cls) -> str:
+        predefinito = cls.predefinito_attivo()
+        return predefinito.codice if predefinito else ""
+
+
 class GruppoMerci(TabellaSAP):
     """Gruppo merci SAP; facoltativa la categoria di fabbisogno a cui si propone (Rev13)."""
 

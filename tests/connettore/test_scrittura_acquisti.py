@@ -793,3 +793,22 @@ def test_il_richiedente_porta_il_gruppo_acquisti_della_sua_unita(editor, licenze
         m.RichiestaAcquisto.objects.get(pk=esplicito["oggetti"][0]["id"]).gruppo_acquisti.codice
         == "G01"
     )
+
+
+def test_centro_di_costo_predefinito_e_tendina(editor, licenze_cad):  # noqa: F811
+    """Posizioni nuove con il centro di costo predefinito; un codice fuori tabella è un errore
+    del form, come nell'interfaccia."""
+    m.CentroCosto.objects.create(codice="C0001", predefinito=True)
+    m.CentroCosto.objects.create(codice="C0002")
+    centri = ok(editor, "riferimenti", {})["centri_di_costo"]
+    assert [c["codice"] for c in centri if c["predefinito"]] == ["C0001"]
+    fab = licenze_cad[0]
+    nuova = {"descrizione_breve": "Licenze", "quantita": "1", "importo_unitario": "10.00"}
+    esito = conferma(editor, ok(editor, "crea_rda", {"fabbisogno_id": fab.pk,
+                                                     "posizioni": [nuova]}))  # fmt: skip
+    rda = m.RichiestaAcquisto.objects.get(pk=esito["oggetti"][0]["id"])
+    assert rda.posizioni.get().centro_costo == "C0001"
+    testo = errore(editor, "crea_rda", {
+        "fabbisogno_id": fab.pk, "posizioni": [{**nuova, "centro_costo": "XX99"}],
+    })  # fmt: skip
+    assert "posizioni[0].centro_costo" in testo

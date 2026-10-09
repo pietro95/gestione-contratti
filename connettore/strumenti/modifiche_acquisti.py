@@ -260,8 +260,11 @@ CAMPI_POSIZIONE = [
 
 
 def _riga_posizione(argomenti: dict, base: dict | None = None) -> dict:
-    # Una posizione nuova parte dai valori del form vuoto (natura OPEX), come nel browser.
-    riga = dict(base or {"natura": m.Natura.OPEX})
+    # Una posizione nuova parte dai valori del form vuoto (natura OPEX, centro di costo
+    # predefinito), come nel browser.
+    riga = dict(
+        base or {"natura": m.Natura.OPEX, "centro_costo": m.CentroCosto.codice_predefinito()}
+    )
     for campo in CAMPI_POSIZIONE:
         if campo in argomenti:
             riga[campo] = argomenti[campo]
@@ -813,7 +816,8 @@ SCHEMA_POSIZIONE = {
         "di_cui_variabile": SCHEMA_IMPORTO,
         "natura": {"type": "string", "enum": list(m.Natura.values)},
         "conto": {**SCHEMA_ID, "description": "id del conto («riferimenti»)."},
-        "centro_costo": {"type": "string", "maxLength": 20},
+        "centro_costo": {"type": "string", "maxLength": 20,
+                         "description": "Codice del centro di costo («riferimenti»)."},
         "wbs": {**SCHEMA_ID, "description": "id della WBS, solo CAPEX («riferimenti»)."},
     },
     "additionalProperties": False,

@@ -1,10 +1,10 @@
 """Tabelle SAP del processo d'acquisto da Excel (SPEC §7, Rev13): richiedenti, gruppi merci,
-gruppi acquisti.
+gruppi acquisti, centri di costo.
 
-Il modello ha un foglio per tabella (``Richiedenti``, ``Gruppi merci``, ``Gruppi acquisti``;
-almeno uno), colonne ``codice``, ``descrizione`` (per i gruppi acquisti anche ``nome``),
-``predefinito`` (sì/no) e, per i gruppi merci, ``categoria`` facoltativa (nome della categoria
-di fabbisogno).
+Il modello ha un foglio per tabella (``Richiedenti``, ``Gruppi merci``, ``Gruppi acquisti``,
+``Centri di costo``; almeno uno), colonne ``codice``, ``descrizione`` (per i gruppi acquisti
+anche ``nome``), ``predefinito`` (sì/no) e, per i gruppi merci, ``categoria`` facoltativa (nome
+della categoria di fabbisogno).
 
 Si leggono anche i due elenchi di SAP così come arrivano, riconosciuti dall'intestazione (in
 una delle prime righe, in qualsiasi foglio):
@@ -49,7 +49,9 @@ FOGLI = (
     Foglio("Richiedenti", "richiedenti", m.RichiedenteSAP),
     Foglio("Gruppi merci", "gruppi_merci", m.GruppoMerci, con_categoria=True),
     Foglio("Gruppi acquisti", "gruppi_acquisti", m.GruppoAcquisti, ("nome", "descrizione")),
+    Foglio("Centri di costo", "centri_costo", m.CentroCosto),
 )
+PER_NOME = {f.nome: f for f in FOGLI}
 UNITA_PREDEFINITA = "ictdinn"  # l'ufficio del registro: la sua riga è il predefinito proposto
 RIGHE_INTESTAZIONE = 10  # l'intestazione degli elenchi SAP sta in una delle prime righe
 SI = {"si", "sì", "s", "x", "1", "true", "vero", "yes", "y"}
@@ -151,6 +153,8 @@ def importa_tabelle_sap(percorso: str | Path, *, dry_run: bool = False) -> Repor
             for foglio in FOGLI:
                 if foglio.nome in fogli:
                     _importa_foglio(report, foglio, fogli[foglio.nome])
+            if "Centri di costo" in fogli:
+                _centri_non_in_tabella(report)
             for tipo, titolo, righe in elenchi:
                 if tipo == "gruppi_merci":
                     _importa_gruppi_merci(report, righe)
@@ -241,7 +245,7 @@ def _importa_foglio(report: Report, foglio: Foglio, righe: list[dict]) -> None:
 
 def _importa_gruppi_merci(report: Report, righe: list[dict]) -> None:
     """Elenco SAP dei gruppi merci: la definizione lunga come descrizione (o la breve)."""
-    foglio = FOGLI[1]
+    foglio = PER_NOME["Gruppi merci"]
     convertite = [
         {
             "_riga": r["_riga"],
@@ -292,8 +296,8 @@ def _importa_rilascio(report: Report, titolo: str, righe: list[dict]) -> None:
             if codice is not None and not modello.objects.filter(predefinito=True).exists():
                 for x in righe_tabella:
                     x["predefinito"] = x["codice"] == codice
-    _importa_foglio(report, FOGLI[2], gruppi)
-    _importa_foglio(report, FOGLI[0], richiedenti)
+    _importa_foglio(report, PER_NOME["Gruppi acquisti"], gruppi)
+    _importa_foglio(report, PER_NOME["Richiedenti"], richiedenti)
     for richiedente, gruppo in coppie:
         oggetto = m.RichiedenteSAP.objects.get(codice=richiedente)
         nuovo = m.GruppoAcquisti.objects.get(codice=gruppo) if gruppo else None
@@ -301,3 +305,36 @@ def _importa_rilascio(report: Report, titolo: str, righe: list[dict]) -> None:
             oggetto.gruppo_acquisti = nuovo
             oggetto.save(update_fields=["gruppo_acquisti"])
             report.conteggi["richiedenti_collegati"] += 1
+
+
+# --- Centri di costo già registrati e assenti dalla tabella ---------------------------------
+
+
+def centri_costo_usati() -> dict[str, int]:
+    """Codice → numero di voci e posizioni che lo usano (non archiviate)."""
+    from collections import Counter
+
+    usati = Counter(
+        m.VoceContratto.objects.filter(archiviato=False)
+        .exclude(centro_costo="")
+        .values_list("centro_costo", flat=True)
+    )
+    usati.update(
+        m.PosizioneRDA.objects.filter(rda__archiviato=False)
+        .exclude(centro_costo="")
+        .values_list("centro_costo", flat=True)
+    )
+    return dict(usati)
+
+
+def _centri_non_in_tabella(report: Report) -> None:
+    """Dopo il caricamento: i codici usati da voci e posizioni che la tabella non ha. Restano
+    sulle voci e si sistemano scegliendo dalla tendina (SPEC §7)."""
+    noti = set(m.CentroCosto.objects.values_list("codice", flat=True))
+    mancanti = {c: n for c, n in centri_costo_usati().items() if c not in noti}
+    report.conteggi["centri_costo_non_in_tabella"] = len(mancanti)
+    for codice, n in sorted(mancanti.items()):
+        report.anomalia(
+            "Centri di costo", None, "CENTRO_COSTO_NON_IN_TABELLA", "centro_costo", codice,
+            f"Usato da {n} voci o posizioni: aggiungerlo alla tabella o sceglierne un altro.",
+        )  # fmt: skip
