@@ -2,7 +2,7 @@
 
 > Specifica normativa del connettore. L'inquadramento architetturale è in [ARCHITECTURE](ARCHITECTURE.md), i principi di protezione in [SECURITY](SECURITY.md) e le procedure di esercizio in [RUNBOOK](RUNBOOK.md).
 
-Rev08 — 07/10/2026 — decisioni del responsabile del progetto, da approvare. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
+Rev09 — 09/10/2026 — proposta di parità con l'interfaccia (§12), da approvare. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
 
 Storico revisioni:
 - Rev00 (05/10/2026): prima bozza, raccomandata l'opzione «solo rete interna con ponte locale».
@@ -14,6 +14,7 @@ Storico revisioni:
 - Rev06 (05/10/2026): decisione del responsabile del progetto, a valle della realizzazione di F10.1: tre limiti dei tool del gruppo C (§8.2): `modifica_voce` non cambia le quote per periodo esistenti, `crea_contratto` e `modifica_contratto` non gestiscono le note, `registra_rinnovo` non genera le rate.
 - Rev07 (07/10/2026): D8 chiusa con esito positivo: nella prova in produzione Claude ha accettato l'autorizzazione sull'host interno (§2.1); il piano B non serve. Nessuna decisione aperta.
 - Rev08 (07/10/2026): decisioni del responsabile del progetto, **bozza da approvare**. Il connettore copre il processo d'acquisto della release 2.0 (§11, fase F12): lettura di RDA, fatture, esecuzione e viste; scrittura di tutto il processo tranne gli import (D14); presa in carico, fuori registro e assegnazione ai proposti anche su più fatture (D15); nome dei referenti esposto (D16); testi per SAP e PAC restituiti (D17). Gruppo E di §8.2 definito in §11.3.
+- Rev09 (09/10/2026): **proposta da approvare**. Revisione di tutte le funzioni dell'interfaccia contro i tool (§12): tabella di confronto, lacune, nuovi tool per accorpamento, spostamento, doppioni, ricucitura delle catene, proposte d'import, elenchi, storico; superamento di D11 e dei limiti Rev06. Decisioni D18–D23 aperte.
 
 ## 1. Obiettivo
 
@@ -220,7 +221,7 @@ Limiti del gruppo C (Rev06):
 - `registra_rinnovo` non genera le rate, come l'interfaccia: lo scadenzario delle nuove voci si genera dopo con `genera_scadenzario`;
 - la procedura si indica con il codice restituito da `riferimenti`.
 
-**Solo dall'interfaccia**, mai via MCP:
+**Solo dall'interfaccia**, mai via MCP (Rev09: proposta di revisione in §12, D18–D23):
 - `sposta_contratto`, `accorpa_fabbisogni`, `unisci_doppioni`: ristrutturano più fabbisogni e catene in un colpo; la loro anteprima è già una pagina dedicata e un errore è costoso da ricostruire (D11);
 - import (compresi estrazione settimanale delle fatture, modello dell'esecuzione, Riepilogo, tabelle SAP) e conferma delle proposte d'import;
 - tabelle di configurazione, utenti, assegnazioni dei cluster, interruttore della scrittura.
@@ -266,7 +267,7 @@ Prese:
 - D16 (Rev08): del referente si espone solo il nome; filtri «mie» e «proposte a me» sull'utente del token (§11.1).
 - D17 (Rev08): testo della richiesta, scheda SAP, indicazioni per la validazione e commento per PAC restituiti in campi propri (§11.1).
 
-Aperte: nessuna.
+Aperte: D18–D23 (§12.4).
 
 ## 10. Stima
 
@@ -370,6 +371,157 @@ Tutto il processo d'acquisto si fa dalla chat con anteprima e conferma (§8.1), 
 Circa quanto F10.1: la logica c'è già tutta in `contratti/acquisti.py`, `contratti/fatture.py` e `reports/acquisti.py`. Il grosso è nelle anteprime con gli effetti (fase, passo, residuo, commento per PAC dopo la modifica) e nei test di equivalenza per circa 25 tool di scrittura. Proposta in due sotto-fasi:
 - **F12.1**: lettura ed estensioni dei tool esistenti;
 - **F12.2**: scrittura.
+
+## 12. Parità con l'interfaccia (F10.2, proposta Rev09)
+
+Rev09, **proposta da approvare**. Obiettivo: ogni funzione di dominio dell'interfaccia ha un tool equivalente, con le regole di §8.1 (stesso form e servizio, anteprima e conferma, permessi e cluster). Restano fuori solo le funzioni che per natura non hanno senso in chat o che proteggono il connettore stesso (§12.3).
+
+### 12.1 Confronto funzione per funzione
+
+Legenda: ✅ equivalente; 🟡 parziale (cosa manca nella colonna Lacuna); ❌ assente; ⛔ esclusa per decisione.
+
+**Contratti, fabbisogni, fornitori**
+
+| Funzione | GUI (vista) | MCP oggi | Stato | Lacuna / proposta |
+|---|---|---|---|---|
+| Ricerca globale | `cerca` | `cerca` | ✅ | — |
+| Elenco contratti con filtri (testo, cluster, stato temporale, alert, attivi nell'anno, fornitore, finanziamento, archiviati) e ordinamento | `contratti_elenco` | `cerca`, `scadenze` | 🟡 | nessun elenco filtrato: nuovo `elenco_contratti` (§12.2) |
+| Elenco fabbisogni (testo, cluster, decisione, categoria, archiviati) | `fabbisogni_elenco` | `cerca` | 🟡 | nuovo `elenco_fabbisogni` |
+| Elenco fornitori (testo su ragione sociale, P.IVA, codice SAP; archiviati) | `fornitori_elenco` | `cerca` | 🟡 | nuovo `elenco_fornitori` |
+| Pagina iniziale e cruscotto scadenze | `home`, `cruscotto` | `scadenze`, `budget` | 🟡 | «cose da fare» della home non esposte: nuovo `cose_da_fare` |
+| Dettaglio contratto, fabbisogno, fornitore | `*_dettaglio` | `contratto`, `fabbisogno`, `fornitore` | ✅ | — |
+| Storico delle modifiche (chi, quando, campo, prima → dopo) | `storico` nei dettagli | solo `versione` | ❌ | nuovo `storico` |
+| Nuovo contratto, anche senza contratto, con voci e piani | `contratto_nuovo`, `voce_modifica` | `crea_contratto` | 🟡 | note escluse (Rev06): proposta D21 |
+| Ultimo passo guidato (rate generate voce per voce) | `contratto_guidata` | anteprima di `crea_contratto` + `genera_scadenzario` | ✅ | — |
+| Modifica contratto | `contratto_modifica` | `modifica_contratto` | 🟡 | note escluse (D21) |
+| Rinnovo, rinnovo senza contratto | `contratto_rinnovo`, `..._senza_contratto` | `registra_rinnovo` | ✅ | rate da generare dopo, come la GUI |
+| Proroga | `proroga_nuova` | `registra_proroga` | ✅ | — |
+| Voce: nuova, modifica, anteprima rate | `voce_modifica`, `voce_anteprima` | `crea_voce`, `modifica_voce` | 🟡 | quote per periodo esistenti non modificabili (Rev06): D22 |
+| Genera scadenzario | `scadenzario_genera` | `genera_scadenzario` | ✅ | — |
+| Modifica rata | `rata_modifica` | `modifica_rata` | ✅ | — |
+| Avanza pratica | `pratica_avanza` | `avanza_pratica` | ✅ | — |
+| Archivia / ripristina | `archivia` | `archivia`, `ripristina` | ✅ | — |
+| Nuovo / modifica fabbisogno | `fabbisogno_modifica` | `crea_fabbisogno`, `modifica_fabbisogno` | ✅ | — |
+| Nuovo / modifica fornitore | `fornitore_modifica` | `crea_fornitore`, `modifica_fornitore` | ✅ | — |
+| Collega rinnovo, scollega predecessore | `contratto_collega`, `contratto_scollega` | `collega_rinnovo`, `scollega_predecessore` | ✅ | — |
+| Confluenza: scegli confluiti, togli | `contratto_confluiti`, `contratto_togli_confluenza` | `confluisci`, `togli_confluenza` | ✅ | — |
+| **Accorpa fabbisogni** | `fabbisogno_accorpa` | — | ⛔ D11 | nuovo `accorpa_fabbisogni` (D18) |
+| **Sposta contratto in altro fabbisogno** | `contratto_sposta` | — | ⛔ D11 | nuovo `sposta_contratto` (D18) |
+| **Unisci doppioni** del fabbisogno | `fabbisogno_doppioni` | — | ⛔ D11 | nuovo `unisci_doppioni` (D18) |
+| **Ricuci catene interrotte** del fabbisogno | `fabbisogno_collega` | — | ❌ (non citata in D11) | nuovo `ricuci_catene` |
+| Piani da verificare | `piani_da_verificare` | `piani_da_verificare` | ✅ | — |
+
+**Report**
+
+| Funzione | GUI | MCP oggi | Stato | Lacuna / proposta |
+|---|---|---|---|---|
+| Budget (tre viste, filtri, raggruppamenti) | `budget` | `budget` | ✅ | — |
+| Piano ordini | `piano_ordini` | `piano_ordini` | ✅ | — |
+| Elenco WBS con numero di voci | `wbs_elenco` | `riferimenti` (WBS solo con scope di scrittura) | 🟡 | `riferimenti` restituisce le WBS visibili anche in sola lettura |
+| Spese per WBS | `wbs_spese` | `spese_wbs` | ✅ | — |
+| Export XLSX e PDF di budget, piano ordini, WBS | `?formato=xlsx/pdf` | — | ⛔ | resta GUI: il tool restituisce il `link` all'export (D23) |
+
+**Processo d'acquisto (F11/F12)**
+
+| Funzione | GUI | MCP oggi | Stato |
+|---|---|---|---|
+| RDA: elenco, dettaglio, nuova dal fabbisogno, modifica, invia, rimanda, annulla, dati SAP, registra a mano, collega pratica/contratto, contratto dalla RDA, collega/scollega RDA dal contratto | `views_rda.*` | `elenco_rda`, `rda`, `crea_rda`, `modifica_rda`, `invia_rda`, `rimanda_rda`, `annulla_rda`, `dati_sap_rda`, `registra_rda`, `collega_rda`, `registra_contratto_da_rda` | ✅ |
+| Fatture: elenco, dettaglio, nuova (anche dal contratto), prendi, lascia, riassegna, contratto, convalida, importi, documento, trasferimento, fuori registro, azioni su più fatture | `views_fatture.*` | `elenco_fatture`, `fattura`, `registra_fattura`, `prendi_in_carico`, `lascia_fattura`, `riassegna_fattura`, `assegna_contratto_fattura`, `convalida_fattura`, `importi_fattura`, `documento_fattura`, `trasferisci_fattura`, `segna_fuori_registro`, `assegna_ai_referenti_proposti` | ✅ |
+| Esecuzione, documento di esecuzione, chiudi / annulla chiusura | `contesto_esecuzione`, `contratto_documento`, `contratto_chiudi` | `esecuzione`, `documento_esecuzione`, `chiudi_contratto`, `annulla_chiusura` | ✅ |
+| Cruscotto acquisti, stato RDA, da chiudere, anomalie | `reports.views_acquisti.*` | `cruscotto_acquisti`, `elenco_rda`, `contratti_da_chiudere`, `anomalie_esecuzione` | ✅ |
+
+**Import e amministrazione**
+
+| Funzione | GUI | MCP oggi | Stato | Proposta |
+|---|---|---|---|---|
+| Elenco proposte d'import (raggruppamenti, predecessori) | `proposte_elenco` | — | ❌ | nuovo `proposte_import` (lettura) |
+| Conferma / scarta proposta | `proposta_azione` | — | ⛔ §8.2 | nuovo `decidi_proposta` (D19) |
+| Import file (Excel, conti, date, tabelle SAP, fatture, esecuzione, Riepilogo): carica, anteprima, conferma, annulla, report, modello | `views_import.*` | — | ⛔ | resta GUI (D20) |
+| Collegamenti del connettore, revoca | `connettore.views_utente` | — | ⛔ | resta GUI: un token non revoca sé stesso né altri |
+| Tabelle di configurazione, utenti, cluster, interruttore scrittura | `admin` | — | ⛔ | resta GUI (§8.2) |
+| Simulazione della data (`?oggi=`) | Admin | — | ⛔ D5 | invariato |
+
+Bilancio: 4 operazioni di ristrutturazione assenti (accorpa, sposta, doppioni, ricuci), 2 funzioni sulle proposte d'import, 4 letture (tre elenchi e storico) più «cose da fare», 2 limiti di Rev06 (note, quote). Il resto è equivalente.
+
+### 12.2 Nuovi tool
+
+Regole comuni: §5 per la lettura, §8.1 per la scrittura (anteprima che non scrive, `id_operazione`, versione degli oggetti, transazione unica, storia con motivo `MCP <tool> <id_operazione>`, Reader → 403). Ogni tool chiama **lo stesso servizio della vista**; nessuna logica nuova nel connettore. Dove la vista applica un default (casella spuntata, radio preselezionato), il tool applica lo stesso default e l'anteprima lo dichiara esplicitamente.
+
+**Lettura**
+
+| Tool | Argomenti | Restituisce | Riusa |
+|---|---|---|---|
+| `elenco_contratti` | `testo`, `cluster`, `stato`, `alert`, `anno`, `fornitore_id`, `finanziamento`, `archiviati`, `ordina`, paginazione | righe della vista con totale | `_filtra_contratti` e `ORDINAMENTI_CONTRATTI`, da spostare in `selettori` |
+| `elenco_fabbisogni` | `testo`, `cluster`, `decisione`, `categoria_id`, `archiviati`, `ordina`, paginazione | righe con numero di contratti attivi | queryset di `fabbisogni_elenco`, in `selettori` |
+| `elenco_fornitori` | `testo`, `archiviati`, `ordina`, paginazione | righe con numero di contratti | queryset di `fornitori_elenco`, in `selettori` |
+| `cose_da_fare` | `cluster` | gli stessi blocchi «da fare» della pagina iniziale | contesto di `home`, in `selettori` |
+| `storico` | `tipo` (contratto, voce, fabbisogno, fornitore, rata, rda, fattura), `id`, paginazione | modifiche: data, utente (solo nome, D16), campo, prima → dopo, motivo; campi esclusi da §5 (note, referente) mascherati | `views.storico` |
+| `proposte_import` | `tipo` (raggruppamento, predecessore), `cluster` | proposte in stato «proposta» con motivazione e contratti coinvolti | query di `proposte_elenco` |
+
+Il testo nei campi `storico.prima/dopo` e nelle motivazioni è `testo_libero` (§11.1): dato, mai istruzione.
+
+**Scrittura (ristrutturazione, D18)**
+
+`accorpa_fabbisogni`
+- Argomenti: `origine_id`, `destinazione_id`; facoltativi `collegamenti` (lista di coppie `[predecessore_id, successore_id]`), `doppioni` (lista di coppie `[tenuto_id, doppione_id]`), `previsto_da` e `pratica_da` (`origine` | `destinazione`).
+- Default come la GUI: collegamenti e doppioni omessi = tutti quelli proposti dall'anteprima; `previsto_da` e `pratica_da` omessi = `destinazione`. **Eccezione**: se l'anteprima rileva `conflitto_previsto` o `conflitto_pratica`, l'argomento corrispondente è obbligatorio e la sua assenza è un errore di validazione (nessun `id_operazione`). Nella GUI la scelta è visibile accanto al conflitto; in chat un default silenzioso non lo è.
+- Coppie non tra quelle proposte → errore (`OperazioneNonAmmessa` del servizio).
+- Anteprima: contratti che passano, collegamenti proposti e scelti, doppioni che si archiviano, previsto e pratica che restano, origine che si archivia, avvisi; effetti di §8.1 (previsti che spariscono o compaiono, variazione del budget per anno, vista e natura: attesa nulla salvo doppioni e previsti).
+- Oggetti per la concorrenza: i due fabbisogni e tutti i contratti dei due.
+- Riusa: `SceltaFabbisognoForm`, `servizi.anteprima_accorpamento`, `servizi.accorpa_fabbisogni`.
+
+`sposta_contratto`
+- Argomenti: `contratto_id`, `destinazione_id`, `con_successivi` (bool, default `false` come il form), `predecessore_id` (id, `null` per nessuno; omesso = il `proposto` dell'anteprima, come il radio preselezionato).
+- Anteprima: contratti spostati nell'ordine della catena, come si richiude la catena nell'origine (P → S), candidati e proposto nella destinazione, avvisi, effetti di §8.1.
+- Rifiuti del servizio invariati (stesso fabbisogno, destinazione archiviata, confluenze).
+- Riusa: `SpostaContrattoForm`, `servizi.anteprima_spostamento`, `servizi.sposta_contratto`.
+
+`unisci_doppioni`
+- Argomenti: `fabbisogno_id`, `coppie` facoltative (default: tutte quelle rilevate, come le caselle spuntate).
+- Anteprima: per coppia, contratto tenuto, doppione archiviato, catena trasferita.
+- Riusa: `servizi.doppioni_del_fabbisogno`, `servizi.unisci_doppioni`.
+
+`ricuci_catene`
+- Argomenti: `fabbisogno_id`, `coppie` facoltative (default: tutte quelle proposte).
+- Anteprima: per coppia, predecessore → successore e pratica del predecessore risultante.
+- Riusa: `servizi.collegamenti_del_fabbisogno`, `servizi.collega_contratti`.
+
+**Scrittura (proposte d'import, D19)**
+
+`decidi_proposta`: `tipo` (raggruppamento, predecessore), `id`, `azione` (conferma, scarta). Permesso sui cluster di tutti i contratti coinvolti (`permessi.verifica`, come la vista). Anteprima: contratti raggruppati o collegati, pratica risultante. Riusa `proposte_import.conferma_raggruppamento`, `conferma_predecessore`, `scarta`; `PropostaNonApplicabile` → errore.
+
+**Estensioni di tool esistenti**
+- `crea_contratto`, `modifica_contratto`: campo `note` come `testo_libero` (D21).
+- `modifica_voce`: `quote` per periodo con la stessa semantica del formset della GUI (aggiunta, modifica; nessuna cancellazione, la quota si azzera) (D22).
+- `riferimenti`: WBS visibili anche in sola lettura.
+- `budget`, `piano_ordini`, `spese_wbs`: campo `link_export` con gli URL XLSX e PDF dell'host interno (D23).
+
+**Rischi specifici della ristrutturazione.** È il motivo di D11 e resta valido: un accorpamento o uno spostamento sbagliato tocca molti contratti. Contromisure oltre §8.3: un'operazione per fabbisogno di origine (niente accorpamenti multipli in una chiamata); anteprima con l'elenco completo degli id toccati; versione di tutti i contratti dei fabbisogni coinvolti; inversione documentata nell'anteprima (spostamento: `sposta_contratto` inverso; accorpamento: `ripristina` dell'origine più spostamento dei contratti; doppioni: `ripristina`). Rischio residuo: l'accorpamento non ha un'inversione in un solo passo; si accetta perché la storia è completa e niente si cancella.
+
+### 12.3 Esclusioni che restano
+
+- **Import di file**: caricare un file dalla chat significa far passare dal fornitore del modello estrazioni SAP intere e aprire un canale di upload sull'host pubblico (§2). Il guadagno è minimo: l'import è un'attività settimanale da scrivania (D20).
+- **Export XLSX/PDF**: un file binario in chat non serve; i dati sono già nei tool, il file è a un link (D23).
+- **Collegamenti e revoca, configurazione, utenti, interruttore**: governano il connettore e la sicurezza; non si comandano con un token del connettore.
+- **Simulazione della data**: D5.
+
+### 12.4 Decisioni aperte
+
+- **D18**: superare D11 ed esporre `accorpa_fabbisogni`, `sposta_contratto`, `unisci_doppioni` (e `ricuci_catene`, mai deciso). Raccomandato: sì, con le contromisure di §12.2.
+- **D19**: esporre la conferma delle proposte d'import (`decidi_proposta`). Raccomandato: sì; è una decisione puntuale su dati già importati, non un import.
+- **D20**: import di file solo dalla GUI. Raccomandato: confermare.
+- **D21**: note di contratti e fabbisogni leggibili e scrivibili via MCP, superando l'esclusione di §5 e il limite Rev06. Raccomandato: sì, in `testo_libero`; altrimenti la parità resta incompleta.
+- **D22**: modifica delle quote per periodo esistenti (limite Rev06). Raccomandato: sì.
+- **D23**: export solo come link. Raccomandato: confermare.
+
+### 12.5 Test e criteri di accettazione (F10.2)
+
+- Tutti i criteri di §8.4 per ogni nuovo tool di scrittura (403 al Reader, cluster, scope, anteprima che non scrive, concorrenza, idempotenza, interruttore).
+- **Equivalenza con la GUI**: gli stessi input alla vista e al tool producono lo stesso stato del database; in particolare accorpamento con collegamenti e doppioni, con e senza conflitto di previsto e pratica; spostamento con e senza successivi e con predecessore scelto o nessuno.
+- Conflitto di previsto o pratica senza argomento esplicito → errore, nessuna scrittura.
+- Elenchi: per gli stessi filtri, stesso totale e stesse righe (stesso ordine) della vista web.
+- `storico`: campi esclusi mascherati; utenti solo per nome.
+- Test di copertura: ogni URL di `contratti/urls.py` e `reports/urls.py` che modifica dati ha un tool corrispondente o compare nell'elenco delle esclusioni di §12.3, verificato da un test che legge le rotte; una vista nuova senza tool fa fallire il test finché non si decide.
 
 ## Fonti
 

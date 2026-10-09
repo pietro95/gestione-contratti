@@ -654,3 +654,12 @@ viste della release 2.0, con le regole di F10 (lettura) e F10.1 (anteprima e con
 **Accettazione:** SPEC_MCP §8.4 e §11.5; per ogni tool Reader 403 ed equivalenza con
 l'interfaccia; TC-18 ricostruito via MCP (presa in carico multipla, rifiuto «già in carico»,
 convalida bloccata, commento per PAC).
+
+## F10.2 — Parità del connettore con l'interfaccia (proposta)
+
+Specifica: `docs/SPEC_MCP.md` §12 (Rev09), subordinata alle decisioni D18–D23.
+
+- Lettura: `elenco_contratti`, `elenco_fabbisogni`, `elenco_fornitori`, `cose_da_fare`, `storico`, `proposte_import`; WBS in `riferimenti` anche in sola lettura.
+- Scrittura: `accorpa_fabbisogni`, `sposta_contratto`, `unisci_doppioni`, `ricuci_catene`, `decidi_proposta`; note e quote per periodo nei tool del gruppo C.
+- Prima si spostano in `selettori` i filtri oggi dentro le viste degli elenchi e della home, poi li usano vista e tool.
+- Criteri di accettazione: §12.5, compreso il test che fallisce se una vista che modifica dati non ha tool né esclusione motivata.
