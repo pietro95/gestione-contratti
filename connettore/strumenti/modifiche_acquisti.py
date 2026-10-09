@@ -807,7 +807,8 @@ SCHEMA_POSIZIONE = {
             "description": "Solo in «modifica_rda»: posizione salvata da cambiare. Senza "
             "numero la posizione si aggiunge in fondo.",
         },
-        "descrizione_breve": {"type": "string", "maxLength": 250},
+        "descrizione_breve": {"type": "string", "maxLength": 40,
+                              "description": "Al massimo 40 caratteri (limite di SAP)."},
         "gruppo_merci": {"type": "string", "maxLength": 20,
                          "description": "Codice del gruppo merci («riferimenti»)."},
         "quantita": {"type": "string", "maxLength": 20,
@@ -824,7 +825,8 @@ SCHEMA_POSIZIONE = {
 }  # fmt: skip
 CAMPI_RICHIESTA = {
     "descrizione": {"type": "string", "minLength": 1, "maxLength": 250},
-    "intestazione": {"type": "string", "maxLength": 250},
+    "intestazione": {"type": "string", "maxLength": 40,
+                     "description": "Al massimo 40 caratteri (limite di SAP)."},
     "fornitore_proposto": {**SCHEMA_ID, "description": "id del fornitore (tool «cerca»)."},
     "richiedente": {"type": "string", "maxLength": 20,
                     "description": "Codice del richiedente SAP («riferimenti»); senza "

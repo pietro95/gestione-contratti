@@ -259,7 +259,8 @@ def proposta_richiesta(
     fornitore = in_scadenza.fornitore if scopo == Scopo.RINNOVO else None
     nome_fornitore = fornitore.nome_per_rda if fornitore else None
     descrizione = fabbisogno.descrizione
-    titolo = motore.intestazione(nome_fornitore, descrizione)
+    # Intestazione e descrizioni brevi proposte entro i 40 caratteri di SAP.
+    titolo = motore.taglia_sap(motore.intestazione(nome_fornitore, descrizione))
     gruppo = gruppo_merci_proposto(fabbisogno)
     proposta = PropostaRichiesta(
         fabbisogno=fabbisogno,
@@ -337,6 +338,8 @@ def _posizioni_rinnovo(fabbisogno, contratto, gruppo) -> list[PosizioneProposta]
         posizioni[0].descrizione_breve = motore.intestazione(
             contratto.fornitore.nome_per_rda, fabbisogno.descrizione
         )
+    for p in posizioni:
+        p.descrizione_breve = motore.taglia_sap(p.descrizione_breve)
     return posizioni
 
 

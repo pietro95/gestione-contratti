@@ -505,6 +505,19 @@ def importo_posizione(quantita: Decimal, importo_unitario: Decimal) -> Decimal:
     return arrotonda(Decimal(quantita) * Decimal(importo_unitario))
 
 
+# Intestazione e descrizione breve delle posizioni: in SAP al massimo 40 caratteri.
+LUNGHEZZA_TESTO_SAP = 40
+
+
+def taglia_sap(testo: str) -> str:
+    """Testo proposto per un campo SAP da 40 caratteri: tagliato, senza spazi in coda."""
+    return (testo or "").strip()[:LUNGHEZZA_TESTO_SAP].rstrip()
+
+
+def oltre_limite_sap(testo: str | None) -> bool:
+    return len(testo or "") > LUNGHEZZA_TESTO_SAP
+
+
 def intestazione(fornitore: str | None, descrizione: str) -> str:
     """«Nome breve del fornitore - descrizione»; senza fornitore la sola descrizione."""
     descrizione = descrizione.strip()

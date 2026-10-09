@@ -102,6 +102,11 @@ def _scheda(s: motore.SchedaRDA) -> list[dict]:
          "sap": False},
         {"campo": "File server", "valore": s.percorso, "sap": False},
     ]  # fmt: skip
+    for c in campi:  # SAP accetta 40 caratteri: un valore più lungo va accorciato
+        if c["campo"] in ("Intestazione", "Descrizione breve") and motore.oltre_limite_sap(
+            c["valore"]
+        ):
+            c["oltre_40_caratteri"] = True
     return campi
 
 
