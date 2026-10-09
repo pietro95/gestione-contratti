@@ -231,7 +231,4 @@ def test_richiesta_senza_gruppo_acquisti_prende_quello_del_richiedente():
     )
     assert form.is_valid(), form.errors
     assert form.cleaned_data["gruppo_acquisti"] == g2
-    assert (
-        '"%d": %d' % (r.pk, g2.pk)
-        in form.fields["richiedente"].widget.attrs["data-gruppi-acquisti"]
-    )
+    assert f'"{r.pk}": {g2.pk}' in form.fields["richiedente"].widget.attrs["data-gruppi-acquisti"]
