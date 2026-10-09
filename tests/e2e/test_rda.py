@@ -79,3 +79,26 @@ def test_flusso_della_richiesta_di_rda(pagina, dati):
     pagina.goto(f"{pagina.base}/rda/registra/")
     assert violazioni_axe(pagina) == []
     assert not pagina.errori, pagina.errori
+
+
+def test_il_richiedente_propone_il_gruppo_acquisti(pagina, dati):
+    """Codici di rilascio SAP: scegliendo il richiedente di un'altra unità, il gruppo acquisti
+    diventa quello della sua unità."""
+    fab = dati["fabbisogno"]
+    g1 = m.GruppoAcquisti.objects.create(codice="G01", descrizione="Ufficio", predefinito=True)
+    g2 = m.GruppoAcquisti.objects.create(codice="G02", descrizione="Altra unità")
+    m.RichiedenteSAP.objects.create(
+        codice="999901", descrizione="Ufficio", predefinito=True, gruppo_acquisti=g1
+    )
+    altro = m.RichiedenteSAP.objects.create(
+        codice="999902", descrizione="Altra unità", gruppo_acquisti=g2
+    )
+    pagina.goto(f"{pagina.base}/rda/nuova/{fab.pk}/")
+    expect(pagina.locator("#id_gruppo_acquisti")).to_have_value(str(g1.pk))
+    pagina.select_option("#id_richiedente", str(altro.pk))
+    expect(pagina.locator("#id_gruppo_acquisti")).to_have_value(str(g2.pk))
+    assert violazioni_axe(pagina) == []
+    pagina.click("button[type=submit]:has-text('Salva in bozza')")
+    pagina.wait_for_url("**/rda/*/")
+    rda = m.RichiestaAcquisto.objects.get()
+    assert (rda.richiedente_id, rda.gruppo_acquisti_id) == (altro.pk, g2.pk)

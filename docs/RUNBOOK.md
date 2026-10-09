@@ -328,6 +328,20 @@ qui sotto restano per l'emergenza: fanno la stessa cosa con lo stesso codice.
    ./manage.sh import_tabelle_sap /import/tabelle_sap.xlsx --dry-run
    ./manage.sh import_tabelle_sap /import/tabelle_sap.xlsx
    ```
+   Lo stesso import accetta anche i due elenchi di SAP così come arrivano, senza copiarli nel
+   modello (riconosciuti dall'intestazione):
+   - **gruppi merci** («Gruppo Merci», «Definizione», «Definizione»): tutti, con la definizione
+     lunga come descrizione; la categoria di fabbisogno si assegna poi dall'amministrazione;
+   - **codici di rilascio** («Unità», «Richiedente», «Gr Acquisti …», «Responsabile»): per ogni
+     unità il richiedente e il gruppo acquisti, con l'unità come descrizione, legati fra loro:
+     nella richiesta di RDA, scegliendo il richiedente si propone il gruppo acquisti della sua
+     unità. La riga ICTDINN diventa predefinita se non c'è già un predefinito. Il responsabile
+     non si importa. Un codice letto da Excel come numero è segnalato (`CODICE_NUMERICO`):
+     verificare gli zeri iniziali.
+   ```bash
+   ./manage.sh import_tabelle_sap /import/2026.08.01_Codici_rilascio_SAP.xlsx --dry-run
+   ./manage.sh import_tabelle_sap /import/2025.04.17_Gruppo_merci.xlsx --dry-run
+   ```
    La cartella base delle RDA di ogni cluster (es. `smb://<nas>/Share/ICTDINN/00_IT/RDA_Ordini`)
    e la funzione «Amministrazione acquisti» degli addetti si impostano dall'amministrazione.
    **Fatture** (F11.3, ogni settimana): l'estrazione SAP delle fatture (primo foglio, colonne

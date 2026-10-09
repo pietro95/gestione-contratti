@@ -161,7 +161,11 @@ class TabellaSAPAdmin(BaseAdmin):
     search_fields = ("codice", "descrizione")
 
 
-admin.site.register(m.RichiedenteSAP, TabellaSAPAdmin)
+@admin.register(m.RichiedenteSAP)
+class RichiedenteSAPAdmin(TabellaSAPAdmin):
+    list_display = ("codice", "descrizione", "gruppo_acquisti", "predefinito", "attivo")
+
+
 admin.site.register(m.GruppoAcquisti, TabellaSAPAdmin)
 
 

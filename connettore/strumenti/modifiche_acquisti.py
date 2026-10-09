@@ -297,6 +297,11 @@ def _dati_richiesta(istanza, argomenti: dict, iniziali: dict | None = None) -> d
     for campo, valore in (iniziali or {}).items():
         if campo not in argomenti:
             dati[campo] = _form_valore(valore)
+    # Come l'interfaccia: con il richiedente si propone il gruppo acquisti della sua unità.
+    if "richiedente" in argomenti and "gruppo_acquisti" not in argomenti:
+        richiedente = m.RichiedenteSAP.objects.get(pk=dati["richiedente"])
+        if richiedente.gruppo_acquisti_id and richiedente.gruppo_acquisti.attivo:
+            dati["gruppo_acquisti"] = richiedente.gruppo_acquisti_id
     return dati
 
 
@@ -818,7 +823,8 @@ CAMPI_RICHIESTA = {
     "intestazione": {"type": "string", "maxLength": 250},
     "fornitore_proposto": {**SCHEMA_ID, "description": "id del fornitore (tool «cerca»)."},
     "richiedente": {"type": "string", "maxLength": 20,
-                    "description": "Codice del richiedente SAP («riferimenti»)."},
+                    "description": "Codice del richiedente SAP («riferimenti»); senza "
+                    "«gruppo_acquisti» si usa quello della sua unità."},
     "gruppo_acquisti": {"type": "string", "maxLength": 20,
                         "description": "Codice del gruppo acquisti («riferimenti»)."},
     "note_buyer": SCHEMA_TESTO_LIBERO,
