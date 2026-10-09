@@ -3,8 +3,9 @@
 python manage.py import_tabelle_sap /import/tabelle_sap.xlsx [--dry-run]
 
 Fogli «Richiedenti», «Gruppi merci», «Gruppi acquisti» (almeno uno), colonne codice,
-descrizione (o nome), predefinito e, per i gruppi merci, categoria. Idempotente; un errore
-annulla tutto il file. La stessa operazione è disponibile dall'interfaccia (Import).
+descrizione (o nome), predefinito e, per i gruppi merci, categoria; oppure gli elenchi SAP
+dei gruppi merci e dei codici di rilascio così come sono. Idempotente; un errore annulla
+tutto il file. La stessa operazione è disponibile dall'interfaccia (Import).
 """
 
 from pathlib import Path
@@ -37,3 +38,10 @@ class Command(BaseCommand):
                 f"{prefisso}{foglio.nome}: creati {c[f'{k}_creati']}, "
                 f"aggiornati {c[f'{k}_aggiornati']}, invariati {c[f'{k}_invariati']}."
             )
+        if c["richiedenti_collegati"]:
+            self.stdout.write(
+                f"{prefisso}Richiedenti legati al gruppo acquisti della loro unità: "
+                f"{c['richiedenti_collegati']}."
+            )
+        for a in report.anomalie:
+            self.stdout.write(f"{prefisso}{a.foglio}, riga {a.riga}: {a.codice} — {a.messaggio}")

@@ -85,8 +85,14 @@ def riferimenti(ctx: Contesto, argomenti: dict) -> dict:
         ],
         # F12.1 (SPEC_MCP §11.2): tabelle del processo d'acquisto.
         "richiedenti_sap": [
-            {"codice": r.codice, "descrizione": r.descrizione, "predefinito": r.predefinito}
-            for r in m.RichiedenteSAP.objects.filter(attivo=True)
+            {
+                "codice": r.codice,
+                "descrizione": r.descrizione,
+                "predefinito": r.predefinito,
+                # Gruppo acquisti della stessa unità: si propone con il richiedente.
+                "gruppo_acquisti": r.gruppo_acquisti.codice if r.gruppo_acquisti_id else None,
+            }
+            for r in m.RichiedenteSAP.objects.filter(attivo=True).select_related("gruppo_acquisti")
         ],
         "gruppi_acquisti": [
             {"codice": g.codice, "descrizione": g.descrizione, "predefinito": g.predefinito}

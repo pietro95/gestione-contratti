@@ -377,8 +377,9 @@ TIPI: dict[str, Tipo] = {
         Tipo(
             "tabelle_sap",
             "Tabelle SAP (RDA)",
-            "Richiedenti SAP, gruppi merci e gruppi acquisti per le richieste di RDA. "
-            "Configurazione: solo Admin.",
+            "Richiedenti SAP, gruppi merci e gruppi acquisti per le richieste di RDA: il "
+            "modello, oppure gli elenchi di SAP così come sono (gruppi merci; codici di "
+            "rilascio con unità, richiedente e gruppo acquisti). Configurazione: solo Admin.",
             (".xlsx",),
             _tabelle_sap,
             {
@@ -388,6 +389,7 @@ TIPI: dict[str, Tipo] = {
                 "gruppi_merci_aggiornati": "Gruppi merci aggiornati",
                 "gruppi_acquisti_creati": "Gruppi acquisti creati",
                 "gruppi_acquisti_aggiornati": "Gruppi acquisti aggiornati",
+                "richiedenti_collegati": "Richiedenti legati al gruppo acquisti",
             },
             solo_admin=True,
             modello=modello_tabelle_sap,

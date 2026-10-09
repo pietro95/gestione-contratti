@@ -1,6 +1,8 @@
 """Form del processo d'acquisto (F11.2): richiesta di RDA, posizioni, dati SAP, collegamenti,
 contratto registrato dalla RDA."""
 
+import json
+
 from django import forms
 
 from contratti import models as m
@@ -52,10 +54,36 @@ class RichiestaForm(ModelFormBootstrap):
         _solo_attivi(self, "fornitore_proposto", m.Fornitore.objects.filter(archiviato=False))
         _solo_attivi(self, "richiedente", m.RichiedenteSAP.objects.filter(attivo=True))
         _solo_attivi(self, "gruppo_acquisti", m.GruppoAcquisti.objects.filter(attivo=True))
+        # Il gruppo acquisti dell'unità del richiedente (codici di rilascio SAP): il browser
+        # lo propone quando si cambia richiedente (app.js, «gruppiDalRichiedente»).
+        coppie = {
+            str(r.pk): r.gruppo_acquisti_id
+            for r in m.RichiedenteSAP.objects.filter(attivo=True, gruppo_acquisti__attivo=True)
+        }
+        if coppie and "richiedente" in self.fields:
+            self.fields["richiedente"].widget.attrs.update(
+                {
+                    "data-gruppi-acquisti": json.dumps(coppie),
+                    "data-gruppo-target": self["gruppo_acquisti"].auto_id,
+                }
+            )
+            self.fields[
+                "gruppo_acquisti"
+            ].help_text = "Proposto dal richiedente: il gruppo acquisti della sua unità."
         self.fields["intestazione"].help_text = "Proposta: nome breve del fornitore − descrizione."
         self.fields[
             "percorso_file_server"
         ].help_text = "Proposto dalla cartella base del cluster; crea la cartella con questo nome."
+
+    def clean(self):
+        dati = super().clean()
+        richiedente = dati.get("richiedente")
+        # Senza gruppo acquisti: quello dell'unità del richiedente, se c'è.
+        if richiedente and not dati.get("gruppo_acquisti"):
+            gruppo = richiedente.gruppo_acquisti
+            if gruppo is not None and gruppo.attivo:
+                dati["gruppo_acquisti"] = gruppo
+        return dati
 
 
 class RdaManualeForm(ModelFormBootstrap):

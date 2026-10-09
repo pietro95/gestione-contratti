@@ -159,7 +159,7 @@ def stato(valore) -> str:
 
 
 def codice_numerico(valore) -> str | None:
-    """«105203 (Verro)» → «105203»; numeri → testo."""
+    """«999901 (Rossi)» → «999901»; numeri → testo."""
     s = pulisci(valore)
     if s is None:
         return None

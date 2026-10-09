@@ -223,6 +223,23 @@
     });
   }
 
+  // Richiesta di RDA: scegliendo il richiedente si propone il gruppo acquisti della sua unità
+  // (data-gruppi-acquisti: richiedente → gruppo; data-gruppo-target: id della tendina).
+  function gruppiDalRichiedente(radice) {
+    radice.querySelectorAll("select[data-gruppi-acquisti]").forEach(function (el) {
+      if (el._gruppi) return;
+      el._gruppi = true;
+      var coppie = JSON.parse(el.dataset.gruppiAcquisti);
+      el.addEventListener("change", function () {
+        var gruppo = coppie[el.value];
+        var bersaglio = document.getElementById(el.dataset.gruppoTarget);
+        if (!gruppo || !bersaglio) return;
+        if (bersaglio.tomselect) bersaglio.tomselect.setValue(String(gruppo));
+        else bersaglio.value = String(gruppo);
+      });
+    });
+  }
+
   function inizializza(radice) {
     tendine(radice);
     cluster(radice);
@@ -232,6 +249,7 @@
     copie(radice);
     formset(radice);
     selezioni(radice);
+    gruppiDalRichiedente(radice);
   }
 
   document.addEventListener("DOMContentLoaded", function () {

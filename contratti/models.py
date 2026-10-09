@@ -415,17 +415,6 @@ def _un_predefinito(nome: str) -> models.UniqueConstraint:
     )
 
 
-class RichiedenteSAP(TabellaSAP):
-    """Codice del richiedente SAP; il predefinito è quello dell'ufficio (Rev13)."""
-
-    history = HistoricalRecords()
-
-    class Meta(TabellaSAP.Meta):
-        verbose_name = "richiedente SAP"
-        verbose_name_plural = "richiedenti SAP"
-        constraints = [_un_predefinito("richiedente")]
-
-
 class GruppoAcquisti(TabellaSAP):
     """Gruppo acquisti SAP (codice e nome); il predefinito è quello dell'ufficio (Rev13)."""
 
@@ -435,6 +424,29 @@ class GruppoAcquisti(TabellaSAP):
         verbose_name = "gruppo acquisti"
         verbose_name_plural = "gruppi acquisti"
         constraints = [_un_predefinito("gruppo_acquisti")]
+
+
+class RichiedenteSAP(TabellaSAP):
+    """Codice del richiedente SAP; il predefinito è quello dell'ufficio (Rev13).
+
+    Il gruppo acquisti dell'unità (dai codici di rilascio SAP) si propone quando si sceglie
+    il richiedente.
+    """
+
+    gruppo_acquisti = models.ForeignKey(
+        GruppoAcquisti,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="richiedenti",
+        help_text="Gruppo acquisti della stessa unità: si propone con il richiedente.",
+    )
+    history = HistoricalRecords()
+
+    class Meta(TabellaSAP.Meta):
+        verbose_name = "richiedente SAP"
+        verbose_name_plural = "richiedenti SAP"
+        constraints = [_un_predefinito("richiedente")]
 
 
 class GruppoMerci(TabellaSAP):

@@ -771,3 +771,25 @@ def test_con_l_utente_postgresql_del_container_mcp(editor, rda_bozza, registro_f
         with connection.cursor() as cursore:
             cursore.execute("RESET ROLE")
     assert m.Fattura.objects.get(pk=fa.pk).data_trasferimento is not None
+
+
+def test_il_richiedente_porta_il_gruppo_acquisti_della_sua_unita(editor, licenze_cad):  # noqa: F811
+    """Codici di rilascio SAP: come nel browser, il richiedente propone il suo gruppo
+    acquisti; uno indicato esplicitamente resta."""
+    g2 = m.GruppoAcquisti.objects.create(codice="G05", descrizione="Altra unità")
+    m.RichiedenteSAP.objects.filter(codice="999902").update(gruppo_acquisti=g2)
+    atteso = {"codice": "999902", "descrizione": "Altro ufficio", "predefinito": False,
+              "gruppo_acquisti": "G05"}  # fmt: skip
+    assert atteso in ok(editor, "riferimenti", {})["richiedenti_sap"]
+    fab = licenze_cad[0]
+    rda = m.RichiestaAcquisto.objects.get(pk=conferma(editor, ok(editor, "crea_rda", {
+        "fabbisogno_id": fab.pk, "richiedente": "999902",
+    }))["oggetti"][0]["id"])  # fmt: skip
+    assert rda.gruppo_acquisti == g2
+    esplicito = conferma(editor, ok(editor, "crea_rda", {
+        "fabbisogno_id": fab.pk, "richiedente": "999902", "gruppo_acquisti": "G01",
+    }))  # fmt: skip
+    assert (
+        m.RichiestaAcquisto.objects.get(pk=esplicito["oggetti"][0]["id"]).gruppo_acquisti.codice
+        == "G01"
+    )
