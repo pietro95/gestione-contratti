@@ -286,7 +286,7 @@ def prendi_in_carico(pks: Iterable[int], utente, data=None) -> EsitoMultiplo:
             esito.rifiutate.append((f, "già in carico a te"))
         elif f.referente_id:
             nome = get_user_model().objects.get(pk=f.referente_id)
-            esito.rifiutate.append((f, f"già in carico a {nome.get_username()}"))
+            esito.rifiutate.append((f, f"già in carico a {nome}"))
         else:
             _incarica(f, utente, data, "Presa in carico")
             esito.fatte.append(f)
@@ -308,7 +308,7 @@ def assegna_ai_proposti(pks: Iterable[int], utente, data=None) -> EsitoMultiplo:
         elif (proposto := proposti.get(f.pk)) is None:
             esito.rifiutate.append((f, "senza referente proposto"))
         else:
-            _incarica(f, proposto, data, f"Assegnata a {proposto.get_username()}")
+            _incarica(f, proposto, data, f"Assegnata a {proposto}")
             esito.fatte.append(f)
     return esito
 

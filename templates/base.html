@@ -58,7 +58,7 @@
       <div class="app-utente">
         <span class="app-avatar" aria-hidden="true">{{ user|iniziali }}</span>
         <div class="d-none d-md-block lh-sm">
-          <div class="fw-semibold">{{ user.get_full_name|default:user.username }}</div>
+          <div class="fw-semibold">{{ user }}</div>
           <div class="small text-body-secondary">{{ ruolo|default:"nessun ruolo" }}{% if puo_modificare %} · modifica{% else %} · sola lettura{% endif %}</div>
         </div>
         <form method="post" action="{% url 'accounts:logout' %}" class="m-0">

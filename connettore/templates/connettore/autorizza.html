@@ -8,7 +8,7 @@
     {% csrf_token %}
     {% for field in form %}{% if field.is_hidden %}{{ field }}{% endif %}{% endfor %}
     <p><strong>{{ application.name }}</strong> chiede di accedere al registro contratti con il tuo utente
-      (<strong>{{ request.user.get_username }}</strong>) e con i tuoi permessi:</p>
+      (<strong>{{ request.user }}</strong>) e con i tuoi permessi:</p>
     <ul>
       <li>Lettura del registro contratti</li>
     </ul>

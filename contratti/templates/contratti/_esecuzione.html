@@ -15,7 +15,7 @@
 <div class="tabella-card mb-4"><div class="table-responsive"><table class="table table-sm table-hover align-middle">
   <thead><tr><th>Fattura</th><th class="text-end">Documento</th><th class="text-end">Valore base</th><th>Rata</th><th>Passo</th></tr></thead>
   <tbody>{% for r in fatture %}{% url 'contratti:fattura' r.f.pk as link %}
-    <tr data-href="{{ link }}"><td><a href="{{ link }}">{{ r.f.numero }}</a> <span class="small text-body-secondary">del {{ r.f.data|date:"d/m/Y" }}</span>{% if r.f.fuori_registro %} <span class="stato stato-grigio">fuori registro</span>{% endif %}</td><td class="text-end">{{ r.f.importo_documento|euro }}</td><td class="text-end">{{ r.f.valore_base|euro }}</td><td class="small">{{ r.f.rata|default:"—" }}</td><td>{{ r.passo|passo_badge }}{% if r.f.referente %} <span class="small text-body-secondary">{{ r.f.referente.username }}</span>{% endif %}</td></tr>
+    <tr data-href="{{ link }}"><td><a href="{{ link }}">{{ r.f.numero }}</a> <span class="small text-body-secondary">del {{ r.f.data|date:"d/m/Y" }}</span>{% if r.f.fuori_registro %} <span class="stato stato-grigio">fuori registro</span>{% endif %}</td><td class="text-end">{{ r.f.importo_documento|euro }}</td><td class="text-end">{{ r.f.valore_base|euro }}</td><td class="small">{{ r.f.rata|default:"—" }}</td><td>{{ r.passo|passo_badge }}{% if r.f.referente %} <span class="small text-body-secondary">{{ r.f.referente }}</span>{% endif %}</td></tr>
   {% empty %}<tr><td colspan="5" class="text-body-secondary small">Nessuna fattura abbinata.</td></tr>{% endfor %}</tbody>
 </table></div></div>
 

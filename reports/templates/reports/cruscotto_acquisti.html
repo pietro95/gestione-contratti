@@ -39,7 +39,7 @@
     <div class="card-header">{{ etichetta }} <span class="badge rounded-pill text-bg-light">{{ righe|length }}</span></div>
     {% if righe %}<ul class="list-group list-group-flush">{% for r in righe %}
       <li class="list-group-item"><a href="{% url 'contratti:fattura' r.fattura.pk %}">Fattura {{ r.fattura.numero }}</a> · {{ r.fattura.fornitore }}{% if r.ferma %} <span class="stato stato-rosso">ferma</span>{% endif %}
-        <div class="small text-body-secondary">{{ r.fattura.importo_documento|euro }}{% if r.fattura.contratto %} · {{ r.fattura.contratto.numero_contratto|default:"contratto" }}{% endif %}{% if r.fattura.referente %} · {{ r.fattura.referente.username }}{% endif %} · {{ r.giorni }} giorni</div></li>
+        <div class="small text-body-secondary">{{ r.fattura.importo_documento|euro }}{% if r.fattura.contratto %} · {{ r.fattura.contratto.numero_contratto|default:"contratto" }}{% endif %}{% if r.fattura.referente %} · {{ r.fattura.referente }}{% endif %} · {{ r.giorni }} giorni</div></li>
     {% endfor %}</ul>{% else %}<div class="vuoto py-3">Nessuna.</div>{% endif %}
   </div></div>
   {% endfor %}

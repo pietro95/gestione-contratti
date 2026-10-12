@@ -23,7 +23,7 @@
   <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Passo da fare</div><div class="kpi-valore fs-5">{{ r.passo_label }}</div><div class="kpi-nota">{% if f.data_trasferimento %}trasferita il {{ f.data_trasferimento|date:"d/m/Y" }}{% endif %}</div></div></div></div>
   <div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">Importo del documento</div><div class="kpi-valore">{{ f.importo_documento|euro }}</div><div class="kpi-nota">Importo SAP</div></div></div></div>
   <div class="col-sm-6 col-xl-3"><div class="card kpi verde"><div class="card-body"><div class="kpi-etichetta">Valore base dal contratto</div><div class="kpi-valore">{{ f.valore_base|euro }}</div><div class="kpi-nota">{% if f.oneri %}oneri {{ f.oneri|euro }}{% endif %}{% if f.bollo %} · bollo {{ f.bollo|euro }}{% endif %}</div></div></div></div>
-  <div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">In carico a</div><div class="kpi-valore fs-6">{% if f.referente %}{{ f.referente.get_full_name|default:f.referente.username }}{% else %}nessuno{% endif %}</div><div class="kpi-nota">{% if f.data_presa_in_carico %}dal {{ f.data_presa_in_carico|date:"d/m/Y" }}{% elif referente_proposto %}proposto: {{ referente_proposto.get_full_name|default:referente_proposto.username }}{% else %}nessun referente proposto{% endif %}</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">In carico a</div><div class="kpi-valore fs-6">{% if f.referente %}{{ f.referente }}{% else %}nessuno{% endif %}</div><div class="kpi-nota">{% if f.data_presa_in_carico %}dal {{ f.data_presa_in_carico|date:"d/m/Y" }}{% elif referente_proposto %}proposto: {{ referente_proposto }}{% else %}nessun referente proposto{% endif %}</div></div></div></div>
 </div>
 
 <div class="row g-4">
@@ -56,7 +56,7 @@
         <div class="col-12"><label class="form-label" for="{{ form_convalida.nota_convalida.id_for_label }}">Nota</label>{{ form_convalida.nota_convalida }}<div class="form-text">{{ form_convalida.nota_convalida.help_text }}</div></div>
         <div class="col-12"><button class="btn btn-primary" type="submit">Registra l'esito</button></div>
       </form>
-      {% elif f.referente %}<p class="small text-body-secondary mb-0">La convalida la registra {{ f.referente.get_full_name|default:f.referente.username }}, che ha in carico la fattura.</p>{% endif %}
+      {% elif f.referente %}<p class="small text-body-secondary mb-0">La convalida la registra {{ f.referente }}, che ha in carico la fattura.</p>{% endif %}
     </div></section>
 
     <section class="card mb-4" aria-labelledby="t-importi"><div class="card-body">
@@ -84,7 +84,7 @@
       <h2 class="h6 text-uppercase text-body-secondary" id="t-riassegna">Assegna a un referente</h2>
       <form method="post" action="{% url 'contratti:fattura_riassegna' f.pk %}" class="row g-2">
         {% csrf_token %}
-        <div class="col-12"><label class="form-label" for="{{ form_riassegna.utente.id_for_label }}">Assegna a</label>{{ form_riassegna.utente }}{% if referente_proposto %}<div class="form-text">Proposto: {{ referente_proposto.get_full_name|default:referente_proposto.username }}.</div>{% endif %}</div>
+        <div class="col-12"><label class="form-label" for="{{ form_riassegna.utente.id_for_label }}">Assegna a</label>{{ form_riassegna.utente }}{% if referente_proposto %}<div class="form-text">Proposto: {{ referente_proposto }}.</div>{% endif %}</div>
         <div class="col-12"><button class="btn btn-outline-primary" type="submit">Assegna</button></div>
       </form>
     </div></section>
