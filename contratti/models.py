@@ -1395,8 +1395,7 @@ class RichiestaAcquisto(Archiviabile):
     @property
     def nome_referente(self) -> str:
         if self.referente_utente_id:
-            u = self.referente_utente
-            return u.get_full_name() or u.username
+            return str(self.referente_utente)
         return self.referente
 
     def fabbisogno_della_pratica(self) -> Fabbisogno | None:

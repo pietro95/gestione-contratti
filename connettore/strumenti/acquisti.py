@@ -31,7 +31,7 @@ def nome(utente) -> str | None:
     """Solo il nome, mai altri dati dell'utente (D16)."""
     if utente is None:
         return None
-    return utente.get_full_name() or utente.get_username()
+    return str(utente)
 
 
 def _contratto_ref(c: m.Contratto | None) -> dict | None:

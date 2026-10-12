@@ -193,7 +193,9 @@ class RiassegnaForm(FormBase):
             .objects.filter(is_active=True)
             .filter(Q(is_superuser=True) | Q(groups__name__in=WRITE_ROLES))
         )
-        self.fields["utente"].queryset = utenti.distinct().order_by("username")
+        self.fields["utente"].queryset = utenti.distinct().order_by(
+            "last_name", "first_name", "username"
+        )
         self.fields["utente"].widget.attrs["class"] += " js-cerca"
 
 

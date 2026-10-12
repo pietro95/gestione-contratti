@@ -23,6 +23,10 @@ class User(AbstractUser):
             ),
         ]
 
+    def __str__(self):
+        """Nome completo da Active Directory (givenName + sn); username se manca."""
+        return self.get_full_name() or self.get_username()
+
 
 class LoginAttempt(models.Model):
     """Log dei login riusciti e falliti (SPEC §8.2). Mai la password."""

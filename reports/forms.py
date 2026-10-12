@@ -204,7 +204,7 @@ class FiltriRdaForm(FiltriClusterForm):
             get_user_model()
             .objects.filter(richieste_acquisto__isnull=False)
             .distinct()
-            .order_by("username")
+            .order_by("last_name", "first_name", "username")
         )
         self.fields["fornitore"].widget.attrs["class"] += " js-cerca"
         self.fields["q"].widget.attrs["placeholder"] = "N. RDA, descrizione, referente"
@@ -233,7 +233,7 @@ class FiltriRdaForm(FiltriClusterForm):
         if d.get("anno"):
             voci.append(f"anno {d['anno']}")
         if d.get("referente"):
-            voci.append(f"referente {d['referente'].get_username()}")
+            voci.append(f"referente {d['referente']}")
         if d.get("fornitore"):
             voci.append(f"fornitore {d['fornitore']}")
         if d.get("wbs"):
