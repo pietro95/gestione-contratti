@@ -240,6 +240,28 @@
     });
   }
 
+  // Campi SAP con limite di lunghezza (data-contatore="40"): caratteri usati sotto il campo.
+  function contatori(radice) {
+    radice.querySelectorAll("input[data-contatore]").forEach(function (el) {
+      if (el._contatore) return;
+      el._contatore = true;
+      var limite = parseInt(el.dataset.contatore, 10);
+      el.setAttribute("maxlength", String(limite));
+      var nota = document.createElement("div");
+      nota.className = "form-text contatore";
+      nota.id = (el.id || el.name) + "-contatore";
+      el.setAttribute("aria-describedby", ((el.getAttribute("aria-describedby") || "") + " " + nota.id).trim());
+      el.insertAdjacentElement("afterend", nota);
+      var aggiorna = function () {
+        var n = el.value.length;
+        nota.textContent = n + "/" + limite + " caratteri (limite SAP)";
+        nota.classList.toggle("text-danger", n > limite);
+      };
+      el.addEventListener("input", aggiorna);
+      aggiorna();
+    });
+  }
+
   function inizializza(radice) {
     tendine(radice);
     cluster(radice);
@@ -250,6 +272,7 @@
     formset(radice);
     selezioni(radice);
     gruppiDalRichiedente(radice);
+    contatori(radice);
   }
 
   document.addEventListener("DOMContentLoaded", function () {

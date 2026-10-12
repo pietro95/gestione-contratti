@@ -667,35 +667,64 @@ def test_tc15_fasi_via_mcp(editor, rda_bozza):
     assert ok(editor, "rda", {"id": rda_bozza.pk})["pratica"]["stato"]["stato"] == ("RDA approvata")
 
 
+TC17_LUNGA = "SWPROVA - Rinnovo licenza CAD (2 postazioni)"  # 44 caratteri
+TC17_BREVE = "SWPROVA - Rinnovo licenza CAD (2 post.)"  # entro i 40 di SAP
+
+
 def test_tc17_testo_della_richiesta_via_mcp(editor, tabelle_sap):  # noqa: F811
-    """Il testo della richiesta creata via MCP è quello di TC-17."""
+    """Il testo della richiesta creata via MCP è quello di TC-17, salvo il limite SAP di 40
+    caratteri: l'intestazione e la descrizione breve di TC-17 (44 caratteri) sono rifiutate
+    e si usa una versione accorciata (TC-17 da aggiornare)."""
     fornitore, conti = tabelle_sap
     fab = f.fabbisogno("Licenze CAD")
     m.RichiedenteSAP.objects.filter(codice="999901").update(predefinito=True)
-    anteprima = ok(editor, "crea_rda", {
-        "fabbisogno_id": fab.pk,
-        "intestazione": "SWPROVA - Rinnovo licenza CAD (2 postazioni)",
-        "descrizione": "Rinnovo licenza CAD (2 postazioni)",
-        "fornitore_proposto": fornitore.pk, "richiedente": "999901", "gruppo_acquisti": "G01",
-        "note_buyer": "Si allega preventivo",
-        "allegati": "preventivo nella cartella del file server",
-        "percorso_file_server":
-            f"{BASE}/2026/2026_09_29_SWPROVA_Rinnovo_licenza_CAD_2_postazioni",
-        "posizioni": [
-            {"descrizione_breve": "SWPROVA - Rinnovo licenza CAD (2 postazioni)",
-             "gruppo_merci": "GM-TEST01", "quantita": "2", "importo_unitario": "549.50",
-             "conto": conti["600001"].pk, "centro_costo": "C0001"},
-            {"descrizione_breve": "Supporto installazione", "gruppo_merci": "GM-TEST02",
-             "quantita": "2.5", "importo_unitario": "99.99", "conto": conti["600002"].pk,
-             "centro_costo": "C0001"},
-        ],
-    })  # fmt: skip
+
+    def argomenti(testo):
+        return {
+            "fabbisogno_id": fab.pk,
+            "intestazione": testo,
+            "descrizione": "Rinnovo licenza CAD (2 postazioni)",
+            "fornitore_proposto": fornitore.pk, "richiedente": "999901",
+            "gruppo_acquisti": "G01", "note_buyer": "Si allega preventivo",
+            "allegati": "preventivo nella cartella del file server",
+            "percorso_file_server":
+                f"{BASE}/2026/2026_09_29_SWPROVA_Rinnovo_licenza_CAD_2_postazioni",
+            "posizioni": [
+                {"descrizione_breve": testo, "gruppo_merci": "GM-TEST01", "quantita": "2",
+                 "importo_unitario": "549.50", "conto": conti["600001"].pk,
+                 "centro_costo": "C0001"},
+                {"descrizione_breve": "Supporto installazione", "gruppo_merci": "GM-TEST02",
+                 "quantita": "2.5", "importo_unitario": "99.99", "conto": conti["600002"].pk,
+                 "centro_costo": "C0001"},
+            ],
+        }  # fmt: skip
+
+    assert errore(editor, "crea_rda", argomenti(TC17_LUNGA)).endswith(
+        "«intestazione»: al massimo 40 caratteri."
+    )
+    anteprima = ok(editor, "crea_rda", argomenti(TC17_BREVE))
     esito = conferma(editor, anteprima)
-    assert esito["testo_richiesta"] == TESTO_ATTESO
+    assert esito["testo_richiesta"] == TESTO_ATTESO.replace(TC17_LUNGA, TC17_BREVE)
     quantita = [c for c in anteprima["modifiche"] if c["oggetto"] == "posizione della RDA"][1][
         "campi"
     ]["quantita"]
     assert quantita == "2.5"  # quantità, non importo: niente arrotondamento ai centesimi
+
+
+def test_limite_sap_di_40_caratteri_nel_form():
+    """Il form rifiuta intestazione e descrizione breve oltre i 40 caratteri (anche senza lo
+    schema del connettore); le RDA già registrate più lunghe si segnalano nella scheda."""
+    from contratti import forms_rda
+
+    form = forms_rda.RichiestaForm(
+        {"descrizione": "x", "intestazione": TC17_LUNGA}, instance=m.RichiestaAcquisto()
+    )
+    assert not form.is_valid() and "intestazione" in form.errors
+    posizione = forms_rda.PosizioneForm(
+        {"p-descrizione_breve": TC17_LUNGA, "p-quantita": "1", "p-importo_unitario": "1",
+         "p-natura": "OPEX"}, prefix="p",
+    )  # fmt: skip
+    assert "descrizione_breve" in posizione.errors
 
 
 def test_editor_di_un_altro_cluster(make_user, rda_bozza, una_tantum):
@@ -793,3 +822,22 @@ def test_il_richiedente_porta_il_gruppo_acquisti_della_sua_unita(editor, licenze
         m.RichiestaAcquisto.objects.get(pk=esplicito["oggetti"][0]["id"]).gruppo_acquisti.codice
         == "G01"
     )
+
+
+def test_centro_di_costo_predefinito_e_tendina(editor, licenze_cad):  # noqa: F811
+    """Posizioni nuove con il centro di costo predefinito; un codice fuori tabella è un errore
+    del form, come nell'interfaccia."""
+    m.CentroCosto.objects.create(codice="C0001", predefinito=True)
+    m.CentroCosto.objects.create(codice="C0002")
+    centri = ok(editor, "riferimenti", {})["centri_di_costo"]
+    assert [c["codice"] for c in centri if c["predefinito"]] == ["C0001"]
+    fab = licenze_cad[0]
+    nuova = {"descrizione_breve": "Licenze", "quantita": "1", "importo_unitario": "10.00"}
+    esito = conferma(editor, ok(editor, "crea_rda", {"fabbisogno_id": fab.pk,
+                                                     "posizioni": [nuova]}))  # fmt: skip
+    rda = m.RichiestaAcquisto.objects.get(pk=esito["oggetti"][0]["id"])
+    assert rda.posizioni.get().centro_costo == "C0001"
+    testo = errore(editor, "crea_rda", {
+        "fabbisogno_id": fab.pk, "posizioni": [{**nuova, "centro_costo": "XX99"}],
+    })  # fmt: skip
+    assert "posizioni[0].centro_costo" in testo

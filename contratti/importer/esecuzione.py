@@ -22,7 +22,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from contratti import models as m
-from contratti.importer import normalizza
+from contratti.importer import normalizza, tabelle
 from contratti.importer.report import Report
 from contratti.importer.riepilogo import data as leggi_data
 from contratti.importer.tabelle import FileNonValido
@@ -205,6 +205,10 @@ class Importatore:
             return False
         conto = m.ContoCoge.objects.filter(codice=_testo(r.get("conto"))).last()
         wbs = m.WBS.objects.filter(codice_wbs=_testo(r.get("wbs"))).first()
+        centro = _testo(r.get("centro_costo"))[:20]
+        if tabelle.centro_costo_da_segnalare(centro):
+            self.anomalia("RDA", r["_riga"], "CENTRO_COSTO_NON_IN_TABELLA", "centro_costo",
+                          centro, tabelle.MESSAGGIO_CENTRO_COSTO)  # fmt: skip
         quantita = _importo(r.get("quantita")) or Decimal(1)
         m.PosizioneRDA.objects.create(
             rda=rda,
@@ -215,7 +219,7 @@ class Importatore:
             di_cui_variabile=_importo(r.get("di_cui_variabile")) or Decimal(0),
             natura=m.Natura.CAPEX if wbs else m.Natura.OPEX,
             conto=conto,
-            centro_costo=_testo(r.get("centro_costo"))[:20],
+            centro_costo=centro,
             wbs=wbs,
         )
         return True

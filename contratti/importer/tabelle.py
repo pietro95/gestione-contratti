@@ -81,3 +81,17 @@ def codice(valore) -> str | None:
     if isinstance(valore, float) and valore.is_integer():
         valore = int(valore)
     return normalizza.codice(valore)
+
+
+MESSAGGIO_CENTRO_COSTO = (
+    "Centro di costo assente dalla tabella: si registra così e si sistema dalla tendina."
+)
+
+
+def centro_costo_da_segnalare(codice: str | None) -> bool:
+    """Il codice non è nella tabella dei centri di costo (solo se la tabella è caricata)."""
+    from contratti import models as m
+
+    if not codice or not m.CentroCosto.objects.exists():
+        return False
+    return not m.CentroCosto.objects.filter(codice=codice).exists()

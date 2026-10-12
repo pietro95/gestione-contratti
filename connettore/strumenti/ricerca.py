@@ -107,6 +107,10 @@ def riferimenti(ctx: Contesto, argomenti: dict) -> dict:
             }
             for g in m.GruppoMerci.objects.filter(attivo=True).select_related("categoria")
         ],  # fmt: skip
+        "centri_di_costo": [
+            {"codice": c.codice, "descrizione": c.descrizione, "predefinito": c.predefinito}
+            for c in m.CentroCosto.objects.filter(attivo=True)
+        ],
         "tipi_acquisto": [{"codice": v, "nome": n} for v, n in m.Contratto.TipoAcquisto.choices],
         "scopi_rda": [{"codice": v, "nome": n} for v, n in m.RichiestaAcquisto.Scopo.choices],
         "soglie": [

@@ -3,10 +3,10 @@
 <div class="tabella-card mb-3"><div class="table-responsive"><table class="table table-sm align-middle scheda-sap">
   <thead><tr><th>Campo</th><th>Valore</th><th class="d-print-none"><span class="visually-hidden">Copia</span></th></tr></thead>
   <tbody>
-    {% include "contratti/_riga_sap.html" with etichetta="Intestazione" valore=scheda.intestazione sap=True %}
+    {% include "contratti/_riga_sap.html" with etichetta="Intestazione" valore=scheda.intestazione sap=True limite=True %}
     {% for p in scheda.posizioni %}
       <tr class="table-light"><th colspan="3" scope="rowgroup">Posizione {{ forloop.counter }} · {{ p.importo|euro }}{% if p.di_cui_variabile %} (di cui variabile {{ p.di_cui_variabile|euro }}){% endif %}</th></tr>
-      {% include "contratti/_riga_sap.html" with etichetta="Descrizione breve" valore=p.descrizione_breve sap=True %}
+      {% include "contratti/_riga_sap.html" with etichetta="Descrizione breve" valore=p.descrizione_breve sap=True limite=True %}
       {% include "contratti/_riga_sap.html" with etichetta="Gruppo merci" valore=p.gruppo_merci sap=True %}
       {% include "contratti/_riga_sap.html" with etichetta="Quantità" valore=p.quantita|quantita sap=True %}
       {% include "contratti/_riga_sap.html" with etichetta="Importo unitario" valore=p.importo_unitario|importo_sap sap=True %}

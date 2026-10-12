@@ -143,6 +143,34 @@ def _solo_attivi(form, campo, queryset):
         form.fields[campo].queryset = queryset
 
 
+def tendina_centro_costo(form, campo: str = "centro_costo", attuale: str = "", nuovo=False):
+    """Centro di costo da tendina (tabella «Centri di costo»): si salva il codice.
+
+    Un codice già registrato e assente dalla tabella resta tra le scelte, segnalato, così il
+    form si salva senza cambiarlo. Per una voce o posizione nuova si propone il predefinito.
+    Finché la tabella è vuota il campo resta di testo (prima del caricamento).
+    """
+    if campo not in form.fields:
+        return
+    attivi = list(m.CentroCosto.objects.filter(attivo=True))
+    if not attivi:
+        return
+    codici = {c.codice for c in attivi}
+    scelte = [("", "—"), *((c.codice, str(c)) for c in attivi)]
+    if attuale and attuale not in codici:
+        scelte.append((attuale, f"{attuale} (non in tabella: sceglierne uno)"))
+    vecchio = form.fields[campo]
+    form.fields[campo] = forms.ChoiceField(
+        label=vecchio.label,
+        choices=scelte,
+        required=vecchio.required,
+        help_text="Dalla tabella dei centri di costo (Gestione → Import «Tabelle SAP»).",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    if nuovo and not attuale:
+        form.initial.setdefault(campo, m.CentroCosto.codice_predefinito())
+
+
 class FornitoreForm(ModelFormBootstrap):
     class Meta:
         model = m.Fornitore
@@ -446,6 +474,9 @@ class VoceForm(ModelFormBootstrap):
         for campo in ("wbs", "wbs_rinnovi"):
             self.fields[campo].queryset = wbs_ammesse(self.cluster)
         self.fields["natura_rinnovi"].choices = [("", "Come questa voce"), *m.Natura.choices]
+        tendina_centro_costo(
+            self, attuale=self.instance.centro_costo, nuovo=self.instance.pk is None
+        )
 
     def clean(self):
         dati = super().clean()

@@ -35,7 +35,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from contratti import models as m
-from contratti.importer import normalizza
+from contratti.importer import normalizza, tabelle
 from contratti.importer.report import Report
 from contratti.importer.tabelle import FileNonValido
 
@@ -330,6 +330,9 @@ class Importatore:
         data_rda = data(primo["data_rda"])
         prima = len(self.report.anomalie)
         conto, centro = self._conto_e_centro(primo, n, data_rda)
+        if tabelle.centro_costo_da_segnalare(centro):
+            self.anomalia(n, "CENTRO_COSTO_NON_IN_TABELLA", "centro_costo", centro,
+                          tabelle.MESSAGGIO_CENTRO_COSTO)  # fmt: skip
         if data_rda is None or data_rda < INIZIO_SAP or conto is None or not conto.cluster_id:
             # Fuori perimetro: solo questa anomalia, non quelle del conto.
             del self.report.anomalie[prima:]

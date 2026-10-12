@@ -49,9 +49,10 @@ def _dati_quote(quote: list[dict]) -> dict:
 def _form_voce(contratto: m.Contratto, argomenti: dict, voce: m.VoceContratto | None = None):
     """VoceForm, PianoForm e QuoteFormSet come nella vista della voce."""
     piano = getattr(voce, "piano_fatturazione", None) if voce else None
-    form = forms.VoceForm(
-        _dati(forms.VoceForm, voce, argomenti), instance=voce, contratto=contratto
-    )
+    dati = _dati(forms.VoceForm, voce, argomenti)
+    if voce is None and "centro_costo" not in argomenti:
+        dati["centro_costo"] = m.CentroCosto.codice_predefinito()  # come il form vuoto
+    form = forms.VoceForm(dati, instance=voce, contratto=contratto)
     piano_form = forms.PianoForm(
         _dati(forms.PianoForm, piano, argomenti.get("piano", {})), instance=piano
     )
@@ -257,7 +258,11 @@ CAMPI_VOCE = {
     "proroga": {**SCHEMA_ID, "description": "id della proroga, se la voce ne è l'importo."},
     "natura": {"type": "string", "enum": list(m.Natura.values)},
     "conto": {**SCHEMA_ID, "description": "id del conto («riferimenti»)."},
-    "centro_costo": {"type": "string", "maxLength": 20},
+    "centro_costo": {
+        "type": "string",
+        "maxLength": 20,
+        "description": "Codice del centro di costo («riferimenti»); di default il predefinito.",
+    },
     "wbs": {**SCHEMA_ID, "description": "id della WBS («riferimenti»); obbligatoria per CAPEX."},
     "importo_fisso": SCHEMA_IMPORTO,
     "massimale_variabile": SCHEMA_IMPORTO,

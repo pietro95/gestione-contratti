@@ -167,6 +167,7 @@ class RichiedenteSAPAdmin(TabellaSAPAdmin):
 
 
 admin.site.register(m.GruppoAcquisti, TabellaSAPAdmin)
+admin.site.register(m.CentroCosto, TabellaSAPAdmin)
 
 
 @admin.register(m.GruppoMerci)

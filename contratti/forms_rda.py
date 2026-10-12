@@ -7,11 +7,13 @@ from django import forms
 
 from contratti import models as m
 from contratti import permessi
+from contratti.engine import acquisti as motore
 from contratti.forms import (
     FormBase,
     ImportoField,
     ModelFormBootstrap,
     _solo_attivi,
+    tendina_centro_costo,
     verifica_natura_wbs,
     wbs_ammesse,
 )
@@ -31,8 +33,21 @@ CAMPI_RICHIESTA = [
 ]
 
 
+def _campo_sap(etichetta: str, required: bool = False) -> forms.CharField:
+    """Testo di un campo SAP da 40 caratteri (intestazione, descrizione breve)."""
+    limite = motore.LUNGHEZZA_TESTO_SAP
+    return forms.CharField(
+        label=etichetta,
+        max_length=limite,
+        required=required,
+        widget=forms.TextInput(attrs={"data-contatore": limite}),
+    )
+
+
 class RichiestaForm(ModelFormBootstrap):
     """Campi della richiesta di RDA, nell'ordine della scheda SAP (SPEC §5.9)."""
+
+    intestazione = _campo_sap("Intestazione")
 
     sezioni = [
         ("Richiesta", ["descrizione", "intestazione", "fornitore_proposto"]),
@@ -70,7 +85,10 @@ class RichiestaForm(ModelFormBootstrap):
             self.fields[
                 "gruppo_acquisti"
             ].help_text = "Proposto dal richiedente: il gruppo acquisti della sua unità."
-        self.fields["intestazione"].help_text = "Proposta: nome breve del fornitore − descrizione."
+        self.fields["intestazione"].help_text = (
+            "Al massimo 40 caratteri (limite di SAP). Proposta: nome breve del fornitore − "
+            "descrizione."
+        )
         self.fields[
             "percorso_file_server"
         ].help_text = "Proposto dalla cartella base del cluster; crea la cartella con questo nome."
@@ -127,7 +145,7 @@ class PosizioneForm(FormBase):
     """Una posizione della RDA. Righe vuote ignorate; le posizioni salvate non si cancellano."""
 
     pk = forms.IntegerField(widget=forms.HiddenInput, required=False)
-    descrizione_breve = forms.CharField(label="Descrizione breve", max_length=250, required=False)
+    descrizione_breve = _campo_sap("Descrizione breve")
     gruppo_merci = forms.ModelChoiceField(
         queryset=m.GruppoMerci.objects.none(), required=False, label="Gruppo merci"
     )
@@ -155,6 +173,8 @@ class PosizioneForm(FormBase):
         self.fields["conto"].queryset = conti
         self.fields["wbs"].queryset = wbs_ammesse(cluster)
         self.fields["quantita"].widget.attrs["inputmode"] = "decimal"
+        attuale = (self.initial or {}).get("centro_costo") or ""
+        tendina_centro_costo(self, attuale=attuale, nuovo=not (self.initial or {}).get("pk"))
 
     def vuota(self) -> bool:
         d = getattr(self, "cleaned_data", {}) or {}

@@ -95,6 +95,13 @@ def test_il_richiedente_propone_il_gruppo_acquisti(pagina, dati):
     )
     pagina.goto(f"{pagina.base}/rda/nuova/{fab.pk}/")
     expect(pagina.locator("#id_gruppo_acquisti")).to_have_value(str(g1.pk))
+    # Intestazione: al massimo 40 caratteri (limite SAP), con il contatore.
+    pagina.fill("#id_intestazione", "x" * 45)
+    expect(pagina.locator("#id_intestazione")).to_have_value("x" * 40)
+    expect(pagina.locator("#id_intestazione-contatore")).to_have_text(
+        "40/40 caratteri (limite SAP)"
+    )
+    pagina.fill("#id_intestazione", "Intestazione di prova")
     pagina.select_option("#id_richiedente", str(altro.pk))
     expect(pagina.locator("#id_gruppo_acquisti")).to_have_value(str(g2.pk))
     assert violazioni_axe(pagina) == []
