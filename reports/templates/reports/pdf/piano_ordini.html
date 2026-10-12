@@ -7,10 +7,10 @@
   {% for natura, totali in per_natura.items %}
   <td><div class="etichetta">{{ natura }} · valore probabile</div><div class="valore">{{ totali.probabile|euro }}</div><div class="nota">fisso {{ totali.fisso|euro }} · massimo {{ totali.massimo|euro }}</div></td>
   {% endfor %}
-  <td><div class="etichetta">Possibile frazionamento</div><div class="valore">{{ piano.avvisi|length }}</div><div class="nota">{% for s in piano.soglie %}soglia {{ s.importo|euro }}{% if s.provvisorio %} (provvisoria){% endif %}{% endfor %}</div></td>
+  {% if con_avvisi %}<td><div class="etichetta">Possibile frazionamento</div><div class="valore">{{ piano.avvisi|length }}</div><div class="nota">{% for s in piano.soglie %}soglia {{ s.importo|euro }}{% if s.provvisorio %} (provvisoria){% endif %}{% endfor %}</div></td>{% endif %}
 </tr></table>
 
-{% if piano.avvisi %}
+{% if con_avvisi and piano.avvisi %}
 <div class="avvisi">
   <p><b>Possibile frazionamento</b>: gruppi di previsti che, sommati al livello massimo, raggiungono la soglia. Valutare l'accorpamento.</p>
   <ul>{% for a in piano.avvisi %}<li>{{ a.tipo|capfirst }} <b>{{ a.nome }}</b>: {{ a.righe|length }} previsti, totale {{ a.totale_massimo|euro }} ≥ {{ a.soglia.importo|euro }} ({% for r in a.righe %}{{ r.fabbisogno.descrizione }}{% if not forloop.last %}; {% endif %}{% endfor %})</li>{% endfor %}</ul>
@@ -24,7 +24,7 @@
   <tbody>
   {% for r in piano.righe %}
     <tr>
-      <td class="sx"><b>{{ r.fabbisogno.descrizione }}</b><div class="tenue">{{ r.natura }}{% if r.a_progetto %} · WBS a progetto{% endif %} · {{ r.fabbisogno.area }} · {{ r.categoria }}{% if not r.contratto_uscente %} · nuovo{% endif %}{% if r.sopra_soglia %} · oltre soglia{% endif %}</div></td>
+      <td class="sx"><b>{{ r.fabbisogno.descrizione }}</b><div class="tenue">{{ r.natura }}{% if r.a_progetto %} · WBS a progetto{% endif %} · {{ r.fabbisogno.area }} · {{ r.categoria }}{% if not r.contratto_uscente %} · nuovo{% endif %}{% if con_avvisi and r.sopra_soglia %} · oltre soglia{% endif %}</div></td>
       <td class="sx">{{ r.fornitore_uscente|default:"—" }}</td>
       <td class="sx">{{ r.procedura|default:"—" }}<div class="tenue">{{ r.lead_time_mesi }} mesi di lead time</div></td>
       <td class="num">{{ r.data_limite|date:"d/m/Y" }}</td>

@@ -127,6 +127,8 @@ def piano_ordini(request):
         codici = form.codici_cluster()
         contesto |= {
             "titolo": f"Piano ordini {piano.anno}",
+            # Gli avvisi di frazionamento sono una verifica interna: nel PDF solo a richiesta.
+            "con_avvisi": bool(request.GET.get("dettaglio")),
             "filtri": form.descrizione(),
             "voci_filtri": form.voci(),
             "cluster": permessi.descrivi_filtro(codici),

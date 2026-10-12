@@ -3,7 +3,7 @@
 {% block title %}Piano ordini {{ form.anno.value }}{% endblock %}
 {% block titolo_pagina %}Piano ordini {{ form.anno.value }}{% endblock %}
 {% block sottotitolo %}<div class="sottotitolo">Al {{ oggi|date:"d/m/Y" }} · contratti previsti con avvio del servizio nell'anno · importi imponibili sull'intera durata</div>{% endblock %}
-{% block azioni %}{% include "reports/_azioni.html" %}{% endblock %}
+{% block azioni %}{% include "reports/_azioni.html" with con_dettaglio=True etichetta_dettaglio="PDF con gli avvisi di frazionamento" %}{% endblock %}
 {% block content %}
 {% include "reports/_filtri.html" %}
 {% if piano %}

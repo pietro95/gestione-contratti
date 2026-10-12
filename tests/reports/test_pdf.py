@@ -137,3 +137,17 @@ def test_cluster_in_evidenza_nel_pdf(dati, lettore, catturato):
     assert '<span class="filtro">Cluster: IT</span>' in render_to_string(
         catturato["template"], catturato["contesto"]
     )
+
+
+def test_piano_ordini_pdf_avvisi_di_frazionamento_solo_a_richiesta(dati, lettore, catturato):
+    url = reverse("reports:piano_ordini") + "?anno=2027&area=tutti&formato=pdf"
+    _scarica(lettore, url)
+    assert "Possibile frazionamento" not in render_to_string(
+        catturato["template"], catturato["contesto"]
+    )
+    _scarica(lettore, url + "&dettaglio=1")
+    assert "Possibile frazionamento" in render_to_string(
+        catturato["template"], catturato["contesto"]
+    )
+    html = lettore.get(reverse("reports:piano_ordini") + "?anno=2027").content.decode()
+    assert "PDF con gli avvisi di frazionamento" in html
