@@ -99,7 +99,7 @@ def documento_proposto(fattura: m.Fattura) -> str:
 def anomalie(fattura: m.Fattura) -> list[str]:
     codici = []
     if not motore.importo_quadra(
-        fattura.importo_documento, fattura.valore_base, fattura.oneri, fattura.bollo
+        fattura.importo_documento, fattura.valore_base, fattura.oneri, fattura.bollo, fattura.iva
     ):
         codici.append("IMPORTO_NON_QUADRA")
     if fattura.contratto_id and fattura.valore_base is None and not fattura.fuori_registro:
@@ -413,6 +413,11 @@ def convalida(
     )
 
 
+def aliquote_iva() -> list[Decimal]:
+    """Aliquote IVA attive (tabella di configurazione)."""
+    return list(m.AliquotaIVA.objects.filter(attiva=True).values_list("aliquota", flat=True))
+
+
 def aggiorna_importi(
     fattura: m.Fattura,
     valore_base: Decimal | None,
@@ -420,9 +425,19 @@ def aggiorna_importi(
     bollo: Decimal | None,
     voce: m.VoceContratto | None = None,
     rata: m.Rata | None = None,
+    *,
+    iva: Decimal | None = None,
 ) -> None:
-    """Valore base, oneri, bollo; con il contratto anche voce e rata abbinata (la rata diventa
-    consuntivo e riceve il numero di fattura; il suo importo non cambia)."""
+    """Valore base, oneri, bollo e IVA; con il contratto anche voce e rata abbinata (la rata
+    diventa consuntivo e riceve il numero di fattura; il suo importo non cambia).
+
+    Senza IVA indicata: se la differenza dall'importo del documento è l'IVA di un'aliquota
+    della tabella (SAP riporta spesso l'importo con l'IVA), l'IVA si registra da sola."""
+    if iva is None:
+        riconosciuta = motore.iva_riconosciuta(
+            fattura.importo_documento, valore_base, oneri, bollo, aliquote_iva()
+        )
+        iva = riconosciuta[1] if riconosciuta else None
     if voce is not None and voce.contratto_id != fattura.contratto_id:
         raise OperazioneNonAmmessa("La voce è di un altro contratto.")
     if rata is not None and rata.piano.voce.contratto_id != fattura.contratto_id:
@@ -430,7 +445,8 @@ def aggiorna_importi(
     if rata is not None and m.Fattura.objects.filter(rata=rata).exclude(pk=fattura.pk).exists():
         raise OperazioneNonAmmessa("La rata è già abbinata a un'altra fattura.")
     fattura.valore_base, fattura.oneri, fattura.bollo = valore_base, oneri, bollo
-    campi = ["valore_base", "oneri", "bollo"]
+    fattura.iva = iva
+    campi = ["valore_base", "oneri", "bollo", "iva"]
     if fattura.contratto_id:
         precedente = fattura.rata if fattura.rata_id and fattura.rata_id != getattr(
             rata, "pk", None
@@ -449,6 +465,23 @@ def aggiorna_importi(
                        update_fields=["consuntivo", "numero_fattura"])  # fmt: skip
         return
     _salva(fattura, "Importi", update_fields=campi)
+
+
+def scorpora_iva(
+    fattura: m.Fattura,
+    aliquota: Decimal,
+    oneri: Decimal | None,
+    bollo: Decimal | None,
+    voce: m.VoceContratto | None = None,
+    rata: m.Rata | None = None,
+) -> None:
+    """Importo del documento con l'IVA: valore base e IVA dallo scorporo dell'aliquota."""
+    if aliquota not in aliquote_iva():
+        raise OperazioneNonAmmessa("Aliquota IVA non prevista dalla tabella.")
+    valore_base, iva = motore.scorporo_iva(fattura.importo_documento, oneri, bollo, aliquota)
+    if valore_base < 0:
+        raise OperazioneNonAmmessa("Oneri e bollo superano l'importo senza IVA.")
+    aggiorna_importi(fattura, valore_base, oneri, bollo, voce, rata, iva=iva)
 
 
 def registra(

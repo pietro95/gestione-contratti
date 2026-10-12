@@ -11,6 +11,8 @@ e stato della pratica, passo della fattura e commento per PAC, fatturato e resid
 contratto, motivo «da chiudere».
 """
 
+from decimal import Decimal, InvalidOperation
+
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 
@@ -705,18 +707,26 @@ def _importi(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:
         else motore.valore_base_proposto(f.importo_documento, f.oneri, f.bollo),
         "oneri": f.oneri,
         "bollo": f.bollo,
+        "iva": f.iva,
         "voce": f.voce_id,
         "rata": f.rata_id,
     }
-    for campo, chiave in (("valore_base",) * 2, ("oneri",) * 2, ("bollo",) * 2,
+    for campo, chiave in (("valore_base",) * 2, ("oneri",) * 2, ("bollo",) * 2, ("iva",) * 2,
                           ("voce", "voce_id"), ("rata", "rata_id")):  # fmt: skip
         if chiave in argomenti:
             dati[campo] = argomenti[chiave]
     form = ff.ImportiForm({k: _form_valore(v) for k, v in dati.items()}, fattura=f)
     valida(form)
     d = form.cleaned_data
+    if "scorpora_iva" in argomenti:  # come il pulsante «Scorpora IVA» dell'interfaccia
+        try:
+            aliquota = Decimal(argomenti["scorpora_iva"])
+        except InvalidOperation:
+            raise ErroreTool("«scorpora_iva»: aliquota non valida, es. «22».") from None
+        fatture.scorpora_iva(f, aliquota, d["oneri"], d["bollo"], d.get("voce"), d.get("rata"))
+        return
     fatture.aggiorna_importi(f, d["valore_base"], d["oneri"], d["bollo"], d.get("voce"),
-                             d.get("rata"))  # fmt: skip
+                             d.get("rata"), iva=d.get("iva"))  # fmt: skip
 
 
 def _documento(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:
@@ -1155,6 +1165,18 @@ STRUMENTI = [
                 "valore_base": SCHEMA_IMPORTO,
                 "oneri": SCHEMA_IMPORTO,
                 "bollo": SCHEMA_IMPORTO,
+                "iva": {
+                    **SCHEMA_IMPORTO,
+                    "description": "IVA compresa nell'importo del "
+                    "documento; omessa: riconosciuta se è l'IVA di un'aliquota.",
+                },
+                "scorpora_iva": {
+                    "type": "string",
+                    "maxLength": 6,
+                    "description": "Aliquota da scorporare dall'importo del documento (es. "
+                    "«22»): valore base e IVA calcolati; ignora «valore_base» e "
+                    "«iva».",
+                },
                 "voce_id": SCHEMA_ID,
                 "rata_id": SCHEMA_ID,
             },

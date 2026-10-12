@@ -6,6 +6,8 @@ controlli di ``contratti.fatture`` (cluster del contratto, chi ha in carico la f
 Admin e addetto): il Reader riceve 403.
 """
 
+from decimal import Decimal, InvalidOperation
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -211,6 +213,7 @@ def fattura_dettaglio(request, pk):
         "valore_base": f.valore_base,
         "oneri": f.oneri,
         "bollo": f.bollo,
+        "iva": f.iva,
         "voce": f.voce_id,
         "rata": f.rata_id,
     }
@@ -244,6 +247,7 @@ def fattura_dettaglio(request, pk):
             ),  # fmt: skip
             "form_convalida": forms.ConvalidaForm(instance=f),
             "form_importi": forms.ImportiForm(fattura=f, initial=iniziali_importi),
+            "aliquote_iva": fatture.aliquote_iva(),
             "form_documento": forms.DocumentoFatturaForm(
                 initial={
                     "tipo": (
@@ -375,10 +379,24 @@ def fattura_importi(request, pk):
         ))  # fmt: skip
         return redirect("contratti:fattura", pk=pk)
     d = form.cleaned_data
+    if scorporo := request.POST.get("scorporo"):
+        try:
+            aliquota = Decimal(scorporo)
+        except InvalidOperation:
+            messages.error(request, "Aliquota IVA non valida.")
+            return redirect("contratti:fattura", pk=pk)
+        return _azione(
+            request, pk,
+            lambda x: fatture.scorpora_iva(
+                x, aliquota, d["oneri"], d["bollo"], d.get("voce"), d.get("rata")
+            ),
+            f"IVA {aliquota.normalize():f}% scorporata: valore base e IVA registrati.",
+        )  # fmt: skip
     return _azione(
         request, pk,
         lambda x: fatture.aggiorna_importi(
-            x, d["valore_base"], d["oneri"], d["bollo"], d.get("voce"), d.get("rata")
+            x, d["valore_base"], d["oneri"], d["bollo"], d.get("voce"), d.get("rata"),
+            iva=d.get("iva"),
         ),
         "Importi registrati.",
     )  # fmt: skip

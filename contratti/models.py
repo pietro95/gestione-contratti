@@ -113,6 +113,29 @@ class Soglia(ConfigurazioneProvvisoria):
         return f"{self.descrizione} (dal {self.valida_dal:%d/%m/%Y})"
 
 
+class AliquotaIVA(ConfigurazioneProvvisoria):
+    """Aliquote IVA riconosciute nell'importo delle fatture (scorporo e quadratura)."""
+
+    aliquota = percentuale("aliquota (%)", unique=True)
+    descrizione = models.CharField(max_length=100, blank=True)
+    attiva = models.BooleanField(default=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "aliquota IVA"
+        verbose_name_plural = "aliquote IVA"
+        ordering = ["-aliquota"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(aliquota__gt=0) & Q(aliquota__lt=100),
+                name="contratti_aliquotaiva_tra_0_e_100",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.aliquota.normalize():f}%"
+
+
 class Parametro(ConfigurazioneProvvisoria):
     """Parametro numerico con validità temporale (giorni di pagamento, adeguamento dei previsti)."""
 
@@ -1530,6 +1553,8 @@ class Fattura(Archiviabile):
     valore_base = importo("valore base prelevato dal contratto", null=True, blank=True)
     oneri = importo("oneri previdenziali", null=True, blank=True)
     bollo = importo("bollo", null=True, blank=True)
+    # IVA compresa nell'importo del documento (SAP lo riporta spesso con l'IVA).
+    iva = importo("IVA compresa nell'importo", null=True, blank=True)
     voce = models.ForeignKey(
         VoceContratto, on_delete=models.PROTECT, null=True, blank=True, related_name="fatture"
     )
@@ -1585,7 +1610,8 @@ class Fattura(Archiviabile):
             models.CheckConstraint(
                 condition=(Q(valore_base__isnull=True) | Q(valore_base__gte=0))
                 & (Q(oneri__isnull=True) | Q(oneri__gte=0))
-                & (Q(bollo__isnull=True) | Q(bollo__gte=0)),
+                & (Q(bollo__isnull=True) | Q(bollo__gte=0))
+                & (Q(iva__isnull=True) | Q(iva__gte=0)),
                 name="contratti_fattura_importi_non_negativi",
             ),
             models.UniqueConstraint(

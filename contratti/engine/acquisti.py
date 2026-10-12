@@ -347,11 +347,13 @@ def importo_quadra(
     valore_base: Decimal | None,
     oneri: Decimal | None,
     bollo: Decimal | None,
+    iva: Decimal | None = None,
 ) -> bool:
-    """Valore base + oneri + bollo = importo del documento; senza valore base non si giudica."""
+    """Valore base + oneri + bollo + IVA = importo del documento; senza valore base non si
+    giudica. L'IVA c'è quando SAP riporta l'importo con l'IVA."""
     if valore_base is None:
         return True
-    return valore_base + (oneri or ZERO) + (bollo or ZERO) == importo_documento
+    return valore_base + (oneri or ZERO) + (bollo or ZERO) + (iva or ZERO) == importo_documento
 
 
 def valore_base_proposto(
@@ -359,6 +361,41 @@ def valore_base_proposto(
 ) -> Decimal:
     """Proposta: importo del documento meno oneri e bollo (SPEC §4)."""
     return arrotonda(importo_documento - (oneri or ZERO) - (bollo or ZERO))
+
+
+TOLLERANZA_IVA = Decimal("0.01")  # l'IVA della fattura può differire di un arrotondamento
+
+
+def iva_riconosciuta(
+    importo_documento: Decimal,
+    valore_base: Decimal | None,
+    oneri: Decimal | None,
+    bollo: Decimal | None,
+    aliquote: list[Decimal],
+) -> tuple[Decimal, Decimal] | None:
+    """(aliquota, IVA) se la differenza tra l'importo del documento e valore base + oneri +
+    bollo è l'IVA di una delle aliquote su valore base + oneri, a meno di un centesimo.
+    L'IVA restituita è la differenza esatta, così l'importo quadra."""
+    if valore_base is None:
+        return None
+    imponibile = valore_base + (oneri or ZERO)
+    differenza = importo_documento - imponibile - (bollo or ZERO)
+    if differenza <= ZERO:
+        return None
+    for aliquota in sorted(aliquote, reverse=True):
+        if abs(differenza - arrotonda(imponibile * aliquota / 100)) <= TOLLERANZA_IVA:
+            return aliquota, differenza
+    return None
+
+
+def scorporo_iva(
+    importo_documento: Decimal, oneri: Decimal | None, bollo: Decimal | None, aliquota: Decimal
+) -> tuple[Decimal, Decimal]:
+    """(valore base, IVA) di un importo con l'IVA: imponibile = (importo − bollo) / (1 +
+    aliquota), arrotondato al centesimo; IVA = il resto, così l'importo quadra."""
+    lordo = importo_documento - (bollo or ZERO)
+    imponibile = arrotonda(lordo * 100 / (100 + aliquota))
+    return imponibile - (oneri or ZERO), lordo - imponibile
 
 
 def documento_accettazione(tipo_acquisto: str) -> str:
