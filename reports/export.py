@@ -171,7 +171,7 @@ def piano_xlsx(piano: PianoOrdini, oggi: datetime.date, filtri: str = "", natura
     colonne = [
         "Fabbisogno", "Natura", "Cluster", "Categoria", "Fornitore uscente", "Procedura presunta",
         "Lead time (mesi)", "Data limite di avvio", "Avvio servizio", "Fine servizio",
-        "Durata (mesi)", "Stato pratica", "In ritardo", "Fisso", "Probabile", "Massimo",
+        "Durata (mesi)", "Stato pratica", "Fase", "In ritardo", "Fisso", "Probabile", "Massimo",
         "Oltre soglia",
     ]  # fmt: skip
     righe = [
@@ -188,6 +188,7 @@ def piano_xlsx(piano: PianoOrdini, oggi: datetime.date, filtri: str = "", natura
             r.fine,
             r.durata_mesi,
             r.stato_pratica_label,
+            "da avviare" if r.da_avviare else "da concludere (fuori dai totali)",
             "sì" if r.in_ritardo else "",
             r.importi[Livello.FISSO],
             r.importi[Livello.PROBABILE],
@@ -199,7 +200,7 @@ def piano_xlsx(piano: PianoOrdini, oggi: datetime.date, filtri: str = "", natura
     # Un totale per natura: OPEX e CAPEX sono budget distinti.
     per_natura = {natura: piano.totali(natura)} if natura else piano.totali_per_natura()
     for n, totali in per_natura.items():
-        righe.append([f"Totale {n}"] + [None] * 12 + [totali[liv] for liv in LIVELLI] + [None])
+        righe.append([f"Totale {n}"] + [None] * 13 + [totali[liv] for liv in LIVELLI] + [None])
     xlsx.foglio(wb, "Piano ordini", intestazione, colonne, righe)
 
     righe = [

@@ -55,7 +55,7 @@ def test_somma_per_fornitore_e_singolo_oltre_soglia():
     )
     piano = calcola_piano(2027, OGGI)
     assert [(a.tipo, a.nome) for a in piano.avvisi] == [("fornitore", "Fornitore Unico S.r.l.")]
-    (grande,) = [r for r in piano.righe if r.fabbisogno.descrizione == "Servizio B"]
+    (grande,) = [r for r in piano.da_avviare if r.fabbisogno.descrizione == "Servizio B"]
     assert grande.sopra_soglia
 
 
@@ -72,9 +72,9 @@ def test_filtri_area_e_categoria():
     c = _in_scadenza("Rete B", "1000.00", categoria=f.categoria("Connettività"))
     c.fabbisogno.cluster = f.cluster("TLC")
     c.fabbisogno.save()
-    assert [r.fabbisogno.descrizione for r in calcola_piano(2027, OGGI, area="TLC").righe] == [
+    assert [r.fabbisogno.descrizione for r in calcola_piano(2027, OGGI, area="TLC").da_avviare] == [
         "Rete B"
     ]
     categoria = f.categoria().pk
-    righe = calcola_piano(2027, OGGI, categoria=categoria).righe
+    righe = calcola_piano(2027, OGGI, categoria=categoria).da_avviare
     assert [r.fabbisogno.descrizione for r in righe] == ["Licenza A"]

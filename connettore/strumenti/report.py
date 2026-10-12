@@ -190,6 +190,7 @@ def _riga_piano(r) -> dict:
         "su_wbs_a_progetto": r.a_progetto,
         "sopra_soglia": r.sopra_soglia,
         "in_ritardo": r.in_ritardo,
+        "fase": r.fase,
     }
 
 
@@ -213,9 +214,11 @@ def piano_ordini(ctx: Contesto, argomenti: dict) -> dict:
             "natura": natura or "OPEX e CAPEX",
         },
         "nota": (
-            "Una riga per ogni contratto previsto con data limite di avvio della procedura "
-            "nell'anno; nell'anno in corso anche quelli in ritardo (data limite passata, "
-            "pratica non conclusa), con in_ritardo vero. Importi "
+            "Una riga per ogni contratto previsto la cui procedura tocca l'anno: fase "
+            "da_avviare (data limite nell'anno, entra nei totali) o da_concludere (procedura "
+            "da avviare prima, ordine da emettere entro l'avvio; fuori dai totali). Nell'anno "
+            "in corso in_ritardo segnala data limite passata con pratica non avviata o "
+            "servizio che doveva già partire. Importi "
             "sull'intera durata, imponibile IVA esclusa. I rinnovi senza contratto non ci sono "
             "(non passano dal Procurement). OPEX e CAPEX si totalizzano separati."
         ),
@@ -384,8 +387,8 @@ STRUMENTI = [
         titolo="Piano ordini dell'anno",
         descrizione=(
             "Il piano per il Procurement: una riga per ogni contratto da rinnovare o nuovo con "
-            "data limite di avvio della procedura nell'anno (nell'anno in corso anche i "
-            "ritardi), con procedura presunta, lead time, data limite di "
+            "procedura da avviare nell'anno (nei totali) o avviata prima e da concludere "
+            "nell'anno, con procedura presunta, lead time, data limite di "
             "avvio della procedura, stato della pratica, natura e importo stimato sull'intera "
             "durata. Avvisi di possibile frazionamento quando più fabbisogni della stessa "
             "categoria o dello stesso fornitore superano una soglia. Ordinato per data limite."

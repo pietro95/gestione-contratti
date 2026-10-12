@@ -511,213 +511,23 @@ Il budget non cambia con le fatture: il fatturato del budget 2026 resta 10.000,0
 Controllo: un import con una fattura per F1 datata 15/05/2026 scarta la riga
 (`FATTURA_DOPO_CHIUSURA`); la stessa fattura FA-1 importata di nuovo non si duplica.
 
-## TC-17 — Scheda SAP e testo della richiesta di RDA
+## TC-17 — Piano ordini: da avviare, da concludere, ritardi
 
-SPEC §4 (RDA, posizioni, configurazione), §5.9. Rev13, bozza da approvare. Codici e nomi di
-fantasia.
+SPEC §5.4 (Rev16, Rev17), bozza da approvare.
 
-Configurazione: richiedenti SAP `999901` (ufficio di prova, **predefinito**) e `999902` (altro
-ufficio); gruppi acquisti `G01` (predefinito) e `G02`; gruppi merci `GM-TEST01` (predefinito) e
-`GM-TEST02`; cluster `IT` con cartella base
-`smb://nas.esempio.local/Share/ICTDINN/00_IT/RDA_Ordini`. Fornitore «Software Prova S.r.l.»,
-nome breve `SWPROVA`.
-
-Input: richiesta di RDA creata il 29/09/2026, descrizione «Rinnovo licenza CAD (2
-postazioni)», fornitore proposto «Software Prova S.r.l.», note al buyer «Si allega
-preventivo», allegati «preventivo nella cartella del file server». Posizioni:
-
-| # | Descrizione breve | Gruppo merci | Quantità | Importo unitario | Importo posizione | Natura | Conto | Centro di costo | WBS |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | (proposta) | GM-TEST01 | 2 | 549,50 | 1.099,00 | OPEX | 600001 | C0001 | — |
-| 2 | Supporto installazione | GM-TEST02 | 2,5 | 99,99 | 249,98 (249,975 arrotondato) | OPEX | 600002 | C0001 | — |
-
-**Proposte attese**:
-- intestazione e descrizione breve 1: `SWPROVA - Rinnovo licenza CAD (2 postazioni)`;
-- richiedente `999901` e gruppo acquisti `G01` (i predefiniti); scegliendo `999902` il testo riporta `Richiedente: 999902`;
-- percorso: `smb://nas.esempio.local/Share/ICTDINN/00_IT/RDA_Ordini/2026/2026_09_29_SWPROVA_Rinnovo_licenza_CAD_2_postazioni`;
-- importo della RDA: 1.348,98.
-
-Varianti del nome della cartella (stessa data):
-
-| Fornitore | Descrizione | Cartella |
-|---|---|---|
-| nessuno | Rinnovo licenza CAD (2 postazioni) | `2026_09_29_Rinnovo_licenza_CAD_2_postazioni` |
-| «Software Prova S.r.l.», senza nome breve | Rinnovo licenza CAD (2 postazioni) | `2026_09_29_Software_Prova_S_r_l_Rinnovo_licenza_CAD_2_postazioni` |
-| `SWPROVA` | Manutenzione unità UPS | `2026_09_29_SWPROVA_Manutenzione_unita_UPS` |
-
-Senza fornitore l'intestazione è la sola descrizione; senza nome breve è `Software Prova
-S.r.l. - Rinnovo licenza CAD (2 postazioni)`.
-
-**Testo della richiesta atteso** («Copia testo della richiesta»):
-
-```
-Si deve predisporre la seguente RDA.
-
-(Campo SAP) Intestazione: SWPROVA - Rinnovo licenza CAD (2 postazioni)
-
-(Campo SAP) Descrizione breve 1: SWPROVA - Rinnovo licenza CAD (2 postazioni)
-(Campo SAP) Gruppo merci 1: GM-TEST01
-(Campo SAP) Quantità 1: 2
-(Campo SAP) Importo unitario 1: 549,50 €
-(Campo informativo) Codice WBS 1: --
-(Campo informativo) Codice conto 1: 600001
-(Campo informativo) Centro di costo 1: C0001
-
-(Campo SAP) Descrizione breve 2: Supporto installazione
-(Campo SAP) Gruppo merci 2: GM-TEST02
-(Campo SAP) Quantità 2: 2,5
-(Campo SAP) Importo unitario 2: 99,99 €
-(Campo informativo) Codice WBS 2: --
-(Campo informativo) Codice conto 2: 600002
-(Campo informativo) Centro di costo 2: C0001
-
-(Campo SAP) Richiedente: 999901
-(Campo SAP) Gruppo Acquisti: G01
-
-(Campo SAP) (Opzionale) Note al buyer: Si allega preventivo
-
-(Campo SAP) Allegati: preventivo nella cartella del file server
-
-(Campo informativo) Importo totale: 1.348,98 €
-(Campo informativo) File server: smb://nas.esempio.local/Share/ICTDINN/00_IT/RDA_Ordini/2026/2026_09_29_SWPROVA_Rinnovo_licenza_CAD_2_postazioni
-```
-
-Senza note al buyer la riga delle note non compare.
-
-**Registra contratto da RDA**: il contratto proposto ha il fornitore «Software Prova S.r.l.»
-e due voci OPEX, 1.099,00 (conto 600001) e 249,98 (conto 600002), centro di costo C0001. Se il
-contratto è emesso per 1.300,00 (voce 1 1.060,00, voce 2 240,00), la differenza dalla RDA è
-−48,98 e si mostra; la RDA non cambia.
-
-**RDA dal fabbisogno** (Rev13). Parametri: adeguamento dei rinnovi 3%; procedura del contratto
-`Affidamento diretto`.
-
-Fabbisogno «Licenze CAD di prova» (cluster `IT`, categoria senza gruppo merci indicato). Contratto
-C1 con «Software Prova S.r.l.», dal 01/01/2026 al 31/12/2026, RUP «Rossi», CUP vuoto, senza
-successore, due voci:
-
-| Voce | Fisso | Massimale | Natura | Conto | Centro di costo | Conto dei rinnovi |
-|---|---|---|---|---|---|---|
-| Canone licenze | 1.000,00 | — | OPEX | 600001 | C0001 | — |
-| Assistenza a consumo | 200,00 | 500,00 | OPEX | 600002 | C0001 | 600003 |
-
-| Caso | Scopo e legame | Posizioni proposte |
-|---|---|---|
-| (a) «Nuova richiesta di RDA» dal fabbisogno | rinnovo di C1 (pratica di C1) | 1: «Canone licenze», q 1 × 1.030,00, conto 600001; 2: «Assistenza a consumo», q 1 × 721,00 (fisso 206,00 + massimale 515,00), di cui variabile 515,00, conto 600003. Totale 1.751,00 |
-| (b) come (a), scelta «acquisto aggiuntivo» | fabbisogno, nessuna pratica | 1 posizione vuota, OPEX, conto 600001, C0001 |
-| (c) fabbisogno senza contratti, previsto manuale OPEX conto 600001, stima 5.000,00 | primo acquisto (pratica del fabbisogno) | 1 posizione «Licenze CAD di prova», q 1 × 5.000,00, conto 600001 |
-| (d) fabbisogno con due contratti senza successore, C1 (fine 31/12/2026) e C0 (fine 30/06/2026) | rinnovo di C1 proposto, C0 selezionabile | come (a) |
-
-In (a): descrizione «Licenze CAD di prova», fornitore proposto «Software Prova S.r.l.»,
-intestazione `SWPROVA - Licenze CAD di prova`, prima descrizione breve uguale all'intestazione,
-seconda «Assistenza a consumo»; gruppo merci `GM-TEST01` (predefinito) su entrambe; RUP «Rossi».
-Inviata la richiesta, la pratica di C1 passa a `RDA richiesta` (TC-15); in (b) la pratica di C1
-non cambia.
-
-Registrando il contratto da (a), la voce 2 ha fisso 206,00 e massimale 515,00 (721,00 − 515,00 =
-206,00); il massimo del contratto proposto è 1.751,00 e la differenza dalla RDA è 0,00.
-
-## TC-18 — Import settimanale delle fatture, convalida, commento per PAC
-
-SPEC §4 (fattura), §5.7, §5.8, §5.9, §7. Rev15, bozza da approvare. Nomi e codici di fantasia.
-
-Registro: fornitore «Fornitore Prova A S.r.l.» con un solo contratto CA (servizi, dal
-01/01/2026, 12 mesi); fornitore «Studio Prova» (nome breve `STUDIOP`) con il contratto CS
-(servizi, dal 01/01/2026, 12 mesi; una voce CAPEX, conto 600010, centro di costo
-C0001, WBS `WBS-TEST-01`; cluster IT). Utenti: «rossi» e «bianchi», Editor del cluster IT;
-«verdi», Editor del solo cluster TLC; «neri», Reader; «gialli», Editor di tutti i cluster con la
-funzione «Amministrazione acquisti». Referente (utente) del fabbisogno: bianchi per CA e per CS.
-CS ha già la fattura 12/2026 del 31/08/2026, presa in carico da rossi e trasferita.
-
-File (primo foglio): riga 1 «Rev. 00 del 05/10/2026»; riga 2 intestazione; riga 3 vuota.
-
-| # | Fornitore | Numero Documento | Data | Importo SAP | Note |
-|---|---|---|---|---|---|
-| 1 | Fornitore Prova A S.r.l. | FA-1/2026 | 04.09.2026 | 1220 | |
-| 2 | STUDIOP | 13/2026 | 28.09.2026 | 1679,83 | |
-| 3 | Fornitore Sconosciuto | 99 | 30.09.26 | 10 | |
-| 4 | Fornitore Prova A S.r.l. | 76 In attesa di nota credito | 22.09.2026 | 78,9 | |
-
-Lo stesso file con le colonne `REFERENTE` e `CONVALIDABILE ?` in più, compilate, dà lo stesso
-risultato: si ignorano.
-
-In fondo, dopo tre righe vuote, la legenda «Fatture in lavorazione» nella colonna Fornitore.
-
-**Primo import** (anteprima, poi conferma):
-
-| Riga | Esito | Referente proposto | Passo da fare | Anomalie |
-|---|---|---|---|---|
-| 1 | creata, contratto proposto CA | bianchi (referente di CA: nessuna fattura precedente) | Da prendere in carico | — |
-| 2 | creata, contratto proposto CS | rossi (ultima fattura di CS, 12/2026; prevale sul referente bianchi) | Da prendere in carico | — |
-| 3 | non importata | — | — | `FORNITORE_NON_TROVATO` |
-| 4 | creata, numero «76 In attesa di nota credito», contratto proposto CA | bianchi | Da prendere in carico | `NUMERO_DA_VERIFICARE` |
-| legenda | ignorata | — | — | — |
-
-Conteggi: 3 create, 1 non importata; nessuna ha referente, esito `Da valutare`, valore base vuoto.
-
-**Presa in carico**: le tre fatture sono nell'elenco «Fatture da prendere in carico» di rossi,
-bianchi, verdi, neri e gialli; con «proposte a me», rossi vede solo 13/2026, bianchi FA-1/2026 e 76.
-- rossi seleziona 13/2026 e FA-1/2026 e le prende in carico insieme: referente rossi, passo
-  `Da assegnare`; nell'elenco resta la fattura 76, ora con referente proposto rossi (ultima
-  fattura di CA, FA-1/2026);
-- bianchi tenta di prendere FA-1/2026 (pagina non aggiornata): rifiutata, «già in carico a rossi»;
-- verdi prende in carico la fattura 76 (qualunque cluster), ma non può abbinarla a CA (cluster
-  IT): 403;
-- neri vede l'elenco senza caselle né azioni; la presa in carico chiesta da neri dà 403;
-- rossi lascia FA-1/2026 e la riprende: torna e poi esce dall'elenco.
-
-In alternativa, dallo stato dopo il primo import: gialli seleziona le tre fatture e «Assegna ai
-referenti proposti»: 13/2026 → rossi, FA-1/2026 e 76 → bianchi, tutte al passo `Da assegnare`.
-La stessa azione chiesta da bianchi (senza la funzione) dà 403. Con il fabbisogno di CA senza
-referente utente e nessuna RDA d'origine, FA-1/2026 e 76 non hanno proposta: restano nell'elenco,
-indicate come «senza referente proposto».
-
-**Secondo import** dello stesso file con la riga 1 a 1.250,00: 0 create, 3 già presenti; riga 1
-`IMPORTO_DIVERSO` (l'importo resta 1.220,00).
-
-**Lavorazione della fattura 13/2026**, dopo la conferma dell'abbinamento a CS:
-- passo `Da convalidare`; rossi registra l'esito `Convalidabile` → passo `RdC da fare`;
-- valore base 1.504,17, oneri 173,66, bollo 2,00: 1.504,17 + 173,66 + 2,00 = 1.679,83, nessun
-  `IMPORTO_NON_QUADRA`; con bollo 3,00 → `IMPORTO_NON_QUADRA`;
-- indicazioni per la validazione: `Valore base da prelevare € 1.504,17. COGE: 600010, CDC: C0001, WBS: WBS-TEST-01`;
-- RdC `RDC-0001`, MAP `MAP-0001` registrati → passo `Da trasferire`; commento per PAC:
-
-```
-ODA : RDC-0001
-MAP: MAP-0001
-CDC: C0001
-COGE: 600010
-WBS: WBS-TEST-01
-
-Valore base prelevato da contratto: € 1.504,17
-Oneri previdenziali: € 173,66
-Bollo: € 2,00
-```
-
-- senza MAP registrato la seconda riga è `MAP: (da registrare)`; senza oneri e bollo le ultime due
-  righe non compaiono.
-
-**Fattura FA-1/2026**, abbinata a CA: passo `Da convalidare`; con esito `In attesa` e «bloccata
-fino al» 06/10/2026 resta `Da convalidare` anche dopo il 06/10/2026, finché l'esito non diventa
-`Convalidabile`. Segnata fuori registro, non è più da lavorare.
-
-**Fatturato di CS** (TC-16, §5.8): 1.504,17 (il valore base, non 1.679,83).
-
-## TC-17 — Piano ordini per data limite e ritardi
-
-SPEC §5.4 (Rev16), bozza da approvare.
-
-Parametri: procedura `Affidamento diretto`, lead time 4 mesi; adeguamento 0%.
+Parametri: procedura `Affidamento diretto`, lead time 4 mesi.
 
 Input: fabbisogno «Servizio di prova», decisione `Rinnovare`. Contratto C dal 01/03/2026, 12
 mesi (fine 28/02/2027), 1.200,00 € fissi. Previsto P1 dal 01/03/2027 al 29/02/2028 (2028
 bisestile); data limite 28/02/2027 − 4 mesi = 31/10/2026 (fine mese resta fine mese).
 
-- **A cavallo d'anno**: al 12/10/2026, piano ordini 2026: una riga (P1, avvio 01/03/2027,
-  data limite 31/10/2026), non in ritardo; piano ordini 2027: P1 non c'è.
-- **Ritardo nell'anno in corso**: al 15/01/2027, pratica di C `Non avviata`. Piano ordini 2027:
-  una riga P1, marcata «in ritardo» (data limite 31/10/2026 < 01/01/2027, fine 29/02/2028 ≥
-  01/01/2027). Piano ordini 2026 alla stessa data: P1 c'è, non marcato (data limite nell'anno).
+- **Da avviare**: al 12/10/2026, piano ordini 2026: P1 da avviare, non in ritardo; il totale
+  fisso del piano comprende 1.200,00.
+- **Da concludere**: al 12/10/2026, piano ordini 2027: P1 da concludere (avvio 01/03/2027),
+  fuori dai totali (totale fisso 0,00); non in ritardo (anno non in corso).
+- **Ritardo**: al 15/01/2027, pratica di C `Non avviata`. Piano 2027: P1 da concludere e in
+  ritardo (data limite 31/10/2026 passata). Con pratica `Offerta richiesta`: da concludere,
+  non in ritardo.
 - **Pratica conclusa**: al 15/01/2027, pratica di C `Contratto emesso`: P1 non è nel piano 2027.
-- **Anno non in corso**: al 15/01/2027, il piano ordini 2028 non recupera P1.
-
+- **Servizio già partito**: al 15/04/2027, pratica `Offerta ricevuta`: piano 2027 con P1 da
+  concludere e in ritardo (avvio 01/03/2027 passato). Piano 2028 alla stessa data: P1 non c'è.
