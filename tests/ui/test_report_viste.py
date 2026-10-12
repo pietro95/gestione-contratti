@@ -85,7 +85,7 @@ def test_export_piano_ordini(reader, dati):
     assert len(righe) == len(piano.righe) + len(per_natura)
     for riga, (natura, totali) in zip(righe[len(piano.righe) :], per_natura.items(), strict=True):
         assert riga[0] == f"Totale {natura}"
-        assert [Decimal(str(x)) for x in riga[13:16]] == [totali[liv] for liv in LIVELLI]
+        assert [Decimal(str(x)) for x in riga[14:17]] == [totali[liv] for liv in LIVELLI]
     assert isinstance(righe[0][7], datetime.datetime)  # date come date, non testo
 
 

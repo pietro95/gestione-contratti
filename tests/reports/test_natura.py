@@ -148,14 +148,14 @@ def test_previsto_manuale_capex_sulla_sua_wbs():
 
 def test_piano_ordini_divide_le_quote_per_natura(archivio):
     piano = calcola_piano(2027, OGGI)
-    (riga,) = [r for r in piano.righe if r.fabbisogno == archivio["misto"].fabbisogno]
+    (riga,) = [r for r in piano.da_avviare if r.fabbisogno == archivio["misto"].fabbisogno]
     assert riga.natura == "OPEX e CAPEX"
     assert riga.per_natura["OPEX"][FISSO] == Decimal("1200.00")
     assert riga.per_natura["CAPEX"][FISSO] == Decimal("5000.00")
     totali = piano.totali_per_natura()
     assert totali["OPEX"][FISSO] == Decimal("1200.00")
     assert totali["CAPEX"][FISSO] == Decimal("5900.00")  # il piano ordini contiene tutto
-    (progetto,) = [r for r in piano.righe if r.fabbisogno == archivio["progetto"].fabbisogno]
+    (progetto,) = [r for r in piano.da_avviare if r.fabbisogno == archivio["progetto"].fabbisogno]
     assert progetto.a_progetto
     assert {r.fabbisogno.descrizione for r in calcola_piano(2027, OGGI, natura="OPEX").righe} == {
         "Piattaforma"

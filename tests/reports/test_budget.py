@@ -125,11 +125,12 @@ def test_rinnovi_mancanti(db):
 
 
 def test_piano_ordini_per_anno_della_data_limite(archivio):
-    """SPEC §5.4 Rev16: l'anno del piano è quello della data limite, non dell'avvio."""
+    """SPEC §5.4 Rev16-17: da avviare nell'anno della data limite, poi da concludere."""
     for anno in (2026, 2027, 2028):
         piano = calcola_piano(anno, OGGI)
-        assert piano.righe
-        assert all(r.data_limite.year == anno or r.in_ritardo for r in piano.righe)
+        assert piano.da_avviare
+        assert all(r.data_limite.year == anno for r in piano.da_avviare)
+        assert all(r.data_limite.year < anno for r in piano.da_concludere)
         assert all(not r.in_ritardo for r in piano.righe) or anno == OGGI.year
         date_limite = [r.data_limite for r in piano.righe]
         assert date_limite == sorted(date_limite)

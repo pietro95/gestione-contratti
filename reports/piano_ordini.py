@@ -1,10 +1,14 @@
 """Piano ordini dell'anno X per il Procurement (SPEC §5.4).
 
-Una riga per ogni contratto previsto (automatico o manuale) con data limite di avvio della
-procedura nell'anno X: è l'anno in cui il Procurement deve lanciare l'ordine, non quello in
-cui parte il servizio. Nel piano dell'anno in corso entrano anche i previsti in ritardo: data
-limite già passata, servizio non ancora finito prima dell'anno e pratica non conclusa. Restano
-fuori i rinnovi senza contratto (non si ordinano tramite il Procurement, SPEC §5.6).
+Una riga per ogni contratto previsto (automatico o manuale) la cui procedura, dalla data limite
+di avvio all'avvio del servizio, tocca l'anno X:
+- «da avviare»: data limite nell'anno X; solo queste righe entrano nei totali;
+- «da concludere»: procedura da avviare in un anno precedente, ordine da emettere entro l'avvio
+  del servizio, nell'anno X o dopo. Nel piano dell'anno in corso sono da concludere anche i
+  previsti con servizio già partito (non finito prima dell'anno) e pratica non conclusa.
+Nell'anno in corso una riga è «in ritardo» se la data limite è passata e la pratica non è
+avviata, o se il servizio doveva già partire. Una pratica conclusa toglie le righe da concludere.
+Restano fuori i rinnovi senza contratto (non si ordinano tramite il Procurement, SPEC §5.6).
 Il Procurement ordina sia OPEX sia CAPEX: il piano li contiene entrambi, con i totali per natura.
 """
 
@@ -25,6 +29,8 @@ from contratti.selettori import codici_cluster
 from reports.budget import LIVELLI, NATURE, orizzonte_report
 
 CATEGORIA_NON_CLASSIFICATA = "Da classificare"
+DA_AVVIARE = "da_avviare"
+DA_CONCLUDERE = "da_concludere"
 
 
 @dataclass
@@ -46,6 +52,11 @@ class RigaPiano:
     a_progetto: bool = False
     sopra_soglia: list[str] = field(default_factory=list)
     in_ritardo: bool = False
+    fase: str = "da_avviare"  # o "da_concludere" (SPEC §5.4 Rev17)
+
+    @property
+    def da_avviare(self) -> bool:
+        return self.fase == DA_AVVIARE
 
     @property
     def categoria(self) -> m.Categoria:
@@ -82,9 +93,18 @@ class PianoOrdini:
     def in_ritardo(self) -> list[RigaPiano]:
         return [r for r in self.righe if r.in_ritardo]
 
+    @property
+    def da_avviare(self) -> list[RigaPiano]:
+        return [r for r in self.righe if r.da_avviare]
+
+    @property
+    def da_concludere(self) -> list[RigaPiano]:
+        return [r for r in self.righe if not r.da_avviare]
+
     def totali(self, natura: str = "") -> dict[Livello, Decimal]:
+        """Solo le righe da avviare: una da concludere è già contata nel piano del suo avvio."""
         totali = dict.fromkeys(LIVELLI, ZERO)
-        for r in self.righe:
+        for r in self.da_avviare:
             importi = r.per_natura.get(natura) if natura else r.importi
             for livello in LIVELLI:
                 totali[livello] += (importi or {}).get(livello, ZERO)
@@ -92,7 +112,7 @@ class PianoOrdini:
 
     def totali_per_natura(self) -> dict[str, dict[Livello, Decimal]]:
         """OPEX e CAPEX distinti: sono budget diversi anche quando si ordinano insieme."""
-        nature = [n for n in NATURE if any(n in r.per_natura for r in self.righe)]
+        nature = [n for n in NATURE if any(n in r.per_natura for r in self.da_avviare)]
         return {n: self.totali(n) for n in nature}
 
 
@@ -217,21 +237,25 @@ def _calcola_piano(anno: int, oggi: datetime.date, area, categoria: int | None, 
         durata = base.durata_mesi if base is not None else f.previsto_durata_mesi
         for p in previsti:
             r = _riga(f, base, p, durata, procedura_default, oggi)
-            if r.data_limite.year == anno:
-                righe.append(r)
-            elif (
-                recupero
-                and r.data_limite < inizio_anno
-                and r.fine >= inizio_anno
-                and r.stato_pratica not in PRATICA_CONCLUSA
-            ):
-                r.in_ritardo = True
-                righe.append(r)
+            if r.data_limite.year > anno:
+                continue
+            if r.data_limite.year < anno:
+                # Procedura da avviare prima: resta da emettere l'ordine, entro l'avvio.
+                in_corso = r.avvio >= inizio_anno or (recupero and r.fine >= inizio_anno)
+                if not in_corso or r.stato_pratica in PRATICA_CONCLUSA:
+                    continue
+                r.fase = DA_CONCLUDERE
+            if recupero:
+                non_avviata = r.stato_pratica in (None, m.StatoPratica.Stato.NON_AVVIATA)
+                partito = r.avvio <= oggi and r.stato_pratica not in PRATICA_CONCLUSA
+                r.in_ritardo = (r.data_limite < oggi and non_avviata) or partito
+            righe.append(r)
     if natura:
         righe = [r for r in righe if natura in r.per_natura]
     righe.sort(key=lambda r: (r.data_limite, r.fabbisogno.descrizione))
     soglie = soglie_valide(inizio_anno)
-    return PianoOrdini(anno, righe, soglie, avvisi_frazionamento(righe, soglie))
+    da_avviare = [r for r in righe if r.da_avviare]
+    return PianoOrdini(anno, righe, soglie, avvisi_frazionamento(da_avviare, soglie))
 
 
 def avvisi_frazionamento(righe: list[RigaPiano], soglie: list[m.Soglia]):
