@@ -710,23 +710,24 @@ def _importi(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:
         "iva": f.iva,
         "voce": f.voce_id,
         "rata": f.rata_id,
+        "conto": f.conto_id,
+        "centro_costo": f.centro_costo,
+        "wbs": f.wbs_id,
     }
     for campo, chiave in (("valore_base",) * 2, ("oneri",) * 2, ("bollo",) * 2, ("iva",) * 2,
-                          ("voce", "voce_id"), ("rata", "rata_id")):  # fmt: skip
+                          ("voce", "voce_id"), ("rata", "rata_id"), ("conto", "conto_id"),
+                          ("centro_costo",) * 2, ("wbs", "wbs_id")):  # fmt: skip
         if chiave in argomenti:
             dati[campo] = argomenti[chiave]
     form = ff.ImportiForm({k: _form_valore(v) for k, v in dati.items()}, fattura=f)
     valida(form)
-    d = form.cleaned_data
+    aliquota = None
     if "scorpora_iva" in argomenti:  # come il pulsante «Scorpora IVA» dell'interfaccia
         try:
             aliquota = Decimal(argomenti["scorpora_iva"])
         except InvalidOperation:
             raise ErroreTool("«scorpora_iva»: aliquota non valida, es. «22».") from None
-        fatture.scorpora_iva(f, aliquota, d["oneri"], d["bollo"], d.get("voce"), d.get("rata"))
-        return
-    fatture.aggiorna_importi(f, d["valore_base"], d["oneri"], d["bollo"], d.get("voce"),
-                             d.get("rata"), iva=d.get("iva"))  # fmt: skip
+    fatture.salva_importi(f, form.cleaned_data, aliquota)
 
 
 def _documento(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:
@@ -1155,10 +1156,11 @@ STRUMENTI = [
     strumento(
         _scrittura("importi_fattura", _oggetti_fattura, _azione_fattura(_importi)),
         "Importi della fattura",
-        "Valore base prelevato dal contratto (di default quello proposto), oneri, bollo; con "
-        "il contratto anche voce e rata dello scadenzario, che diventa consuntivo con il numero "
-        "di fattura. L'anteprima riporta anomalie (importo che non quadra), fatturato, residuo "
-        "e il commento per PAC risultante.",
+        "Valore base prelevato dal contratto (di default quello proposto), oneri, bollo, IVA; "
+        "imputazione propria della fattura (conto, centro di costo, WBS) se diversa dalla voce; "
+        "con il contratto anche voce e rata dello scadenzario, che diventa consuntivo con il "
+        "numero di fattura. L'anteprima riporta anomalie (importo che non quadra), fatturato, "
+        "residuo e il commento per PAC risultante.",
         _schema(
             {
                 "id": SCHEMA_ID,
@@ -1179,6 +1181,21 @@ STRUMENTI = [
                 },
                 "voce_id": SCHEMA_ID,
                 "rata_id": SCHEMA_ID,
+                "conto_id": {
+                    **SCHEMA_ID,
+                    "description": "Imputazione propria della fattura, "
+                    "se diversa dalla voce: id del conto («riferimenti»).",
+                },
+                "centro_costo": {
+                    "type": "string",
+                    "maxLength": 20,
+                    "description": "Centro di costo della fattura, se diverso dalla voce; "
+                    "stringa vuota per tornare a quello della voce.",
+                },
+                "wbs_id": {
+                    **SCHEMA_ID,
+                    "description": "WBS della fattura, se diversa dalla voce («riferimenti»).",
+                },
             },
             ["id"],
         ),

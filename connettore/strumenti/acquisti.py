@@ -248,6 +248,13 @@ def fattura(ctx: Contesto, argomenti: dict) -> dict:
         "oneri": f.oneri,
         "bollo": f.bollo,
         "iva": f.iva,
+        "imputazione_della_fattura": {
+            "conto": f.conto.codice if f.conto_id else None,
+            "centro_costo": f.centro_costo or None,
+            "wbs": f.wbs.codice_wbs if f.wbs_id else None,
+        }
+        if f.conto_id or f.centro_costo or f.wbs_id
+        else None,
         "valore_base_proposto": motore.valore_base_proposto(f.importo_documento, f.oneri, f.bollo)
         if f.valore_base is None
         else None,

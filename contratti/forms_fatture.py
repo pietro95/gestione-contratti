@@ -1,13 +1,22 @@
 """Form delle fatture (F11.3, SPEC Rev14–Rev15): registrazione, contratto, convalida,
 importi, documenti SAP, trasferimento, documenti di esecuzione del contratto."""
 
+import json
+
 from django import forms
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 
 from accounts.roles import WRITE_ROLES
 from contratti import models as m
-from contratti.forms import FormBase, ImportoField, ModelFormBootstrap
+from contratti import permessi
+from contratti.forms import (
+    FormBase,
+    ImportoField,
+    ModelFormBootstrap,
+    tendina_centro_costo,
+    wbs_ammesse,
+)
 
 Tipo = m.DocumentoEsecuzione.Tipo
 
@@ -64,9 +73,24 @@ class ContrattoFatturaForm(FormBase):
         super().__init__(*args, **kwargs)
         self.fields["contratto"].queryset = _contratti_del_fornitore(fattura.fornitore_id)
         self.fields["contratto"].widget.attrs["class"] += " js-cerca"
-        self.fields["voce"].queryset = m.VoceContratto.objects.filter(
+        voci = m.VoceContratto.objects.filter(
             contratto__fornitore_id=fattura.fornitore_id, archiviato=False
         ).select_related("contratto")
+        self.fields["voce"].queryset = voci
+        # La tendina «Voce» mostra solo le voci del contratto scelto (app.js,
+        # «vociDelContratto»); per il contratto iniziale già alla prima visualizzazione.
+        per_contratto: dict[str, list] = {}
+        for v in voci.order_by("contratto_id", "pk"):
+            per_contratto.setdefault(str(v.contratto_id), []).append([v.pk, str(v)])
+        self.fields["contratto"].widget.attrs.update(
+            {"data-voci": json.dumps(per_contratto), "data-voci-target": self["voce"].auto_id}
+        )
+        if not self.is_bound:
+            iniziale = self.initial.get("contratto")
+            iniziale = getattr(iniziale, "pk", iniziale)
+            self.fields["voce"].queryset = (
+                voci.filter(contratto_id=iniziale) if iniziale else (voci.none())
+            )
 
     def clean(self):
         dati = super().clean()
@@ -113,8 +137,27 @@ class ImportiForm(FormBase):
         help_text="La rata diventa consuntivo e riceve il numero di fattura.",
     )
 
+    conto = forms.ModelChoiceField(
+        queryset=m.ContoCoge.objects.none(), required=False, label="Conto COGE della fattura"
+    )
+    centro_costo = forms.CharField(
+        label="Centro di costo della fattura", max_length=20, required=False
+    )
+    wbs = forms.ModelChoiceField(
+        queryset=m.WBS.objects.none(), required=False, label="WBS della fattura"
+    )
+
     def __init__(self, *args, fattura: m.Fattura, **kwargs):
         super().__init__(*args, **kwargs)
+        # Imputazione propria della fattura (vuota: quella della voce), del cluster del
+        # contratto come per le voci.
+        cluster = fattura.contratto.fabbisogno.cluster if fattura.contratto_id else None
+        conti = m.ContoCoge.objects.all()
+        if cluster is not None and permessi.conti_per_cluster():
+            conti = conti.filter(cluster=cluster)
+        self.fields["conto"].queryset = conti
+        self.fields["wbs"].queryset = wbs_ammesse(cluster)
+        tendina_centro_costo(self, attuale=fattura.centro_costo)
         if fattura.contratto_id:
             self.fields["voce"].queryset = fattura.contratto.voci.filter(archiviato=False)
             self.fields["rata"].queryset = (

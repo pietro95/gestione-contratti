@@ -216,6 +216,9 @@ def fattura_dettaglio(request, pk):
         "iva": f.iva,
         "voce": f.voce_id,
         "rata": f.rata_id,
+        "conto": f.conto_id,
+        "centro_costo": f.centro_costo,
+        "wbs": f.wbs_id,
     }
     if f.valore_base is None:
         iniziali_importi["valore_base"] = motore.valore_base_proposto(
@@ -387,19 +390,10 @@ def fattura_importi(request, pk):
             return redirect("contratti:fattura", pk=pk)
         return _azione(
             request, pk,
-            lambda x: fatture.scorpora_iva(
-                x, aliquota, d["oneri"], d["bollo"], d.get("voce"), d.get("rata")
-            ),
+            lambda x: fatture.salva_importi(x, d, aliquota),
             f"IVA {aliquota.normalize():f}% scorporata: valore base e IVA registrati.",
         )  # fmt: skip
-    return _azione(
-        request, pk,
-        lambda x: fatture.aggiorna_importi(
-            x, d["valore_base"], d["oneri"], d["bollo"], d.get("voce"), d.get("rata"),
-            iva=d.get("iva"),
-        ),
-        "Importi registrati.",
-    )  # fmt: skip
+    return _azione(request, pk, lambda x: fatture.salva_importi(x, d), "Importi registrati.")
 
 
 @editor_required

@@ -71,11 +71,19 @@
         <div class="col-12 form-text">Valore base + oneri + bollo + IVA = importo del documento ({{ f.importo_documento|euro }}). {{ form_importi.iva.help_text }}{% if f.valore_base is None %} Proposto: importo del documento meno oneri e bollo; si salva solo confermando.{% endif %}</div>
         {% if form_importi.voce %}<div class="col-sm-6"><label class="form-label" for="{{ form_importi.voce.id_for_label }}">Voce</label>{{ form_importi.voce }}</div>
         <div class="col-sm-6"><label class="form-label" for="{{ form_importi.rata.id_for_label }}">Rata dello scadenzario</label>{{ form_importi.rata }}<div class="form-text">{{ form_importi.rata.help_text }}</div></div>{% endif %}
+        <fieldset class="col-12 border rounded p-2 mt-2"><legend class="fs-6 float-none w-auto px-1 mb-0">Imputazione della fattura, se diversa dalla voce</legend>
+          <div class="row g-2">
+            <div class="col-md-4"><label class="form-label" for="{{ form_importi.conto.id_for_label }}">Conto COGE</label>{{ form_importi.conto }}</div>
+            <div class="col-md-4"><label class="form-label" for="{{ form_importi.centro_costo.id_for_label }}">Centro di costo</label>{{ form_importi.centro_costo }}</div>
+            <div class="col-md-4"><label class="form-label" for="{{ form_importi.wbs.id_for_label }}">WBS</label>{{ form_importi.wbs }}</div>
+            <div class="col-12 form-text">Es. acquisti vari sullo stesso contratto: vale per le indicazioni di validazione e il commento per PAC. Vuoto: quello della voce.</div>
+          </div>
+        </fieldset>
         <div class="col-12 d-flex flex-wrap gap-2"><button class="btn btn-primary" type="submit">Salva gli importi</button>
           {% for a in aliquote_iva %}<button class="btn btn-outline-secondary" type="submit" name="scorporo" value="{{ a|stringformat:"s" }}" title="Valore base e IVA dall'importo del documento, con oneri e bollo indicati">Scorpora IVA {{ a|floatformat:"-2" }}%</button>{% endfor %}</div>
       </form>
       {% else %}
-      <dl class="dati mb-0"><dt>Valore base</dt><dd>{{ f.valore_base|euro }}</dd><dt>Oneri</dt><dd>{{ f.oneri|euro }}</dd><dt>Bollo</dt><dd>{{ f.bollo|euro }}</dd><dt>IVA compresa</dt><dd>{{ f.iva|euro }}</dd><dt>Rata</dt><dd>{{ f.rata|default:"—" }}</dd></dl>
+      <dl class="dati mb-0"><dt>Valore base</dt><dd>{{ f.valore_base|euro }}</dd><dt>Oneri</dt><dd>{{ f.oneri|euro }}</dd><dt>Bollo</dt><dd>{{ f.bollo|euro }}</dd><dt>IVA compresa</dt><dd>{{ f.iva|euro }}</dd>{% if f.conto or f.centro_costo or f.wbs %}<dt>Imputazione della fattura</dt><dd>COGE {{ f.conto.codice|default:"--" }}, CDC {{ f.centro_costo|default:"--" }}, WBS {{ f.wbs.codice_wbs|default:"--" }}</dd>{% endif %}<dt>Rata</dt><dd>{{ f.rata|default:"—" }}</dd></dl>
       {% endif %}
     </div></section>
 
