@@ -262,6 +262,32 @@
     });
   }
 
+  // Fattura → contratto: la tendina della voce mostra solo le voci del contratto scelto
+  // (data-voci: contratto → [[id, nome], …]; data-voci-target: id della tendina della voce).
+  function vociDelContratto(radice) {
+    radice.querySelectorAll("select[data-voci]").forEach(function (el) {
+      if (el._voci) return;
+      el._voci = true;
+      var voci = JSON.parse(el.dataset.voci);
+      el.addEventListener("change", function () {
+        var bersaglio = document.getElementById(el.dataset.vociTarget);
+        if (!bersaglio) return;
+        var righe = voci[el.value] || [];
+        if (bersaglio.tomselect) {
+          var ts = bersaglio.tomselect;
+          ts.clear(true);
+          ts.clearOptions();
+          righe.forEach(function (r) { ts.addOption({ value: String(r[0]), text: r[1] }); });
+          ts.refreshOptions(false);
+          return;
+        }
+        bersaglio.innerHTML = "";
+        bersaglio.add(new Option("---------", ""));
+        righe.forEach(function (r) { bersaglio.add(new Option(r[1], String(r[0]))); });
+      });
+    });
+  }
+
   function inizializza(radice) {
     tendine(radice);
     cluster(radice);
@@ -273,6 +299,7 @@
     selezioni(radice);
     gruppiDalRichiedente(radice);
     contatori(radice);
+    vociDelContratto(radice);
   }
 
   document.addEventListener("DOMContentLoaded", function () {

@@ -28,6 +28,8 @@ Tipo = m.DocumentoEsecuzione.Tipo
 
 QS_FATTURE = m.Fattura.objects.select_related(
     "fornitore",
+    "conto",
+    "wbs",
     "contratto__fornitore",
     "contratto__fabbisogno__cluster",
     "voce__conto",
@@ -467,6 +469,21 @@ def aggiorna_importi(
     _salva(fattura, "Importi", update_fields=campi)
 
 
+def imputa(
+    fattura: m.Fattura,
+    conto: m.ContoCoge | None,
+    centro_costo: str,
+    wbs: m.WBS | None,
+) -> None:
+    """Imputazione propria della fattura (conto, centro di costo, WBS), se diversa da quella
+    della voce; vuota = quella della voce."""
+    nuova = (getattr(conto, "pk", None), centro_costo or "", getattr(wbs, "pk", None))
+    if (fattura.conto_id, fattura.centro_costo, fattura.wbs_id) == nuova:
+        return
+    fattura.conto, fattura.centro_costo, fattura.wbs = conto, centro_costo or "", wbs
+    _salva(fattura, "Imputazione della fattura", update_fields=["conto", "centro_costo", "wbs"])
+
+
 def scorpora_iva(
     fattura: m.Fattura,
     aliquota: Decimal,
@@ -482,6 +499,21 @@ def scorpora_iva(
     if valore_base < 0:
         raise OperazioneNonAmmessa("Oneri e bollo superano l'importo senza IVA.")
     aggiorna_importi(fattura, valore_base, oneri, bollo, voce, rata, iva=iva)
+
+
+@transaction.atomic
+def salva_importi(fattura: m.Fattura, dati: dict, aliquota_scorporo: Decimal | None = None):
+    """Il pannello «Importi» (dati del form): importi o scorporo dell'IVA, voce e rata,
+    imputazione propria della fattura."""
+    if aliquota_scorporo is not None:
+        scorpora_iva(fattura, aliquota_scorporo, dati.get("oneri"), dati.get("bollo"),
+                     dati.get("voce"), dati.get("rata"))  # fmt: skip
+    else:
+        aggiorna_importi(
+            fattura, dati.get("valore_base"), dati.get("oneri"), dati.get("bollo"),
+            dati.get("voce"), dati.get("rata"), iva=dati.get("iva"),
+        )  # fmt: skip
+    imputa(fattura, dati.get("conto"), dati.get("centro_costo") or "", dati.get("wbs"))
 
 
 def registra(
@@ -582,15 +614,24 @@ def dati_pac(fattura: m.Fattura) -> motore.DatiPAC:
     rdc = next((d for d in documenti if d.tipo == Tipo.ODA), None)
     accettazione = next((d for d in documenti if d.tipo in (Tipo.MAP, Tipo.MIGO)), None)
     voce = _voce_di_riferimento(fattura)
-    wbs = None
+    wbs = conto = centro_costo = None
     if voce is not None:
         wbs = voce.wbs.codice_wbs if voce.wbs_id else (voce.codice_wbs_importato or None)
+        conto = voce.conto.codice if voce.conto_id else None
+        centro_costo = voce.centro_costo or None
+    # L'imputazione propria della fattura, campo per campo, prevale su quella della voce.
+    if fattura.conto_id:
+        conto = fattura.conto.codice
+    if fattura.centro_costo:
+        centro_costo = fattura.centro_costo
+    if fattura.wbs_id:
+        wbs = fattura.wbs.codice_wbs
     return motore.DatiPAC(
         numero_rdc=rdc.numero if rdc else None,
         accettazione=accettazione.tipo if accettazione else documento_proposto(fattura),
         numero_accettazione=accettazione.numero if accettazione else None,
-        centro_costo=(voce.centro_costo or None) if voce else None,
-        conto=voce.conto.codice if voce and voce.conto_id else None,
+        centro_costo=centro_costo,
+        conto=conto,
         wbs=wbs,
         valore_base=fattura.valore_base,
         oneri=fattura.oneri,

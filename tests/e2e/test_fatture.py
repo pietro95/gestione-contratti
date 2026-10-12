@@ -121,3 +121,34 @@ def test_flusso_della_fattura(pagina, tmp_path):
     cs.refresh_from_db()
     assert cs.data_chiusura == oggi
     assert not pagina.errori, pagina.errori
+
+
+def test_voci_solo_del_contratto_scelto(pagina):
+    """Assegnando la fattura al contratto, la tendina «Voce» mostra solo le voci del contratto
+    scelto e cambia con il contratto."""
+    editor = get_user_model().objects.get(username="e2e_editor")
+    fornitore = f.fornitore("Negozio Prova S.r.l.")
+    a = f.contratto(fornitore=fornitore, numero_contratto="5800000081",
+                    data_inizio=D(2026, 1, 1))  # fmt: skip
+    b = f.contratto(fornitore=fornitore, numero_contratto="5800000082",
+                    data_inizio=D(2026, 2, 1))  # fmt: skip
+    va = [f.voce(a, descrizione=f"Voce A{i}") for i in (1, 2)]
+    vb = f.voce(b, descrizione="Voce B1")
+    fattura = m.Fattura.objects.create(
+        fornitore=fornitore, numero="AMZ-1", data=D(2026, 9, 1),
+        importo_documento=Decimal("10.00"), referente=editor,
+        data_presa_in_carico=D(2026, 9, 2),
+    )  # fmt: skip
+    pagina.goto(f"{pagina.base}/fatture/{fattura.pk}/")
+    voce = pagina.locator("#id_voce")
+    pagina.select_option("#id_contratto", str(a.pk))
+    expect(voce.locator("option")).to_have_count(3)  # vuota + le due voci di A
+    pagina.select_option("#id_contratto", str(b.pk))
+    expect(voce.locator("option")).to_have_count(2)
+    pagina.select_option("#id_voce", str(vb.pk))
+    assert violazioni_axe(pagina) == []
+    pagina.click("button:has-text('Assegna al contratto')")
+    expect(pagina.locator(".toast-body").first).to_contain_text("assegnata")
+    fattura.refresh_from_db()
+    assert (fattura.contratto_id, fattura.voce_id) == (b.pk, vb.pk)
+    assert va[0].contratto_id == a.pk

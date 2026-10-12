@@ -1555,6 +1555,17 @@ class Fattura(Archiviabile):
     bollo = importo("bollo", null=True, blank=True)
     # IVA compresa nell'importo del documento (SAP lo riporta spesso con l'IVA).
     iva = importo("IVA compresa nell'importo", null=True, blank=True)
+    # Imputazione propria della fattura, se diversa da quella della voce (es. acquisti vari
+    # sullo stesso contratto): vale per le indicazioni di validazione e il commento per PAC.
+    conto = models.ForeignKey(
+        ContoCoge, on_delete=models.PROTECT, null=True, blank=True, related_name="+",
+        verbose_name="conto COGE della fattura",
+    )  # fmt: skip
+    centro_costo = models.CharField("centro di costo della fattura", max_length=20, blank=True)
+    wbs = models.ForeignKey(
+        WBS, on_delete=models.PROTECT, null=True, blank=True, related_name="+",
+        verbose_name="WBS della fattura",
+    )  # fmt: skip
     voce = models.ForeignKey(
         VoceContratto, on_delete=models.PROTECT, null=True, blank=True, related_name="fatture"
     )
