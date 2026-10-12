@@ -100,6 +100,11 @@ class ImportiForm(FormBase):
         max_digits=14, decimal_places=2, min_value=0, required=False, label="Oneri previdenziali"
     )
     bollo = ImportoField(max_digits=14, decimal_places=2, min_value=0, required=False)
+    iva = ImportoField(
+        max_digits=14, decimal_places=2, min_value=0, required=False,
+        label="IVA compresa nell'importo",
+        help_text="Vuota: si riconosce da sola se la differenza è l'IVA di un'aliquota.",
+    )  # fmt: skip
     voce = forms.ModelChoiceField(queryset=m.VoceContratto.objects.none(), required=False)
     rata = forms.ModelChoiceField(
         queryset=m.Rata.objects.none(),

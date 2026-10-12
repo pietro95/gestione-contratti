@@ -247,6 +247,7 @@ def fattura(ctx: Contesto, argomenti: dict) -> dict:
         "versione": versione(f),
         "oneri": f.oneri,
         "bollo": f.bollo,
+        "iva": f.iva,
         "valore_base_proposto": motore.valore_base_proposto(f.importo_documento, f.oneri, f.bollo)
         if f.valore_base is None
         else None,

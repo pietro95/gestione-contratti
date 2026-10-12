@@ -64,16 +64,18 @@
       {% if puo_lavorare %}
       <form method="post" action="{% url 'contratti:fattura_importi' f.pk %}" class="row g-2" novalidate>
         {% csrf_token %}
-        <div class="col-sm-4"><label class="form-label" for="{{ form_importi.valore_base.id_for_label }}">Valore base</label>{{ form_importi.valore_base }}</div>
-        <div class="col-sm-4"><label class="form-label" for="{{ form_importi.oneri.id_for_label }}">Oneri previdenziali</label>{{ form_importi.oneri }}</div>
-        <div class="col-sm-4"><label class="form-label" for="{{ form_importi.bollo.id_for_label }}">Bollo</label>{{ form_importi.bollo }}</div>
-        {% if f.valore_base is None %}<div class="col-12 form-text">Proposto: importo del documento meno oneri e bollo. Si salva solo confermando.</div>{% endif %}
+        <div class="col-sm-6 col-lg-3"><label class="form-label" for="{{ form_importi.valore_base.id_for_label }}">Valore base</label>{{ form_importi.valore_base }}</div>
+        <div class="col-sm-6 col-lg-3"><label class="form-label" for="{{ form_importi.oneri.id_for_label }}">Oneri previdenziali</label>{{ form_importi.oneri }}</div>
+        <div class="col-sm-6 col-lg-3"><label class="form-label" for="{{ form_importi.bollo.id_for_label }}">Bollo</label>{{ form_importi.bollo }}</div>
+        <div class="col-sm-6 col-lg-3"><label class="form-label" for="{{ form_importi.iva.id_for_label }}">IVA compresa</label>{{ form_importi.iva }}</div>
+        <div class="col-12 form-text">Valore base + oneri + bollo + IVA = importo del documento ({{ f.importo_documento|euro }}). {{ form_importi.iva.help_text }}{% if f.valore_base is None %} Proposto: importo del documento meno oneri e bollo; si salva solo confermando.{% endif %}</div>
         {% if form_importi.voce %}<div class="col-sm-6"><label class="form-label" for="{{ form_importi.voce.id_for_label }}">Voce</label>{{ form_importi.voce }}</div>
         <div class="col-sm-6"><label class="form-label" for="{{ form_importi.rata.id_for_label }}">Rata dello scadenzario</label>{{ form_importi.rata }}<div class="form-text">{{ form_importi.rata.help_text }}</div></div>{% endif %}
-        <div class="col-12"><button class="btn btn-primary" type="submit">Salva gli importi</button></div>
+        <div class="col-12 d-flex flex-wrap gap-2"><button class="btn btn-primary" type="submit">Salva gli importi</button>
+          {% for a in aliquote_iva %}<button class="btn btn-outline-secondary" type="submit" name="scorporo" value="{{ a|stringformat:"s" }}" title="Valore base e IVA dall'importo del documento, con oneri e bollo indicati">Scorpora IVA {{ a|floatformat:"-2" }}%</button>{% endfor %}</div>
       </form>
       {% else %}
-      <dl class="dati mb-0"><dt>Valore base</dt><dd>{{ f.valore_base|euro }}</dd><dt>Oneri</dt><dd>{{ f.oneri|euro }}</dd><dt>Bollo</dt><dd>{{ f.bollo|euro }}</dd><dt>Rata</dt><dd>{{ f.rata|default:"—" }}</dd></dl>
+      <dl class="dati mb-0"><dt>Valore base</dt><dd>{{ f.valore_base|euro }}</dd><dt>Oneri</dt><dd>{{ f.oneri|euro }}</dd><dt>Bollo</dt><dd>{{ f.bollo|euro }}</dd><dt>IVA compresa</dt><dd>{{ f.iva|euro }}</dd><dt>Rata</dt><dd>{{ f.rata|default:"—" }}</dd></dl>
       {% endif %}
     </div></section>
 

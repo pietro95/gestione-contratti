@@ -77,6 +77,12 @@ class ParametroAdmin(BaseAdmin):
     list_filter = ("chiave", "provvisorio")
 
 
+@admin.register(m.AliquotaIVA)
+class AliquotaIVAAdmin(BaseAdmin):
+    list_display = ("aliquota", "descrizione", "attiva")
+    list_filter = ("attiva",)
+
+
 @admin.register(m.Categoria)
 class CategoriaAdmin(BaseAdmin):
     list_display = ("nome", "attiva")
