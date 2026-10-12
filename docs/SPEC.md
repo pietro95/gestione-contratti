@@ -2,7 +2,7 @@
 
 > Documento normativo per requisiti e regole di dominio. Per la vista tecnica consultare [ARCHITECTURE](ARCHITECTURE.md) e [DATA_MODEL](DATA_MODEL.md); per le procedure operative consultare [RUNBOOK](RUNBOOK.md) e [OPERATIONS](OPERATIONS.md).
 
-Rev15 — 07/10/2026 — responsabile: IT Manager ICTDINN, Siciliacque S.p.A.
+Rev16 — 12/10/2026 — responsabile: IT Manager ICTDINN, Siciliacque S.p.A.
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
@@ -21,6 +21,7 @@ Storico revisioni:
 - Rev13 (07/10/2026): decisioni del responsabile del progetto, **bozza da approvare**. Rivisto il processo d'acquisto della release 2.0 (Rev11) sul flusso reale: il **referente** compila sul portale la **richiesta di RDA** con le posizioni e i campi SAP; l'**addetto amministrativo** la inserisce in SAP aiutato da una **scheda SAP** con i campi già pronti e riporta sul portale i dati di SAP; il contratto lo registrano l'addetto o il referente; le fatture e i documenti SAP che le accompagnano li registra l'addetto, con la scheda SAP della fattura (§4, §5.7, §5.9). Funzione «Amministrazione acquisti» assegnata per utente, senza nuovo ruolo AD (§8.1). Cruscotti dell'addetto (RDA da processare, fatture da lavorare) e del referente (le mie RDA) (§5.7). La richiesta di RDA **parte dal fabbisogno**: se il fabbisogno ha contratti è impostata come rinnovo del contratto in scadenza e precompilata dal suo rinnovo previsto (§4, §5.9). RDA e contratti si inseriscono anche a mano, scollegati, e si collegano dopo (§4, §7). Nessuna mail inviata dal portale: il portale prepara il testo (§5.9). Nuove tabelle di configurazione, con import da Excel: richiedenti SAP, gruppi merci e gruppi acquisti, ciascuna con un valore predefinito; cartella base delle RDA per cluster (§4, §7). Chiusura del contratto: addetto o referente (§4). TC-15 aggiornato, nuovo TC-17.
 - Rev14 (07/10/2026): decisioni del responsabile del progetto, **bozza da approvare**. Lavorazione della fattura in tre passi, uno dopo l'altro e per ogni fattura: **RdC** (richiesta di consegna) → **MAP** per i servizi o **MIGO** per le forniture → **trasferimento per il pagamento** (solo data). Tipo d'acquisto (servizio o fornitura) sul contratto, che propone MAP o MIGO (§4, §5.7, §5.9). TC-15 (e) aggiornato.
 - Rev15 (07/10/2026): decisioni del responsabile del progetto, **bozza da approvare**. Fattura: importo del documento (SAP) distinto dal **valore base prelevato dal contratto** (conta per il residuo), con oneri previdenziali e bollo; le fatture importate sono visibili a tutti e un referente le **prende in carico**, una per volta o più insieme, con il **referente proposto** dalle fatture precedenti o dal contratto; contratto facoltativo finché la fattura è **da assegnare**; **convalida del referente** come passo prima della RdC; **fuori registro**. **Commento per PAC** composto al trasferimento. **Import settimanale delle fatture** dall'estrazione SAP annotata (§4, §5.7, §5.8, §5.9, §7). Nuovo TC-18; TC-15 (e) precisato.
+- Rev16 (12/10/2026): decisione del responsabile del progetto, da approvare. Piano ordini (§5.4): l'anno di un previsto è quello della **data limite di avvio della procedura**, non quello di avvio del servizio; nel piano dell'anno in corso entrano anche i previsti **in ritardo** (data limite passata, servizio non finito prima dell'anno, pratica non conclusa), marcati. Gli avvisi di frazionamento nel PDF sono facoltativi. TC-13 aggiornato, nuovo TC-17.
 
 ## 1. Obiettivo
 
@@ -277,7 +278,7 @@ La generazione è ricorsiva: un annuale che scade nel 2027 genera un previsto 20
 
 ### 5.4 Output per il Procurement
 
-Report annuale "Piano ordini anno X". Una riga per ogni contratto previsto o da rinnovare, con:
+Report annuale "Piano ordini anno X". Una riga per ogni contratto previsto o da rinnovare la cui **data limite di avvio** della procedura cade nell'anno X: è l'anno in cui l'ordine va lanciato, non quello in cui parte il servizio (Rev16). Nel piano dell'anno in corso entrano anche i previsti **in ritardo**: data limite anteriore al 01/01/X, servizio che finisce dal 01/01/X in poi, pratica non arrivata a `Contratto emesso` o `Contratto attivo`; la riga è marcata «in ritardo». I piani degli anni passati non recuperano i ritardi. Ogni riga riporta:
 - fabbisogno, fornitore uscente, importo stimato sull'intera durata;
 - procedura presunta, data limite di avvio, data di avvio servizio necessaria;
 - stato della pratica;
@@ -289,7 +290,7 @@ I rinnovi senza contratto, registrati o previsti, non entrano nel piano ordini: 
 
 Include un avviso quando più fabbisogni della stessa categoria o dello stesso fornitore, sommati, superano una soglia. Serve a valutare l'accorpamento ed evitare il frazionamento. L'applicabilità concreta delle soglie per Siciliacque (settori speciali) va confermata con Procurement/Legale.
 
-Export in XLSX, oltre al PDF quando serve da allegare.
+Export in XLSX, oltre al PDF quando serve da allegare. Nel PDF gli avvisi di frazionamento sono facoltativi (Rev16): il PDF standard non li riporta.
 
 ### 5.5 Spese per WBS
 

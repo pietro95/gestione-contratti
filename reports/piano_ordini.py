@@ -1,10 +1,11 @@
 """Piano ordini dell'anno X per il Procurement (SPEC §5.4).
 
-Una riga per ogni contratto previsto (automatico o manuale) con avvio del servizio
-nell'anno X: è lo stesso criterio dell'impegno dei previsti, quindi il totale del piano
-coincide con l'impegno previsionale dell'anno, esclusi i rinnovi senza contratto (non si
-ordinano tramite il Procurement, SPEC §5.6). Il Procurement ordina sia OPEX sia CAPEX:
-il piano li contiene entrambi, con i totali per natura.
+Una riga per ogni contratto previsto (automatico o manuale) con data limite di avvio della
+procedura nell'anno X: è l'anno in cui il Procurement deve lanciare l'ordine, non quello in
+cui parte il servizio. Nel piano dell'anno in corso entrano anche i previsti in ritardo: data
+limite già passata, servizio non ancora finito prima dell'anno e pratica non conclusa. Restano
+fuori i rinnovi senza contratto (non si ordinano tramite il Procurement, SPEC §5.6).
+Il Procurement ordina sia OPEX sia CAPEX: il piano li contiene entrambi, con i totali per natura.
 """
 
 import datetime
@@ -12,7 +13,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from django.db.models import Q
+from django.db.models import Max, Q
 
 from contratti import acquisti, adapters
 from contratti import models as m
@@ -44,6 +45,7 @@ class RigaPiano:
     per_natura: dict[str, dict[Livello, Decimal]] = field(default_factory=dict)
     a_progetto: bool = False
     sopra_soglia: list[str] = field(default_factory=list)
+    in_ritardo: bool = False
 
     @property
     def categoria(self) -> m.Categoria:
@@ -76,6 +78,10 @@ class PianoOrdini:
     soglie: list[m.Soglia]
     avvisi: list[AvvisoFrazionamento]
 
+    @property
+    def in_ritardo(self) -> list[RigaPiano]:
+        return [r for r in self.righe if r.in_ritardo]
+
     def totali(self, natura: str = "") -> dict[Livello, Decimal]:
         totali = dict.fromkeys(LIVELLI, ZERO)
         for r in self.righe:
@@ -101,6 +107,16 @@ def soglie_valide(alla_data: datetime.date) -> list[m.Soglia]:
     for s in qs:
         per_codice.setdefault(s.codice, s)
     return list(per_codice.values())
+
+
+PRATICA_CONCLUSA = {m.StatoPratica.Stato.CONTRATTO_EMESSO, m.StatoPratica.Stato.CONTRATTO_ATTIVO}
+
+
+def _lead_time_massimo() -> int:
+    """Il lead time più lungo in uso: fin dove servono i previsti per coprire l'anno X."""
+    procedure = m.Procedura.objects.aggregate(n=Max("lead_time_mesi"))["n"] or 0
+    contratti = m.Contratto.objects.aggregate(n=Max("lead_time_mesi_override"))["n"] or 0
+    return max(procedure, contratti)
 
 
 def _ultimo_stato(oggetto, oggi: datetime.date) -> str | None:
@@ -173,7 +189,13 @@ def calcola_piano(
 
 
 def _calcola_piano(anno: int, oggi: datetime.date, area, categoria: int | None, natura: str):
-    orizzonte = orizzonte_report(anno, oggi)
+    inizio_anno = datetime.date(anno, 1, 1)
+    # Un previsto con data limite nell'anno X può partire fino a lead time mesi dopo il 31/12/X.
+    orizzonte = max(
+        orizzonte_report(anno, oggi),
+        aggiungi_mesi(datetime.date(anno, 12, 31), _lead_time_massimo()) + UN_GIORNO,
+    )
+    recupero = anno == oggi.year  # i ritardi solo nel piano dell'anno in corso
     procedura_default = m.Procedura.objects.filter(codice="da_verificare").first()
     fabbisogni = (
         m.Fabbisogno.objects.filter(archiviato=False)
@@ -186,18 +208,29 @@ def _calcola_piano(anno: int, oggi: datetime.date, area, categoria: int | None, 
         fabbisogni = fabbisogni.filter(categoria_id=categoria)
     righe: list[RigaPiano] = []
     for f in fabbisogni.order_by("pk"):
-        previsti = [p for p in adapters.previsti_fabbisogno(f, orizzonte) if p.inizio.year == anno]
+        previsti = adapters.previsti_fabbisogno(f, orizzonte)
         if not previsti:
             continue
         base = adapters.contratto_base_previsti(f)
         if base is not None and base.senza_contratto:
             continue  # rinnovi senza contratto: nessun ordine al Procurement (SPEC §5.4, §5.6)
         durata = base.durata_mesi if base is not None else f.previsto_durata_mesi
-        righe += [_riga(f, base, p, durata, procedura_default, oggi) for p in previsti]
+        for p in previsti:
+            r = _riga(f, base, p, durata, procedura_default, oggi)
+            if r.data_limite.year == anno:
+                righe.append(r)
+            elif (
+                recupero
+                and r.data_limite < inizio_anno
+                and r.fine >= inizio_anno
+                and r.stato_pratica not in PRATICA_CONCLUSA
+            ):
+                r.in_ritardo = True
+                righe.append(r)
     if natura:
         righe = [r for r in righe if natura in r.per_natura]
     righe.sort(key=lambda r: (r.data_limite, r.fabbisogno.descrizione))
-    soglie = soglie_valide(datetime.date(anno, 1, 1))
+    soglie = soglie_valide(inizio_anno)
     return PianoOrdini(anno, righe, soglie, avvisi_frazionamento(righe, soglie))
 
 

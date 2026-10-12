@@ -345,7 +345,7 @@ Le due sezioni non si sommano: nessun totale di 16.000,00 compare nel budget.
 
 - budget 2027, previsionale, fatturato: OPEX 6.180,00 (rata 01/01/2027); CAPEX 10.300,00
   (rata 01/01/2027);
-- piano ordini 2027: una riga, natura `OPEX e CAPEX`, quote OPEX 6.180,00 e CAPEX 10.300,00;
+- piano ordini 2026 (data limite di avvio nel 2026, SPEC Rev16): una riga, natura `OPEX e CAPEX`, quote OPEX 6.180,00 e CAPEX 10.300,00;
   totali per natura: OPEX 6.180,00, CAPEX 10.300,00; filtro CAPEX: la riga resta (è un unico
   ordine) e il totale è solo CAPEX, 10.300,00.
 
@@ -359,7 +359,7 @@ abbonamento):
 
 - budget 2027, previsionale, fatturato: OPEX 16.480,00 (conto O 6.180,00, conto O2
   10.300,00); CAPEX 0,00;
-- piano ordini 2027: una riga, natura `OPEX`, 16.480,00;
+- piano ordini 2026: una riga, natura `OPEX`, 16.480,00;
 - il contratto reale C resta `OPEX e CAPEX`: nel budget 2026 nulla cambia.
 
 ## TC-14 — Rinnovo senza contratto (dominio)
@@ -702,4 +702,22 @@ fino al» 06/10/2026 resta `Da convalidare` anche dopo il 06/10/2026, finché l'
 `Convalidabile`. Segnata fuori registro, non è più da lavorare.
 
 **Fatturato di CS** (TC-16, §5.8): 1.504,17 (il valore base, non 1.679,83).
+
+## TC-17 — Piano ordini per data limite e ritardi
+
+SPEC §5.4 (Rev16), bozza da approvare.
+
+Parametri: procedura `Affidamento diretto`, lead time 4 mesi; adeguamento 0%.
+
+Input: fabbisogno «Servizio di prova», decisione `Rinnovare`. Contratto C dal 01/03/2026, 12
+mesi (fine 28/02/2027), 1.200,00 € fissi. Previsto P1 dal 01/03/2027 al 29/02/2028 (2028
+bisestile); data limite 28/02/2027 − 4 mesi = 31/10/2026 (fine mese resta fine mese).
+
+- **A cavallo d'anno**: al 12/10/2026, piano ordini 2026: una riga (P1, avvio 01/03/2027,
+  data limite 31/10/2026), non in ritardo; piano ordini 2027: P1 non c'è.
+- **Ritardo nell'anno in corso**: al 15/01/2027, pratica di C `Non avviata`. Piano ordini 2027:
+  una riga P1, marcata «in ritardo» (data limite 31/10/2026 < 01/01/2027, fine 29/02/2028 ≥
+  01/01/2027). Piano ordini 2026 alla stessa data: P1 c'è, non marcato (data limite nell'anno).
+- **Pratica conclusa**: al 15/01/2027, pratica di C `Contratto emesso`: P1 non è nel piano 2027.
+- **Anno non in corso**: al 15/01/2027, il piano ordini 2028 non recupera P1.
 

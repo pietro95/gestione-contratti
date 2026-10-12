@@ -2,7 +2,7 @@
 {% if con_dettaglio %}<div class="btn-group">
   <button class="btn btn-outline-secondary" type="submit" form="export" name="formato" value="pdf"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Scarica PDF</button>
   <button class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" type="button" data-bs-toggle="dropdown" aria-expanded="false"><span class="visually-hidden">Altre opzioni del PDF</span></button>
-  <ul class="dropdown-menu dropdown-menu-end"><li><button class="dropdown-item" type="submit" form="export-dettaglio" name="formato" value="pdf">PDF con il dettaglio delle voci</button></li></ul>
+  <ul class="dropdown-menu dropdown-menu-end"><li><button class="dropdown-item" type="submit" form="export-dettaglio" name="formato" value="pdf">{{ etichetta_dettaglio|default:"PDF con il dettaglio delle voci" }}</button></li></ul>
 </div>{% else %}<button class="btn btn-outline-secondary" type="submit" form="export" name="formato" value="pdf"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Scarica PDF</button>{% endif %}
 <form id="export" method="get" class="d-none">{% for chiave, valori in request.GET.lists %}{% if chiave != "formato" %}{% for v in valori %}<input type="hidden" name="{{ chiave }}" value="{{ v }}">{% endfor %}{% endif %}{% endfor %}</form>
 {% if con_dettaglio %}<form id="export-dettaglio" method="get" class="d-none">{% for chiave, valori in request.GET.lists %}{% if chiave != "formato" and chiave != "dettaglio" %}{% for v in valori %}<input type="hidden" name="{{ chiave }}" value="{{ v }}">{% endfor %}{% endif %}{% endfor %}<input type="hidden" name="dettaglio" value="1"></form>{% endif %}
