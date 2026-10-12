@@ -189,6 +189,7 @@ def _riga_piano(r) -> dict:
         },
         "su_wbs_a_progetto": r.a_progetto,
         "sopra_soglia": r.sopra_soglia,
+        "in_ritardo": r.in_ritardo,
     }
 
 
@@ -212,7 +213,9 @@ def piano_ordini(ctx: Contesto, argomenti: dict) -> dict:
             "natura": natura or "OPEX e CAPEX",
         },
         "nota": (
-            "Una riga per ogni contratto previsto con avvio del servizio nell'anno. Importi "
+            "Una riga per ogni contratto previsto con data limite di avvio della procedura "
+            "nell'anno; nell'anno in corso anche quelli in ritardo (data limite passata, "
+            "pratica non conclusa), con in_ritardo vero. Importi "
             "sull'intera durata, imponibile IVA esclusa. I rinnovi senza contratto non ci sono "
             "(non passano dal Procurement). OPEX e CAPEX si totalizzano separati."
         ),
@@ -381,7 +384,8 @@ STRUMENTI = [
         titolo="Piano ordini dell'anno",
         descrizione=(
             "Il piano per il Procurement: una riga per ogni contratto da rinnovare o nuovo con "
-            "avvio del servizio nell'anno, con procedura presunta, lead time, data limite di "
+            "data limite di avvio della procedura nell'anno (nell'anno in corso anche i "
+            "ritardi), con procedura presunta, lead time, data limite di "
             "avvio della procedura, stato della pratica, natura e importo stimato sull'intera "
             "durata. Avvisi di possibile frazionamento quando più fabbisogni della stessa "
             "categoria o dello stesso fornitore superano una soglia. Ordinato per data limite."

@@ -1,9 +1,9 @@
 {% extends "reports/pdf/base.html" %}
 {% load registro %}
-{% block sottotitolo %}Al {{ oggi|date:"d/m/Y" }} · contratti previsti con avvio del servizio nell'anno · importi imponibili sull'intera durata{% endblock %}
+{% block sottotitolo %}Al {{ oggi|date:"d/m/Y" }} · contratti previsti con data limite di avvio della procedura nell'anno{% if piano.anno == oggi.year %}, più quelli in ritardo{% endif %} · importi imponibili sull'intera durata{% endblock %}
 {% block contenuto %}
 <table class="kpi"><tr>
-  <td><div class="etichetta">Ordini da emettere</div><div class="valore">{{ piano.righe|length }}</div><div class="nota">contratti previsti nell'anno</div></td>
+  <td><div class="etichetta">Ordini da emettere</div><div class="valore">{{ piano.righe|length }}</div><div class="nota">contratti previsti da ordinare nell'anno{% if piano.in_ritardo %}, {{ piano.in_ritardo|length }} in ritardo{% endif %}</div></td>
   {% for natura, totali in per_natura.items %}
   <td><div class="etichetta">{{ natura }} · valore probabile</div><div class="valore">{{ totali.probabile|euro }}</div><div class="nota">fisso {{ totali.fisso|euro }} · massimo {{ totali.massimo|euro }}</div></td>
   {% endfor %}
@@ -24,7 +24,7 @@
   <tbody>
   {% for r in piano.righe %}
     <tr>
-      <td class="sx"><b>{{ r.fabbisogno.descrizione }}</b><div class="tenue">{{ r.natura }}{% if r.a_progetto %} · WBS a progetto{% endif %} · {{ r.fabbisogno.area }} · {{ r.categoria }}{% if not r.contratto_uscente %} · nuovo{% endif %}{% if con_avvisi and r.sopra_soglia %} · oltre soglia{% endif %}</div></td>
+      <td class="sx"><b>{{ r.fabbisogno.descrizione }}</b><div class="tenue">{{ r.natura }}{% if r.a_progetto %} · WBS a progetto{% endif %} · {{ r.fabbisogno.area }} · {{ r.categoria }}{% if not r.contratto_uscente %} · nuovo{% endif %}{% if r.in_ritardo %} · <b>in ritardo</b>{% endif %}{% if con_avvisi and r.sopra_soglia %} · oltre soglia{% endif %}</div></td>
       <td class="sx">{{ r.fornitore_uscente|default:"—" }}</td>
       <td class="sx">{{ r.procedura|default:"—" }}<div class="tenue">{{ r.lead_time_mesi }} mesi di lead time</div></td>
       <td class="num">{{ r.data_limite|date:"d/m/Y" }}</td>
@@ -36,7 +36,7 @@
       <td class="num">{{ r.importi.massimo|euro }}</td>
     </tr>
   {% empty %}
-    <tr><td colspan="10" class="vuoto">Nessun contratto previsto con avvio nell'anno.</td></tr>
+    <tr><td colspan="10" class="vuoto">Nessun contratto previsto da ordinare nell'anno.</td></tr>
   {% endfor %}
   {% for natura, totali in per_natura.items %}
     <tr class="totale"><td class="sx" colspan="7">Totale {{ natura }}</td><td class="num">{{ totali.fisso|euro }}</td><td class="num">{{ totali.probabile|euro }}</td><td class="num">{{ totali.massimo|euro }}</td></tr>

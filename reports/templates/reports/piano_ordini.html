@@ -2,13 +2,13 @@
 {% load registro %}
 {% block title %}Piano ordini {{ form.anno.value }}{% endblock %}
 {% block titolo_pagina %}Piano ordini {{ form.anno.value }}{% endblock %}
-{% block sottotitolo %}<div class="sottotitolo">Al {{ oggi|date:"d/m/Y" }} · contratti previsti con avvio del servizio nell'anno · importi imponibili sull'intera durata</div>{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">Al {{ oggi|date:"d/m/Y" }} · contratti previsti con data limite di avvio della procedura nell'anno{% if piano.anno == oggi.year %}, più quelli in ritardo{% endif %} · importi imponibili sull'intera durata</div>{% endblock %}
 {% block azioni %}{% include "reports/_azioni.html" with con_dettaglio=True etichetta_dettaglio="PDF con gli avvisi di frazionamento" %}{% endblock %}
 {% block content %}
 {% include "reports/_filtri.html" %}
 {% if piano %}
 <div class="row g-3 mb-4">
-  <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Ordini da emettere</div><div class="kpi-valore">{{ piano.righe|length }}</div><div class="kpi-nota">contratti previsti nell'anno</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Ordini da emettere</div><div class="kpi-valore">{{ piano.righe|length }}</div><div class="kpi-nota">contratti previsti da ordinare nell'anno{% if piano.in_ritardo %}, {{ piano.in_ritardo|length }} in ritardo{% endif %}</div></div></div></div>
   {% for natura, totali in per_natura.items %}
   <div class="col-sm-6 col-xl-3"><div class="card kpi verde"><div class="card-body"><div class="kpi-etichetta">{{ natura }} · valore probabile</div><div class="kpi-valore">{{ totali.probabile|euro }}</div><div class="kpi-nota">fisso {{ totali.fisso|euro }} · massimo {{ totali.massimo|euro }}</div></div></div></div>
   {% empty %}
@@ -34,7 +34,7 @@
   {% for r in piano.righe %}{% url 'contratti:fabbisogno' r.fabbisogno.pk as link %}
     <tr data-href="{{ link }}">
       <td style="min-width: 16rem"><a href="{{ link }}" class="fw-semibold">{{ r.fabbisogno.descrizione }}</a>
-        <div class="small text-body-secondary"><span class="stato {% if r.natura == 'CAPEX' %}stato-blu{% else %}stato-grigio{% endif %}">{{ r.natura }}</span>{% if r.a_progetto %} <span class="stato stato-grigio">WBS a progetto</span>{% endif %} {{ r.fabbisogno.area }} · {{ r.categoria }}{% if not r.contratto_uscente %} · <span class="stato stato-blu">nuovo</span>{% endif %}{% for s in r.sopra_soglia %} <span class="stato stato-rosso" title="{{ s }}">oltre soglia</span>{% endfor %}</div></td>
+        <div class="small text-body-secondary"><span class="stato {% if r.natura == 'CAPEX' %}stato-blu{% else %}stato-grigio{% endif %}">{{ r.natura }}</span>{% if r.a_progetto %} <span class="stato stato-grigio">WBS a progetto</span>{% endif %} {{ r.fabbisogno.area }} · {{ r.categoria }}{% if not r.contratto_uscente %} · <span class="stato stato-blu">nuovo</span>{% endif %}{% if r.in_ritardo %} <span class="stato stato-rosso" title="Data limite già passata e pratica non conclusa">in ritardo</span>{% endif %}{% for s in r.sopra_soglia %} <span class="stato stato-rosso" title="{{ s }}">oltre soglia</span>{% endfor %}</div></td>
       <td>{{ r.fornitore_uscente|default:"—" }}</td>
       <td class="text-nowrap">{{ r.procedura|default:"—" }}<div class="small text-body-secondary">{{ r.lead_time_mesi }} mesi di lead time</div></td>
       <td class="text-nowrap">{{ r.data_limite|date:"d/m/Y" }}</td>
@@ -46,7 +46,7 @@
       <td class="text-end">{{ r.importi.massimo|euro }}</td>
     </tr>
   {% empty %}
-    <tr><td colspan="10"><div class="vuoto py-4">Nessun contratto previsto con avvio nell'anno.</div></td></tr>
+    <tr><td colspan="10"><div class="vuoto py-4">Nessun contratto previsto da ordinare nell'anno.</div></td></tr>
   {% endfor %}
   </tbody>
   <tfoot class="fw-semibold">

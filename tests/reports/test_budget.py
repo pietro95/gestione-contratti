@@ -124,22 +124,19 @@ def test_rinnovi_mancanti(db):
     assert b.rinnovi_mancanti[0].previsti_esclusi == 3
 
 
-def test_piano_ordini_coincide_con_l_impegno_previsionale(archivio):
+def test_piano_ordini_per_anno_della_data_limite(archivio):
+    """SPEC §5.4 Rev16: l'anno del piano è quello della data limite, non dell'avvio."""
     for anno in (2026, 2027, 2028):
         piano = calcola_piano(anno, OGGI)
-        impegno = calcola_budget(Filtri(anno=anno, progetti="includi"), OGGI).totali()[
-            "previsionale"
-        ]["impegno"]
         assert piano.righe
-        for livello in LIVELLI:
-            assert piano.totali()[livello] == impegno[livello], (anno, livello)
-        assert all(r.avvio.year == anno for r in piano.righe)
+        assert all(r.data_limite.year == anno or r.in_ritardo for r in piano.righe)
+        assert all(not r.in_ritardo for r in piano.righe) or anno == OGGI.year
         date_limite = [r.data_limite for r in piano.righe]
         assert date_limite == sorted(date_limite)
 
 
 def test_piano_ordini_previsto_manuale(archivio):
-    piano = calcola_piano(2027, OGGI)
+    piano = calcola_piano(2026, OGGI)  # data limite 01/09/2026 (SPEC §5.4 Rev16)
     (riga,) = [
         r for r in piano.righe if r.fabbisogno.descrizione == "Nuovo servizio previsto a mano"
     ]
