@@ -256,6 +256,47 @@ class WBS(Archiviabile):
         return self.tipo == self.Tipo.PROGETTO
 
 
+class AutorizzazioneExtraBudget(Archiviabile):
+    """Attività spot autorizzata dall'AD fuori dal budget (Rev18).
+
+    Come una WBS a progetto, ma logica (non è un elemento SAP) e valida per OPEX e CAPEX: le
+    voci collegate sono fuori dai budget dei cluster e si consultano per autorizzazione.
+    I contratti con voci extra budget sono una tantum (nessun rinnovo, fuori dal piano ordini).
+    L'importo autorizzato si confronta con il massimo delle voci collegate: oltre, un avviso.
+    """
+
+    codice = models.CharField(max_length=40, unique=True)
+    descrizione = models.CharField(max_length=200)
+    cluster = models.ForeignKey(
+        "Cluster", on_delete=models.PROTECT, related_name="autorizzazioni_extra_budget"
+    )
+    protocollo = models.CharField("protocollo dell'autorizzazione AD", max_length=60)
+    data_autorizzazione = models.DateField("data dell'autorizzazione AD")
+    importo_autorizzato = importo("importo autorizzato (imponibile)")
+    percorso_documento = models.CharField("documento", max_length=500, blank=True)
+    note = models.TextField(blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "autorizzazione extra budget"
+        verbose_name_plural = "autorizzazioni extra budget"
+        ordering = ["-data_autorizzazione", "codice"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(importo_autorizzato__gte=0),
+                name="contratti_extra_budget_importo_non_negativo",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.codice} — {self.descrizione}"
+
+    def get_absolute_url(self):
+        from django.urls import reverse
+
+        return reverse("reports:extra_budget_spese", args=[self.pk])
+
+
 class ContoCoge(models.Model):
     """Piano dei conti con validità temporale e mappatura vecchio → nuovo.
 
@@ -713,6 +754,7 @@ class Contratto(Archiviabile):
     class Finanziamento(models.TextChoices):
         ORDINARIO = "ordinario", "Ordinario"
         FINANZIATO = "finanziato", "Finanziato"
+        EXTRA_BUDGET = "extra_budget", "Extra budget (autorizzato AD)"
 
     Natura = Natura
 
@@ -890,8 +932,11 @@ class Contratto(Archiviabile):
 
     @property
     def finanziamento(self) -> str:
-        """Finanziato se almeno una voce è su una WBS a progetto."""
-        for v in self._voci_attive():
+        """Extra budget se almeno una voce lo è; finanziato se una è su una WBS a progetto."""
+        voci = self._voci_attive()
+        if any(v.autorizzazione_extra_budget_id for v in voci):
+            return self.Finanziamento.EXTRA_BUDGET
+        for v in voci:
             if v.wbs_id and v.wbs.tipo == WBS.Tipo.PROGETTO:
                 return self.Finanziamento.FINANZIATO
         return self.Finanziamento.ORDINARIO
@@ -905,6 +950,16 @@ class Contratto(Archiviabile):
         if self.una_tantum and (self.predecessore_id or self.confluito_in_id):
             raise ValidationError(
                 {"una_tantum": "Un contratto una tantum non ha predecessore né confluenze."}
+            )
+        if (
+            not self.una_tantum
+            and self.pk
+            and self.voci.filter(
+                archiviato=False, autorizzazione_extra_budget__isnull=False
+            ).exists()
+        ):
+            raise ValidationError(
+                {"una_tantum": "Un contratto con voci extra budget è una tantum (Rev18)."}
             )
         if self.una_tantum and self.pk and self._ha_successori():
             raise ValidationError({"una_tantum": "Un contratto una tantum non ha successori."})
@@ -1049,6 +1104,12 @@ class VoceContratto(Archiviabile):
         WBS, on_delete=models.PROTECT, null=True, blank=True, related_name="+",
         verbose_name="WBS nei rinnovi", help_text="Vuoto: la WBS di questa voce.",
     )  # fmt: skip
+    # Rev18: attività spot autorizzata dall'AD, fuori dai budget dei cluster (OPEX o CAPEX).
+    autorizzazione_extra_budget = models.ForeignKey(
+        AutorizzazioneExtraBudget, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="voci", verbose_name="autorizzazione extra budget",
+        help_text="Solo per attività spot autorizzate dall'AD: la voce esce dal budget.",
+    )  # fmt: skip
     importo_fisso = importo("importo fisso (imponibile)", default=0)
     massimale_variabile = importo("massimale variabile", default=0)
     stima_consumo_pct = percentuale("stima di consumo (%)", null=True, blank=True)
@@ -1096,6 +1157,22 @@ class VoceContratto(Archiviabile):
         super().clean()
         if self.proroga_id and self.contratto_id and self.proroga.contratto_id != self.contratto_id:
             raise ValidationError({"proroga": "La proroga deve essere dello stesso contratto."})
+        aut = self.autorizzazione_extra_budget if self.autorizzazione_extra_budget_id else None
+        if aut and self.contratto_id:
+            if not self.contratto.una_tantum:
+                raise ValidationError(
+                    {
+                        "autorizzazione_extra_budget": "Solo un contratto una tantum può avere "
+                        "voci extra budget: non ha rinnovi."
+                    }
+                )
+            if self.contratto.fabbisogno.cluster_id != aut.cluster_id:
+                raise ValidationError(
+                    {
+                        "autorizzazione_extra_budget": f"L'autorizzazione {aut.codice} è del "
+                        f"cluster {aut.cluster.codice}."
+                    }
+                )
 
 
 class QuotaPeriodo(models.Model):

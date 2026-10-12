@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load registro %}
+{% block title %}Extra budget {{ s.autorizzazione.codice }}{% endblock %}
+{% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'reports:extra_budget' %}">Extra budget</a></li><li class="breadcrumb-item active" aria-current="page">{{ s.autorizzazione.codice }}</li></ol></nav>{% endblock %}
+{% block titolo_pagina %}Extra budget {{ s.autorizzazione.codice }}{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">{{ s.autorizzazione.descrizione }} · cluster {{ s.autorizzazione.cluster.codice }} · autorizzazione AD prot. {{ s.autorizzazione.protocollo }} del {{ s.autorizzazione.data_autorizzazione|date:"d/m/Y" }}{% if s.autorizzazione.archiviato %} · <span class="stato stato-grigio">archiviata</span>{% endif %}</div>{% endblock %}
+{% block content %}
+{% if s.avviso %}<div class="alert alert-warning">{{ s.avviso }}</div>{% endif %}
+{% if s.autorizzazione.percorso_documento %}<p class="small">Documento: <code>{{ s.autorizzazione.percorso_documento }}</code></p>{% endif %}
+<form method="get" class="filtri row g-3 align-items-end">
+  <div class="col-sm-5 col-xl-3"><label class="form-label" for="f-vista">Vista</label><select id="f-vista" name="vista" class="form-select">{% for v, t in viste %}<option value="{{ v }}" {% if s.vista == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+  <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-liv">Livello</label><select id="f-liv" name="livello" class="form-select">{% for l in livelli %}<option value="{{ l.value }}" {% if s.livello == l %}selected{% endif %}>{{ l.value|capfirst }}</option>{% endfor %}</select></div>
+  <div class="col-auto"><button class="btn btn-primary" type="submit">Applica</button></div>
+</form>
+{% for e in s.esclusi %}<div class="alert alert-warning small">{{ e }}: senza data di inizio, escluso.</div>{% endfor %}
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Autorizzato</div><div class="kpi-valore">{{ s.autorizzazione.importo_autorizzato|euro }}</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi verde"><div class="card-body"><div class="kpi-etichetta">Consumato</div><div class="kpi-valore">{{ s.consumato|euro }}</div><div class="kpi-nota">massimo contrattuale</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi {% if s.avviso %}rosso{% else %}blu{% endif %}"><div class="card-body"><div class="kpi-etichetta">Residuo</div><div class="kpi-valore">{{ s.residuo|euro }}</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi verde"><div class="card-body"><div class="kpi-etichetta">Totale {{ s.livello.value }}</div><div class="kpi-valore">{{ s.totale|euro }}</div><div class="kpi-nota">tutti gli anni</div></div></div></div>
+</div>
+<div class="tabella-card"><div class="table-responsive">
+<table class="table table-hover align-middle text-end table-prima-fissa" id="extra-budget-spese">
+  <thead><tr><th class="text-start">Contratto / voce</th><th class="text-start">Natura</th><th class="text-start">Servizio</th>{% for a in anni %}<th>{{ a|stringformat:"d" }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for r, celle in righe %}
+    <tr><td class="text-start"><a href="{% url 'contratti:contratto' r.contratto.pk %}">{{ r.contratto.fabbisogno.descrizione }}</a> <span class="small text-body-secondary">{{ r.contratto.numero_contratto|default:r.contratto.fornitore }}</span> — {{ r.voce.descrizione }}</td><td class="text-start">{{ r.voce.natura }}</td><td class="text-start text-nowrap">{{ r.inizio|date:"d/m/Y" }} – {{ r.fine|date:"d/m/Y" }}</td>{% for c in celle %}<td>{% if c %}{{ c|euro }}{% else %}—{% endif %}</td>{% endfor %}</tr>
+  {% empty %}<tr><td colspan="3" class="text-start"><div class="vuoto py-4">Nessun contratto su questa autorizzazione.</div></td></tr>{% endfor %}
+  </tbody>
+  {% if righe %}<tfoot class="fw-semibold"><tr><td class="text-start" colspan="3">Totale</td>{% for t in totali %}<td>{{ t|euro }}</td>{% endfor %}</tr></tfoot>{% endif %}
+</table></div></div>
+{% endblock %}

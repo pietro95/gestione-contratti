@@ -45,6 +45,14 @@ def dati():
     m.StatoPratica.objects.create(contratto=c, stato="non_avviata", data=D(2026, 9, 1))
     m.Impianto.objects.create(nome="Impianto di prova")
     m.WBS.objects.create(codice_wbs="WBS-PROVA-01", descrizione="Progetto prova")
+    m.AutorizzazioneExtraBudget.objects.create(
+        codice="EB-PROVA-01",
+        descrizione="Attività spot di prova",
+        cluster=f.cluster(),
+        protocollo="PROT-PROVA",
+        data_autorizzazione=datetime.date(2026, 1, 1),
+        importo_autorizzato=Decimal("1000.00"),
+    )
     it, _ = m.Cluster.objects.get_or_create(codice="IT", defaults={"nome": "IT"})
     m.AssegnazioneCluster.objects.create(username="responsabile.prova", cluster=it)
     successore = f.contratto(fabbisogno=c.fabbisogno, numero_contratto="5800000002")

@@ -437,6 +437,7 @@ class VoceForm(ModelFormBootstrap):
     sezioni = [
         ("Voce", ["descrizione", "proroga"]),
         ("Contabilità", ["natura", "conto", "centro_costo", "wbs"]),
+        ("Extra budget (attività spot autorizzata dall'AD)", ["autorizzazione_extra_budget"]),
         (
             "Importi",
             ["importo_fisso", "massimale_variabile", "stima_consumo_pct", "stima_consumo_importo"],
@@ -456,6 +457,7 @@ class VoceForm(ModelFormBootstrap):
             "conto",
             "centro_costo",
             "wbs",
+            "autorizzazione_extra_budget",
             "importo_fisso",
             "massimale_variabile",
             "stima_consumo_pct",
@@ -474,6 +476,13 @@ class VoceForm(ModelFormBootstrap):
         for campo in ("wbs", "wbs_rinnovi"):
             self.fields[campo].queryset = wbs_ammesse(self.cluster)
         self.fields["natura_rinnovi"].choices = [("", "Come questa voce"), *m.Natura.choices]
+        self.contratto = contratto
+        self.fields["autorizzazione_extra_budget"].queryset = (
+            m.AutorizzazioneExtraBudget.objects.filter(archiviato=False, cluster=self.cluster)
+            | m.AutorizzazioneExtraBudget.objects.filter(
+                pk=self.instance.autorizzazione_extra_budget_id
+            )
+        ).distinct()
         tendina_centro_costo(
             self, attuale=self.instance.centro_costo, nuovo=self.instance.pk is None
         )
@@ -482,6 +491,11 @@ class VoceForm(ModelFormBootstrap):
         dati = super().clean()
         natura = dati.get("natura") or m.Natura.OPEX
         verifica_natura_wbs(self, natura, "wbs", self.cluster)
+        if dati.get("autorizzazione_extra_budget") and not self.contratto.una_tantum:
+            self.add_error(
+                "autorizzazione_extra_budget",
+                "Solo un contratto una tantum può avere voci extra budget: non ha rinnovi.",
+            )
         con_cluster = permessi.conti_per_cluster()
         for campo in ("conto", "conto_rinnovi"):
             conto = dati.get(campo)

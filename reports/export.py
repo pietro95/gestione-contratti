@@ -45,6 +45,12 @@ def voci_filtri(budget: Budget) -> list[str]:
         parti.append("solo WBS a progetto")
     else:
         parti.append("WBS a progetto escluse")
+    if f.extra_budget == "includi":
+        parti.append("extra budget incluso")
+    elif f.extra_budget == "solo":
+        parti.append("solo extra budget")
+    else:
+        parti.append("extra budget escluso")
     if f.wbs:
         parti.append(f"WBS {m.WBS.objects.filter(pk=f.wbs).first()}")
     parti.append("previsti inclusi" if f.previsionali else "solo consolidato")

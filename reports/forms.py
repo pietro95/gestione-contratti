@@ -4,7 +4,7 @@ from contratti import models as m
 from contratti import permessi
 from contratti.engine.tipi import Livello
 from contratti.forms import FormBase
-from reports.budget import PROGETTI, RAGGRUPPAMENTI, Filtri
+from reports.budget import EXTRA_BUDGET, PROGETTI, RAGGRUPPAMENTI, Filtri
 
 ENTRAMBE = "separate"
 AUTOMATICO = "auto"
@@ -68,6 +68,9 @@ class FiltriBudgetForm(FormBase):
     progetti = forms.ChoiceField(
         choices=list(PROGETTI.items()), required=False, label="WBS a progetto"
     )
+    extra_budget = forms.ChoiceField(
+        choices=list(EXTRA_BUDGET.items()), required=False, label="Extra budget (AD)"
+    )
     previsti = forms.ChoiceField(
         choices=[("si", "Con i previsti"), ("no", "Solo consolidato")], required=False
     )
@@ -103,6 +106,7 @@ class FiltriBudgetForm(FormBase):
             conto=d["conto"].pk if d.get("conto") else None,
             fornitore=d["fornitore"].pk if d.get("fornitore") else None,
             progetti=d.get("progetti") or "",
+            extra_budget=d.get("extra_budget") or "",
             previsionali=d.get("previsti") != "no",
             natura=d["natura"] if d.get("natura") in m.Natura.values else "",
         )

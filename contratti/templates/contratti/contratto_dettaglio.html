@@ -69,7 +69,8 @@
           {% if c.rup or c.cup %}<dt>RUP · CUP</dt><dd>{{ c.rup|default:"—" }} · {{ c.cup|default:"—" }}</dd>{% endif %}
           <dt>CIG</dt><dd>{{ c.cig|default:"—" }}</dd>
           <dt>Procedura</dt><dd>{{ c.procedura }} · lead time {% if c.lead_time_mesi_override is not None %}{{ c.lead_time_mesi_override }}{% else %}{{ c.procedura.lead_time_mesi }}{% endif %} mesi</dd>
-          <dt>Natura</dt><dd>{{ c.natura }}{% if c.finanziamento == "finanziato" %} · finanziato (WBS a progetto){% endif %}</dd>
+          <dt>Natura</dt><dd>{{ c.natura }}{% if c.finanziamento == "finanziato" %} · finanziato (WBS a progetto){% elif c.finanziamento == "extra_budget" %} · <span class="stato stato-giallo">extra budget</span>{% endif %}</dd>
+          {% for a in autorizzazioni_extra %}<dt>Extra budget</dt><dd><a href="{{ a.get_absolute_url }}">{{ a.codice }}</a> · autorizzazione AD prot. {{ a.protocollo }} del {{ a.data_autorizzazione|date:"d/m/Y" }}</dd>{% endfor %}
           {% if c.percorso_documenti %}<dt>Cartella</dt><dd class="text-break"><code>{{ c.percorso_documenti }}</code> <button type="button" class="btn btn-sm btn-outline-secondary" data-copia-testo="{{ c.percorso_documenti }}" aria-label="Copia il percorso"><i class="bi bi-clipboard" aria-hidden="true"></i> Copia</button></dd>{% endif %}
           {% if c.link_documenti %}<dt>Documenti</dt><dd><a href="{{ c.link_documenti }}" rel="noopener" target="_blank">Apri la cartella <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></dd>{% endif %}
         </dl>
