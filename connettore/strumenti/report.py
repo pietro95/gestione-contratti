@@ -171,8 +171,12 @@ def _riga_piano(r) -> dict:
     return {
         "fabbisogno": {"id": r.fabbisogno.pk, "descrizione": r.fabbisogno.descrizione},
         "cluster": r.fabbisogno.cluster.codice,
+        "sottocluster": r.sottocluster.nome if r.sottocluster else None,
         "categoria": r.categoria.nome,
+        "stato": r.stato,
+        "contratto_id": r.contratto.pk if r.contratto else None,
         "contratto_uscente_id": uscente.pk if uscente else None,
+        "fornitore": r.fornitore.ragione_sociale if r.fornitore else None,
         "fornitore_uscente": r.fornitore_uscente.ragione_sociale if r.fornitore_uscente else None,
         "numero_previsto": r.numero_previsto,
         "procedura": r.procedura.nome if r.procedura else None,
@@ -187,6 +191,13 @@ def _riga_piano(r) -> dict:
         "importi_per_natura": {
             natura: {liv.value: imp[liv] for liv in LIVELLI} for natura, imp in r.per_natura.items()
         },
+        "normalizzato": {liv.value: r.normalizzato[liv] for liv in LIVELLI},
+        "normalizzato_per_natura": {
+            natura: {liv.value: imp[liv] for liv in LIVELLI}
+            for natura, imp in r.normalizzato_per_natura.items()
+        },
+        "fonte_finanziamento": r.fonte,
+        "fonte_finanziamento_per_natura": r.fonti,
         "su_wbs_a_progetto": r.a_progetto,
         "sopra_soglia": r.sopra_soglia,
         "in_ritardo": r.in_ritardo,
@@ -201,7 +212,7 @@ def piano_ordini(ctx: Contesto, argomenti: dict) -> dict:
     p = calcola_piano(
         anno, ctx.oggi, area=tuple(codici), categoria=argomenti.get("categoria"), natura=natura
     )
-    righe = sorted(p.righe, key=lambda r: (r.data_limite, r.fabbisogno.descrizione))
+    righe = sorted(p.righe, key=lambda r: (r.data_ordinamento, r.fabbisogno.descrizione))
     porzione, info = pagina(righe, argomenti)
     totali = {natura: p.totali(natura)} if natura else p.totali_per_natura()
     query = [("anno", anno), *([("area", c) for c in codici] or [("area", "tutti")])]
@@ -216,11 +227,15 @@ def piano_ordini(ctx: Contesto, argomenti: dict) -> dict:
         "nota": (
             "Una riga per ogni contratto previsto la cui procedura tocca l'anno: fase "
             "da_avviare (data limite nell'anno, entra nei totali) o da_concludere (procedura "
-            "da avviare prima, ordine da emettere entro l'avvio; fuori dai totali). Nell'anno "
-            "in corso in_ritardo segnala data limite passata con pratica non avviata o "
-            "servizio che doveva già partire. Importi "
-            "sull'intera durata, imponibile IVA esclusa. I rinnovi senza contratto non ci sono "
-            "(non passano dal Procurement). OPEX e CAPEX si totalizzano separati."
+            "da avviare prima, ordine da emettere entro l'avvio; fuori dai totali). In più, i "
+            "contratti già registrati con competenza nell'anno: fase registrato, stato "
+            "«In stipula» o «Stipulato», senza data limite, fuori dai totali contrattuali. "
+            "Nell'anno in corso in_ritardo segnala data limite passata con pratica non avviata "
+            "o servizio che doveva già partire. «importi» è il valore contrattuale sull'intera "
+            "durata; «normalizzato» è il valore sull'anno (competenza pro-rata a giorni); "
+            "ogni riga ha sottocluster e fonte di finanziamento (fabbisogno, altrimenti WBS, "
+            "altrimenti «Ordinaria»). Imponibile IVA esclusa. I rinnovi senza contratto non "
+            "ci sono (non passano dal Procurement). OPEX e CAPEX si totalizzano separati."
         ),
         "totali_per_natura": {
             n: {liv.value: imp[liv] for liv in LIVELLI} for n, imp in totali.items()
@@ -388,9 +403,11 @@ STRUMENTI = [
         descrizione=(
             "Il piano per il Procurement: una riga per ogni contratto da rinnovare o nuovo con "
             "procedura da avviare nell'anno (nei totali) o avviata prima e da concludere "
-            "nell'anno, con procedura presunta, lead time, data limite di "
-            "avvio della procedura, stato della pratica, natura e importo stimato sull'intera "
-            "durata. Avvisi di possibile frazionamento quando più fabbisogni della stessa "
+            "nell'anno, più i contratti già registrati (in stipula o stipulati) con competenza "
+            "nell'anno, con sottocluster, procedura presunta, lead time, data limite di "
+            "avvio della procedura, stato della pratica, natura, fonte di finanziamento, "
+            "valore contrattuale sull'intera durata e valore normalizzato sull'anno. "
+            "Avvisi di possibile frazionamento quando più fabbisogni della stessa "
             "categoria o dello stesso fornitore superano una soglia. Ordinato per data limite."
         ),
         input_schema={

@@ -121,6 +121,7 @@ def piano_ordini(request):
         "per_natura": {d["natura"]: piano.totali(d["natura"])}
         if d.get("natura")
         else piano.totali_per_natura(),
+        "sezioni": piano.sezioni(d.get("natura") or ""),
         "livelli": LIVELLI,
     }
     if request.GET.get("formato") == "pdf":

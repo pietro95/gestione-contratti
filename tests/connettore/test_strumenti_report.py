@@ -85,19 +85,41 @@ def test_budget_filtri_e_dettaglio(archivio, utente_reader):
     assert "budget/?anno=2026" in dettaglio["link"]
 
 
+def _tutte_le_righe_piano(utente, anno):
+    dati = esegui(utente, "piano_ordini", {"anno": anno, "cluster": ["tutti"], "limite": 100})
+    righe = list(dati["righe"])
+    while dati.get("cursore_successivo"):
+        dati = esegui(
+            utente,
+            "piano_ordini",
+            {"anno": anno, "cluster": ["tutti"], "cursore": dati["cursore_successivo"]},
+        )
+        righe += dati["righe"]
+    return righe
+
+
 def test_piano_ordini_uguale_al_report(archivio, utente_reader):
     dati = esegui(
         utente_reader, "piano_ordini", {"anno": 2027, "cluster": ["tutti"], "limite": 100}
     )
     piano = calcola_piano(2027, OGGI)
-    assert dati["totale"] == len(piano.righe) and not dati["troncato"]
+    assert dati["totale"] == len(piano.righe)
     for natura, totali in piano.totali_per_natura().items():
         assert dati["totali_per_natura"][natura] == {liv.value: str(totali[liv]) for liv in LIVELLI}
-    limiti = [r["data_limite_avvio"] for r in dati["righe"]]
-    assert limiti == sorted(limiti)
-    previsto = next(r for r in dati["righe"] if r["fabbisogno"]["descrizione"].startswith("Nuovo"))
+    righe = _tutte_le_righe_piano(utente_reader, 2027)
+    assert len(righe) == len(piano.righe)
+    # I registrati non hanno data limite: si ordinano per avvio.
+    date = [r["data_limite_avvio"] or r["avvio_servizio"] for r in righe]
+    assert date == sorted(date)
+    previsto = next(r for r in righe if r["fabbisogno"]["descrizione"].startswith("Nuovo"))
     assert previsto["contratto_uscente_id"] is None
     assert previsto["importi"]["fisso"] == "50000.00"
+    assert previsto["stato"] == "Previsto" and previsto["sottocluster"] is None
+    assert previsto["fonte_finanziamento"] == "Ordinaria"
+    assert set(previsto["normalizzato"]) == {"fisso", "probabile", "massimo"}
+    registrato = next(r for r in righe if r["fase"] == "registrato")
+    assert registrato["contratto_id"] and registrato["data_limite_avvio"] is None
+    assert registrato["stato"] in ("In stipula", "Stipulato")
 
 
 def test_spese_wbs_elenco_e_dettaglio(archivio, utente_reader):

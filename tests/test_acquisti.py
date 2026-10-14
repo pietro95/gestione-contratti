@@ -288,8 +288,13 @@ def test_tc16_una_tantum_fuori_da_alert_previsti_piano(f1):
         assert adapters.alert_contratto(c, oggi) is None
     assert not selettori.contratti_terminali().filter(pk=c.pk).exists()
     assert adapters.previsti_fabbisogno(c.fabbisogno, D(2029, 12, 31)) == []
-    for anno in (2026, 2027):
-        assert calcola_piano(anno, D(2026, 3, 5)).righe == []
+    # Nessun previsto; la una tantum registrata compare solo come contratto che pesa
+    # nell'anno (deviazione dalla SPEC §5.4 chiesta da Pietro), fuori dai totali contrattuali.
+    for anno, attese in ((2026, [c]), (2027, [])):
+        piano = calcola_piano(anno, D(2026, 3, 5))
+        assert [r.contratto for r in piano.righe] == attese
+        assert all(r.fase == "registrato" for r in piano.righe)
+        assert piano.da_avviare == [] and piano.da_concludere == []
     # Un contratto normale precedente: nessuna catena con il contratto una tantum.
     vecchio = f.contratto(fabbisogno=c.fabbisogno, data_inizio=D(2025, 1, 1), durata_mesi=12)
     assert servizi.collegamenti_del_fabbisogno(c.fabbisogno) == []

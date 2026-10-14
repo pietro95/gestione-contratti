@@ -90,6 +90,13 @@ class CategoriaAdmin(BaseAdmin):
     search_fields = ("nome",)
 
 
+@admin.register(m.FonteFinanziamento)
+class FonteFinanziamentoAdmin(BaseAdmin):
+    list_display = ("nome", "attiva")
+    list_filter = ("attiva",)
+    search_fields = ("nome", "note")
+
+
 @admin.register(m.Impianto)
 class ImpiantoAdmin(ArchiviabileAdmin):
     list_display = ("nome", "archiviato")
@@ -104,12 +111,22 @@ class ClusterAdmin(ArchiviabileAdmin):
     search_fields = ("codice", "nome")
 
 
+@admin.register(m.Sottocluster)
+class SottoclusterAdmin(ArchiviabileAdmin):
+    list_display = ("nome", "cluster", "archiviato")
+    list_filter = ("cluster", "archiviato")
+    search_fields = ("nome", "cluster__codice", "note")
+    autocomplete_fields = ("cluster",)
+
+
 @admin.register(m.WBS)
 class WBSAdmin(ArchiviabileAdmin):
-    list_display = ("codice_wbs", "descrizione", "tipo", "cluster", "archiviato")
-    list_filter = ("tipo", "cluster", "archiviato")
+    list_display = (
+        "codice_wbs", "descrizione", "tipo", "cluster", "fonte_finanziamento", "archiviato",
+    )  # fmt: skip
+    list_filter = ("tipo", "cluster", "fonte_finanziamento", "archiviato")
     search_fields = ("codice_wbs", "descrizione")
-    autocomplete_fields = ("cluster",)
+    autocomplete_fields = ("cluster", "fonte_finanziamento")
 
 
 class ContoCogeForm(forms.ModelForm):
@@ -221,13 +238,35 @@ class ContrattoInline(InlineSenzaCancellazione):
 
 @admin.register(m.Fabbisogno)
 class FabbisognoAdmin(ArchiviabileAdmin):
-    list_display = ("descrizione", "cluster", "categoria", "decisione", "impianto", "archiviato")
-    list_filter = ("cluster", "categoria", "decisione", "impianto", "archiviato")
+    list_display = (
+        "descrizione", "cluster", "sottocluster", "categoria", "decisione", "impianto",
+        "archiviato",
+    )  # fmt: skip
+    list_filter = ("cluster", "sottocluster", "categoria", "decisione", "impianto", "archiviato")
     search_fields = ("descrizione", "referente", "note")
-    autocomplete_fields = ("categoria", "impianto", "referente_utente", "previsto_procedura")
+    autocomplete_fields = (
+        "categoria",
+        "sottocluster",
+        "fonte_finanziamento",
+        "impianto",
+        "referente_utente",
+        "previsto_procedura",
+    )
     inlines = [ContrattoInline, StatoPraticaFabbisognoInline]
     fieldsets = (
-        (None, {"fields": ("descrizione", "cluster", "categoria", "impianto")}),
+        (
+            None,
+            {
+                "fields": (
+                    "descrizione",
+                    "cluster",
+                    "sottocluster",
+                    "categoria",
+                    "impianto",
+                    "fonte_finanziamento",
+                )
+            },
+        ),
         ("Responsabilità", {"fields": ("referente", "referente_utente")}),
         ("Continuità", {"fields": ("decisione", "stima_prossimo_importo", "note")}),
         (

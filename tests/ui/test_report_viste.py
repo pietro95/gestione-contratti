@@ -79,14 +79,19 @@ def test_export_budget_coincide_con_il_calcolo(reader, dati):
 def test_export_piano_ordini(reader, dati):
     risposta = reader.get(reverse("reports:piano_ordini"), {"anno": 2027, "formato": "xlsx"})
     wb = openpyxl.load_workbook(io.BytesIO(risposta.content))
-    righe = _righe(wb["Piano ordini"])
     piano = calcola_piano(2027, OGGI)
-    per_natura = piano.totali_per_natura()
-    assert len(righe) == len(piano.righe) + len(per_natura)
-    for riga, (natura, totali) in zip(righe[len(piano.righe) :], per_natura.items(), strict=True):
-        assert riga[0] == f"Totale {natura}"
-        assert [Decimal(str(x)) for x in riga[14:17]] == [totali[liv] for liv in LIVELLI]
-    assert isinstance(righe[0][7], datetime.datetime)  # date come date, non testo
+    sezioni = piano.sezioni()
+    assert [s.natura for s in sezioni] == [n for n in ("OPEX", "CAPEX") if n in wb.sheetnames]
+    for sezione in sezioni:  # un foglio per natura: righe della natura più il totale
+        righe = _righe(wb[sezione.natura])
+        assert len(righe) == sezione.numero_righe + 1
+        assert righe[-1][0] == f"Totale {sezione.natura}"
+        t = sezione.totali
+        assert [Decimal(str(x)) for x in righe[-1][16:22]] == [
+            *[t.contrattuale[liv] for liv in LIVELLI],
+            *[t.normalizzato[liv] for liv in LIVELLI],
+        ]
+    assert isinstance(_righe(wb["OPEX"])[0][8], datetime.datetime)  # date come date, non testo
 
 
 def test_budget_opex_di_default_e_nature_separate(reader, dati):
