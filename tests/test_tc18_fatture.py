@@ -97,10 +97,10 @@ def _fattura(numero) -> m.Fattura:
 def test_primo_import(registro, tmp_path):
     report = importa_fatture(file_tc18(tmp_path), oggi=OGGI)
     c = report.conteggi
-    assert (c["create"], c["non_importate"], c["gia_presenti"]) == (3, 1, 0)
-    assert c["con_contratto_proposto"] == 3
+    assert (c["create"], c["non_importate"], c["gia_presenti"]) == (4, 0, 0)
+    assert c["con_contratto_proposto"] == 3 and c["fornitori_creati"] == 1
     assert [(a.riga, a.codice) for a in report.anomalie] == [
-        (6, "FORNITORE_NON_TROVATO"),
+        (6, "FORNITORE_CREATO"),
         (7, "NUMERO_DA_VERIFICARE"),
     ]
     nuove = [_fattura(n) for n in ("FA-1/2026", "13/2026", "76 In attesa di nota credito")]
@@ -120,8 +120,26 @@ def test_primo_import(registro, tmp_path):
 
 def test_dry_run_non_scrive(registro, tmp_path):
     report = importa_fatture(file_tc18(tmp_path), dry_run=True, oggi=OGGI)
-    assert report.conteggi["create"] == 3
+    assert report.conteggi["create"] == 4
     assert m.Fattura.objects.count() == 1
+    assert not m.Fornitore.objects.filter(ragione_sociale="Fornitore Sconosciuto").exists()
+
+
+def test_fornitore_sconosciuto_creato_una_volta(registro, tmp_path):
+    importa_fatture(file_tc18(tmp_path), oggi=OGGI)
+    nuovo = m.Fornitore.objects.get(ragione_sociale="Fornitore Sconosciuto")
+    assert _fattura("99").fornitore == nuovo
+    report = importa_fatture(file_tc18(tmp_path, nome="seconda.xlsx"), oggi=OGGI)
+    assert report.conteggi["fornitori_creati"] == 0
+    assert m.Fornitore.objects.filter(ragione_sociale="Fornitore Sconosciuto").count() == 1
+
+
+def test_fornitore_non_creato_per_riga_scartata(registro, tmp_path):
+    righe = [list(r) for r in RIGHE_FILE]
+    righe[5][4] = -10  # nota di credito: la riga si scarta
+    report = importa_fatture(file_tc18(tmp_path, righe), oggi=OGGI)
+    assert report.conteggi["fornitori_creati"] == 0
+    assert not m.Fornitore.objects.filter(ragione_sociale="Fornitore Sconosciuto").exists()
 
 
 def test_colonne_annotate_si_ignorano(registro, tmp_path):
@@ -140,14 +158,14 @@ def test_secondo_import_idempotente(registro, tmp_path):
     righe[3][4] = 1250
     report = importa_fatture(file_tc18(tmp_path, righe, "seconda.xlsx"), oggi=OGGI)
     c = report.conteggi
-    assert (c["create"], c["gia_presenti"]) == (0, 3)
+    assert (c["create"], c["gia_presenti"]) == (0, 4)
     assert ("IMPORTO_DIVERSO", 4) in [(a.codice, a.riga) for a in report.anomalie]
     assert _fattura("FA-1/2026").importo_documento == Decimal("1220.00")
 
 
 def test_comando(registro, tmp_path, capsys):
     call_command("import_fatture", str(file_tc18(tmp_path)), "--dry-run")
-    assert "create 3" in capsys.readouterr().out
+    assert "create 4" in capsys.readouterr().out
     assert m.Fattura.objects.count() == 1
 
 
@@ -178,7 +196,12 @@ def test_presa_in_carico(registro, tmp_path):
 
 def test_assegna_ai_referenti_proposti(registro, tmp_path):
     importa_fatture(file_tc18(tmp_path), oggi=OGGI)
-    pks = list(m.Fattura.objects.filter(referente__isnull=True).values_list("pk", flat=True))
+    # La 99 è di un fornitore nuovo, senza contratto: non ha un referente proposto.
+    pks = list(
+        m.Fattura.objects.filter(referente__isnull=True)
+        .exclude(numero="99")
+        .values_list("pk", flat=True)
+    )
     with pytest.raises(acquisti.OperazioneNonAmmessa):
         fatture.assegna_ai_proposti(pks, registro["bianchi"], OGGI)
     esito = fatture.assegna_ai_proposti(pks, registro["gialli"], OGGI)
@@ -201,7 +224,7 @@ def test_senza_referente_proposto(registro, tmp_path):
     esito = fatture.assegna_ai_proposti(pks, registro["gialli"], OGGI)
     assert [x.numero for x in esito.fatte] == ["13/2026"]
     assert sorted(r[0].numero for r in esito.rifiutate) == [
-        "76 In attesa di nota credito", "FA-1/2026",
+        "76 In attesa di nota credito", "99", "FA-1/2026",
     ]  # fmt: skip
     assert {r[1] for r in esito.rifiutate} == {"senza referente proposto"}
 
