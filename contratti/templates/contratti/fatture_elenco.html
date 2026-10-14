@@ -11,6 +11,23 @@
   {% endfor %}
 </ul>
 
+{% if form_import %}
+<details class="card mb-3" id="import-fatture">
+  <summary class="card-header"><i class="bi bi-upload" aria-hidden="true"></i> Importa le fatture dall'estrazione SAP</summary>
+  <div class="card-body">
+    <p class="small text-body-secondary">Prima vedi l'anteprima, poi confermi. Le fatture nuove entrano da prendere in carico; un fornitore non in anagrafica si crea al momento. <a href="{% url 'contratti:importazione_modello' 'fatture' %}">Scarica il modello</a></p>
+    <form method="post" enctype="multipart/form-data" action="{% url 'contratti:importazione_carica' 'fatture' %}">
+      {% csrf_token %}
+      <div class="row g-2 align-items-end"><div class="col">
+        <label class="form-label" for="{{ form_import.file.id_for_label }}">{{ form_import.file.label }}</label>{{ form_import.file }}
+        {% if form_import.file.help_text %}<div class="form-text">{{ form_import.file.help_text }}</div>{% endif %}
+      </div></div>
+      <button class="btn btn-primary mt-3" type="submit"><i class="bi bi-upload" aria-hidden="true"></i> Carica e vedi l'anteprima</button>
+    </form>
+  </div>
+</details>
+{% endif %}
+
 <form method="get" class="filtri">
   <input type="hidden" name="vista" value="{{ vista }}">
   <div class="row g-3 align-items-end">

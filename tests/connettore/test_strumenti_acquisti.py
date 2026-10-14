@@ -159,6 +159,7 @@ def test_fatture_tc18(registro, tmp_path, lettore):  # noqa: F811
     tutte = esegui(lettore, "elenco_fatture", {"vista": "da_prendere"})
     assert {r["numero"]: r["referente_proposto"] for r in tutte["righe"]} == {
         "FA-1/2026": "bianchi", "13/2026": "rossi", "76 In attesa di nota credito": "bianchi",
+        "99": None,
     }  # fmt: skip
     # Lavorazione della 13/2026 fino al commento per PAC (TC-18).
     f13 = m.Fattura.objects.get(numero="13/2026")
@@ -190,7 +191,7 @@ def test_fatture_tc18(registro, tmp_path, lettore):  # noqa: F811
         esegui(bianchi, "elenco_fatture", {"vista": "da_prendere", "proposte_a_me": False})[
             "totale"
         ]
-        == 2
+        == 3
     )
 
 

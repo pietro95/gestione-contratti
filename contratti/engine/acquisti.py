@@ -241,6 +241,7 @@ class PassoFattura(StrEnum):
     PRESA_IN_CARICO = "presa_in_carico"
     ASSEGNAZIONE = "assegnazione"
     CONVALIDA = "convalida"
+    BLOCCATA = "bloccata"
     RDC = "rdc"
     MAP_MIGO = "map_migo"
     TRASFERIMENTO = "trasferimento"
@@ -250,6 +251,7 @@ ETICHETTE_PASSO = {
     PassoFattura.PRESA_IN_CARICO: "Da prendere in carico",
     PassoFattura.ASSEGNAZIONE: "Da assegnare",
     PassoFattura.CONVALIDA: "Da convalidare",
+    PassoFattura.BLOCCATA: "Bloccata",
     PassoFattura.RDC: "RdC da fare",
     PassoFattura.MAP_MIGO: "MAP/MIGO da fare",
     PassoFattura.TRASFERIMENTO: "Da trasferire",
@@ -285,6 +287,12 @@ def convalidata(lav: LavorazioneFattura, oggi: datetime.date) -> bool:
     return lav.bloccata_fino_al is None or lav.bloccata_fino_al < oggi
 
 
+def bloccata(lav: LavorazioneFattura, oggi: datetime.date) -> bool:
+    """Stanziata e bloccata, qualunque sia l'esito: il blocco dura fino alla data indicata
+    inclusa. Fino ad allora la fattura è «Bloccata», non «Da convalidare»."""
+    return lav.bloccata_fino_al is not None and lav.bloccata_fino_al >= oggi
+
+
 def passo_fattura(
     documenti: Iterable[tuple[str, datetime.date]],
     oggi: datetime.date,
@@ -299,6 +307,8 @@ def passo_fattura(
         return PassoFattura.PRESA_IN_CARICO
     if not lavorazione.assegnata:
         return PassoFattura.ASSEGNAZIONE
+    if bloccata(lavorazione, oggi):
+        return PassoFattura.BLOCCATA
     if not convalidata(lavorazione, oggi):
         return PassoFattura.CONVALIDA
     tipi = {tipo for tipo, data in documenti if data <= oggi}
@@ -329,8 +339,10 @@ def fattura_ferma(
     trasferita: datetime.date | None = None,
     lavorazione: LavorazioneFattura = GIA_CONVALIDATA,
 ) -> bool:
+    # Una fattura bloccata aspetta la data del blocco: non è ferma.
     return (
         fattura_da_lavorare(documenti, oggi, trasferita, lavorazione)
+        and not bloccata(lavorazione, oggi)
         and (oggi - registrata).days > giorni
     )
 

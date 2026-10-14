@@ -64,12 +64,12 @@ def test_flusso_della_fattura(pagina, tmp_path):
     pagina.set_input_files("#id_fatture-file", str(_estrazione(tmp_path, oggi)))
     pagina.click("form[action$='/fatture/'] button[type=submit]")
     expect(pagina.locator("text=Anteprima: nessun dato è stato ancora scritto")).to_be_visible()
-    expect(pagina.get_by_text("FORNITORE_NON_TROVATO").first).to_be_visible()
+    expect(pagina.get_by_text("FORNITORE_CREATO").first).to_be_visible()
     assert violazioni_axe(pagina) == []
     pagina.click("button:has-text('Conferma l')")
     pagina.locator("#modale-conferma [data-conferma-ok]").click()
     expect(pagina.locator(".sottotitolo .stato-verde")).to_have_text("Importato")
-    assert m.Fattura.objects.count() == 2
+    assert m.Fattura.objects.count() == 3
 
     # Da prendere in carico: proposte a me (referente del fabbisogno), selezione multipla.
     pagina.goto(f"{pagina.base}/fatture/")
@@ -81,7 +81,11 @@ def test_flusso_della_fattura(pagina, tmp_path):
     expect(
         pagina.locator(".alert-success, .toast", has_text="2 fatture prese in carico")
     ).to_have_count(1)
-    assert set(m.Fattura.objects.values_list("referente__username", flat=True)) == {"e2e_editor"}
+    # La 99, del fornitore creato dall'import, non ha un contratto né un referente proposto.
+    assert set(
+        m.Fattura.objects.exclude(numero="99").values_list("referente__username", flat=True)
+    ) == {"e2e_editor"}
+    assert m.Fattura.objects.get(numero="99").referente is None
 
     # La fattura 13/2026: contratto proposto, convalida, importi, RdC e MAP.
     fa = m.Fattura.objects.get(numero="13/2026")

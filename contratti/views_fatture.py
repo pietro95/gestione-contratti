@@ -53,6 +53,18 @@ def _riga(f: m.Fattura, oggi, contratto_proposto=None, referente_proposto=None) 
     }
 
 
+def _form_import(utente):
+    """Il modulo dell'import settimanale, nella pagina delle fatture, per l'amministrazione
+    acquisti (Admin o addetto)."""
+    from contratti import importazioni
+    from contratti.views_import import CaricaForm
+
+    tipo = importazioni.TIPI["fatture"]
+    if not fatture.gestisce(utente) or not importazioni.puo_usare(utente, tipo):
+        return None
+    return CaricaForm(tipo=tipo, prefix=tipo.codice, utente=utente)
+
+
 def conteggio_da_prendere() -> int:
     return m.Fattura.objects.filter(
         referente__isnull=True, fuori_registro=False, archiviato=False
@@ -69,16 +81,25 @@ def fatture_elenco(request):
     from reports.acquisti import elenco_fatture
 
     proposte = {"1": True, "0": False}.get(g.get("proposte"))
-    elenco = elenco_fatture(
-        request.user,
-        oggi,
-        g.get("vista") or "da_prendere",
-        testo=g.get("q", ""),
-        passo=g.get("passo", ""),
-        proposte=proposte,
-        fuori_registro=bool(g.get("fuori_registro")),
-        archiviate=bool(g.get("archiviate")),
-    )
+
+    def carica(vista):
+        return elenco_fatture(
+            request.user,
+            oggi,
+            vista,
+            testo=g.get("q", ""),
+            passo=g.get("passo", ""),
+            proposte=proposte,
+            fuori_registro=bool(g.get("fuori_registro")),
+            archiviate=bool(g.get("archiviate")),
+        )
+
+    if not g.get("vista") and not conteggio_da_prendere():
+        # Vista di default: con tutte le fatture prese in carico si apre «Le mie fatture».
+        # Se ce ne sono da prendere in carico (anche non proposte a me) si apre quella vista.
+        elenco = carica("mie")
+    else:
+        elenco = carica(g.get("vista") or "da_prendere")
     vista, righe = elenco.vista, elenco.righe
     proposte_a_me, solo_proposte = elenco.proposte_a_me, elenco.solo_proposte
     pagina = Paginator(righe, PER_PAGINA).get_page(g.get("pagina"))
@@ -108,6 +129,7 @@ def fatture_elenco(request):
             ),
             "scrive": fatture.scrive(request.user),
             "gestisce": fatture.gestisce(request.user),
+            "form_import": _form_import(request.user),
             "da_prendere": conteggio_da_prendere(),
         },
     )
@@ -260,6 +282,7 @@ def fattura_dettaglio(request, pk):
                             None,
                             Passo.RDC,
                             Passo.CONVALIDA,
+                            Passo.BLOCCATA,
                             Passo.ASSEGNAZIONE,
                             Passo.PRESA_IN_CARICO,
                         )

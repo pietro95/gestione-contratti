@@ -563,13 +563,13 @@ def test_tc18_via_mcp(make_user, editor, registro_fatture):
     conferma(editor, anteprima)
     assert m.Fattura.objects.get(pk=fa1.pk).referente == rossi
     conferma(editor, ok(editor, "assegna_contratto_fattura", {"id": f13.pk, "contratto_id": cs.pk}))
-    # Convalida bloccata: resta al passo «convalida» fino alla data.
+    # Convalida bloccata: passo «bloccata» fino alla data.
     conferma(editor, ok(editor, "convalida_fattura", {
         "id": f13.pk, "esito_convalida": "in_attesa",
         "nota_convalida": "in attesa di prove di funzionamento in campo",
         "bloccata_fino_al": "2099-12-31",
     }))  # fmt: skip
-    assert ok(editor, "fattura", {"id": f13.pk})["passo"] == "convalida"
+    assert ok(editor, "fattura", {"id": f13.pk})["passo"] == "bloccata"
     conferma(editor, ok(editor, "convalida_fattura", {
         "id": f13.pk, "esito_convalida": "convalidabile", "bloccata_fino_al": None,
     }))  # fmt: skip

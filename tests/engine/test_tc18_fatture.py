@@ -66,17 +66,19 @@ def test_passi_rev15(lavorazione, atteso):
 
 
 def test_convalida_in_attesa_e_bloccata():
-    """FA-1/2026: in attesa e bloccata fino al 06/10/2026 resta da convalidare anche dopo."""
+    """FA-1/2026: in attesa e bloccata fino al 06/10/2026: bloccata fino a quella data
+    (compresa), poi di nuovo da convalidare."""
     attesa = LavorazioneFattura(
         in_carico_dal=D(2026, 10, 1), esito="in_attesa", bloccata_fino_al=D(2026, 10, 6)
     )
-    for oggi in (D(2026, 10, 6), D(2026, 10, 7), D(2026, 12, 31)):
+    assert passo_fattura([], D(2026, 10, 6), None, attesa) == PassoFattura.BLOCCATA
+    for oggi in (D(2026, 10, 7), D(2026, 12, 31)):
         assert passo_fattura([], oggi, None, attesa) == PassoFattura.CONVALIDA
     convalidabile = LavorazioneFattura(
         in_carico_dal=D(2026, 10, 1), esito="convalidabile", bloccata_fino_al=D(2026, 10, 6)
     )
     # «Fino al» compreso: il 06/10 è ancora bloccata, dal 07/10 si passa alla RdC.
-    assert passo_fattura([], D(2026, 10, 6), None, convalidabile) == PassoFattura.CONVALIDA
+    assert passo_fattura([], D(2026, 10, 6), None, convalidabile) == PassoFattura.BLOCCATA
     assert passo_fattura([], D(2026, 10, 7), None, convalidabile) == PassoFattura.RDC
     non = LavorazioneFattura(in_carico_dal=D(2026, 10, 1), esito="non_convalidabile")
     assert passo_fattura([], OGGI, None, non) == PassoFattura.CONVALIDA

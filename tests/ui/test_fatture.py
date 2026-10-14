@@ -249,3 +249,75 @@ def test_tipo_acquisto_nel_form_del_contratto(scenario, editor):
     c = scenario["contratto"]
     pagina = editor.get(reverse("contratti:contratto_modifica", args=[c.pk])).content.decode()
     assert 'name="tipo_acquisto"' in pagina
+
+
+# --- Vista di default, import dell'amministrazione acquisti, fatture bloccate ----------------
+
+
+def _client(username):
+    client = Client()
+    client.login(username=username, password=PASSWORD)
+    return client
+
+
+def test_vista_di_default_senza_fatture_da_prendere(scenario, editor):
+    fa = scenario["fattura"]
+    # C'è una fattura da prendere in carico: si apre «Da prendere in carico».
+    risposta = editor.get(reverse("contratti:fatture"))
+    assert risposta.context["vista"] == "da_prendere"
+    # Presa in carico: la vista è vuota e di default si apre «Le mie fatture».
+    editor.post(reverse("contratti:fattura_prendi", args=[fa.pk]))
+    risposta = editor.get(reverse("contratti:fatture"))
+    assert risposta.context["vista"] == "mie"
+    assert [r["f"] for r in risposta.context["pagina"]] == [fa]
+    # Una fattura da prendere in carico non proposta a me (altro fornitore, nessun contratto)
+    # si vede comunque: la vista di default resta «Da prendere in carico».
+    altro = f.fornitore("Altro Fornitore")
+    m.Fattura.objects.create(
+        fornitore=altro, numero="X-1", data=OGGI, importo_documento=Decimal("10")
+    )
+    risposta = editor.get(reverse("contratti:fatture"))
+    assert risposta.context["vista"] == "da_prendere" and risposta.context["totale"] == 1
+    # La scelta esplicita della vista non si tocca.
+    risposta = editor.get(reverse("contratti:fatture") + "?vista=da_prendere")
+    assert risposta.context["vista"] == "da_prendere" and risposta.context["totale"] == 1
+
+
+def test_import_nella_pagina_fatture_solo_per_l_amministrazione(
+    scenario, editor, reader, make_user
+):
+    make_user("gialli", role=EDITOR)
+    m.FunzioneUtente.objects.create(
+        username="gialli", funzione=m.FunzioneUtente.Funzione.AMMINISTRAZIONE_ACQUISTI
+    )
+    url = reverse("contratti:fatture")
+    addetto = _client("gialli")
+    pagina = addetto.get(url).content.decode()
+    assert 'id="import-fatture"' in pagina
+    assert reverse("contratti:importazione_carica", args=["fatture"]) in pagina
+    for altro in (editor, reader):
+        assert 'id="import-fatture"' not in altro.get(url).content.decode()
+
+
+def test_fattura_bloccata_non_e_da_convalidare(scenario, editor):
+    fa = scenario["fattura"]
+    fa.referente = scenario["referente"]
+    fa.data_presa_in_carico = OGGI - datetime.timedelta(days=30)
+    fa.data_registrazione = OGGI - datetime.timedelta(days=30)
+    fa.contratto = scenario["contratto"]
+    fa.voce = scenario["voce"]
+    fa.esito_convalida = m.Fattura.Esito.CONVALIDABILE
+    fa.data_convalida = OGGI - datetime.timedelta(days=20)
+    fa.bloccata_fino_al = OGGI + datetime.timedelta(days=10)
+    fa.save()
+    assert fatture.passo_fattura(fa, OGGI) == PassoFattura.BLOCCATA
+    assert not fatture.ferma(fa, OGGI)  # aspetta la data del blocco: non è ferma
+    risposta = _client("rossi").get(reverse("contratti:fatture") + "?vista=mie")
+    assert [r["passo_label"] for r in risposta.context["pagina"]] == ["Bloccata"]
+    assert 'class="stato stato-grigio">Bloccata' in risposta.content.decode()
+    dettaglio = editor.get(reverse("contratti:fattura", args=[fa.pk])).content.decode()
+    assert "Bloccata" in dettaglio
+    # Passata la data del blocco, la fattura prosegue.
+    fa.bloccata_fino_al = OGGI - datetime.timedelta(days=1)
+    fa.save()
+    assert fatture.passo_fattura(fa, OGGI) == PassoFattura.RDC

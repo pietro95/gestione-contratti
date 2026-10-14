@@ -7,7 +7,9 @@ può esserci la riga di revisione). Si leggono solo ``Fornitore``, ``Numero Docu
 - Una riga senza numero, data e importo non è una fattura (righe vuote, legenda in fondo): si
   ignora. Compilata solo in parte va nel report (``RIGA_INCOMPLETA``).
 - Fornitore riconosciuto per ragione sociale o nome breve (stessa normalizzazione dell'import
-  dei contratti); altrimenti la riga non si importa (``FORNITORE_NON_TROVATO``).
+  dei contratti); se non c'è in anagrafica si crea sul momento, con la ragione sociale del file,
+  e si segnala (``FORNITORE_CREATO``, da verificare). Un nome che corrisponde a più fornitori
+  non si importa (``FORNITORE_NON_TROVATO``). Il fornitore si crea solo per righe valide.
 - Numero conservato come scritto; con testo aggiunto si importa ed è segnalato
   (``NUMERO_DA_VERIFICARE``).
 - La fattura entra da prendere in carico, senza referente e senza contratto: il contratto e il
@@ -112,7 +114,7 @@ def importa_fatture(
     oggi = oggi or timezone.localdate()
     report = Report(file=percorso.name, dry_run=dry_run)
     for chiave in ("righe_lette", "create", "gia_presenti", "non_importate",
-                   "con_contratto_proposto"):  # fmt: skip
+                   "con_contratto_proposto", "fornitori_creati"):  # fmt: skip
         report.conteggi[chiave] = 0
     foglio, righe = _leggi(percorso)
     inizio, col = _intestazione(righe)
@@ -163,18 +165,28 @@ def _importa(report, foglio, righe, inizio, col, oggi) -> None:
             scarta("IMPORTO_NEGATIVO", "importo", str(importo),
                    "Importo negativo (nota di credito?): si registra a mano.")  # fmt: skip
             continue
-        candidati = fornitori.get(normalizza.chiave_nome(nome), [])
-        if len(candidati) != 1:
-            if candidati:
-                messaggio = "Nome di più fornitori: si registra a mano."
-            else:
-                messaggio = "Fornitore non in anagrafica: si aggiunge e si ripete l'import."
-            scarta("FORNITORE_NON_TROVATO", "fornitore", nome, messaggio)
+        chiave = normalizza.chiave_nome(nome)
+        candidati = fornitori.get(chiave, [])
+        if len(candidati) > 1:
+            scarta("FORNITORE_NON_TROVATO", "fornitore", nome,
+                   "Nome di più fornitori: si registra a mano.")  # fmt: skip
             continue
-        fornitore = candidati[0]
         if len(numero) > m.Fattura._meta.get_field("numero").max_length:
             scarta("NUMERO_TROPPO_LUNGO", "numero", numero, "Numero oltre 60 caratteri.")
             continue
+        if candidati:
+            fornitore = candidati[0]
+        elif not chiave:
+            scarta("FORNITORE_NON_TROVATO", "fornitore", nome, "Nome del fornitore non valido.")
+            continue
+        else:
+            # Fornitore non in anagrafica: si crea sul momento (solo per righe valide).
+            campo = m.Fornitore._meta.get_field("ragione_sociale")
+            fornitore = m.Fornitore.objects.create(ragione_sociale=nome[: campo.max_length])
+            fornitori[chiave] = [fornitore]
+            report.conteggi["fornitori_creati"] += 1
+            report.anomalia(foglio, n, "FORNITORE_CREATO", "fornitore", nome,
+                            "Fornitore non in anagrafica: creato, da verificare.")  # fmt: skip
         esistente = m.Fattura.objects.filter(
             fornitore=fornitore, numero=numero, archiviato=False
         ).first()
