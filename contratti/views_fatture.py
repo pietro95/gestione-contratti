@@ -94,10 +94,12 @@ def fatture_elenco(request):
             archiviate=bool(g.get("archiviate")),
         )
 
-    elenco = carica(g.get("vista") or "da_prendere")
-    if not g.get("vista") and not elenco.righe:
-        # Vista di default: con «Da prendere in carico» vuota si apre «Le mie fatture».
+    if not g.get("vista") and not conteggio_da_prendere():
+        # Vista di default: con tutte le fatture prese in carico si apre «Le mie fatture».
+        # Se ce ne sono da prendere in carico (anche non proposte a me) si apre quella vista.
         elenco = carica("mie")
+    else:
+        elenco = carica(g.get("vista") or "da_prendere")
     vista, righe = elenco.vista, elenco.righe
     proposte_a_me, solo_proposte = elenco.proposte_a_me, elenco.solo_proposte
     pagina = Paginator(righe, PER_PAGINA).get_page(g.get("pagina"))

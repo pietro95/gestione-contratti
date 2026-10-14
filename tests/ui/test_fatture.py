@@ -270,9 +270,17 @@ def test_vista_di_default_senza_fatture_da_prendere(scenario, editor):
     risposta = editor.get(reverse("contratti:fatture"))
     assert risposta.context["vista"] == "mie"
     assert [r["f"] for r in risposta.context["pagina"]] == [fa]
+    # Una fattura da prendere in carico non proposta a me (altro fornitore, nessun contratto)
+    # si vede comunque: la vista di default resta «Da prendere in carico».
+    altro = f.fornitore("Altro Fornitore")
+    m.Fattura.objects.create(
+        fornitore=altro, numero="X-1", data=OGGI, importo_documento=Decimal("10")
+    )
+    risposta = editor.get(reverse("contratti:fatture"))
+    assert risposta.context["vista"] == "da_prendere" and risposta.context["totale"] == 1
     # La scelta esplicita della vista non si tocca.
     risposta = editor.get(reverse("contratti:fatture") + "?vista=da_prendere")
-    assert risposta.context["vista"] == "da_prendere" and not risposta.context["totale"]
+    assert risposta.context["vista"] == "da_prendere" and risposta.context["totale"] == 1
 
 
 def test_import_nella_pagina_fatture_solo_per_l_amministrazione(
