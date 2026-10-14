@@ -40,6 +40,8 @@ RAGGRUPPAMENTI = {
 }
 # Voci su WBS a progetto (es. dissalatori): fuori dai budget dei cluster (F9.2).
 PROGETTI = {"": "Escluse", "includi": "Incluse", "solo": "Solo WBS a progetto"}
+# Voci extra budget autorizzate dall'AD: fuori dai budget dei cluster (Rev18).
+EXTRA_BUDGET = {"": "Escluse", "includi": "Incluse", "solo": "Solo extra budget"}
 
 # vista → livello → importo
 Somme = dict[str, dict[Livello, Decimal]]
@@ -62,6 +64,7 @@ class Filtri:
     conto: int | None = None
     fornitore: int | None = None
     progetti: str = ""  # voci su WBS a progetto: "" escluse, "includi", "solo"
+    extra_budget: str = ""  # voci extra budget (Rev18): "" escluse, "includi", "solo"
     previsionali: bool = True
     natura: str = ""  # vuoto: entrambe, da presentare separate
     wbs: int | None = None
@@ -74,9 +77,14 @@ class Filtri:
             return False
         if self.wbs and (cl.wbs is None or cl.wbs.pk != self.wbs):
             return False
-        if self.progetti == "solo":
-            return cl.a_progetto
-        return self.progetti == "includi" or not cl.a_progetto
+        extra = cl.extra_budget is not None
+        if self.extra_budget == "solo" and not extra:
+            return False
+        if not extra and self.progetti == "solo" and not cl.a_progetto:
+            return False
+        if extra:
+            return bool(self.extra_budget)
+        return self.progetti in ("includi", "solo") or not cl.a_progetto
 
 
 @dataclass

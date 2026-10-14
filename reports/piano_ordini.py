@@ -384,7 +384,10 @@ def _riga_registrata(
     modelli = {v.pk: v for v in c.voci.all()}
     somme = _Somme()
     for ve in voci:
-        somme.aggiungi(ve, adapters.classificazione(modelli[ve.riferimento]), anno)
+        classe = adapters.classificazione(modelli[ve.riferimento])
+        if classe.extra_budget is not None:  # Rev19: extra budget fuori dal piano ordini
+            continue
+        somme.aggiungi(ve, classe, anno)
     somme.senza_competenza()
     if not somme.importi:
         return None

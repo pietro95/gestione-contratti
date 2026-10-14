@@ -19,6 +19,7 @@ from reports.budget import (
     calcola_budget,
 )
 from reports.export import budget_xlsx, descrivi_filtri, piano_xlsx, suffisso_cluster, voci_filtri
+from reports.extra_budget import avviso_sforamento, elenco_autorizzazioni, spese_extra_budget
 from reports.forms import FiltriBudgetForm, FiltriPianoForm
 from reports.piano_ordini import calcola_piano
 from reports.wbs import elenco_wbs, spese_wbs
@@ -189,3 +190,50 @@ def wbs_spese(request, pk):
         nome = f"{oggi_richiesta(request):%Y.%m.%d}_Spese_WBS_{wbs.codice_wbs}.pdf"
         return pdf.risposta("reports/pdf/wbs_spese.html", contesto, nome, request)
     return render(request, "reports/wbs_spese.html", contesto)
+
+
+@login_required
+def extra_budget_elenco(request):
+    """Autorizzazioni extra budget dell'AD (Rev18) con voci collegate, consumato e residuo."""
+    g = request.GET
+    codici = permessi.codici_filtro(request.user, g.getlist("area"))
+    elenco = list(elenco_autorizzazioni(codici, archiviate=bool(g.get("archiviate"))))
+    for a in elenco:
+        a.residuo = a.importo_autorizzato - a.consumato
+        a.avviso = avviso_sforamento(a, a.consumato)
+    return render(
+        request,
+        "reports/extra_budget_elenco.html",
+        {
+            "elenco": elenco,
+            "aree": permessi.scelte_filtro(request.user),
+            "area_scelte": permessi.selezione_filtro(request.user, g.getlist("area")),
+            "filtri": g,
+        },
+    )
+
+
+@login_required
+def extra_budget_spese(request, pk):
+    """Spese di un'autorizzazione extra budget: voci collegate e importi anno per anno."""
+    autorizzazione = get_object_or_404(
+        m.AutorizzazioneExtraBudget.objects.select_related("cluster"), pk=pk
+    )
+    vista = request.GET.get("vista") if request.GET.get("vista") in VISTE else "cassa"
+    try:
+        livello = Livello(request.GET.get("livello") or Livello.PROBABILE)
+    except ValueError:
+        livello = Livello.PROBABILE
+    spese = spese_extra_budget(autorizzazione, vista, livello)
+    return render(
+        request,
+        "reports/extra_budget_spese.html",
+        {
+            "s": spese,
+            "anni": spese.anni,
+            "righe": [(r, [r.per_anno.get(a) for a in spese.anni]) for r in spese.righe],
+            "totali": [spese.totali()[a] for a in spese.anni],
+            "viste": [(v, ETICHETTE_VISTE[v]) for v in VISTE],
+            "livelli": LIVELLI,
+        },
+    )

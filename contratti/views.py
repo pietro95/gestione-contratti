@@ -215,11 +215,15 @@ def _filtra_contratti(request, oggi):
     if codici := _cluster_richiesti(request):
         qs = qs.filter(fabbisogno__cluster__codice__in=codici)
     # Finanziato: almeno una voce su WBS a progetto (F9.2).
+    # Extra budget: almeno una voce autorizzata dall'AD fuori budget (Rev18); prevale.
     su_progetto = Q(voci__archiviato=False, voci__wbs__tipo=m.WBS.Tipo.PROGETTO)
-    if g.get("finanziamento") == m.Contratto.Finanziamento.FINANZIATO:
-        qs = qs.filter(su_progetto).distinct()
+    extra = Q(voci__archiviato=False, voci__autorizzazione_extra_budget__isnull=False)
+    if g.get("finanziamento") == m.Contratto.Finanziamento.EXTRA_BUDGET:
+        qs = qs.filter(extra).distinct()
+    elif g.get("finanziamento") == m.Contratto.Finanziamento.FINANZIATO:
+        qs = qs.filter(su_progetto).exclude(extra).distinct()
     elif g.get("finanziamento") == m.Contratto.Finanziamento.ORDINARIO:
-        qs = qs.exclude(su_progetto)
+        qs = qs.exclude(su_progetto).exclude(extra)
     if g.get("fornitore"):
         qs = qs.filter(fornitore_id=g["fornitore"])
     righe = selettori.righe_contratti(qs.order_by("-data_inizio", "pk"), oggi)
@@ -363,6 +367,9 @@ def contratto_dettaglio(request, pk):
         "contratti/contratto_dettaglio.html",
         {
             "c": contratto,
+            "autorizzazioni_extra": m.AutorizzazioneExtraBudget.objects.filter(
+                voci__contratto=contratto, voci__archiviato=False
+            ).distinct(),
             "riga": riga,
             "fine_contrattuale": adapters.scadenze.data_fine_contrattuale(s) if s else None,
             "disdetta": adapters.scadenze.data_ultima_disdetta(s) if s else None,

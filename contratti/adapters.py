@@ -41,6 +41,7 @@ PREFETCH_CALCOLO = (
             "wbs__fonte_finanziamento",
             "conto_rinnovi",
             "wbs_rinnovi__fonte_finanziamento",
+            "autorizzazione_extra_budget",
         ),
     ),
     "voci__quote",
@@ -395,6 +396,8 @@ class Classificazione:
     natura: str
     conto: m.ContoCoge | None
     wbs: m.WBS | None
+    # Rev18: attività spot autorizzata dall'AD, fuori dai budget dei cluster.
+    extra_budget: m.AutorizzazioneExtraBudget | None = None
 
     @property
     def a_progetto(self) -> bool:
@@ -403,6 +406,8 @@ class Classificazione:
 
     @property
     def finanziamento(self) -> str:
+        if self.extra_budget is not None:
+            return m.Contratto.Finanziamento.EXTRA_BUDGET
         if self.a_progetto:
             return m.Contratto.Finanziamento.FINANZIATO
         return m.Contratto.Finanziamento.ORDINARIO
@@ -410,7 +415,12 @@ class Classificazione:
 
 def classificazione(voce: m.VoceContratto) -> Classificazione:
     """La voce reale come è registrata."""
-    return Classificazione(voce.natura, voce.conto, voce.wbs if voce.wbs_id else None)
+    return Classificazione(
+        voce.natura,
+        voce.conto,
+        voce.wbs if voce.wbs_id else None,
+        voce.autorizzazione_extra_budget if voce.autorizzazione_extra_budget_id else None,
+    )
 
 
 def classificazione_prevista(

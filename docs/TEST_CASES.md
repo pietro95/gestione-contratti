@@ -531,3 +531,26 @@ bisestile); data limite 28/02/2027 − 4 mesi = 31/10/2026 (fine mese resta fine
 - **Pratica conclusa**: al 15/01/2027, pratica di C `Contratto emesso`: P1 non è nel piano 2027.
 - **Servizio già partito**: al 15/04/2027, pratica `Offerta ricevuta`: piano 2027 con P1 da
   concludere e in ritardo (avvio 01/03/2027 passato). Piano 2028 alla stessa data: P1 non c'è.
+
+## TC-19 — Contratto extra budget autorizzato dall'AD
+
+SPEC §4, §5.2, §5.5 bis (Rev19), bozza da approvare.
+
+Input: cluster IT. Contratto ordinario dal 01/01/2026, 12 mesi, canone OPEX 1.200,00 €
+anticipato annuale. Autorizzazione AD «EB-2026-01», cluster IT, importo autorizzato 5.000,00 €.
+Contratto una tantum dal 01/04/2026, 1 mese, con due voci collegate all'autorizzazione,
+fatturazione una tantum: voce OPEX 3.000,00 €; voce CAPEX su WBS di cluster 2.000,00 € fissi +
+500,00 € di massimale variabile.
+
+Atteso, budget 2026, cassa, livello fisso:
+- OPEX: 1.200,00 (extra budget escluso di default); con extra budget incluso 4.200,00; solo
+  extra budget 3.000,00.
+- CAPEX: 0,00; solo extra budget 2.000,00.
+- Il contratto una tantum si dice «extra budget»; l'ordinario «ordinario».
+- Consumato dell'autorizzazione: 3.000,00 + 2.000,00 + 500,00 = 5.500,00; residuo −500,00;
+  avviso di sforamento di 500,00 €. Con importo autorizzato 5.500,00: nessun avviso.
+- Spese extra budget, cassa, livello fisso: totale 5.000,00.
+- Il contratto non compare nel piano ordini.
+- Collegare l'autorizzazione a una voce di un contratto non una tantum, o togliere «una
+  tantum» a un contratto con voci extra budget: errore di validazione. Autorizzazione di un
+  altro cluster: errore.

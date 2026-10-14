@@ -2,7 +2,7 @@
 
 > Documento normativo per requisiti e regole di dominio. Per la vista tecnica consultare [ARCHITECTURE](ARCHITECTURE.md) e [DATA_MODEL](DATA_MODEL.md); per le procedure operative consultare [RUNBOOK](RUNBOOK.md) e [OPERATIONS](OPERATIONS.md).
 
-Rev18 — 14/10/2026 — responsabile: IT Manager ICTDINN, Siciliacque S.p.A.
+Rev19 — 14/10/2026 — responsabile: IT Manager ICTDINN, Siciliacque S.p.A.
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
@@ -24,6 +24,7 @@ Storico revisioni:
 - Rev16 (12/10/2026): decisione del responsabile del progetto, da approvare. Piano ordini (§5.4): l'anno di un previsto è quello della **data limite di avvio della procedura**, non quello di avvio del servizio; nel piano dell'anno in corso entrano anche i previsti **in ritardo** (data limite passata, servizio non finito prima dell'anno, pratica non conclusa), marcati. Gli avvisi di frazionamento nel PDF sono facoltativi. TC-13 aggiornato, nuovo TC-17.
 - Rev17 (12/10/2026): decisione del responsabile del progetto, da approvare. Piano ordini (§5.4): un previsto entra nel piano di ogni anno toccato dalla sua procedura, dalla data limite all'avvio del servizio: «da avviare» nell'anno della data limite, «da concludere» negli anni successivi fino all'avvio. I totali contano solo le righe da avviare. Ritardo ridefinito: data limite passata con pratica non avviata, o servizio che doveva già partire. TC-17 aggiornato.
 - Rev18 (14/10/2026): decisione del responsabile del progetto, da approvare. Piano ordini (§5.4): diviso in sezioni OPEX e CAPEX con totali propri; ogni riga ha valore contrattuale e valore normalizzato sull'anno (competenza a giorni); entrano anche i contratti già registrati con competenza nell'anno, anche una tantum (in deroga a Rev11); righe raggruppate per cluster e sottocluster con subtotali; fonte di finanziamento sulla riga. Nuove tabelle **Sottocluster** e **Fonte di finanziamento** (§4).
+- Rev19 (14/10/2026): decisioni del responsabile del progetto, **bozza da approvare**. **Autorizzazione extra budget**: attività spot non previste nel budget ma autorizzate espressamente dall'AD (§4). Si collega alla **voce**, OPEX o CAPEX; le voci extra budget sono fuori dai budget dei cluster, con un filtro come le WBS a progetto (§5.2). Il contratto con voci extra budget è **una tantum**: nessun rinnovo, fuori dal piano ordini. Importo autorizzato confrontato con il **massimo** delle voci collegate (fisso + massimale): oltre, avviso e non blocco. Vista Spese extra budget (§5.5 bis). La marcano Admin ed Editor. Nuovo TC-19.
 
 ## 1. Obiettivo
 
@@ -127,6 +128,13 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
 **WBS** (tabella): elemento WBS di SAP, su cui si imputano le spese CAPEX. Due tipi:
 - **di cluster**: CAPEX "generico" del cluster, entra nel suo budget CAPEX; il cluster è obbligatorio; ha una fonte di finanziamento facoltativa (Rev18, anche per le WBS a progetto);
 - **a progetto** (es. nuovi dissalatori): fuori dai budget dei cluster; i contratti restano registrati e consultabili per WBS (§5.5). Sostituisce la tabella Progetti; "finanziato" coincide con "su WBS a progetto".
+
+**Autorizzazione extra budget** (tabella, Rev19): attività spot non prevista in fase di stipula del budget ma autorizzata espressamente dall'AD. Codice, descrizione, cluster, protocollo e data dell'autorizzazione AD, **importo autorizzato** (imponibile), documento (percorso), note; archiviabile, con storia. Non è un elemento SAP: è una WBS a progetto "logica", valida per OPEX e CAPEX.
+- si collega alla **voce** (facoltativo), non al contratto: un contratto può avere voci a budget e voci extra budget. La voce conserva natura, conto e WBS (CAPEX ⇔ WBS resta);
+- l'autorizzazione deve essere del cluster del fabbisogno;
+- un contratto con almeno una voce extra budget è **una tantum** (§4, Rev11): nessun rinnovo, fuori dalla catena, dagli alert, dai previsti e dal piano ordini (anche in deroga alla Rev18, che vi porta i contratti una tantum registrati). Il contratto si dice «extra budget» (prevale su «finanziato»);
+- **consumato** = somma del massimo (fisso + massimale variabile) delle voci attive collegate; oltre l'importo autorizzato si mostra un **avviso** (non un blocco): il registro descrive ciò che è stato emesso;
+- la marcano Admin ed Editor (modifica della voce); le autorizzazioni si registrano in amministrazione.
 
 **Impianto** (tabella): nome e note.
 
@@ -264,6 +272,7 @@ In cassa la quota variabile (stimata o massima) si distribuisce sulle date delle
 **OPEX e CAPEX** sono budget distinti e non si sommano mai: ogni voce entra nella sezione della sua natura (un contratto misto contribuisce a entrambe). Il default è l'OPEX; "OPEX e CAPEX, separati" mostra due sezioni con totali propri, anche nell'export.
 - OPEX per cluster e conto; CAPEX per cluster e WBS di cluster, con il dettaglio per conto sotto ogni WBS (come lo legge il Controllo di gestione).
 - Le voci su WBS a progetto sono fuori dai budget dei cluster; un filtro le include o le mostra da sole.
+- (Rev19) Anche le voci extra budget sono fuori dai budget dei cluster, OPEX e CAPEX; un filtro separato le include o le mostra da sole.
 - Di default ogni utente vede i propri cluster (§8.1).
 
 ### 5.3 Previsione rinnovi (scenario)
@@ -311,6 +320,10 @@ Export in XLSX, oltre al PDF quando serve da allegare. Nel PDF gli avvisi di fra
 ### 5.5 Spese per WBS
 
 Per una WBS, di cluster o a progetto: i contratti con voci sulla WBS e gli importi anno per anno, nella vista (fatturato, ordinato, competenza) e al livello scelti. Solo contratti registrati, niente previsti: è la spesa sostenuta o impegnata sulla WBS, anche fuori dai budget dei cluster. Export in XLSX. Di default l'elenco mostra le WBS dei propri cluster e tutte le WBS a progetto.
+
+### 5.5 bis Spese extra budget (Rev19)
+
+Elenco delle autorizzazioni extra budget (di default dei propri cluster) con voci collegate, importo autorizzato, consumato e residuo; per un'autorizzazione, i contratti con voci collegate e gli importi anno per anno, nella vista e al livello scelti, come §5.5. Consumato oltre l'autorizzato: avviso.
 
 ### 5.6 Rinnovi senza contratto
 

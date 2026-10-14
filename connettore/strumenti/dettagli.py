@@ -77,6 +77,12 @@ def _voce(voce: m.VoceContratto, valori: dict | None) -> dict:
         "conto": _riferimento(voce.conto, voce.codice_conto_importato),
         "wbs": _riferimento(voce.wbs, voce.codice_wbs_importato),
         "centro_costo": voce.centro_costo or None,
+        "extra_budget": {
+            "id": voce.autorizzazione_extra_budget_id,
+            "codice": voce.autorizzazione_extra_budget.codice,
+        }
+        if voce.autorizzazione_extra_budget_id
+        else None,
         "rinnovi": {
             "natura": voce.natura_rinnovi or None,
             "conto": _riferimento(voce.conto_rinnovi),
@@ -112,7 +118,7 @@ def contratto(ctx: Contesto, argomenti: dict) -> dict:
     voci = (
         c.voci.filter(archiviato=False)
         .select_related("conto", "proroga", "piano_fatturazione", "wbs")
-        .select_related("conto_rinnovi", "wbs_rinnovi")
+        .select_related("conto_rinnovi", "wbs_rinnovi", "autorizzazione_extra_budget")
         .prefetch_related("quote")
     )
     successore = m.Contratto.objects.filter(predecessore=c).first() or c.confluito_in

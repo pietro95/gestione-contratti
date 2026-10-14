@@ -129,6 +129,17 @@ class WBSAdmin(ArchiviabileAdmin):
     autocomplete_fields = ("cluster", "fonte_finanziamento")
 
 
+@admin.register(m.AutorizzazioneExtraBudget)
+class AutorizzazioneExtraBudgetAdmin(ArchiviabileAdmin):
+    list_display = (
+        "codice", "descrizione", "cluster", "protocollo", "data_autorizzazione",
+        "importo_autorizzato", "archiviato",
+    )  # fmt: skip
+    list_filter = ("cluster", "archiviato")
+    search_fields = ("codice", "descrizione", "protocollo")
+    autocomplete_fields = ("cluster",)
+
+
 class ContoCogeForm(forms.ModelForm):
     """Ogni conto appartiene a un cluster (SPEC §4): obbligatorio in amministrazione."""
 

@@ -264,6 +264,11 @@ CAMPI_VOCE = {
         "description": "Codice del centro di costo («riferimenti»); di default il predefinito.",
     },
     "wbs": {**SCHEMA_ID, "description": "id della WBS («riferimenti»); obbligatoria per CAPEX."},
+    "autorizzazione_extra_budget": {
+        **SCHEMA_ID,
+        "description": "id dell'autorizzazione extra budget dell'AD: la voce esce dal budget "
+        "(solo contratti una tantum).",
+    },
     "importo_fisso": SCHEMA_IMPORTO,
     "massimale_variabile": SCHEMA_IMPORTO,
     "stima_consumo_pct": {"type": "string", "maxLength": 10},
