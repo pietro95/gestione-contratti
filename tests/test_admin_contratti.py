@@ -54,6 +54,8 @@ def dati():
         importo_autorizzato=Decimal("1000.00"),
     )
     it, _ = m.Cluster.objects.get_or_create(codice="IT", defaults={"nome": "IT"})
+    m.Sottocluster.objects.create(cluster=it, nome="Sottocluster di prova")
+    m.FonteFinanziamento.objects.create(nome="Fonte di prova")
     m.AssegnazioneCluster.objects.create(username="responsabile.prova", cluster=it)
     successore = f.contratto(fabbisogno=c.fabbisogno, numero_contratto="5800000002")
     m.PropostaPredecessore.objects.create(

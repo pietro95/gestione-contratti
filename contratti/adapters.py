@@ -38,9 +38,9 @@ PREFETCH_CALCOLO = (
         queryset=m.VoceContratto.objects.select_related(
             "piano_fatturazione",
             "conto",
-            "wbs",
+            "wbs__fonte_finanziamento",
             "conto_rinnovi",
-            "wbs_rinnovi",
+            "wbs_rinnovi__fonte_finanziamento",
             "autorizzazione_extra_budget",
         ),
     ),

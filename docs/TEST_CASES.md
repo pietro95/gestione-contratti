@@ -534,7 +534,7 @@ bisestile); data limite 28/02/2027 − 4 mesi = 31/10/2026 (fine mese resta fine
 
 ## TC-19 — Contratto extra budget autorizzato dall'AD
 
-SPEC §4, §5.2, §5.5 bis (Rev18), bozza da approvare.
+SPEC §4, §5.2, §5.5 bis (Rev19), bozza da approvare.
 
 Input: cluster IT. Contratto ordinario dal 01/01/2026, 12 mesi, canone OPEX 1.200,00 €
 anticipato annuale. Autorizzazione AD «EB-2026-01», cluster IT, importo autorizzato 5.000,00 €.

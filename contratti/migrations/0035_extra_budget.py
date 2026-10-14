@@ -8,7 +8,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("contratti", "0033_imputazione_fattura"),
+        ("contratti", "0034_sottocluster_fonte_finanziamento"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

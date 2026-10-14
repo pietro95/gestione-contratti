@@ -3,7 +3,7 @@
 {% block title %}{{ f.descrizione }}{% endblock %}
 {% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'contratti:fabbisogni' %}">Fabbisogni</a></li><li class="breadcrumb-item active" aria-current="page">{{ f.descrizione }}</li></ol></nav>{% endblock %}
 {% block titolo_pagina %}{{ f.descrizione }}{% endblock %}
-{% block sottotitolo %}<div class="sottotitolo"><span class="stato stato-blu">{{ f.get_decisione_display }}</span>{% if f.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %} <span>· {{ f.area }} · {{ f.categoria }}{% if f.impianto %} · {{ f.impianto }}{% endif %}{% if f.referente %} · referente {{ f.referente }}{% endif %}</span></div>{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo"><span class="stato stato-blu">{{ f.get_decisione_display }}</span>{% if f.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %} <span>· {{ f.area }}{% if f.sottocluster %} · {{ f.sottocluster.nome }}{% endif %} · {{ f.categoria }}{% if f.fonte_finanziamento %} · {{ f.fonte_finanziamento }}{% endif %}{% if f.impianto %} · {{ f.impianto }}{% endif %}{% if f.referente %} · referente {{ f.referente }}{% endif %}</span></div>{% endblock %}
 {% block azioni %}
 {% if puo_modificare %}
   {% if not f.archiviato %}<a class="btn btn-primary" href="{% url 'contratti:rda_nuova' f.pk %}"><i class="bi bi-cart-plus" aria-hidden="true"></i> Nuova richiesta di RDA</a>{% endif %}

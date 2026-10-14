@@ -102,7 +102,9 @@ def test_entro_l_autorizzato_nessun_avviso(archivio):
 
 def test_fuori_dal_piano_ordini(archivio):
     piano = calcola_piano(2026, OGGI)
-    assert all(r.contratto_uscente != archivio["spot"] for r in piano.righe)
+    contratti = {r.contratto for r in piano.righe} | {r.contratto_uscente for r in piano.righe}
+    assert archivio["spot"] not in contratti
+    assert archivio["ordinario"] in contratti
 
 
 def test_solo_contratti_una_tantum(archivio):

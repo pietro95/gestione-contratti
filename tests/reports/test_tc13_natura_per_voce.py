@@ -80,7 +80,7 @@ def _previsionale(natura):
 def test_previsto_misto_variante_a(tc13):
     assert _previsionale("OPEX") == Decimal("6180.00")
     assert _previsionale("CAPEX") == Decimal("10300.00")
-    (riga,) = calcola_piano(2026, OGGI).righe
+    (riga,) = calcola_piano(2026, OGGI).da_avviare
     assert riga.natura == m.Contratto.MISTA
     assert riga.per_natura["OPEX"][FISSO] == Decimal("6180.00")
     assert riga.per_natura["CAPEX"][FISSO] == Decimal("10300.00")
@@ -90,7 +90,7 @@ def test_previsto_misto_variante_a(tc13):
         "CAPEX": Decimal("10300.00"),
     }
     solo_capex = calcola_piano(2026, OGGI, natura="CAPEX")
-    assert len(solo_capex.righe) == 1  # un unico ordine
+    assert len(solo_capex.da_avviare) == 1  # un unico ordine
     assert solo_capex.totali("CAPEX")[FISSO] == Decimal("10300.00")
     (voce_capex,) = [v for v in _sezione(2027, "CAPEX").voci if v.previsionale]
     assert voce_capex.wbs == tc13["w"] and voce_capex.conto == tc13["conti"]["K"]
@@ -108,7 +108,7 @@ def test_previsto_variante_b_licenze_rinnovate_in_opex(tc13):
         for g in _sezione(2027, "OPEX").gruppi("conto")
     }
     assert gruppi == {"61000001": Decimal("6180.00"), "61000002": Decimal("10300.00")}
-    (riga,) = calcola_piano(2026, OGGI).righe
+    (riga,) = calcola_piano(2026, OGGI).da_avviare
     assert riga.natura == "OPEX" and riga.importi[FISSO] == Decimal("16480.00")
     # Il contratto reale non cambia.
     assert tc13["c"].natura == m.Contratto.MISTA
