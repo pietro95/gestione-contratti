@@ -2,7 +2,7 @@
 
 > Documento normativo per requisiti e regole di dominio. Per la vista tecnica consultare [ARCHITECTURE](ARCHITECTURE.md) e [DATA_MODEL](DATA_MODEL.md); per le procedure operative consultare [RUNBOOK](RUNBOOK.md) e [OPERATIONS](OPERATIONS.md).
 
-Rev17 — 12/10/2026 — responsabile: IT Manager ICTDINN, Siciliacque S.p.A.
+Rev18 — 14/10/2026 — responsabile: IT Manager ICTDINN, Siciliacque S.p.A.
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
@@ -23,6 +23,7 @@ Storico revisioni:
 - Rev15 (07/10/2026): decisioni del responsabile del progetto, **bozza da approvare**. Fattura: importo del documento (SAP) distinto dal **valore base prelevato dal contratto** (conta per il residuo), con oneri previdenziali e bollo; le fatture importate sono visibili a tutti e un referente le **prende in carico**, una per volta o più insieme, con il **referente proposto** dalle fatture precedenti o dal contratto; contratto facoltativo finché la fattura è **da assegnare**; **convalida del referente** come passo prima della RdC; **fuori registro**. **Commento per PAC** composto al trasferimento. **Import settimanale delle fatture** dall'estrazione SAP annotata (§4, §5.7, §5.8, §5.9, §7). Nuovo TC-18; TC-15 (e) precisato.
 - Rev16 (12/10/2026): decisione del responsabile del progetto, da approvare. Piano ordini (§5.4): l'anno di un previsto è quello della **data limite di avvio della procedura**, non quello di avvio del servizio; nel piano dell'anno in corso entrano anche i previsti **in ritardo** (data limite passata, servizio non finito prima dell'anno, pratica non conclusa), marcati. Gli avvisi di frazionamento nel PDF sono facoltativi. TC-13 aggiornato, nuovo TC-17.
 - Rev17 (12/10/2026): decisione del responsabile del progetto, da approvare. Piano ordini (§5.4): un previsto entra nel piano di ogni anno toccato dalla sua procedura, dalla data limite all'avvio del servizio: «da avviare» nell'anno della data limite, «da concludere» negli anni successivi fino all'avvio. I totali contano solo le righe da avviare. Ritardo ridefinito: data limite passata con pratica non avviata, o servizio che doveva già partire. TC-17 aggiornato.
+- Rev18 (14/10/2026): decisione del responsabile del progetto, da approvare. Piano ordini (§5.4): diviso in sezioni OPEX e CAPEX con totali propri; ogni riga ha valore contrattuale e valore normalizzato sull'anno (competenza a giorni); entrano anche i contratti già registrati con competenza nell'anno, anche una tantum (in deroga a Rev11); righe raggruppate per cluster e sottocluster con subtotali; fonte di finanziamento sulla riga. Nuove tabelle **Sottocluster** e **Fonte di finanziamento** (§4).
 
 ## 1. Obiettivo
 
@@ -94,6 +95,8 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
   - il cluster è una tabella di configurazione (vedi **Cluster**);
   - la categoria è una tabella di configurazione, modificabile dall'amministrazione;
 - impianto (facoltativo, da tabella; es. un dissalatore);
+- sottocluster (facoltativo, da tabella): sottocategoria del cluster, che deve essere quello del fabbisogno (Rev18);
+- fonte di finanziamento (facoltativa, da tabella, Rev18);
 - referente: testo libero, più un collegamento facoltativo all'utente dell'applicazione;
 - decisione di continuità: `Rinnovare` / `Da valutare` / `Sostituire` / `Dismettere`;
 - stima del prossimo importo e note;
@@ -122,10 +125,14 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
 **Cluster** (tabella): area dell'ufficio che raggruppa più conti (IT, TLC, OT, Sicurezza fisica, Innovazione); codice breve e stabile, nome, note. I cluster IT e TLC hanno lo stesso responsabile e in pratica lo stesso budget: le viste li mostrano insieme ("i miei cluster", §8.1).
 
 **WBS** (tabella): elemento WBS di SAP, su cui si imputano le spese CAPEX. Due tipi:
-- **di cluster**: CAPEX "generico" del cluster, entra nel suo budget CAPEX; il cluster è obbligatorio;
+- **di cluster**: CAPEX "generico" del cluster, entra nel suo budget CAPEX; il cluster è obbligatorio; ha una fonte di finanziamento facoltativa (Rev18, anche per le WBS a progetto);
 - **a progetto** (es. nuovi dissalatori): fuori dai budget dei cluster; i contratti restano registrati e consultabili per WBS (§5.5). Sostituisce la tabella Progetti; "finanziato" coincide con "su WBS a progetto".
 
 **Impianto** (tabella): nome e note.
+
+**Sottocluster** (tabella, Rev18): sottocategoria di un cluster; cluster, nome (unico nel cluster) e note; si archivia, non si cancella. Raggruppa i fabbisogni nel piano ordini (§5.4).
+
+**Fonte di finanziamento** (tabella di configurazione, Rev18): nome unico, attiva, note; nessun valore iniziale. Si assegna al fabbisogno e alla WBS. Per una riga del piano ordini vale la fonte del fabbisogno; se manca, quella della WBS delle voci; se manca, «Ordinaria».
 
 **Voce di contratto** (1..n per contratto):
 - descrizione;
@@ -284,14 +291,18 @@ Report annuale "Piano ordini anno X". Un contratto previsto o da rinnovare entra
 - **da concludere**: la data limite cade in un anno precedente e il servizio parte nell'anno X o dopo: l'ordine va ancora emesso. La riga è fuori dai totali, perché è già contata nel piano dell'anno della data limite. Una pratica a `Contratto emesso` o `Contratto attivo` toglie la riga.
 
 Nel piano dell'anno in corso entrano anche, da concludere, i previsti con servizio già partito, che finiscono dal 01/01/X in poi, con pratica non conclusa. Sempre nell'anno in corso una riga è marcata «in ritardo» se la data limite è passata e la pratica è `Non avviata`, o se il servizio doveva già partire. I piani degli altri anni non hanno ritardi. Ogni riga riporta:
-- fabbisogno, fornitore uscente, importo stimato sull'intera durata;
+- fabbisogno, fornitore (uscente per un previsto), **valore contrattuale** (importo stimato sull'intera durata) e **valore normalizzato sull'anno X** (Rev18: competenza dell'anno, pro-rata a giorni come §5.2 e TC-11, per fisso, probabile e massimo);
 - procedura presunta, data limite di avvio, data di avvio servizio necessaria;
-- stato della pratica;
-- natura: OPEX, CAPEX o mista (un previsto misto mostra le due quote), con filtro e totali per natura.
+- stato della pratica; stato del contratto («Previsto», «In stipula», «Stipulato»);
+- fonte di finanziamento (§4).
+
+**Sezioni (Rev18).** Il piano è diviso in una sezione OPEX e una CAPEX, ciascuna con i totali propri, mai sommati (un foglio per natura nell'export XLSX). Un contratto misto compare in entrambe, con la sola quota della natura. Dentro la sezione le righe sono raggruppate per cluster e sottocluster, con i subtotali; i fabbisogni senza sottocluster stanno in «(senza sottocluster)». Il totale contrattuale conta solo le righe da avviare; il totale normalizzato somma tutte le righe della sezione, perché la competenza di anni diversi non si sovrappone.
+
+**Contratti già registrati (Rev18).** Entrano nel piano anche i contratti registrati, in stipula o stipulati, la cui competenza nell'anno X è diversa da zero (per natura: una quota a competenza zero non compare). Riga «registrato»: senza data limite, fuori dai totali contrattuali e dagli avvisi di frazionamento. Stipulato se la data di stipula o la data di inizio è non successiva a oggi, altrimenti In stipula. Restano fuori gli archiviati, quelli senza data di inizio e i «senza contratto» (§5.6).
 
 Di default il piano mostra i propri cluster (§8.1).
 
-I rinnovi senza contratto, registrati o previsti, non entrano nel piano ordini: non passano dal Procurement (§5.6). I contratti una tantum registrati non entrano (sono già ordinati); un acquisto una tantum futuro entra come previsto manuale del fabbisogno (Rev11).
+I rinnovi senza contratto, registrati o previsti, non entrano nel piano ordini: non passano dal Procurement (§5.6). Un contratto una tantum registrato entra come ogni contratto registrato, se ha competenza nell'anno (Rev18, in deroga a Rev11); un acquisto una tantum futuro entra come previsto manuale del fabbisogno (Rev11).
 
 Include un avviso quando più fabbisogni della stessa categoria o dello stesso fornitore, sommati, superano una soglia. Serve a valutare l'accorpamento ed evitare il frazionamento. L'applicabilità concreta delle soglie per Siciliacque (settori speciali) va confermata con Procurement/Legale.
 
