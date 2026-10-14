@@ -9,7 +9,14 @@ di avvio all'avvio del servizio, tocca l'anno X:
 Nell'anno in corso una riga è «in ritardo» se la data limite è passata e la pratica non è
 avviata, o se il servizio doveva già partire. Una pratica conclusa toglie le righe da concludere.
 Restano fuori i rinnovi senza contratto (non si ordinano tramite il Procurement, SPEC §5.6).
-Il Procurement ordina sia OPEX sia CAPEX: il piano li contiene entrambi, con i totali per natura.
+Il Procurement ordina sia OPEX sia CAPEX: il piano li contiene in sezioni separate, con i totali
+propri, mai sommati; un contratto misto compare in entrambe con la sola quota della natura.
+Nelle sezioni le righe sono raggruppate per cluster e sottocluster, con i subtotali.
+
+Oltre ai previsti, il piano riporta i contratti già registrati (in stipula o stipulati) che
+pesano nell'anno, cioè con competenza dell'anno diversa da zero: fase «registrato», fuori dai
+totali del valore contrattuale (sono già ordinati). Ogni riga ha il valore contrattuale
+(intera durata) e il valore normalizzato sull'anno (competenza pro-rata a giorni, SPEC §5.2).
 """
 
 import datetime
@@ -24,13 +31,21 @@ from contratti import models as m
 from contratti.engine.budget import valore
 from contratti.engine.date import UN_GIORNO, aggiungi_mesi
 from contratti.engine.importi import ZERO
-from contratti.engine.tipi import ContrattoPrevisto, Livello
+from contratti.engine.tipi import ContrattoPrevisto, Livello, Voce
 from contratti.selettori import codici_cluster
-from reports.budget import LIVELLI, NATURE, orizzonte_report
+from reports.budget import LIVELLI, NATURE, importi_anno, orizzonte_report
 
 CATEGORIA_NON_CLASSIFICATA = "Da classificare"
 DA_AVVIARE = "da_avviare"
 DA_CONCLUDERE = "da_concludere"
+REGISTRATO = "registrato"
+FONTE_ORDINARIA = "Ordinaria"
+SENZA_SOTTOCLUSTER = "(senza sottocluster)"
+PREVISTO = "Previsto"
+IN_STIPULA = "In stipula"
+STIPULATO = "Stipulato"
+
+Importi = dict[Livello, Decimal]
 
 
 @dataclass
@@ -39,35 +54,65 @@ class RigaPiano:
     contratto_uscente: m.Contratto | None
     procedura: m.Procedura | None
     lead_time_mesi: int
-    data_limite: datetime.date
+    data_limite: datetime.date | None  # None per i contratti registrati
     avvio: datetime.date
     fine: datetime.date
     durata_mesi: int
     stato_pratica: str | None
-    importi: dict[Livello, Decimal]
+    importi: Importi  # valore contrattuale: intera durata
     numero_previsto: int
     natura: str = m.Natura.OPEX  # OPEX, CAPEX o "OPEX e CAPEX"
     # Importi per natura delle voci (F9.2: un contratto può avere quote OPEX e CAPEX).
-    per_natura: dict[str, dict[Livello, Decimal]] = field(default_factory=dict)
+    per_natura: dict[str, Importi] = field(default_factory=dict)
     a_progetto: bool = False
     sopra_soglia: list[str] = field(default_factory=list)
     in_ritardo: bool = False
-    fase: str = "da_avviare"  # o "da_concludere" (SPEC §5.4 Rev17)
+    fase: str = "da_avviare"  # "da_concludere" (SPEC §5.4 Rev17) o "registrato"
+    # Contratto già registrato (fase «registrato»); per i previsti è None.
+    contratto: m.Contratto | None = None
+    stato: str = PREVISTO  # Previsto, In stipula o Stipulato
+    # Valore normalizzato sull'anno: competenza pro-rata a giorni (SPEC §5.2), totale e per natura.
+    normalizzato: Importi = field(default_factory=dict)
+    normalizzato_per_natura: dict[str, Importi] = field(default_factory=dict)
+    fonti: dict[str, str] = field(default_factory=dict)  # fonte di finanziamento per natura
 
     @property
     def da_avviare(self) -> bool:
         return self.fase == DA_AVVIARE
 
     @property
+    def registrato(self) -> bool:
+        return self.fase == REGISTRATO
+
+    @property
     def categoria(self) -> m.Categoria:
         return self.fabbisogno.categoria
+
+    @property
+    def sottocluster(self) -> m.Sottocluster | None:
+        return self.fabbisogno.sottocluster
 
     @property
     def fornitore_uscente(self) -> m.Fornitore | None:
         return self.contratto_uscente.fornitore if self.contratto_uscente else None
 
     @property
+    def fornitore(self) -> m.Fornitore | None:
+        """Fornitore del contratto registrato; per un previsto, quello uscente."""
+        return self.contratto.fornitore if self.contratto else self.fornitore_uscente
+
+    @property
+    def fonte(self) -> str:
+        return " / ".join(dict.fromkeys(self.fonti.values())) or FONTE_ORDINARIA
+
+    @property
+    def data_ordinamento(self) -> datetime.date:
+        return self.data_limite or self.avvio
+
+    @property
     def stato_pratica_label(self) -> str:
+        if self.registrato:
+            return "—"  # la pratica di rinnovo riguarda il contratto in scadenza
         if not self.stato_pratica:
             return "Non avviata"
         return m.StatoPratica.Stato(self.stato_pratica).label
@@ -99,7 +144,16 @@ class PianoOrdini:
 
     @property
     def da_concludere(self) -> list[RigaPiano]:
-        return [r for r in self.righe if not r.da_avviare]
+        return [r for r in self.righe if r.fase == DA_CONCLUDERE]
+
+    @property
+    def registrati(self) -> list[RigaPiano]:
+        return [r for r in self.righe if r.registrato]
+
+    def sezioni(self, natura: str = "") -> list["Sezione"]:
+        """Una sezione per natura (OPEX, CAPEX), con cluster e sottocluster e i subtotali."""
+        return [_sezione(n, self.righe) for n in NATURE if (not natura or n == natura)
+                if any(n in r.per_natura for r in self.righe)]  # fmt: skip
 
     def totali(self, natura: str = "") -> dict[Livello, Decimal]:
         """Solo le righe da avviare: una da concludere è già contata nel piano del suo avvio."""
@@ -114,6 +168,88 @@ class PianoOrdini:
         """OPEX e CAPEX distinti: sono budget diversi anche quando si ordinano insieme."""
         nature = [n for n in NATURE if any(n in r.per_natura for r in self.da_avviare)]
         return {n: self.totali(n) for n in nature}
+
+
+@dataclass
+class RigaNatura:
+    """Una riga del piano vista dalla sua sezione: la sola quota della natura."""
+
+    riga: RigaPiano
+    natura: str
+    importi: Importi
+    normalizzato: Importi
+    fonte: str
+
+
+@dataclass
+class Totali:
+    """Contrattuale: solo le righe da avviare. Normalizzato: tutte le righe (competenza)."""
+
+    contrattuale: Importi = field(default_factory=lambda: dict.fromkeys(LIVELLI, ZERO))
+    normalizzato: Importi = field(default_factory=lambda: dict.fromkeys(LIVELLI, ZERO))
+
+    def aggiungi(self, r: RigaNatura) -> None:
+        for livello in LIVELLI:
+            self.normalizzato[livello] += r.normalizzato.get(livello, ZERO)
+            if r.riga.da_avviare:
+                self.contrattuale[livello] += r.importi.get(livello, ZERO)
+
+
+@dataclass
+class GruppoSottocluster:
+    sottocluster: m.Sottocluster | None
+    righe: list[RigaNatura] = field(default_factory=list)
+    totali: Totali = field(default_factory=Totali)
+
+    @property
+    def nome(self) -> str:
+        return self.sottocluster.nome if self.sottocluster else SENZA_SOTTOCLUSTER
+
+
+@dataclass
+class GruppoCluster:
+    cluster: m.Cluster
+    sottocluster: list[GruppoSottocluster] = field(default_factory=list)
+    totali: Totali = field(default_factory=Totali)
+
+
+@dataclass
+class Sezione:
+    natura: str
+    cluster: list[GruppoCluster] = field(default_factory=list)
+    totali: Totali = field(default_factory=Totali)
+    numero_righe: int = 0
+
+
+def _sezione(natura: str, righe: list[RigaPiano]) -> Sezione:
+    """Raggruppa per cluster e sottocluster (senza sottocluster in coda), righe per data."""
+    sezione = Sezione(natura)
+    cluster: dict[int, GruppoCluster] = {}
+    gruppi: dict[tuple[int, int | None], GruppoSottocluster] = {}
+    for r in righe:  # già in ordine di data
+        if natura not in r.per_natura:
+            continue
+        rn = RigaNatura(
+            r,
+            natura,
+            r.per_natura[natura],
+            r.normalizzato_per_natura.get(natura, dict.fromkeys(LIVELLI, ZERO)),
+            r.fonti.get(natura, FONTE_ORDINARIA),
+        )
+        f = r.fabbisogno
+        gc = cluster.setdefault(f.cluster_id, GruppoCluster(f.cluster))
+        chiave = (f.cluster_id, f.sottocluster_id)
+        if chiave not in gruppi:
+            gruppi[chiave] = GruppoSottocluster(f.sottocluster)
+            gc.sottocluster.append(gruppi[chiave])
+        gruppi[chiave].righe.append(rn)
+        for totali in (gruppi[chiave].totali, gc.totali, sezione.totali):
+            totali.aggiungi(rn)
+        sezione.numero_righe += 1
+    sezione.cluster = sorted(cluster.values(), key=lambda g: g.cluster.codice)
+    for gc in sezione.cluster:
+        gc.sottocluster.sort(key=lambda g: (g.sottocluster is None, g.nome))
+    return sezione
 
 
 def soglie_valide(alla_data: datetime.date) -> list[m.Soglia]:
@@ -144,6 +280,49 @@ def _ultimo_stato(oggetto, oggi: datetime.date) -> str | None:
     return acquisti.stato_pratica(oggetto, oggi)
 
 
+def _competenza(voce: Voce, anno: int) -> Importi:
+    """Valore normalizzato sull'anno: vista «competenza» del budget (SPEC §5.2, TC-11)."""
+    importi, _ = importi_anno(voce, anno)
+    return importi["competenza"]
+
+
+def _fonte(f: m.Fabbisogno, wbs: list[m.WBS | None]) -> str:
+    """Fonte del fabbisogno; altrimenti quella della WBS delle voci; altrimenti «Ordinaria»."""
+    if f.fonte_finanziamento_id:
+        return f.fonte_finanziamento.nome
+    nomi = {w.fonte_finanziamento.nome for w in wbs if w and w.fonte_finanziamento_id}
+    return " / ".join(sorted(nomi)) or FONTE_ORDINARIA
+
+
+class _Somme:
+    """Valore contrattuale, normalizzato e WBS delle voci di una riga, per natura."""
+
+    def __init__(self):
+        self.importi: dict[str, Importi] = {}
+        self.normalizzato: dict[str, Importi] = {}
+        self.wbs: dict[str, list[m.WBS | None]] = {}
+        self.a_progetto = False
+
+    def aggiungi(self, voce: Voce, classe: adapters.Classificazione, anno: int) -> None:
+        self.a_progetto = self.a_progetto or classe.a_progetto
+        importi = self.importi.setdefault(classe.natura, dict.fromkeys(LIVELLI, ZERO))
+        norm = self.normalizzato.setdefault(classe.natura, dict.fromkeys(LIVELLI, ZERO))
+        self.wbs.setdefault(classe.natura, []).append(classe.wbs)
+        competenza = _competenza(voce, anno)
+        for liv in LIVELLI:
+            importi[liv] += valore(voce, liv)
+            norm[liv] += competenza[liv]
+
+    def senza_competenza(self) -> None:
+        """Toglie le nature senza competenza nell'anno (contratti registrati)."""
+        for n in [n for n, norm in self.normalizzato.items() if not any(norm.values())]:
+            for d in (self.importi, self.normalizzato, self.wbs):
+                del d[n]
+
+    def totale(self, per_natura: dict[str, Importi]) -> Importi:
+        return {liv: sum((i[liv] for i in per_natura.values()), ZERO) for liv in LIVELLI}
+
+
 def _riga(
     f: m.Fabbisogno,
     base: m.Contratto | None,
@@ -151,17 +330,15 @@ def _riga(
     durata_mesi: int,
     procedura_default: m.Procedura | None,
     oggi: datetime.date,
+    anno: int,
 ) -> RigaPiano:
-    importi = {liv: sum((valore(v, liv) for v in p.voci), ZERO) for liv in LIVELLI}
-    per_natura: dict[str, dict[Livello, Decimal]] = {}
-    a_progetto = False
+    somme = _Somme()
     modelli = {v.pk: v for v in base.voci.all()} if base is not None else {}
     for v in p.voci:
         classe = adapters.classificazione_prevista(f, modelli.get(v.riferimento))
-        a_progetto = a_progetto or classe.a_progetto
-        somme = per_natura.setdefault(classe.natura, dict.fromkeys(LIVELLI, ZERO))
-        for liv in LIVELLI:
-            somme[liv] += valore(v, liv)
+        somme.aggiungi(v, classe, anno)
+    importi = somme.totale(somme.importi)
+    per_natura, a_progetto = somme.importi, somme.a_progetto
     if base is not None:
         procedura = base.procedura
         lead = adapters.scadenza(base).lead_time_mesi
@@ -193,6 +370,46 @@ def _riga(
         natura=next(iter(per_natura)) if len(per_natura) == 1 else m.Contratto.MISTA,
         per_natura=per_natura,
         a_progetto=a_progetto,
+        normalizzato=somme.totale(somme.normalizzato),
+        normalizzato_per_natura=somme.normalizzato,
+        fonti={n: _fonte(f, somme.wbs[n]) for n in per_natura},
+    )
+
+
+def _riga_registrata(
+    f: m.Fabbisogno, c: m.Contratto, anno: int, oggi: datetime.date
+) -> RigaPiano | None:
+    """Contratto già registrato che pesa nell'anno (competenza diversa da zero), o None."""
+    voci, _ = adapters.voci_contratto(c)
+    modelli = {v.pk: v for v in c.voci.all()}
+    somme = _Somme()
+    for ve in voci:
+        somme.aggiungi(ve, adapters.classificazione(modelli[ve.riferimento]), anno)
+    somme.senza_competenza()
+    if not somme.importi:
+        return None
+    stipulato = (c.data_stipula is not None and c.data_stipula <= oggi) or c.data_inizio <= oggi
+    return RigaPiano(
+        fabbisogno=f,
+        contratto_uscente=None,
+        procedura=c.procedura,
+        lead_time_mesi=adapters.scadenza(c).lead_time_mesi,
+        data_limite=None,
+        avvio=c.data_inizio,
+        fine=adapters.data_fine_effettiva(c),
+        durata_mesi=c.durata_mesi,
+        stato_pratica=None,
+        importi=somme.totale(somme.importi),
+        numero_previsto=0,
+        natura=next(iter(somme.importi)) if len(somme.importi) == 1 else m.Contratto.MISTA,
+        per_natura=somme.importi,
+        a_progetto=somme.a_progetto,
+        fase=REGISTRATO,
+        contratto=c,
+        stato=STIPULATO if stipulato else IN_STIPULA,
+        normalizzato=somme.totale(somme.normalizzato),
+        normalizzato_per_natura=somme.normalizzato,
+        fonti={n: _fonte(f, somme.wbs[n]) for n in somme.importi},
     )
 
 
@@ -219,7 +436,14 @@ def _calcola_piano(anno: int, oggi: datetime.date, area, categoria: int | None, 
     procedura_default = m.Procedura.objects.filter(codice="da_verificare").first()
     fabbisogni = (
         m.Fabbisogno.objects.filter(archiviato=False)
-        .select_related("cluster", "categoria", "previsto_procedura")
+        .select_related(
+            "cluster",
+            "categoria",
+            "previsto_procedura",
+            "sottocluster",
+            "fonte_finanziamento",
+            "wbs_previsti__fonte_finanziamento",
+        )
         .prefetch_related(*adapters.PREFETCH_FABBISOGNO)
     )
     if codici := codici_cluster(area):
@@ -228,34 +452,53 @@ def _calcola_piano(anno: int, oggi: datetime.date, area, categoria: int | None, 
         fabbisogni = fabbisogni.filter(categoria_id=categoria)
     righe: list[RigaPiano] = []
     for f in fabbisogni.order_by("pk"):
-        previsti = adapters.previsti_fabbisogno(f, orizzonte)
-        if not previsti:
-            continue
-        base = adapters.contratto_base_previsti(f)
-        if base is not None and base.senza_contratto:
-            continue  # rinnovi senza contratto: nessun ordine al Procurement (SPEC §5.4, §5.6)
-        durata = base.durata_mesi if base is not None else f.previsto_durata_mesi
-        for p in previsti:
-            r = _riga(f, base, p, durata, procedura_default, oggi)
-            if r.data_limite.year > anno:
-                continue
-            if r.data_limite.year < anno:
-                # Procedura da avviare prima: resta da emettere l'ordine, entro l'avvio.
-                in_corso = r.avvio >= inizio_anno or (recupero and r.fine >= inizio_anno)
-                if not in_corso or r.stato_pratica in PRATICA_CONCLUSA:
-                    continue
-                r.fase = DA_CONCLUDERE
-            if recupero:
-                non_avviata = r.stato_pratica in (None, m.StatoPratica.Stato.NON_AVVIATA)
-                partito = r.avvio <= oggi and r.stato_pratica not in PRATICA_CONCLUSA
-                r.in_ritardo = (r.data_limite < oggi and non_avviata) or partito
-            righe.append(r)
+        righe += _righe_previste(f, anno, oggi, orizzonte, procedura_default, recupero)
+        righe += _righe_registrate(f, anno, oggi)
     if natura:
         righe = [r for r in righe if natura in r.per_natura]
-    righe.sort(key=lambda r: (r.data_limite, r.fabbisogno.descrizione))
+    righe.sort(key=lambda r: (r.data_ordinamento, r.fabbisogno.descrizione))
     soglie = soglie_valide(inizio_anno)
     da_avviare = [r for r in righe if r.da_avviare]
     return PianoOrdini(anno, righe, soglie, avvisi_frazionamento(da_avviare, soglie))
+
+
+def _righe_previste(f, anno, oggi, orizzonte, procedura_default, recupero) -> list[RigaPiano]:
+    inizio_anno = datetime.date(anno, 1, 1)
+    previsti = adapters.previsti_fabbisogno(f, orizzonte)
+    if not previsti:
+        return []
+    base = adapters.contratto_base_previsti(f)
+    if base is not None and base.senza_contratto:
+        return []  # rinnovi senza contratto: nessun ordine al Procurement (SPEC §5.4, §5.6)
+    durata = base.durata_mesi if base is not None else f.previsto_durata_mesi
+    righe = []
+    for p in previsti:
+        r = _riga(f, base, p, durata, procedura_default, oggi, anno)
+        if r.data_limite.year > anno:
+            continue
+        if r.data_limite.year < anno:
+            # Procedura da avviare prima: resta da emettere l'ordine, entro l'avvio.
+            in_corso = r.avvio >= inizio_anno or (recupero and r.fine >= inizio_anno)
+            if not in_corso or r.stato_pratica in PRATICA_CONCLUSA:
+                continue
+            r.fase = DA_CONCLUDERE
+        if recupero:
+            non_avviata = r.stato_pratica in (None, m.StatoPratica.Stato.NON_AVVIATA)
+            partito = r.avvio <= oggi and r.stato_pratica not in PRATICA_CONCLUSA
+            r.in_ritardo = (r.data_limite < oggi and non_avviata) or partito
+        righe.append(r)
+    return righe
+
+
+def _righe_registrate(f, anno, oggi) -> list[RigaPiano]:
+    """Contratti già registrati con competenza nell'anno; fuori i «senza contratto» (§5.6)."""
+    righe = []
+    for c in f.contratti.all():
+        if c.archiviato or c.senza_contratto or c.data_inizio is None:
+            continue
+        if (r := _riga_registrata(f, c, anno, oggi)) is not None:
+            righe.append(r)
+    return righe
 
 
 def avvisi_frazionamento(righe: list[RigaPiano], soglie: list[m.Soglia]):

@@ -131,10 +131,15 @@ def test_budget_consolidato_e_previsionale(c1, c2):
 
 def test_fuori_dal_piano_ordini(c1, c2):
     oggi = D(2025, 6, 1)
+    # Né il periodo registrato (che ha competenza 2026) né i suoi previsti.
     assert calcola_piano(2026, oggi).righe == []
-    # Controllo: lo stesso rinnovo registrato come contratto entra nel piano.
+    # Controllo: lo stesso rinnovo registrato come contratto entra nel piano, con il suo previsto.
     m.Contratto.objects.filter(pk=c2.pk).update(senza_contratto=False)
-    assert [r.avvio for r in calcola_piano(2026, oggi).righe] == [D(2026, 3, 15)]
+    righe = calcola_piano(2026, oggi).righe
+    assert [(r.fase, r.avvio) for r in righe] == [
+        ("registrato", D(2025, 3, 15)),
+        ("da_avviare", D(2026, 3, 15)),
+    ]
 
 
 def test_pagine_ed_etichette(c1, c2, client):

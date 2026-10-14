@@ -132,8 +132,8 @@ def test_piano_ordini_per_anno_della_data_limite(archivio):
         assert all(r.data_limite.year == anno for r in piano.da_avviare)
         assert all(r.data_limite.year < anno for r in piano.da_concludere)
         assert all(not r.in_ritardo for r in piano.righe) or anno == OGGI.year
-        date_limite = [r.data_limite for r in piano.righe]
-        assert date_limite == sorted(date_limite)
+        date = [r.data_ordinamento for r in piano.righe]  # i registrati, senza data limite: avvio
+        assert date == sorted(date)
 
 
 def test_piano_ordini_previsto_manuale(archivio):

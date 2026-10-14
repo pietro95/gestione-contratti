@@ -179,7 +179,18 @@ class FornitoreForm(ModelFormBootstrap):
 
 class FabbisognoForm(ModelFormBootstrap):
     sezioni = [
-        ("Fabbisogno", ["descrizione", "cluster", "categoria", "impianto", "referente"]),
+        (
+            "Fabbisogno",
+            [
+                "descrizione",
+                "cluster",
+                "sottocluster",
+                "categoria",
+                "impianto",
+                "fonte_finanziamento",
+                "referente",
+            ],
+        ),
         ("Decisione sul rinnovo", ["decisione", "stima_prossimo_importo", "note"]),
         (
             "Previsto manuale (solo per fabbisogni nuovi, senza contratti)",
@@ -201,8 +212,10 @@ class FabbisognoForm(ModelFormBootstrap):
         fields = [
             "descrizione",
             "cluster",
+            "sottocluster",
             "categoria",
             "impianto",
+            "fonte_finanziamento",
             "referente",
             "decisione",
             "stima_prossimo_importo",
@@ -223,6 +236,8 @@ class FabbisognoForm(ModelFormBootstrap):
         if utente is not None and (ammessi := permessi.cluster_modificabili(utente)) is not None:
             cluster = cluster.filter(pk__in=ammessi)  # solo i propri cluster (F9.2)
         _solo_attivi(self, "cluster", cluster)
+        _solo_attivi(self, "sottocluster", m.Sottocluster.objects.filter(archiviato=False))
+        _solo_attivi(self, "fonte_finanziamento", m.FonteFinanziamento.objects.filter(attiva=True))
         _solo_attivi(self, "categoria", m.Categoria.objects.filter(attiva=True))
         _solo_attivi(self, "impianto", m.Impianto.objects.filter(archiviato=False))
         _solo_attivi(self, "previsto_procedura", m.Procedura.objects.filter(attiva=True))

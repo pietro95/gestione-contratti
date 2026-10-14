@@ -5,7 +5,6 @@ import datetime
 from contratti import models as m
 from contratti import permessi
 from contratti.engine.importi import ZERO, arrotonda
-from contratti.engine.tipi import Livello
 from contratti.selettori import codici_cluster
 from reports import xlsx
 from reports.budget import (
@@ -169,39 +168,61 @@ def piano_xlsx(piano: PianoOrdini, oggi: datetime.date, filtri: str = "", natura
         _generato(oggi),
     ]
     colonne = [
-        "Fabbisogno", "Natura", "Cluster", "Categoria", "Fornitore uscente", "Procedura presunta",
-        "Lead time (mesi)", "Data limite di avvio", "Avvio servizio", "Fine servizio",
-        "Durata (mesi)", "Stato pratica", "Fase", "In ritardo", "Fisso", "Probabile", "Massimo",
-        "Oltre soglia",
+        "Fabbisogno", "Cluster", "Sottocluster", "Categoria", "Stato", "Fornitore",
+        "Procedura presunta", "Lead time (mesi)", "Data limite di avvio", "Avvio servizio",
+        "Fine servizio", "Durata (mesi)", "Stato pratica", "Fase", "In ritardo",
+        "Fonte di finanziamento",
+        "Contrattuale fisso", "Contrattuale probabile", "Contrattuale massimo",
+        f"Normalizzato {piano.anno} fisso", f"Normalizzato {piano.anno} probabile",
+        f"Normalizzato {piano.anno} massimo", "Oltre soglia",
     ]  # fmt: skip
-    righe = [
-        [
-            r.fabbisogno.descrizione,
-            r.natura,
-            r.fabbisogno.area,
-            r.categoria.nome,
-            str(r.fornitore_uscente or ""),
-            str(r.procedura or ""),
-            r.lead_time_mesi,
-            r.data_limite,
-            r.avvio,
-            r.fine,
-            r.durata_mesi,
-            r.stato_pratica_label,
-            "da avviare" if r.da_avviare else "da concludere (fuori dai totali)",
-            "sì" if r.in_ritardo else "",
-            r.importi[Livello.FISSO],
-            r.importi[Livello.PROBABILE],
-            r.importi[Livello.MASSIMO],
-            "; ".join(r.sopra_soglia),
-        ]
-        for r in piano.righe
-    ]
-    # Un totale per natura: OPEX e CAPEX sono budget distinti.
-    per_natura = {natura: piano.totali(natura)} if natura else piano.totali_per_natura()
-    for n, totali in per_natura.items():
-        righe.append([f"Totale {n}"] + [None] * 13 + [totali[liv] for liv in LIVELLI] + [None])
-    xlsx.foglio(wb, "Piano ordini", intestazione, colonne, righe)
+    fasi = {
+        "da_avviare": "da avviare",
+        "da_concludere": "da concludere (fuori dai totali)",
+        "registrato": "registrato (fuori dai totali contrattuali)",
+    }
+    # Un foglio per natura: OPEX e CAPEX sono budget distinti, mai sommati.
+    sezioni = piano.sezioni(natura)
+    for sezione in sezioni:
+        righe = []
+        for gc in sezione.cluster:
+            for gs in gc.sottocluster:
+                for rn in gs.righe:
+                    r = rn.riga
+                    righe.append(
+                        [
+                            r.fabbisogno.descrizione,
+                            gc.cluster.codice,
+                            gs.nome,
+                            r.categoria.nome,
+                            r.stato,
+                            str(r.fornitore or ""),
+                            str(r.procedura or ""),
+                            r.lead_time_mesi,
+                            r.data_limite,
+                            r.avvio,
+                            r.fine,
+                            r.durata_mesi,
+                            r.stato_pratica_label,
+                            fasi[r.fase],
+                            "sì" if r.in_ritardo else "",
+                            rn.fonte,
+                            *[rn.importi[liv] for liv in LIVELLI],
+                            *[rn.normalizzato[liv] for liv in LIVELLI],
+                            "; ".join(r.sopra_soglia),
+                        ]
+                    )
+        t = sezione.totali
+        righe.append(
+            [f"Totale {sezione.natura}"]
+            + [None] * 15
+            + [t.contrattuale[liv] for liv in LIVELLI]
+            + [t.normalizzato[liv] for liv in LIVELLI]
+            + [None]
+        )
+        xlsx.foglio(wb, sezione.natura, intestazione, colonne, righe)
+    if not sezioni:
+        xlsx.foglio(wb, "Piano ordini", intestazione, colonne, [])
 
     righe = [
         [a.tipo, a.nome, a.soglia.descrizione, a.soglia.importo, a.totale_massimo,

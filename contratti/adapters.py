@@ -36,7 +36,11 @@ PREFETCH_CALCOLO = (
     Prefetch(
         "voci",
         queryset=m.VoceContratto.objects.select_related(
-            "piano_fatturazione", "conto", "wbs", "conto_rinnovi", "wbs_rinnovi"
+            "piano_fatturazione",
+            "conto",
+            "wbs__fonte_finanziamento",
+            "conto_rinnovi",
+            "wbs_rinnovi__fonte_finanziamento",
         ),
     ),
     "voci__quote",

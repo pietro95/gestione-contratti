@@ -36,6 +36,8 @@ Il diagramma è intenzionalmente concettuale: omette configurazioni, tabelle di 
 ### Programmazione
 
 - **Fabbisogno**: esigenza continuativa o una tantum da pianificare.
+- **Sottocluster**: sottocategoria di un cluster, assegnabile al fabbisogno; raggruppa il piano ordini.
+- **Fonte di finanziamento**: tabella di configurazione assegnabile a fabbisogno e WBS; compare sulle righe del piano ordini.
 - **Fornitore**: controparte del contratto.
 - **Configurazioni**: soglie, lead time, giorni di pagamento, tabelle SAP e altri parametri gestibili.
 

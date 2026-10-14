@@ -200,6 +200,27 @@ class Categoria(models.Model):
         return self.nome
 
 
+class FonteFinanziamento(models.Model):
+    """Fonte di finanziamento di una spesa (tabella di configurazione, SPEC §5.4).
+
+    Si assegna al fabbisogno o alla WBS; il piano ordini la riporta sulla riga. Nessun valore
+    iniziale: l'elenco lo decide l'ufficio.
+    """
+
+    nome = models.CharField(max_length=100, unique=True)
+    attiva = models.BooleanField(default=True)
+    note = models.TextField(blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "fonte di finanziamento"
+        verbose_name_plural = "fonti di finanziamento"
+        ordering = ["nome"]
+
+    def __str__(self):
+        return self.nome
+
+
 class Impianto(Archiviabile):
     """Impianto a cui si riferisce un fabbisogno (es. un dissalatore)."""
 
@@ -233,6 +254,15 @@ class WBS(Archiviabile):
     tipo = models.CharField(max_length=10, choices=Tipo.choices, default=Tipo.PROGETTO)
     cluster = models.ForeignKey(
         "Cluster", on_delete=models.PROTECT, null=True, blank=True, related_name="wbs"
+    )
+    fonte_finanziamento = models.ForeignKey(
+        FonteFinanziamento,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="wbs",
+        verbose_name="fonte di finanziamento",
+        help_text="Vale per le voci della WBS se il fabbisogno non ha una fonte propria.",
     )
     note = models.TextField(blank=True)
     history = HistoricalRecords()
@@ -332,6 +362,28 @@ class Cluster(Archiviabile):
 
     def __str__(self):
         return self.nome if self.nome == self.codice else f"{self.codice} — {self.nome}"
+
+
+class Sottocluster(Archiviabile):
+    """Sottocategoria di un cluster: raggruppa i fabbisogni nel piano ordini (SPEC §5.4)."""
+
+    cluster = models.ForeignKey(Cluster, on_delete=models.PROTECT, related_name="sottocluster")
+    nome = models.CharField(max_length=100)
+    note = models.TextField(blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "sottocluster"
+        verbose_name_plural = "sottocluster"
+        ordering = ["cluster__codice", "nome"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["cluster", "nome"], name="contratti_sottocluster_nome_unico_nel_cluster"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.cluster.codice} · {self.nome}"
 
 
 class AssegnazioneCluster(Archiviabile):
@@ -597,6 +649,23 @@ class Fabbisogno(Archiviabile):
     descrizione = models.CharField(max_length=250)
     cluster = models.ForeignKey(Cluster, on_delete=models.PROTECT, related_name="fabbisogni")
     categoria = models.ForeignKey(Categoria, on_delete=models.PROTECT, related_name="fabbisogni")
+    sottocluster = models.ForeignKey(
+        Sottocluster,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="fabbisogni",
+        help_text="Sottocategoria del cluster, per raggruppare il piano ordini.",
+    )
+    fonte_finanziamento = models.ForeignKey(
+        FonteFinanziamento,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="fabbisogni",
+        verbose_name="fonte di finanziamento",
+        help_text="Vuota: vale quella della WBS della voce, altrimenti «Ordinaria».",
+    )
     impianto = models.ForeignKey(
         Impianto, on_delete=models.PROTECT, null=True, blank=True, related_name="fabbisogni"
     )
@@ -705,6 +774,17 @@ class Fabbisogno(Archiviabile):
     def area(self) -> str:
         """Codice del cluster (prima di F9.2 era l'area IT/TLC)."""
         return self.cluster.codice
+
+    def clean(self):
+        super().clean()
+        if (
+            self.sottocluster_id
+            and self.cluster_id
+            and self.sottocluster.cluster_id != self.cluster_id
+        ):
+            raise ValidationError(
+                {"sottocluster": "Il sottocluster deve appartenere al cluster del fabbisogno."}
+            )
 
 
 class Contratto(Archiviabile):
