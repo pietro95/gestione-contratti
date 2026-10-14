@@ -414,6 +414,7 @@ TIPI: dict[str, Tipo] = {
                 "create": "Fatture create",
                 "gia_presenti": "Già registrate",
                 "non_importate": "Non importate",
+                "fornitori_creati": "Fornitori creati",
                 "con_contratto_proposto": "Con contratto proposto",
             },
             modello=modello_fatture,

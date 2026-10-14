@@ -95,6 +95,7 @@ PASSO_FATTURA = {
     "presa_in_carico": ("arancione", "Da prendere in carico"),
     "assegnazione": ("giallo", "Da assegnare"),
     "convalida": ("giallo", "Da convalidare"),
+    "bloccata": ("grigio", "Bloccata"),
     "rdc": ("blu", "RdC da fare"),
     "map_migo": ("blu", "MAP/MIGO da fare"),
     "trasferimento": ("blu", "Da trasferire"),

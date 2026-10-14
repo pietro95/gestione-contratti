@@ -275,8 +275,9 @@ def test_fa1_in_attesa_e_fuori_registro(registro, tmp_path):
         fa1, "in_attesa", "in attesa di prove di funzionamento in campo", D(2026, 10, 6),
         data=D(2026, 10, 2),
     )  # fmt: skip
-    for oggi in (D(2026, 10, 6), D(2026, 10, 7)):
-        assert fatture.passo_fattura(_fattura("FA-1/2026"), oggi) == Passo.CONVALIDA
+    # Bloccata fino al 06/10 compreso (Rev20), poi di nuovo da convalidare.
+    assert fatture.passo_fattura(_fattura("FA-1/2026"), D(2026, 10, 6)) == Passo.BLOCCATA
+    assert fatture.passo_fattura(_fattura("FA-1/2026"), D(2026, 10, 7)) == Passo.CONVALIDA
     assert fatture.da_lavorare(fa1, OGGI)
     fatture.segna_fuori_registro([fa1.pk], rossi)
     assert not fatture.da_lavorare(_fattura("FA-1/2026"), OGGI)

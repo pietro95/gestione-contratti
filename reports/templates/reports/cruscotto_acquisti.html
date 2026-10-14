@@ -34,6 +34,13 @@
         <div class="small text-body-secondary">referente {{ r.fattura.referente.get_full_name|default:r.fattura.referente.username }} · {{ r.fattura.get_esito_convalida_display|lower }}{% if r.fattura.bloccata_fino_al %} · bloccata fino al {{ r.fattura.bloccata_fino_al|date:"d/m/Y" }}{% endif %} · {{ r.giorni }} giorni</div></li>
     {% endfor %}</ul>{% else %}<div class="vuoto py-3">Nessuna.</div>{% endif %}
   </div></div>
+  <div class="col-xl-6"><div class="card h-100">
+    <div class="card-header">Bloccate <span class="badge rounded-pill text-bg-light">{{ bloccate|length }}</span> <span class="small text-body-secondary">· stanziate, in attesa della data del blocco</span></div>
+    {% if bloccate %}<ul class="list-group list-group-flush">{% for r in bloccate %}
+      <li class="list-group-item"><a href="{% url 'contratti:fattura' r.fattura.pk %}">Fattura {{ r.fattura.numero }}</a> · {{ r.fattura.fornitore }}
+        <div class="small text-body-secondary">{{ r.fattura.importo_documento|euro }} · referente {{ r.fattura.referente.get_full_name|default:r.fattura.referente.username }} · bloccata fino al {{ r.fattura.bloccata_fino_al|date:"d/m/Y" }}</div></li>
+    {% endfor %}</ul>{% else %}<div class="vuoto py-3">Nessuna.</div>{% endif %}
+  </div></div>
   {% for passo, etichetta, righe in fatture_per_passo %}
   <div class="col-xl-6"><div class="card h-100">
     <div class="card-header">{{ etichetta }} <span class="badge rounded-pill text-bg-light">{{ righe|length }}</span></div>
