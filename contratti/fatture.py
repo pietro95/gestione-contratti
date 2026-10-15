@@ -21,6 +21,7 @@ from contratti import adapters, permessi
 from contratti import models as m
 from contratti.acquisti import OperazioneNonAmmessa, _salva
 from contratti.engine import acquisti as motore
+from contratti.engine.date import mese_precedente
 
 Esito = m.Fattura.Esito
 Passo = motore.PassoFattura
@@ -557,6 +558,8 @@ def registra(
         importo_documento=importo_documento,
         note=note,
     )
+    # Rev22: competenza di default, il mese prima della data; la corregge il referente.
+    fattura.competenza_dal, fattura.competenza_al = mese_precedente(data)
     if contratto is not None:
         voci = [v for v in contratto.voci.all() if not v.archiviato]
         fattura.voce = voci[0] if len(voci) == 1 else None

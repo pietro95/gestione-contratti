@@ -17,7 +17,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from accounts.permissions import editor_required
-from contratti import acquisti, fatture, permessi
+from contratti import acquisti, fatture, permessi, stanziamenti
 from contratti import forms_fatture as forms
 from contratti import models as m
 from contratti.engine import acquisti as motore
@@ -494,6 +494,9 @@ def contesto_esecuzione(contratto: m.Contratto, oggi) -> dict:
             .select_related("voce", "rata", "fattura")
             .order_by("competenza_dal", "pk")
         ),
+        "proposte_stanziamento": (
+            [] if contratto.data_chiusura else stanziamenti.proposte(oggi, contratto=contratto)
+        ),
         "form_stanziamento": forms.StanziamentoForm(contratto=contratto),
         "form_chiudi_stanziamento": forms.ChiudiStanziamentoForm(contratto=contratto),
     }  # fmt: skip
@@ -540,6 +543,32 @@ def contratto_stanziamento(request, pk):
             f"{k}: {' '.join(v)}" for k, v in form.errors.items()
         ))  # fmt: skip
     return redirect(f"/contratti/{pk}/#esecuzione")
+
+
+@editor_required
+@require_POST
+def stanziamenti_conferma(request):
+    """Conferma le proposte di stanziamento delle rate scadute senza fattura (Rev22)."""
+    oggi = oggi_richiesta(request)
+    fatte = 0
+    for rata in m.Rata.objects.filter(pk__in=request.POST.getlist("rata")).select_related(
+        "piano__voce__contratto"
+    ):
+        try:
+            stanziamenti.conferma(rata, request.user, oggi)
+        except (acquisti.OperazioneNonAmmessa, ValidationError) as exc:
+            _errore(request, exc)
+        else:
+            fatte += 1
+    if fatte:
+        messages.success(
+            request,
+            "Stanziamento registrato." if fatte == 1 else f"{fatte} stanziamenti registrati.",
+        )
+    destinazione = request.POST.get("next", "")
+    if destinazione.startswith("/") and not destinazione.startswith("//"):
+        return redirect(destinazione)
+    return redirect("reports:stanziamenti")
 
 
 @editor_required

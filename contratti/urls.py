@@ -93,6 +93,9 @@ urlpatterns = [
         name="contratto_stanziamento",
     ),
     path(
+        "stanziamenti/conferma/", views_fatture.stanziamenti_conferma, name="stanziamenti_conferma"
+    ),
+    path(
         "stanziamenti/<int:pk>/",
         views_fatture.stanziamento_azione,
         name="stanziamento_azione",

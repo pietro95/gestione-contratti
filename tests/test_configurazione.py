@@ -41,6 +41,8 @@ def test_parametri_iniziali_provvisori():
         # Processo d'acquisto (migration 0026, SPEC §5.7).
         "rda_ferma_giorni": Decimal("30"),
         "fattura_ferma_giorni": Decimal("15"),
+        # Stanziamenti (migration 0039, SPEC Rev22).
+        "stanziamento_giorni": Decimal("15"),
     }
     assert set(valori) == set(m.Parametro.Chiave.values)
     assert not m.Parametro.objects.filter(provvisorio=False).exists()

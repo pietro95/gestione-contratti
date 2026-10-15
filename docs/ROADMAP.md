@@ -637,8 +637,13 @@ Bozza da approvare (SPEC Rev21, decisioni del responsabile del progetto del 15/1
   cassa per data fattura resta come confronto (SPEC §5.2, TC-20). Report, export e strumento
   `budget` del connettore la riportano.
 - Criterio di accettazione: TC-20 verde; il Reader riceve 403 sulle viste dello stanziamento.
-- Aperto: competenza nell'import settimanale, periodo memorizzato sulle rate salvate, stanziamento
-  automatico, strumenti MCP per gli stanziamenti (SPEC §9).
+- (Rev22) Competenza di default delle fatture importate e registrate: il mese prima della data.
+  Periodo salvato sulla rata alla generazione dello scadenzario (migration `0038`, ricavato al
+  volo per le rate salvate prima). Stanziamento proposto dalle rate scadute senza fattura
+  (parametro `stanziamento_giorni`, migration `0039`), con conferma singola o multipla e pagina
+  «Stanziamenti» nei report. Connettore: `stanziamenti`, `registra_stanziamento`,
+  `stanzia_rate`, `chiudi_stanziamento`, `annulla_stanziamento` (SPEC_MCP Rev09).
+- Aperto: tolleranza definitiva dello stanziamento (SPEC §9).
 
 ## F12 — Connettore MCP per il processo d'acquisto
 

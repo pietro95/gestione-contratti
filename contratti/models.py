@@ -163,6 +163,11 @@ class Parametro(ConfigurazioneProvvisoria):
         # Processo d'acquisto (SPEC §5.7, F11).
         RDA_FERMA_GIORNI = "rda_ferma_giorni", "RDA ferma in una fase dell'addetto (giorni)"
         FATTURA_FERMA_GIORNI = "fattura_ferma_giorni", "fattura ferma da lavorare (giorni)"
+        # Stanziamenti (SPEC §5.2, Rev22).
+        STANZIAMENTO_GIORNI = (
+            "stanziamento_giorni",
+            "giorni dalla data prevista della fattura oltre i quali si propone lo stanziamento",
+        )
 
     chiave = models.CharField(max_length=40, choices=Chiave.choices)
     valore = models.DecimalField(max_digits=10, decimal_places=4)
@@ -1336,6 +1341,10 @@ class Rata(models.Model):
     modificata_manualmente = models.BooleanField(default=False)
     consuntivo = models.BooleanField(default=False, help_text="Rata effettivamente fatturata.")
     numero_fattura = models.CharField(max_length=40, blank=True)
+    # Rev22: periodo di competenza della rata, salvato alla generazione dello scadenzario
+    # (es. fattura bimestrale posticipata di un contratto che parte l'01/12: 01/12-31/01).
+    periodo_dal = models.DateField("periodo dal", null=True, blank=True)
+    periodo_al = models.DateField("periodo al", null=True, blank=True)
     history = HistoricalRecords()
 
     class Meta:

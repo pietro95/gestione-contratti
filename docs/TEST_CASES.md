@@ -2,7 +2,7 @@
 
 Ogni caso descrive: input, output atteso, regola della SPEC che verifica.
 
-Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (redatto su richiesta del responsabile del progetto del 02/10/2026). F9.4: aggiunto TC-13 (redatto su richiesta del responsabile del progetto del 05/10/2026). F9.5: aggiunto TC-14 (redatto su richiesta del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (redatto su decisione del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev11: aggiunti TC-15 e TC-16 (redatti su decisione del responsabile del progetto del 05/10/2026, bozza da approvare). SPEC Rev13: TC-15 riscritto sulle fasi della richiesta di RDA, aggiunto TC-17 (redatti su decisione del responsabile del progetto del 07/10/2026, bozza da approvare). SPEC Rev14: TC-15 (e) aggiornato ai tre passi della fattura (stessa origine, bozza da approvare). SPEC Rev15: aggiunto TC-18 (stessa origine, bozza da approvare). SPEC Rev21: aggiunto TC-20 (redatto su decisione del responsabile del progetto del 15/10/2026, bozza da approvare).
+Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (redatto su richiesta del responsabile del progetto del 02/10/2026). F9.4: aggiunto TC-13 (redatto su richiesta del responsabile del progetto del 05/10/2026). F9.5: aggiunto TC-14 (redatto su richiesta del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (redatto su decisione del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev11: aggiunti TC-15 e TC-16 (redatti su decisione del responsabile del progetto del 05/10/2026, bozza da approvare). SPEC Rev13: TC-15 riscritto sulle fasi della richiesta di RDA, aggiunto TC-17 (redatti su decisione del responsabile del progetto del 07/10/2026, bozza da approvare). SPEC Rev14: TC-15 (e) aggiornato ai tre passi della fattura (stessa origine, bozza da approvare). SPEC Rev15: aggiunto TC-18 (stessa origine, bozza da approvare). SPEC Rev21: aggiunto TC-20 (redatto su decisione del responsabile del progetto del 15/10/2026, bozza da approvare). SPEC Rev22: TC-20 esteso (g)–(i), stessa origine.
 
 I valori sono stati calcolati a mano e verificati con uno script indipendente. **Se un test non passa, l'errore è nel codice, non nel caso.** Un caso si modifica solo con l'approvazione del responsabile del progetto e insieme a una nuova revisione della SPEC.
 
@@ -588,3 +588,17 @@ Fatture e stanziamenti (abbinati alla rata, valore base):
   `CONSUNTIVO_NON_ABBINATO`.
 - **(f) Competenza obbligatoria.** Salvare un valore base senza periodo, o con fine precedente
   all'inizio: errore di validazione.
+- **(g) Competenza di default.** Fattura importata con data 04/09/2026: competenza 01/08/2026–
+  31/08/2026. Data 10/01/2026: 01/12/2025–31/12/2025. Data 31/03/2024: 01/02/2024–29/02/2024.
+- **(h) Periodo della rata.** Contratto dal 01/12/2025, 12 mesi, 6.000,00 € fissi, fatturazione
+  bimestrale posticipata (rate da 1.000,00 €): la rata 1 ha periodo 01/12/2025–31/01/2026 e data
+  fattura 31/01/2026; nel budget a competenza 2025 pesano 500,00 € (31 giorni su 62) e nel 2026
+  500,00 € della rata 1, più le altre cinque rate: 2025 = 500,00 €, 2026 = 5.500,00 €. Il
+  risultato è lo stesso se la rata è stata salvata senza periodo.
+- **(i) Stanziamento proposto.** Contratto dal 01/01/2026, 12.000,00 € fissi, mensile posticipato
+  (rate da 1.000,00 € fatturabili a fine mese), tolleranza 15 giorni, al 20/04/2026: proposte le
+  rate di gennaio, febbraio e marzo (non aprile); al 05/04/2026 solo gennaio e febbraio. Con una
+  fattura sulla rata di gennaio: febbraio e marzo. Con uno stanziamento registrato su febbraio:
+  solo marzo; annullato, torna proposta. Contratto chiuso: nessuna proposta. Conferma di marzo:
+  stanziamento di 1.000,00 € con competenza 01/03/2026–31/03/2026; una seconda conferma, o la
+  conferma di aprile, è rifiutata.

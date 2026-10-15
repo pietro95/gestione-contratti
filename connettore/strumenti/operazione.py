@@ -220,6 +220,8 @@ def _fabbisogno_di(record) -> int | None:
             return m.VoceContratto.objects.get(pk=record.voce_id).contratto.fabbisogno_id
         if modello is m.Rata:
             return m.PianoFatturazione.objects.get(pk=record.piano_id).voce.contratto.fabbisogno_id
+        if modello is m.Stanziamento:
+            return m.VoceContratto.objects.get(pk=record.voce_id).contratto.fabbisogno_id
         if modello is m.StatoPratica:
             if record.contratto_id:
                 return m.Contratto.objects.get(pk=record.contratto_id).fabbisogno_id

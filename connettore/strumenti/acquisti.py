@@ -5,8 +5,11 @@ dagli stessi selettori. Del referente solo il nome (D16); i testi per SAP e PAC 
 all'interfaccia, in campi propri (D17); i testi del flusso in ``testo_libero``.
 """
 
+from decimal import Decimal
+
 from contratti import acquisti, adapters, fatture
 from contratti import models as m
+from contratti import stanziamenti as servizi_stanziamenti
 from contratti.engine import acquisti as motore
 from reports import acquisti as viste
 
@@ -431,6 +434,70 @@ def anomalie_esecuzione(ctx: Contesto, argomenti: dict) -> dict:
     }
 
 
+def _riga_stanziamento(s: m.Stanziamento) -> dict:
+    c = s.voce.contratto
+    return {
+        "tipo": "registrato",
+        "id": s.pk,
+        "contratto": _contratto_ref(c),
+        "voce": {"id": s.voce_id, "descrizione": s.voce.descrizione},
+        "rata": {"id": s.rata_id, "numero": s.rata.numero} if s.rata_id else None,
+        "importo": s.importo,
+        "competenza_dal": s.competenza_dal,
+        "competenza_al": s.competenza_al,
+        "stanziato_il": s.data_stanziamento,
+        "chiuso": s.chiuso,
+        "fattura_id": s.fattura_id,
+        "note": s.note or None,
+        "versione": versione(s),
+    }
+
+
+def _riga_proposta(p) -> dict:
+    return {
+        "tipo": "proposto",
+        "rata_id": p.rata.pk,
+        "contratto": _contratto_ref(p.contratto),
+        "voce": {"id": p.voce.pk, "descrizione": p.voce.descrizione},
+        "rata": {"numero": p.rata.numero},
+        "data_fattura_prevista": p.rata.data_fattura,
+        "giorni_di_ritardo": p.giorni_ritardo,
+        "importo": p.importo,
+        "competenza_dal": p.dal,
+        "competenza_al": p.al,
+    }
+
+
+def stanziamenti(ctx: Contesto, argomenti: dict) -> dict:
+    c = None
+    if "contratto_id" in argomenti:
+        c = oggetto(
+            m.Contratto.objects.select_related("fabbisogno"), argomenti["contratto_id"], "contratto"
+        )
+    codici = [] if c else cluster_filtro(ctx.utente, argomenti.get("cluster"))
+    proposte = servizi_stanziamenti.proposte(ctx.oggi, tuple(codici), contratto=c)
+    registrati = m.Stanziamento.objects.filter(archiviato=False, voce__contratto__archiviato=False)
+    if c:
+        registrati = registrati.filter(voce__contratto=c)
+    elif codici:
+        registrati = registrati.filter(voce__contratto__fabbisogno__cluster__codice__in=codici)
+    registrati = registrati.select_related(
+        "voce__contratto__fabbisogno", "voce__contratto__fornitore", "rata"
+    ).order_by("competenza_dal", "pk")
+    righe = [_riga_proposta(p) for p in proposte] + [_riga_stanziamento(s) for s in registrati]
+    porzione, info = pagina(righe, argomenti)
+    return {
+        "alla_data": ctx.oggi,
+        "cluster_filtro": codici or "tutti",
+        "giorni_di_tolleranza": servizi_stanziamenti.tolleranza(ctx.oggi),
+        "totale_proposto": sum((p.importo for p in proposte), Decimal("0.00")),
+        "totale_stanziato": sum((s.importo for s in registrati if not s.chiuso), Decimal("0.00")),
+        "righe": porzione,
+        **info,
+        "link": link("reports:stanziamenti"),
+    }
+
+
 def _schema(proprieta: dict, richiesti: list[str] | None = None) -> dict:
     schema = {"type": "object", "properties": proprieta, "additionalProperties": False}
     if richiesti:
@@ -558,12 +625,27 @@ STRUMENTI = [
         esegui=contratti_da_chiudere,
     ),
     Strumento(
+        nome="stanziamenti",
+        titolo="Stanziamenti",
+        descrizione=(
+            "Costi di competenza non ancora fatturati. «proposto»: rata scaduta senza fattura "
+            "(oltre i giorni di tolleranza), con importo e competenza proposti; «registrato»: "
+            "stanziamento in essere (chiuso se la fattura è arrivata). Con «contratto_id» solo "
+            "quel contratto. Per registrare usare «stanzia_rate» o «registra_stanziamento»."
+        ),
+        input_schema=_schema(
+            {"cluster": SCHEMA_CLUSTER, "contratto_id": SCHEMA_ID, **SCHEMA_PAGINA}
+        ),
+        esegui=stanziamenti,
+    ),
+    Strumento(
         nome="anomalie_esecuzione",
         titolo="Anomalie dell'esecuzione",
         descrizione=(
             "Contratti e fatture con anomalie: FATTURATO_OLTRE_MASSIMO, "
             "CHIUSO_SENZA_ATTESTAZIONE, FATTURA_DUPLICATA, IMPORTO_NON_QUADRA (valore base + "
-            "oneri + bollo diverso dal documento), VALORE_BASE_MANCANTE; conteggi come la vista."
+            "oneri + bollo diverso dal documento), VALORE_BASE_MANCANTE, "
+            "COMPETENZA_MANCANTE (fattura senza periodo di competenza); conteggi come la vista."
         ),
         input_schema=_schema({"cluster": SCHEMA_CLUSTER, **SCHEMA_PAGINA}),
         esegui=anomalie_esecuzione,

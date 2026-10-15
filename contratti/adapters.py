@@ -14,6 +14,7 @@ from django.db.models import Prefetch
 from contratti import models as m
 from contratti.engine import previsioni, scadenze
 from contratti.engine.date import UN_GIORNO
+from contratti.engine.scadenzario import genera_rate
 from contratti.engine.tipi import (
     Alert,
     Consuntivo,
@@ -151,23 +152,37 @@ def scadenza(contratto: m.Contratto) -> Scadenza | None:
 
 
 def _rate_salvate(
-    voce: m.VoceContratto, consuntivi: dict[int, Consuntivo] | None = None
+    voce: m.VoceContratto,
+    consuntivi: dict[int, Consuntivo] | None = None,
+    periodi_generati=None,
 ) -> tuple[Rata, ...] | None:
+    """Rate salvate. Il periodo di competenza (Rev22) è quello salvato alla generazione; per
+    le rate salvate prima, senza periodo, si ricava rigenerando lo scadenzario (per numero)."""
     piano = getattr(voce, "piano_fatturazione", None)
     if piano is None:
         return None
     consuntivi = consuntivi or {}
-    rate = tuple(
-        Rata(
-            r.numero,
-            r.data_fattura,
-            r.data_pagamento_stimata,
-            r.importo,
-            consuntivo=consuntivi.get(r.pk),
+    salvate = sorted(piano.rate.all(), key=lambda r: r.numero)
+    generati = None
+    rate = []
+    for r in salvate:
+        periodo = (r.periodo_dal, r.periodo_al)
+        if r.periodo_dal is None and periodi_generati is not None:
+            if generati is None:
+                generati = periodi_generati()
+            periodo = generati.get(r.numero, (None, None))
+        rate.append(
+            Rata(
+                r.numero,
+                r.data_fattura,
+                r.data_pagamento_stimata,
+                r.importo,
+                periodo[0],
+                periodo[1],
+                consuntivi.get(r.pk),
+            )
         )
-        for r in sorted(piano.rate.all(), key=lambda r: r.numero)
-    )
-    return rate or None
+    return tuple(rate) or None
 
 
 def _consuntivo_fattura(f: m.Fattura, senza_voce: bool = False) -> Consuntivo | None:
@@ -241,6 +256,11 @@ def voce_engine(
     consuntivi: tuple[Consuntivo, ...] = (),
 ) -> Voce:
     piano = getattr(voce, "piano_fatturazione", None)
+
+    def periodi_generati():
+        senza_rate = voce_engine(voce, inizio, fine, anno_impegno, con_rate_salvate=False)
+        return {r.numero: (r.periodo_inizio, r.periodo_fine) for r in genera_rate(senza_rate)}
+
     return Voce(
         importo_fisso=voce.importo_fisso,
         inizio=inizio,
@@ -250,7 +270,7 @@ def voce_engine(
         massimale_variabile=voce.massimale_variabile,
         stima_consumo_pct=voce.stima_consumo_pct,
         stima_consumo_importo=voce.stima_consumo_importo,
-        rate=_rate_salvate(voce, consuntivi_rata) if con_rate_salvate else None,
+        rate=_rate_salvate(voce, consuntivi_rata, periodi_generati) if con_rate_salvate else None,
         quote=tuple(
             Quota(q.dal, q.al, q.importo) for q in sorted(voce.quote.all(), key=lambda q: q.dal)
         ),

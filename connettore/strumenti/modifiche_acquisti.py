@@ -20,6 +20,7 @@ from contratti import acquisti, fatture, permessi
 from contratti import forms_fatture as ff
 from contratti import forms_rda as fr
 from contratti import models as m
+from contratti import stanziamenti as servizi_stanziamenti
 from contratti.engine import acquisti as motore
 
 from .acquisti import _esecuzione, nome
@@ -43,7 +44,7 @@ def _verifica_cluster(ctx: Contesto, oggetto) -> None:
     try:
         if isinstance(oggetto, m.RichiestaAcquisto):
             permessi.verifica(ctx.utente, oggetto.cluster_id)
-        elif isinstance(oggetto, m.Fabbisogno | m.Contratto):
+        elif isinstance(oggetto, m.Fabbisogno | m.Contratto | m.Rata | m.Stanziamento):
             permessi.verifica_oggetto(ctx.utente, oggetto)
     except PermissionDenied:
         raise ErroreTool(NON_AUTORIZZATO) from None
@@ -786,6 +787,77 @@ def _documento_esecuzione(ctx: Contesto, argomenti: dict) -> dict:
     return {"oggetti": [_rif(contratto)]}
 
 
+# --- Stanziamenti (SPEC Rev22) ----------------------------------------------------------------
+
+
+def _registra_stanziamento(ctx: Contesto, argomenti: dict) -> dict:
+    contratto = _contratto(argomenti)
+    if contratto.data_chiusura is not None:
+        raise ErroreTool("Il contratto è chiuso: prima si annulla la chiusura.")
+    dati = {
+        "voce": argomenti["voce_id"],
+        "rata": argomenti.get("rata_id", ""),
+        "importo": argomenti["importo"],
+        "competenza_dal": argomenti["competenza_dal"],
+        "competenza_al": argomenti["competenza_al"],
+        "note": "",
+    }
+    form = ff.StanziamentoForm({k: _form_valore(v) for k, v in dati.items()}, contratto=contratto)
+    valida(form)
+    stanziamento = form.save(commit=False)
+    stanziamento._change_reason = "Stanziamento registrato dal contratto"
+    stanziamento.save()
+    return {"oggetti": [_rif(contratto)]}
+
+
+def _oggetti_rate(argomenti: dict) -> list:
+    pks = list(dict.fromkeys(argomenti["rate_ids"]))
+    if len(pks) > MASSIMO_FATTURE:
+        raise ErroreTool(f"Al massimo {MASSIMO_FATTURE} rate per volta.")
+    trovate = {
+        r.pk: r for r in m.Rata.objects.filter(pk__in=pks).select_related("piano__voce__contratto")
+    }
+    if mancanti := [pk for pk in pks if pk not in trovate]:
+        raise ErroreTool(f"Rate inesistenti: {mancanti}. Cercarle con «stanziamenti».")
+    return [trovate[pk] for pk in pks]
+
+
+def _stanzia_rate(ctx: Contesto, argomenti: dict) -> dict:
+    contratti = {}
+    for rata in _oggetti_rate(argomenti):
+        servizi_stanziamenti.conferma(rata, ctx.utente, ctx.oggi)
+        contratto = rata.piano.voce.contratto
+        contratti[contratto.pk] = contratto
+    return {"oggetti": [_rif(c) for c in contratti.values()]}
+
+
+def _stanziamento(argomenti: dict) -> m.Stanziamento:
+    return trova(
+        m.Stanziamento.objects.select_related("voce__contratto__fabbisogno"),
+        argomenti["id"],
+        "stanziamento",
+    )
+
+
+def _chiudi_stanziamento(ctx: Contesto, argomenti: dict) -> dict:
+    s = _stanziamento(argomenti)
+    contratto = s.voce.contratto
+    form = ff.ChiudiStanziamentoForm({"fattura": argomenti["fattura_id"]}, contratto=contratto)
+    valida(form)
+    s.fattura = form.cleaned_data["fattura"]
+    s._change_reason = "Chiuso dalla fattura"
+    s.save(update_fields=["fattura"])
+    return {"oggetti": [_rif(contratto)]}
+
+
+def _annulla_stanziamento(ctx: Contesto, argomenti: dict) -> dict:
+    s = _stanziamento(argomenti)
+    s.archiviato = True
+    s._change_reason = "Stanziamento annullato"
+    s.save(update_fields=["archiviato"])
+    return {"oggetti": [_rif(s.voce.contratto)]}
+
+
 def _chiusura(chiudi: bool):
     def applica(ctx: Contesto, argomenti: dict) -> dict:
         contratto = _contratto(argomenti)
@@ -1251,6 +1323,48 @@ STRUMENTI = [
             },
             ["contratto_id", "tipo", "data"],
         ),
+    ),
+    strumento(
+        _scrittura("registra_stanziamento", lambda a: [_contratto(a)], _registra_stanziamento),
+        "Registra uno stanziamento",
+        "Costo di competenza non ancora fatturato: voce, importo (imponibile), periodo di "
+        "competenza e, se c'è, la rata dello scadenzario che sostituisce. Conta nel budget a "
+        "competenza finché non arriva la fattura. Contratto non chiuso.",
+        _schema(
+            {
+                "contratto_id": SCHEMA_ID,
+                "voce_id": SCHEMA_ID,
+                "importo": SCHEMA_IMPORTO,
+                "competenza_dal": SCHEMA_DATA,
+                "competenza_al": SCHEMA_DATA,
+                "rata_id": SCHEMA_ID,
+            },
+            ["contratto_id", "voce_id", "importo", "competenza_dal", "competenza_al"],
+        ),
+    ),
+    strumento(
+        _scrittura("stanzia_rate", _oggetti_rate, _stanzia_rate),
+        "Stanzia le rate scadute",
+        "Conferma la proposta di stanziamento di una o più rate scadute senza fattura "
+        "(«stanziamenti»): importo e competenza sono quelli proposti. Al massimo 50 rate; se "
+        "una non è più da stanziare l'operazione è rifiutata.",
+        _schema(
+            {"rate_ids": {"type": "array", "items": SCHEMA_ID, "minItems": 1, "maxItems": 50}},
+            ["rate_ids"],
+        ),
+    ),
+    strumento(
+        _scrittura("chiudi_stanziamento", lambda a: [_stanziamento(a)], _chiudi_stanziamento),
+        "Chiudi lo stanziamento con la fattura",
+        "Indica la fattura arrivata (dello stesso contratto): sostituisce lo stanziamento nel "
+        "budget a competenza.",
+        _schema({"id": SCHEMA_ID, "fattura_id": SCHEMA_ID}, ["id", "fattura_id"]),
+    ),
+    strumento(
+        _scrittura("annulla_stanziamento", lambda a: [_stanziamento(a)], _annulla_stanziamento),
+        "Annulla lo stanziamento",
+        "Archivia lo stanziamento: esce dal budget (la rata torna alla previsione).",
+        _schema({"id": SCHEMA_ID}, ["id"]),
     ),
     strumento(
         _scrittura("chiudi_contratto", lambda a: [_contratto(a)], _chiusura(True)),
