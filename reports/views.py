@@ -157,7 +157,10 @@ def piano_ordini(request):
             "voci_filtri": form.voci(),
             "cluster": permessi.descrivi_filtro(codici),
         }
-        nome = f"{oggi:%Y.%m.%d}_Piano_ordini_{piano.anno}{suffisso_cluster(codici)}.pdf"
+        raggruppa = bool(request.GET.get("raggruppa"))
+        contesto["raggruppa_stipulati"] = raggruppa
+        suffisso = "_stipulati_raggruppati" if raggruppa else ""
+        nome = f"{oggi:%Y.%m.%d}_Piano_ordini_{piano.anno}{suffisso_cluster(codici)}{suffisso}.pdf"
         return pdf.risposta("reports/pdf/piano_ordini.html", contesto, nome, request)
     return render(request, "reports/piano_ordini.html", contesto)
 

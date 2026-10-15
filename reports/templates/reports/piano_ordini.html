@@ -3,7 +3,7 @@
 {% block title %}Piano ordini {{ form.anno.value }}{% endblock %}
 {% block titolo_pagina %}Piano ordini {{ form.anno.value }}{% endblock %}
 {% block sottotitolo %}<div class="sottotitolo">Al {{ oggi|date:"d/m/Y" }} · procedure da avviare nell'anno e procedure avviate prima con ordine da emettere · valore contrattuale sull'intera durata (totali solo sulle righe da avviare) e valore normalizzato sull'anno (competenza a giorni) · importi imponibili</div>{% endblock %}
-{% block azioni %}{% if semplificata %}<a class="btn btn-outline-secondary" href="?{{ query_completa }}"><i class="bi bi-list-columns" aria-hidden="true"></i> Vista completa</a>{% else %}<a class="btn btn-outline-secondary" href="?{{ query_semplificata }}"><i class="bi bi-list" aria-hidden="true"></i> Vista semplificata</a>{% endif %}{% include "reports/_azioni.html" with con_dettaglio=True etichetta_dettaglio="PDF con gli avvisi di frazionamento" %}{% endblock %}
+{% block azioni %}{% if semplificata %}<a class="btn btn-outline-secondary" href="?{{ query_completa }}"><i class="bi bi-list-columns" aria-hidden="true"></i> Vista completa</a>{% else %}<a class="btn btn-outline-secondary" href="?{{ query_semplificata }}"><i class="bi bi-list" aria-hidden="true"></i> Vista semplificata</a>{% endif %}{% include "reports/_azioni.html" with con_dettaglio=True etichetta_dettaglio="PDF con gli avvisi di frazionamento" etichetta_raggruppo="PDF con i contratti stipulati raggruppati" %}{% endblock %}
 {% block content %}
 {% include "reports/_filtri.html" with vista=semplificata_param %}
 {% if piano %}

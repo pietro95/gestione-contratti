@@ -8,6 +8,7 @@ from django.http import HttpResponse
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.properties import Outline
 
 FORMATO_IMPORTO = "#,##0.00"
 FORMATO_DATA = "DD/MM/YYYY"
@@ -46,6 +47,21 @@ def foglio(
         ws.column_dimensions[get_column_letter(j)].width = min(max(larghezza + 2, 10), 60)
     ws.freeze_panes = ws.cell(row=prima + 1, column=1)
     return ws
+
+
+def raggruppa_righe(ws, prima_riga: int, livelli: list[int]) -> None:
+    """Raggruppamento nativo di Excel: le righe di livello 1 si comprimono sotto il riepilogo.
+
+    ``livelli`` ha un elemento per riga dei dati, dalla riga ``prima_riga``. Il pulsante di
+    espansione sta sulla riga di riepilogo, sopra i dettagli, che partono compressi.
+    """
+    if not any(livelli):
+        return
+    ws.sheet_properties.outlinePr = Outline(summaryBelow=False)
+    for i, livello in enumerate(livelli, start=prima_riga):
+        if livello:
+            ws.row_dimensions[i].outlineLevel = livello
+            ws.row_dimensions[i].hidden = True
 
 
 def _testo(valore) -> str:

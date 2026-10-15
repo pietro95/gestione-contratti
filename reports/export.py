@@ -201,38 +201,69 @@ def piano_xlsx(
         "da_concludere": "da concludere (fuori dai totali)",
         "registrato": "registrato (fuori dai totali contrattuali)",
     }
-    # Un foglio per natura: OPEX e CAPEX sono budget distinti, mai sommati.
+    # Dopo il testo e prima dei valori: «Totale» e il riepilogo degli stipulati usano questi indici.
+    inizio_valori = len(colonne) - 2 * len(livelli) - 1
     sezioni = piano.sezioni(natura)
+    if any(gs.stipulati for sz in sezioni for gc in sz.cluster for gs in gc.sottocluster):
+        intestazione[2] += (
+            " Contratti stipulati raggruppati (righe comprimibili): la riga di riepilogo "
+            "somma i dettagli, non sommare entrambe."
+        )
+
+    def riga_xlsx(rn, gc, gs):
+        r = rn.riga
+        riga = [r.fabbisogno.descrizione, gc.cluster.codice, gs.nome]
+        if not semplificata:
+            riga.append(r.categoria.nome)
+        riga += [r.stato, str(r.fornitore or "")]
+        if not semplificata:
+            riga += [str(r.procedura or ""), r.lead_time_mesi, r.data_limite]
+        riga += [r.avvio, r.fine, r.durata_mesi, r.stato_pratica_label]
+        if not semplificata:
+            riga += [fasi[r.fase], "sì" if r.in_ritardo else ""]
+        riga.append(rn.fonte)
+        riga += [rn.importi[liv] for liv in livelli]
+        riga += [rn.normalizzato[liv] for liv in livelli]
+        riga.append("; ".join(r.sopra_soglia))
+        return riga
+
+    def riga_riepilogo(gc, gs):
+        riep = gs.riepilogo_stipulati
+        riga = [None] * len(colonne)
+        riga[0] = f"{len(gs.stipulati)} contratti già stipulati"
+        riga[1], riga[2] = gc.cluster.codice, gs.nome
+        riga[colonne.index("Stato")] = "Stipulato"
+        valori = [riep.contrattuale[liv] for liv in livelli]
+        valori += [riep.normalizzato[liv] for liv in livelli]
+        riga[inizio_valori : inizio_valori + len(valori)] = valori
+        return riga
+
+    # Un foglio per natura: OPEX e CAPEX sono budget distinti, mai sommati.
     for sezione in sezioni:
         righe = []
+        livelli_riga = []  # 1 = dettaglio di un gruppo (comprimibile), 0 = riga normale
         for gc in sezione.cluster:
             for gs in gc.sottocluster:
-                for rn in gs.righe:
-                    r = rn.riga
-                    riga = [r.fabbisogno.descrizione, gc.cluster.codice, gs.nome]
-                    if not semplificata:
-                        riga.append(r.categoria.nome)
-                    riga += [r.stato, str(r.fornitore or "")]
-                    if not semplificata:
-                        riga += [str(r.procedura or ""), r.lead_time_mesi, r.data_limite]
-                    riga += [r.avvio, r.fine, r.durata_mesi, r.stato_pratica_label]
-                    if not semplificata:
-                        riga += [fasi[r.fase], "sì" if r.in_ritardo else ""]
-                    riga.append(rn.fonte)
-                    riga += [rn.importi[liv] for liv in livelli]
-                    riga += [rn.normalizzato[liv] for liv in livelli]
-                    riga.append("; ".join(r.sopra_soglia))
-                    righe.append(riga)
+                for rn in gs.altre:
+                    righe.append(riga_xlsx(rn, gc, gs))
+                    livelli_riga.append(0)
+                if gs.stipulati:  # riepilogo sopra, dettagli raggruppati sotto
+                    righe.append(riga_riepilogo(gc, gs))
+                    livelli_riga.append(0)
+                    for rn in gs.stipulati:
+                        righe.append(riga_xlsx(rn, gc, gs))
+                        livelli_riga.append(1)
         t = sezione.totali
-        n_testo = len(colonne) - 2 * len(livelli) - 1 - 1  # prima dei valori, meno l'etichetta
         righe.append(
             [f"Totale {sezione.natura}"]
-            + [None] * n_testo
+            + [None] * (inizio_valori - 1)
             + [t.contrattuale[liv] for liv in livelli]
             + [t.normalizzato[liv] for liv in livelli]
             + [None]
         )
-        xlsx.foglio(wb, sezione.natura, intestazione, colonne, righe)
+        livelli_riga.append(0)
+        ws = xlsx.foglio(wb, sezione.natura, intestazione, colonne, righe)
+        xlsx.raggruppa_righe(ws, len(intestazione) + 3, livelli_riga)
     if not sezioni:
         xlsx.foglio(wb, "Piano ordini", intestazione, colonne, [])
 
