@@ -4,9 +4,6 @@
 {% block contenuto %}
 <table class="kpi"><tr>
   <td><div class="etichetta">Ordini da emettere</div><div class="valore">{{ piano.da_avviare|length }}</div><div class="nota">procedure da avviare nell'anno{% if piano.da_concludere %} · {{ piano.da_concludere|length }} da concludere{% endif %}{% if piano.in_ritardo %} · {{ piano.in_ritardo|length }} in ritardo{% endif %}{% if piano.registrati %} · {{ piano.registrati|length }} già registrati{% endif %}</div></td>
-  {% for natura, totali in per_natura.items %}
-  <td><div class="etichetta">{{ natura }} · valore probabile</div><div class="valore">{{ totali.probabile|euro }}</div><div class="nota">fisso {{ totali.fisso|euro }} · massimo {{ totali.massimo|euro }}</div></td>
-  {% endfor %}
   {% if con_avvisi %}<td><div class="etichetta">Possibile frazionamento</div><div class="valore">{{ piano.avvisi|length }}</div><div class="nota">{% for s in piano.soglie %}soglia {{ s.importo|euro }}{% if s.provvisorio %} (provvisoria){% endif %}{% endfor %}</div></td>{% endif %}
 </tr></table>
 

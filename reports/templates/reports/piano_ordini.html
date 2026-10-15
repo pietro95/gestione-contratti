@@ -9,11 +9,6 @@
 {% if piano %}
 <div class="row g-3 mb-4">
   <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Ordini da emettere</div><div class="kpi-valore">{{ piano.da_avviare|length }}</div><div class="kpi-nota">procedure da avviare nell'anno{% if not semplificata %}{% if piano.da_concludere %} · {{ piano.da_concludere|length }} da concludere{% endif %}{% if piano.in_ritardo %} · {{ piano.in_ritardo|length }} in ritardo{% endif %}{% endif %}{% if piano.registrati %} · {{ piano.registrati|length }} già registrati{% endif %}</div></div></div></div>
-  {% for natura, totali in per_natura.items %}
-  <div class="col-sm-6 col-xl-3"><div class="card kpi verde"><div class="card-body">{% if semplificata %}<div class="kpi-etichetta">{{ natura }} · valore massimo</div><div class="kpi-valore">{{ totali.massimo|euro }}</div>{% else %}<div class="kpi-etichetta">{{ natura }} · valore probabile</div><div class="kpi-valore">{{ totali.probabile|euro }}</div><div class="kpi-nota">fisso {{ totali.fisso|euro }} · massimo {{ totali.massimo|euro }}</div>{% endif %}</div></div></div>
-  {% empty %}
-  <div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">Valore probabile</div><div class="kpi-valore">{{ 0|euro }}</div><div class="kpi-nota">nessun previsto</div></div></div></div>
-  {% endfor %}
   <div class="col-sm-6 col-xl-3"><div class="card kpi {% if piano.avvisi %}arancione{% else %}verde{% endif %}"><div class="card-body"><div class="kpi-etichetta">Possibile frazionamento</div><div class="kpi-valore">{{ piano.avvisi|length }}</div><div class="kpi-nota">{% for s in piano.soglie %}soglia {{ s.importo|euro }}{% if s.provvisorio %} (provvisoria){% endif %}{% endfor %}</div></div></div></div>
 </div>
 
