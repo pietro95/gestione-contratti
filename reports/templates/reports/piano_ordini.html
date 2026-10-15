@@ -38,25 +38,14 @@
     <tr class="table-light"><th colspan="{{ n_colonne }}">{{ gc.cluster }}</th></tr>
     {% for gs in gc.sottocluster %}
     <tr><td colspan="{{ n_colonne }}" class="small fw-semibold text-body-secondary ps-4">{{ gs.nome }}</td></tr>
-    {% for rn in gs.righe %}{% with r=rn.riga %}{% url 'contratti:fabbisogno' r.fabbisogno.pk as link %}
-    <tr data-href="{% if r.contratto %}{% url 'contratti:contratto' r.contratto.pk %}{% else %}{{ link }}{% endif %}">
-      <td style="min-width: 16rem"><a href="{{ link }}" class="fw-semibold">{{ r.fabbisogno.descrizione }}</a>
-        <div class="small text-body-secondary"><span class="stato {% if rn.natura == 'CAPEX' %}stato-blu{% else %}stato-grigio{% endif %}">{{ rn.natura }}</span> <span class="stato {% if r.registrato %}stato-verde{% else %}stato-grigio{% endif %}">{{ r.stato }}</span>{% if r.a_progetto %} <span class="stato stato-grigio">WBS a progetto</span>{% endif %} {% if not semplificata %}{{ r.categoria }}{% endif %}{% if r.contratto %} · <a href="{% url 'contratti:contratto' r.contratto.pk %}">contratto</a>{% if r.contratto.una_tantum %} una tantum{% endif %}{% elif not r.contratto_uscente %} · <span class="stato stato-blu">nuovo</span>{% endif %}{% if not semplificata and r.fase == 'da_concludere' %} <span class="stato stato-grigio" title="Procedura da avviare in un anno precedente: ordine da emettere entro l'avvio, fuori dai totali">da concludere</span>{% endif %}{% if not semplificata and r.in_ritardo %} <span class="stato stato-rosso" title="Data limite già passata e pratica non conclusa">in ritardo</span>{% endif %}{% for s in r.sopra_soglia %} <span class="stato stato-rosso" title="{{ s }}">oltre soglia</span>{% endfor %}</div></td>
-      <td>{{ r.fornitore|default:"—" }}</td>
-      {% if not semplificata %}<td class="text-nowrap">{{ r.procedura|default:"—" }}<div class="small text-body-secondary">{{ r.lead_time_mesi }} mesi di lead time</div></td>
-      <td class="text-nowrap">{{ r.data_limite|date:"d/m/Y"|default:"—" }}</td>{% endif %}
-      <td class="text-nowrap">{{ r.avvio|date:"d/m/Y" }}</td>
-      <td class="text-nowrap">{{ r.durata_mesi }} mesi</td>
-      <td>{{ r.stato_pratica_label }}</td>
-      <td>{{ rn.fonte }}</td>
-      {% if not semplificata %}<td class="text-end">{{ rn.importi.fisso|euro }}</td>
-      <td class="text-end">{{ rn.importi.probabile|euro }}</td>{% endif %}
-      <td class="text-end">{{ rn.importi.massimo|euro }}</td>
-      {% if not semplificata %}<td class="text-end">{{ rn.normalizzato.fisso|euro }}</td>
-      <td class="text-end">{{ rn.normalizzato.probabile|euro }}</td>{% endif %}
-      <td class="text-end">{{ rn.normalizzato.massimo|euro }}</td>
+    {% for rn in gs.altre %}{% include "reports/_riga_piano.html" with classe="" %}{% endfor %}
+    {% if gs.stipulati %}{% with rs=gs.riepilogo_stipulati %}
+    <tr class="table-light riga-stipulati">
+      <td colspan="{{ n_testo }}"><button class="btn btn-link btn-sm p-0 fw-semibold text-decoration-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target=".{{ gs.id_stipulati }}" aria-expanded="false"><i class="bi bi-chevron-right" aria-hidden="true"></i> {{ gs.stipulati|length }} contratt{{ gs.stipulati|length|pluralize:"o già stipulato,i già stipulati" }}</button></td>
+      {% include "reports/_totali_riga.html" with t=rs s=semplificata %}
     </tr>
-    {% endwith %}{% endfor %}
+    {% for rn in gs.stipulati %}{% include "reports/_riga_piano.html" with classe="collapse "|add:gs.id_stipulati %}{% endfor %}
+    {% endwith %}{% endif %}
     <tr class="small text-body-secondary"><td colspan="{{ n_testo }}" class="text-end">Subtotale {{ gs.nome }}</td>{% include "reports/_totali_riga.html" with t=gs.totali s=semplificata %}</tr>
     {% endfor %}
     {% if gc.sottocluster|length > 1 %}<tr class="fw-semibold"><td colspan="{{ n_testo }}" class="text-end">Totale {{ gc.cluster.codice }}</td>{% include "reports/_totali_riga.html" with t=gc.totali s=semplificata %}</tr>{% endif %}
