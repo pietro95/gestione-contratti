@@ -26,6 +26,8 @@ ETICHETTE_VISTE = {
     "impegno": "Ordinato (contratti emessi)",
     "competenza": "Competenza (pro-rata a giorni)",
 }
+# Vista con cui si confronta il budget assegnato al sottocluster (SPEC Rev22, §5.2).
+VISTA_ASSEGNATO = "competenza"
 # Nomi brevi per le intestazioni delle colonne dell'export.
 SIGLE_VISTE = {"cassa": "fatturato", "impegno": "ordinato", "competenza": "competenza"}
 NATURE = tuple(m.Natura.values)

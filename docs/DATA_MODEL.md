@@ -37,7 +37,7 @@ Il diagramma è intenzionalmente concettuale: omette configurazioni, tabelle di 
 
 - **Fabbisogno**: esigenza continuativa o una tantum da pianificare.
 - **Sottocluster**: sottocategoria di un cluster, assegnabile al fabbisogno; raggruppa il piano ordini.
-- **Budget del sottocluster**: importo assegnato a un sottocluster per anno e natura (OPEX/CAPEX), inserito dall'amministrazione; il report del budget lo mostra con il residuo quando si filtra per sottocluster.
+- **Budget del sottocluster**: importo assegnato a un sottocluster per anno e natura (OPEX/CAPEX), inserito dall'amministrazione; il report del budget lo mostra, con il residuo rispetto alla competenza, quando si filtra per sottocluster (Rev22).
 - **Fonte di finanziamento**: tabella di configurazione assegnabile a fabbisogno e WBS; compare sulle righe del piano ordini.
 - **Fornitore**: controparte del contratto.
 - **Configurazioni**: soglie, lead time, giorni di pagamento, tabelle SAP e altri parametri gestibili.

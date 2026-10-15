@@ -15,6 +15,7 @@ from reports.budget import (
     NATURE,
     PARTI,
     RAGGRUPPAMENTI,
+    VISTA_ASSEGNATO,
     VISTE,
     budget_assegnato,
     calcola_budget,
@@ -36,8 +37,8 @@ def _celle(totali, livello) -> list:
 def _assegnato(b, livello) -> dict | None:
     """Box del budget assegnato al sottocluster filtrato (natura della sezione).
 
-    Il residuo è l'assegnato meno il totale del fatturato, la vista di riferimento, al livello
-    scelto. Il box non compare se il sottocluster è di un cluster fuori dalla visibilità.
+    Il residuo è l'assegnato meno il totale della vista Competenza al livello scelto.
+    Il box non compare se il sottocluster è di un cluster fuori dalla visibilità.
     """
     f = b.filtri
     if not f.sottocluster:
@@ -47,12 +48,12 @@ def _assegnato(b, livello) -> dict | None:
     if codici and sc.cluster.codice not in codici:
         return None
     assegnato = budget_assegnato(f).get(f.natura)
-    totale = b.totali()["totale"][VISTE[0]][livello]
+    totale = b.totali()["totale"][VISTA_ASSEGNATO][livello]
     return {
         "sottocluster": sc,
         "importo": assegnato,
         "speso": totale,
-        "vista": ETICHETTE_VISTE[VISTE[0]],
+        "vista": ETICHETTE_VISTE[VISTA_ASSEGNATO],
         "residuo": None if assegnato is None else assegnato - totale,
     }
 
