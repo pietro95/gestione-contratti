@@ -6,6 +6,7 @@
       {{ campo }}
     </div>
   {% endfor %}
+  {% if vista %}<input type="hidden" name="vista" value="{{ vista }}">{% endif %}
   {% if request.GET.oggi %}<input type="hidden" name="oggi" value="{{ request.GET.oggi }}">{% endif %}
   <div class="col-auto"><button class="btn btn-primary" type="submit">Aggiorna</button></div>
   </div>

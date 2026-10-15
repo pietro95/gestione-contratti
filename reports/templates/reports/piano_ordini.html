@@ -3,14 +3,14 @@
 {% block title %}Piano ordini {{ form.anno.value }}{% endblock %}
 {% block titolo_pagina %}Piano ordini {{ form.anno.value }}{% endblock %}
 {% block sottotitolo %}<div class="sottotitolo">Al {{ oggi|date:"d/m/Y" }} · procedure da avviare nell'anno e procedure avviate prima con ordine da emettere · valore contrattuale sull'intera durata (totali solo sulle righe da avviare) e valore normalizzato sull'anno (competenza a giorni) · importi imponibili</div>{% endblock %}
-{% block azioni %}{% include "reports/_azioni.html" with con_dettaglio=True etichetta_dettaglio="PDF con gli avvisi di frazionamento" %}{% endblock %}
+{% block azioni %}{% if semplificata %}<a class="btn btn-outline-secondary" href="?{{ query_completa }}"><i class="bi bi-list-columns" aria-hidden="true"></i> Vista completa</a>{% else %}<a class="btn btn-outline-secondary" href="?{{ query_semplificata }}"><i class="bi bi-list" aria-hidden="true"></i> Vista semplificata</a>{% endif %}{% include "reports/_azioni.html" with con_dettaglio=True etichetta_dettaglio="PDF con gli avvisi di frazionamento" %}{% endblock %}
 {% block content %}
-{% include "reports/_filtri.html" %}
+{% include "reports/_filtri.html" with vista=semplificata_param %}
 {% if piano %}
 <div class="row g-3 mb-4">
-  <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Ordini da emettere</div><div class="kpi-valore">{{ piano.da_avviare|length }}</div><div class="kpi-nota">procedure da avviare nell'anno{% if piano.da_concludere %} · {{ piano.da_concludere|length }} da concludere{% endif %}{% if piano.in_ritardo %} · {{ piano.in_ritardo|length }} in ritardo{% endif %}{% if piano.registrati %} · {{ piano.registrati|length }} già registrati{% endif %}</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Ordini da emettere</div><div class="kpi-valore">{{ piano.da_avviare|length }}</div><div class="kpi-nota">procedure da avviare nell'anno{% if not semplificata %}{% if piano.da_concludere %} · {{ piano.da_concludere|length }} da concludere{% endif %}{% if piano.in_ritardo %} · {{ piano.in_ritardo|length }} in ritardo{% endif %}{% endif %}{% if piano.registrati %} · {{ piano.registrati|length }} già registrati{% endif %}</div></div></div></div>
   {% for natura, totali in per_natura.items %}
-  <div class="col-sm-6 col-xl-3"><div class="card kpi verde"><div class="card-body"><div class="kpi-etichetta">{{ natura }} · valore probabile</div><div class="kpi-valore">{{ totali.probabile|euro }}</div><div class="kpi-nota">fisso {{ totali.fisso|euro }} · massimo {{ totali.massimo|euro }}</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi verde"><div class="card-body">{% if semplificata %}<div class="kpi-etichetta">{{ natura }} · valore massimo</div><div class="kpi-valore">{{ totali.massimo|euro }}</div>{% else %}<div class="kpi-etichetta">{{ natura }} · valore probabile</div><div class="kpi-valore">{{ totali.probabile|euro }}</div><div class="kpi-nota">fisso {{ totali.fisso|euro }} · massimo {{ totali.massimo|euro }}</div>{% endif %}</div></div></div>
   {% empty %}
   <div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">Valore probabile</div><div class="kpi-valore">{{ 0|euro }}</div><div class="kpi-nota">nessun previsto</div></div></div></div>
   {% endfor %}
@@ -30,40 +30,40 @@
 <div class="tabella-card"><div class="table-responsive">
 <table class="table table-hover align-middle" id="piano-{{ sezione.natura|lower }}">
   <thead>
-    <tr><th rowspan="2">Fabbisogno</th><th rowspan="2">Fornitore</th><th rowspan="2">Procedura</th><th rowspan="2">Data limite</th><th rowspan="2">Avvio</th><th rowspan="2">Durata</th><th rowspan="2">Pratica</th><th rowspan="2">Fonte di finanziamento</th><th colspan="3" class="text-center">Valore contrattuale (intera durata)</th><th colspan="3" class="text-center">Normalizzato {{ piano.anno|stringformat:"s" }} (competenza)</th></tr>
-    <tr>{% for liv in livelli %}<th class="text-end text-capitalize">{{ liv.value }}</th>{% endfor %}{% for liv in livelli %}<th class="text-end text-capitalize">{{ liv.value }}</th>{% endfor %}</tr>
+    <tr><th rowspan="2">Fabbisogno</th><th rowspan="2">Fornitore</th>{% if not semplificata %}<th rowspan="2">Procedura</th><th rowspan="2">Data limite</th>{% endif %}<th rowspan="2">Avvio</th><th rowspan="2">Durata</th><th rowspan="2">Pratica</th><th rowspan="2">Fonte di finanziamento</th><th colspan="{{ livelli_mostrati|length }}" class="text-center">Valore contrattuale (intera durata)</th><th colspan="{{ livelli_mostrati|length }}" class="text-center">Normalizzato {{ piano.anno|stringformat:"s" }} (competenza)</th></tr>
+    <tr>{% for liv in livelli_mostrati %}<th class="text-end text-capitalize">{{ liv.value }}</th>{% endfor %}{% for liv in livelli_mostrati %}<th class="text-end text-capitalize">{{ liv.value }}</th>{% endfor %}</tr>
   </thead>
   <tbody>
   {% for gc in sezione.cluster %}
-    <tr class="table-light"><th colspan="14">{{ gc.cluster }}</th></tr>
+    <tr class="table-light"><th colspan="{{ n_colonne }}">{{ gc.cluster }}</th></tr>
     {% for gs in gc.sottocluster %}
-    <tr><td colspan="14" class="small fw-semibold text-body-secondary ps-4">{{ gs.nome }}</td></tr>
+    <tr><td colspan="{{ n_colonne }}" class="small fw-semibold text-body-secondary ps-4">{{ gs.nome }}</td></tr>
     {% for rn in gs.righe %}{% with r=rn.riga %}{% url 'contratti:fabbisogno' r.fabbisogno.pk as link %}
     <tr data-href="{% if r.contratto %}{% url 'contratti:contratto' r.contratto.pk %}{% else %}{{ link }}{% endif %}">
       <td style="min-width: 16rem"><a href="{{ link }}" class="fw-semibold">{{ r.fabbisogno.descrizione }}</a>
-        <div class="small text-body-secondary"><span class="stato {% if rn.natura == 'CAPEX' %}stato-blu{% else %}stato-grigio{% endif %}">{{ rn.natura }}</span> <span class="stato {% if r.registrato %}stato-verde{% else %}stato-grigio{% endif %}">{{ r.stato }}</span>{% if r.a_progetto %} <span class="stato stato-grigio">WBS a progetto</span>{% endif %} {{ r.categoria }}{% if r.contratto %} · <a href="{% url 'contratti:contratto' r.contratto.pk %}">contratto</a>{% if r.contratto.una_tantum %} una tantum{% endif %}{% elif not r.contratto_uscente %} · <span class="stato stato-blu">nuovo</span>{% endif %}{% if r.fase == 'da_concludere' %} <span class="stato stato-grigio" title="Procedura da avviare in un anno precedente: ordine da emettere entro l'avvio, fuori dai totali">da concludere</span>{% endif %}{% if r.in_ritardo %} <span class="stato stato-rosso" title="Data limite già passata e pratica non conclusa">in ritardo</span>{% endif %}{% for s in r.sopra_soglia %} <span class="stato stato-rosso" title="{{ s }}">oltre soglia</span>{% endfor %}</div></td>
+        <div class="small text-body-secondary"><span class="stato {% if rn.natura == 'CAPEX' %}stato-blu{% else %}stato-grigio{% endif %}">{{ rn.natura }}</span> <span class="stato {% if r.registrato %}stato-verde{% else %}stato-grigio{% endif %}">{{ r.stato }}</span>{% if r.a_progetto %} <span class="stato stato-grigio">WBS a progetto</span>{% endif %} {% if not semplificata %}{{ r.categoria }}{% endif %}{% if r.contratto %} · <a href="{% url 'contratti:contratto' r.contratto.pk %}">contratto</a>{% if r.contratto.una_tantum %} una tantum{% endif %}{% elif not r.contratto_uscente %} · <span class="stato stato-blu">nuovo</span>{% endif %}{% if not semplificata and r.fase == 'da_concludere' %} <span class="stato stato-grigio" title="Procedura da avviare in un anno precedente: ordine da emettere entro l'avvio, fuori dai totali">da concludere</span>{% endif %}{% if not semplificata and r.in_ritardo %} <span class="stato stato-rosso" title="Data limite già passata e pratica non conclusa">in ritardo</span>{% endif %}{% for s in r.sopra_soglia %} <span class="stato stato-rosso" title="{{ s }}">oltre soglia</span>{% endfor %}</div></td>
       <td>{{ r.fornitore|default:"—" }}</td>
-      <td class="text-nowrap">{{ r.procedura|default:"—" }}<div class="small text-body-secondary">{{ r.lead_time_mesi }} mesi di lead time</div></td>
-      <td class="text-nowrap">{{ r.data_limite|date:"d/m/Y"|default:"—" }}</td>
+      {% if not semplificata %}<td class="text-nowrap">{{ r.procedura|default:"—" }}<div class="small text-body-secondary">{{ r.lead_time_mesi }} mesi di lead time</div></td>
+      <td class="text-nowrap">{{ r.data_limite|date:"d/m/Y"|default:"—" }}</td>{% endif %}
       <td class="text-nowrap">{{ r.avvio|date:"d/m/Y" }}</td>
       <td class="text-nowrap">{{ r.durata_mesi }} mesi</td>
       <td>{{ r.stato_pratica_label }}</td>
       <td>{{ rn.fonte }}</td>
-      <td class="text-end">{{ rn.importi.fisso|euro }}</td>
-      <td class="text-end">{{ rn.importi.probabile|euro }}</td>
+      {% if not semplificata %}<td class="text-end">{{ rn.importi.fisso|euro }}</td>
+      <td class="text-end">{{ rn.importi.probabile|euro }}</td>{% endif %}
       <td class="text-end">{{ rn.importi.massimo|euro }}</td>
-      <td class="text-end">{{ rn.normalizzato.fisso|euro }}</td>
-      <td class="text-end">{{ rn.normalizzato.probabile|euro }}</td>
+      {% if not semplificata %}<td class="text-end">{{ rn.normalizzato.fisso|euro }}</td>
+      <td class="text-end">{{ rn.normalizzato.probabile|euro }}</td>{% endif %}
       <td class="text-end">{{ rn.normalizzato.massimo|euro }}</td>
     </tr>
     {% endwith %}{% endfor %}
-    <tr class="small text-body-secondary"><td colspan="8" class="text-end">Subtotale {{ gs.nome }}</td>{% include "reports/_totali_riga.html" with t=gs.totali %}</tr>
+    <tr class="small text-body-secondary"><td colspan="{{ n_testo }}" class="text-end">Subtotale {{ gs.nome }}</td>{% include "reports/_totali_riga.html" with t=gs.totali s=semplificata %}</tr>
     {% endfor %}
-    {% if gc.sottocluster|length > 1 %}<tr class="fw-semibold"><td colspan="8" class="text-end">Totale {{ gc.cluster.codice }}</td>{% include "reports/_totali_riga.html" with t=gc.totali %}</tr>{% endif %}
+    {% if gc.sottocluster|length > 1 %}<tr class="fw-semibold"><td colspan="{{ n_testo }}" class="text-end">Totale {{ gc.cluster.codice }}</td>{% include "reports/_totali_riga.html" with t=gc.totali s=semplificata %}</tr>{% endif %}
   {% endfor %}
   </tbody>
   <tfoot class="fw-semibold">
-    <tr><td colspan="8">Totale {{ sezione.natura }} (contrattuale: solo righe da avviare)</td>{% include "reports/_totali_riga.html" with t=sezione.totali %}</tr>
+    <tr><td colspan="{{ n_testo }}">Totale {{ sezione.natura }} (contrattuale: solo righe da avviare)</td>{% include "reports/_totali_riga.html" with t=sezione.totali s=semplificata %}</tr>
   </tfoot>
 </table></div></div>
 {% empty %}
