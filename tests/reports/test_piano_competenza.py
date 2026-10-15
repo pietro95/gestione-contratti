@@ -351,3 +351,14 @@ def test_pdf_due_versioni_dei_stipulati(make_user, monkeypatch):
     assert catturato["nome"].endswith("_Piano_ordini_2026_stipulati_raggruppati.pdf")
     html = client.get(url.replace("&formato=pdf", "")).content.decode()
     assert "PDF con i contratti stipulati raggruppati" in html
+
+
+def test_pagina_senza_totali_in_testa(struttura, lettore):
+    """In testa niente totali per natura: i totali stanno solo in fondo a ogni sezione."""
+    _misto(struttura)
+    html = lettore.get(
+        reverse("reports:piano_ordini"), {"anno": 2026, "area": "tutti"}
+    ).content.decode()
+    assert "Ordini da emettere" in html and "Possibile frazionamento" in html
+    assert "valore probabile" not in html and "valore massimo" not in html
+    assert html.count("<tfoot") == 2  # il totale di OPEX e quello di CAPEX
