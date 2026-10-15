@@ -296,6 +296,26 @@ def test_stampa_dei_report_senza_colonne_tagliate(pagina, dati):
         pagina.emulate_media(media="screen")
 
 
+def test_piano_ordini_stipulati_in_una_riga_espandibile(pagina, dati):
+    """I contratti già stipulati stanno in una riga di riepilogo; il clic mostra i dettagli."""
+    for nome in ("Stipulato uno", "Stipulato due"):
+        fab = f.fabbisogno(nome, decisione="dismettere")
+        c = f.contratto(fabbisogno=fab, data_inizio=datetime.date(2026, 1, 1), durata_mesi=24)
+        f.piano(f.voce(c, descrizione="Canone", importo_fisso=Decimal("2400.00")))
+    pagina.goto(pagina.base + "/report/piano-ordini/?anno=2027&area=tutti")
+    pagina.wait_for_load_state("networkidle")
+    riga = pagina.locator("tr.riga-stipulati").first
+    assert "già stipulat" in riga.inner_text()
+    dettagli = pagina.locator("tr.collapse", has_text="Stipulato uno")
+    expect(dettagli).to_be_hidden()
+    riga.locator("button").click()
+    expect(dettagli).to_be_visible()
+    expect(riga.locator("button")).to_have_attribute("aria-expanded", "true")
+    riga.locator("button").click()
+    expect(dettagli).to_be_hidden()
+    assert not pagina.errori, pagina.errori
+
+
 def test_filtro_con_piu_cluster(pagina, dati):
     """F9.6: più cluster nel filtro; «Tutti i cluster» esclude gli altri e viceversa."""
     for codice in ("TLC", "OT"):

@@ -306,3 +306,5 @@ th a.ordina .bi { font-size: .75rem; opacity: .7; }
 .passo-numero { display: inline-flex; align-items: center; justify-content: center; width: 1.75rem; height: 1.75rem; border-radius: 50%; border: 2px solid currentColor; font-size: .875rem; }
 .passi li.corrente .passo-numero { background: var(--sa-blu); color: #fff; border-color: var(--sa-blu); }
 .passi li.fatto .passo-numero { background: var(--sa-verde); color: #fff; border-color: var(--sa-verde); }
+.riga-stipulati .btn .bi-chevron-right { display: inline-block; transition: transform .15s; }
+.riga-stipulati .btn:not(.collapsed) .bi-chevron-right { transform: rotate(90deg); }

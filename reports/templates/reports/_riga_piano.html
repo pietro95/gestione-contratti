@@ -1,0 +1,19 @@
+{% load registro %}{% with r=rn.riga %}{% url 'contratti:fabbisogno' r.fabbisogno.pk as link %}
+    <tr{% if classe %} class="{{ classe }}"{% endif %} data-href="{% if r.contratto %}{% url 'contratti:contratto' r.contratto.pk %}{% else %}{{ link }}{% endif %}">
+      <td style="min-width: 16rem"><a href="{{ link }}" class="fw-semibold">{{ r.fabbisogno.descrizione }}</a>
+        <div class="small text-body-secondary"><span class="stato {% if rn.natura == 'CAPEX' %}stato-blu{% else %}stato-grigio{% endif %}">{{ rn.natura }}</span> <span class="stato {% if r.registrato %}stato-verde{% else %}stato-grigio{% endif %}">{{ r.stato }}</span>{% if r.a_progetto %} <span class="stato stato-grigio">WBS a progetto</span>{% endif %} {% if not semplificata %}{{ r.categoria }}{% endif %}{% if r.contratto %} · <a href="{% url 'contratti:contratto' r.contratto.pk %}">contratto</a>{% if r.contratto.una_tantum %} una tantum{% endif %}{% elif not r.contratto_uscente %} · <span class="stato stato-blu">nuovo</span>{% endif %}{% if not semplificata and r.fase == 'da_concludere' %} <span class="stato stato-grigio" title="Procedura da avviare in un anno precedente: ordine da emettere entro l'avvio, fuori dai totali">da concludere</span>{% endif %}{% if not semplificata and r.in_ritardo %} <span class="stato stato-rosso" title="Data limite già passata e pratica non conclusa">in ritardo</span>{% endif %}{% for s in r.sopra_soglia %} <span class="stato stato-rosso" title="{{ s }}">oltre soglia</span>{% endfor %}</div></td>
+      <td>{{ r.fornitore|default:"—" }}</td>
+      {% if not semplificata %}<td class="text-nowrap">{{ r.procedura|default:"—" }}<div class="small text-body-secondary">{{ r.lead_time_mesi }} mesi di lead time</div></td>
+      <td class="text-nowrap">{{ r.data_limite|date:"d/m/Y"|default:"—" }}</td>{% endif %}
+      <td class="text-nowrap">{{ r.avvio|date:"d/m/Y" }}</td>
+      <td class="text-nowrap">{{ r.durata_mesi }} mesi</td>
+      <td>{{ r.stato_pratica_label }}</td>
+      <td>{{ rn.fonte }}</td>
+      {% if not semplificata %}<td class="text-end">{{ rn.importi.fisso|euro }}</td>
+      <td class="text-end">{{ rn.importi.probabile|euro }}</td>{% endif %}
+      <td class="text-end">{{ rn.importi.massimo|euro }}</td>
+      {% if not semplificata %}<td class="text-end">{{ rn.normalizzato.fisso|euro }}</td>
+      <td class="text-end">{{ rn.normalizzato.probabile|euro }}</td>{% endif %}
+      <td class="text-end">{{ rn.normalizzato.massimo|euro }}</td>
+    </tr>
+{% endwith %}

@@ -200,10 +200,30 @@ class GruppoSottocluster:
     sottocluster: m.Sottocluster | None
     righe: list[RigaNatura] = field(default_factory=list)
     totali: Totali = field(default_factory=Totali)
+    id_stipulati: str = ""  # classe HTML che lega la riga di riepilogo ai contratti espansi
 
     @property
     def nome(self) -> str:
         return self.sottocluster.nome if self.sottocluster else SENZA_SOTTOCLUSTER
+
+    @property
+    def stipulati(self) -> list[RigaNatura]:
+        """Contratti già stipulati: la vista li raggruppa in una sola riga espandibile."""
+        return [rn for rn in self.righe if rn.riga.stato == STIPULATO]
+
+    @property
+    def altre(self) -> list[RigaNatura]:
+        return [rn for rn in self.righe if rn.riga.stato != STIPULATO]
+
+    @property
+    def riepilogo_stipulati(self) -> Totali:
+        """Somma dei contratti stipulati: valore contrattuale e normalizzato sull'anno."""
+        somma = Totali()
+        for rn in self.stipulati:
+            for livello in LIVELLI:
+                somma.contrattuale[livello] += rn.importi.get(livello, ZERO)
+                somma.normalizzato[livello] += rn.normalizzato.get(livello, ZERO)
+        return somma
 
 
 @dataclass
@@ -249,6 +269,9 @@ def _sezione(natura: str, righe: list[RigaPiano]) -> Sezione:
     sezione.cluster = sorted(cluster.values(), key=lambda g: g.cluster.codice)
     for gc in sezione.cluster:
         gc.sottocluster.sort(key=lambda g: (g.sottocluster is None, g.nome))
+        for gs in gc.sottocluster:
+            sotto = gs.sottocluster.pk if gs.sottocluster else 0
+            gs.id_stipulati = f"stip-{natura.lower()}-{gc.cluster.pk}-{sotto}"
     return sezione
 
 

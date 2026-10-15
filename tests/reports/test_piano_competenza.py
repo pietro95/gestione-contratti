@@ -13,7 +13,7 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 
-from accounts.roles import READER
+from accounts.roles import ADMIN, READER
 from contratti import models as m
 from contratti.engine.tipi import Livello
 from contratti.forms import FabbisognoForm
@@ -266,3 +266,33 @@ def test_xlsx_un_foglio_per_natura(struttura, lettore):
         assert Decimal(str(riga[col["Normalizzato 2026 fisso"]])) == Decimal(valore)
         assert totale[0] == f"Totale {natura}"
         assert Decimal(str(totale[col["Normalizzato 2026 fisso"]])) == Decimal(valore)
+
+
+def test_stipulati_in_una_riga_espandibile_per_sottocluster(make_user):
+    a = _registrato("Stipulato A", inizio=D(2026, 3, 1))
+    b = _registrato("Stipulato B", inizio=D(2026, 2, 1))
+    _registrato("In stipula")  # avvio futuro, nessuna stipula: resta in elenco
+    piano = calcola_piano(2026, OGGI)
+    (opex,) = piano.sezioni()
+    (gc,) = opex.cluster
+    (gs,) = gc.sottocluster
+    assert {rn.riga.contratto for rn in gs.stipulati} == {a, b}
+    assert [rn.riga.contratto.fabbisogno.descrizione for rn in gs.altre] == ["In stipula"]
+    somma = gs.riepilogo_stipulati
+    assert somma.contrattuale[FISSO] == Decimal("2400.00")
+    assert somma.normalizzato[FISSO] == sum(
+        (_riga(piano, c).normalizzato[FISSO] for c in (a, b)), Decimal("0.00")
+    )
+    # Il raggruppamento è solo di vista: subtotali e totali contano tutte le righe.
+    assert opex.totali.normalizzato[FISSO] == gs.totali.normalizzato[FISSO]
+    assert gs.totali.normalizzato[FISSO] > somma.normalizzato[FISSO]
+
+    make_user("admin_piano", role=ADMIN)  # solo l'Admin può simulare la data di oggi
+    admin = Client()
+    admin.login(username="admin_piano", password=PASSWORD)
+    html = admin.get(
+        reverse("reports:piano_ordini"), {"anno": 2026, "area": "tutti", "oggi": "2026-06-01"}
+    ).content.decode()
+    assert html.count("2 contratti già stipulati") == 1
+    assert html.count('class="collapse stip-opex-') == 2  # i due dettagli, nascosti di default
+    assert html.count('data-bs-target=".stip-opex-') == 1
