@@ -10,6 +10,7 @@ from decimal import Decimal
 
 import openpyxl
 import pytest
+from django.http import HttpResponse
 from django.test import Client
 from django.urls import reverse
 
@@ -17,6 +18,7 @@ from accounts.roles import ADMIN, READER
 from contratti import models as m
 from contratti.engine.tipi import Livello
 from contratti.forms import FabbisognoForm
+from reports.export import piano_xlsx
 from reports.piano_ordini import FONTE_ORDINARIA, SENZA_SOTTOCLUSTER, calcola_piano
 
 from .. import factories as f
@@ -258,7 +260,9 @@ def test_xlsx_un_foglio_per_natura(struttura, lettore):
     righe = {n: list(wb[n].iter_rows(min_row=7, values_only=True)) for n in ("OPEX", "CAPEX")}
     col = {nome: i for i, nome in enumerate(intestazione)}
     for natura, valore in (("OPEX", "600.00"), ("CAPEX", "1000.00")):
-        riga, totale = righe[natura]
+        riepilogo, riga, totale = righe[natura]  # il contratto stipulato è raggruppato
+        assert riepilogo[0] == "1 contratti già stipulati"
+        assert riepilogo[col["Normalizzato 2026 fisso"]] == riga[col["Normalizzato 2026 fisso"]]
         assert riga[col["Sottocluster"]] == "Reti" and riga[col["Cluster"]] == "IT"
         assert riga[col["Fonte di finanziamento"]] == "Fonte E (prova)"
         assert riga[col["Stato"]] == "Stipulato"
@@ -296,3 +300,54 @@ def test_stipulati_in_una_riga_espandibile_per_sottocluster(make_user):
     assert html.count("2 contratti già stipulati") == 1
     assert html.count('class="collapse stip-opex-') == 2  # i due dettagli, nascosti di default
     assert html.count('data-bs-target=".stip-opex-') == 1
+
+
+def test_xlsx_stipulati_raggruppati_con_le_righe_comprimibili(make_user):
+    _registrato("Stipulato A", inizio=D(2026, 3, 1))
+    _registrato("Stipulato B", inizio=D(2026, 2, 1))
+    piano = calcola_piano(2026, OGGI)
+    wb = piano_xlsx(piano, OGGI)
+    ws = wb["OPEX"]
+    assert ws.sheet_properties.outlinePr.summaryBelow is False  # pulsante sul riepilogo
+    righe = list(ws.iter_rows(min_row=7, values_only=True))
+    assert [r[0] for r in righe][0] == "2 contratti già stipulati"
+    livelli = [ws.row_dimensions[i].outlineLevel for i in range(7, 7 + len(righe))]
+    nascoste = [ws.row_dimensions[i].hidden for i in range(7, 7 + len(righe))]
+    assert livelli == [0, 1, 1, 0]  # riepilogo, due dettagli, totale
+    assert nascoste == [False, True, True, False]
+    # Il riepilogo somma i dettagli; il totale della sezione non li conta due volte.
+    assert "non sommare entrambe" in ws["A3"].value
+    totale = piano.sezioni()[0].totali
+    assert Decimal(str(righe[-1][-4])) == totale.normalizzato[FISSO]
+    assert Decimal(str(righe[0][-4])) == Decimal(str(righe[1][-4])) + Decimal(str(righe[2][-4]))
+
+
+def test_pdf_due_versioni_dei_stipulati(make_user, monkeypatch):
+    from django.template.loader import render_to_string
+
+    from reports import pdf as modulo_pdf
+
+    make_user("admin_pdf", role=ADMIN)
+    client = Client()
+    client.login(username="admin_pdf", password=PASSWORD)
+    _registrato("Stipulato A", inizio=D(2026, 3, 1))
+    _registrato("Stipulato B", inizio=D(2026, 2, 1))
+    catturato = {}
+
+    def finto(template, contesto, nome, request):
+        catturato.update(template=template, contesto=contesto, nome=nome)
+        return HttpResponse(b"%PDF", content_type="application/pdf")
+
+    monkeypatch.setattr(modulo_pdf, "risposta", finto)
+    url = reverse("reports:piano_ordini") + "?anno=2026&area=tutti&oggi=2026-06-01&formato=pdf"
+    client.get(url)
+    completo = render_to_string(catturato["template"], catturato["contesto"], None)
+    assert "Stipulato A" in completo and "Stipulato B" in completo
+    assert catturato["nome"].endswith("_Piano_ordini_2026.pdf")
+    client.get(url + "&raggruppa=1")
+    raggruppato = render_to_string(catturato["template"], catturato["contesto"], None)
+    assert "2 contratti già stipulati" in raggruppato
+    assert "Stipulato A" not in raggruppato and "Stipulato B" not in raggruppato
+    assert catturato["nome"].endswith("_Piano_ordini_2026_stipulati_raggruppati.pdf")
+    html = client.get(url.replace("&formato=pdf", "")).content.decode()
+    assert "PDF con i contratti stipulati raggruppati" in html

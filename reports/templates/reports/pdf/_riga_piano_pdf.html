@@ -1,0 +1,17 @@
+{% load registro %}{% with r=rn.riga %}<tr>
+      <td class="sx"><b>{{ r.fabbisogno.descrizione }}</b><div class="tenue">{{ rn.natura }} · {{ r.stato }}{% if r.a_progetto %} · WBS a progetto{% endif %} · {{ r.categoria }}{% if r.contratto %}{% if r.contratto.una_tantum %} · una tantum{% endif %}{% elif not r.contratto_uscente %} · nuovo{% endif %}{% if r.fase == 'da_concludere' %} · da concludere (fuori dai totali){% endif %}{% if r.in_ritardo %} · <b>in ritardo</b>{% endif %}{% if con_avvisi and r.sopra_soglia %} · oltre soglia{% endif %}</div></td>
+      <td class="sx">{{ r.fornitore|default:"—" }}</td>
+      <td class="sx">{{ r.procedura|default:"—" }}<div class="tenue">{{ r.lead_time_mesi }} mesi di lead time</div></td>
+      <td class="num">{{ r.data_limite|date:"d/m/Y"|default:"—" }}</td>
+      <td class="num">{{ r.avvio|date:"d/m/Y" }}</td>
+      <td class="num">{{ r.durata_mesi }} mesi</td>
+      <td class="sx">{{ r.stato_pratica_label }}</td>
+      <td class="sx">{{ rn.fonte }}</td>
+      <td class="num">{{ rn.importi.fisso|euro }}</td>
+      <td class="num">{{ rn.importi.probabile|euro }}</td>
+      <td class="num">{{ rn.importi.massimo|euro }}</td>
+      <td class="num">{{ rn.normalizzato.fisso|euro }}</td>
+      <td class="num">{{ rn.normalizzato.probabile|euro }}</td>
+      <td class="num">{{ rn.normalizzato.massimo|euro }}</td>
+    </tr>
+{% endwith %}
