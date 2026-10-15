@@ -24,6 +24,8 @@ from reports.forms import FiltriBudgetForm, FiltriPianoForm
 from reports.piano_ordini import calcola_piano
 from reports.wbs import elenco_wbs, spese_wbs
 
+VISTA_SEMPLIFICATA = "semplificata"
+
 
 def _celle(totali, livello) -> list:
     """Per ogni vista: consolidato, previsionale e totale al livello scelto."""
@@ -111,11 +113,31 @@ def piano_ordini(request):
         categoria=categoria,
         natura=d.get("natura") or "",
     )
+    semplificata = request.GET.get("vista") == VISTA_SEMPLIFICATA
     if request.GET.get("formato") == "xlsx":
-        nome = f"{oggi:%Y.%m.%d}_Piano_ordini_{piano.anno}.xlsx"
+        suffisso = "_semplificato" if semplificata else ""
+        nome = f"{oggi:%Y.%m.%d}_Piano_ordini_{piano.anno}{suffisso}.xlsx"
         natura = d.get("natura") or ""
-        return xlsx.risposta(piano_xlsx(piano, oggi, form.descrizione(), natura), nome)
+        wb = piano_xlsx(piano, oggi, form.descrizione(), natura, semplificata=semplificata)
+        return xlsx.risposta(wb, nome)
+    # Vista semplificata per il Procurement: solo il valore massimo, senza gli elementi di lavoro
+    # interni (categoria, procedura, lead time, data limite, fase, ritardo, fisso e probabile).
+    livelli_mostrati = [Livello.MASSIMO] if semplificata else LIVELLI
+    query = request.GET.copy()
+    query.pop("formato", None)
+    query.pop("dettaglio", None)
+    query.pop("vista", None)
     contesto |= {
+        "semplificata": semplificata,
+        "semplificata_param": VISTA_SEMPLIFICATA if semplificata else "",
+        "query_completa": query.urlencode(),
+        "query_semplificata": query.urlencode()
+        + ("&" if query else "")
+        + "vista="
+        + VISTA_SEMPLIFICATA,
+        "livelli_mostrati": livelli_mostrati,
+        "n_testo": 6 if semplificata else 8,
+        "n_colonne": 6 + 2 * len(livelli_mostrati) if semplificata else 14,
         "piano": piano,
         # Con il filtro di natura, solo i totali di quella natura (un previsto misto resta
         # in elenco con l'importo intero, ma la sua quota dell'altra natura non si conta).

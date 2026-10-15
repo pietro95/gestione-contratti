@@ -94,6 +94,49 @@ def test_export_piano_ordini(reader, dati):
     assert isinstance(_righe(wb["OPEX"])[0][8], datetime.datetime)  # date come date, non testo
 
 
+def test_export_piano_ordini_semplificato(reader, dati):
+    risposta = reader.get(
+        reverse("reports:piano_ordini"), {"anno": 2027, "formato": "xlsx", "vista": "semplificata"}
+    )
+    assert "Piano_ordini_2027_semplificato.xlsx" in risposta["Content-Disposition"]
+    wb = openpyxl.load_workbook(io.BytesIO(risposta.content))
+    piano = calcola_piano(2027, OGGI)
+    sezioni = piano.sezioni()
+    assert sezioni
+    for sezione in sezioni:
+        foglio = wb[sezione.natura]
+        intestazione = [c.value for c in foglio[6]]
+        for tolta in (
+            "Categoria", "Procedura presunta", "Lead time (mesi)", "Data limite di avvio",
+            "Fase", "In ritardo", "Contrattuale fisso", "Contrattuale probabile",
+            "Normalizzato 2027 fisso", "Normalizzato 2027 probabile",
+        ):  # fmt: skip
+            assert tolta not in intestazione
+        assert (
+            "Contrattuale massimo" in intestazione and "Normalizzato 2027 massimo" in intestazione
+        )
+        righe = _righe(foglio)
+        assert len(righe) == sezione.numero_righe + 1
+        assert all(len(r) == len(intestazione) for r in righe)
+        t = sezione.totali
+        i = intestazione.index("Contrattuale massimo")
+        assert [Decimal(str(x)) for x in righe[-1][i : i + 2]] == [
+            t.contrattuale[Livello.MASSIMO],
+            t.normalizzato[Livello.MASSIMO],
+        ]
+
+
+def test_vista_piano_ordini_semplificata(reader, dati):
+    url = reverse("reports:piano_ordini")
+    completa = reader.get(url, {"anno": 2027}).content.decode()
+    html = reader.get(url, {"anno": 2027, "vista": "semplificata"}).content.decode()
+    for colonna in ("Procedura</th>", "Data limite</th>"):
+        assert colonna in completa and colonna not in html
+    assert "lead time" not in html and "in ritardo" not in html.split("<table")[1]
+    assert "Vista completa" in html and "Vista semplificata" in completa
+    assert 'name="vista" value="semplificata"' in html  # sopravvive a «Aggiorna»
+
+
 def test_budget_opex_di_default_e_nature_separate(reader, dati):
     url = reverse("reports:budget")
     html = reader.get(url, {"anno": 2026}).content.decode()

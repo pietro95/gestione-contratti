@@ -5,6 +5,7 @@ import datetime
 from contratti import models as m
 from contratti import permessi
 from contratti.engine.importi import ZERO, arrotonda
+from contratti.engine.tipi import Livello
 from contratti.selettori import codici_cluster
 from reports import xlsx
 from reports.budget import (
@@ -165,23 +166,36 @@ def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):
     return wb
 
 
-def piano_xlsx(piano: PianoOrdini, oggi: datetime.date, filtri: str = "", natura: str = ""):
+def piano_xlsx(
+    piano: PianoOrdini,
+    oggi: datetime.date,
+    filtri: str = "",
+    natura: str = "",
+    semplificata: bool = False,
+):
+    """Export del piano ordini. Semplificato (per il Procurement): senza categoria, procedura,
+    lead time, data limite, fase, ritardo e senza il fisso e il probabile (solo il massimo)."""
     wb = xlsx.nuovo_libro()
     intestazione = [
-        f"Piano ordini {piano.anno}",
+        f"Piano ordini {piano.anno}" + (" (semplificato)" if semplificata else ""),
         filtri or "Tutti i cluster e le categorie",
         NOTA_IMPONIBILE,
         _generato(oggi),
     ]
-    colonne = [
-        "Fabbisogno", "Cluster", "Sottocluster", "Categoria", "Stato", "Fornitore",
-        "Procedura presunta", "Lead time (mesi)", "Data limite di avvio", "Avvio servizio",
-        "Fine servizio", "Durata (mesi)", "Stato pratica", "Fase", "In ritardo",
-        "Fonte di finanziamento",
-        "Contrattuale fisso", "Contrattuale probabile", "Contrattuale massimo",
-        f"Normalizzato {piano.anno} fisso", f"Normalizzato {piano.anno} probabile",
-        f"Normalizzato {piano.anno} massimo", "Oltre soglia",
-    ]  # fmt: skip
+    livelli = [Livello.MASSIMO] if semplificata else LIVELLI
+    colonne = ["Fabbisogno", "Cluster", "Sottocluster"]
+    if not semplificata:
+        colonne.append("Categoria")
+    colonne += ["Stato", "Fornitore"]
+    if not semplificata:
+        colonne += ["Procedura presunta", "Lead time (mesi)", "Data limite di avvio"]
+    colonne += ["Avvio servizio", "Fine servizio", "Durata (mesi)", "Stato pratica"]
+    if not semplificata:
+        colonne += ["Fase", "In ritardo"]
+    colonne.append("Fonte di finanziamento")
+    colonne += [f"Contrattuale {liv.value}" for liv in livelli]
+    colonne += [f"Normalizzato {piano.anno} {liv.value}" for liv in livelli]
+    colonne.append("Oltre soglia")
     fasi = {
         "da_avviare": "da avviare",
         "da_concludere": "da concludere (fuori dai totali)",
@@ -195,35 +209,27 @@ def piano_xlsx(piano: PianoOrdini, oggi: datetime.date, filtri: str = "", natura
             for gs in gc.sottocluster:
                 for rn in gs.righe:
                     r = rn.riga
-                    righe.append(
-                        [
-                            r.fabbisogno.descrizione,
-                            gc.cluster.codice,
-                            gs.nome,
-                            r.categoria.nome,
-                            r.stato,
-                            str(r.fornitore or ""),
-                            str(r.procedura or ""),
-                            r.lead_time_mesi,
-                            r.data_limite,
-                            r.avvio,
-                            r.fine,
-                            r.durata_mesi,
-                            r.stato_pratica_label,
-                            fasi[r.fase],
-                            "sì" if r.in_ritardo else "",
-                            rn.fonte,
-                            *[rn.importi[liv] for liv in LIVELLI],
-                            *[rn.normalizzato[liv] for liv in LIVELLI],
-                            "; ".join(r.sopra_soglia),
-                        ]
-                    )
+                    riga = [r.fabbisogno.descrizione, gc.cluster.codice, gs.nome]
+                    if not semplificata:
+                        riga.append(r.categoria.nome)
+                    riga += [r.stato, str(r.fornitore or "")]
+                    if not semplificata:
+                        riga += [str(r.procedura or ""), r.lead_time_mesi, r.data_limite]
+                    riga += [r.avvio, r.fine, r.durata_mesi, r.stato_pratica_label]
+                    if not semplificata:
+                        riga += [fasi[r.fase], "sì" if r.in_ritardo else ""]
+                    riga.append(rn.fonte)
+                    riga += [rn.importi[liv] for liv in livelli]
+                    riga += [rn.normalizzato[liv] for liv in livelli]
+                    riga.append("; ".join(r.sopra_soglia))
+                    righe.append(riga)
         t = sezione.totali
+        n_testo = len(colonne) - 2 * len(livelli) - 1 - 1  # prima dei valori, meno l'etichetta
         righe.append(
             [f"Totale {sezione.natura}"]
-            + [None] * 15
-            + [t.contrattuale[liv] for liv in LIVELLI]
-            + [t.normalizzato[liv] for liv in LIVELLI]
+            + [None] * n_testo
+            + [t.contrattuale[liv] for liv in livelli]
+            + [t.normalizzato[liv] for liv in livelli]
             + [None]
         )
         xlsx.foglio(wb, sezione.natura, intestazione, colonne, righe)
