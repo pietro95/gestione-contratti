@@ -119,6 +119,14 @@ class SottoclusterAdmin(ArchiviabileAdmin):
     autocomplete_fields = ("cluster",)
 
 
+@admin.register(m.BudgetSottocluster)
+class BudgetSottoclusterAdmin(ArchiviabileAdmin):
+    list_display = ("sottocluster", "anno", "natura", "importo", "archiviato")
+    list_filter = ("anno", "natura", "sottocluster__cluster", "archiviato")
+    search_fields = ("sottocluster__nome", "sottocluster__cluster__codice", "note")
+    autocomplete_fields = ("sottocluster",)
+
+
 @admin.register(m.WBS)
 class WBSAdmin(ArchiviabileAdmin):
     list_display = (

@@ -614,6 +614,40 @@ class Natura(models.TextChoices):
     CAPEX = "CAPEX", "CAPEX"
 
 
+class BudgetSottocluster(Archiviabile):
+    """Budget assegnato a un sottocluster per un anno e una natura (OPEX o CAPEX).
+
+    È un dato deciso (non derivato): il report del budget lo mostra accanto al totale del
+    sottocluster filtrato. OPEX e CAPEX restano budget distinti, mai sommati.
+    """
+
+    sottocluster = models.ForeignKey(
+        Sottocluster, on_delete=models.PROTECT, related_name="budget_assegnati"
+    )
+    anno = models.PositiveSmallIntegerField(db_index=True)
+    natura = models.CharField(max_length=5, choices=Natura.choices)
+    importo = importo("budget assegnato (imponibile)")
+    note = models.TextField(blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "budget assegnato al sottocluster"
+        verbose_name_plural = "budget assegnati ai sottocluster"
+        ordering = ["-anno", "sottocluster__cluster__codice", "sottocluster__nome", "natura"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["sottocluster", "anno", "natura"],
+                name="contratti_budget_sottocluster_unico",
+            ),
+            models.CheckConstraint(
+                condition=Q(importo__gte=0), name="contratti_budget_sottocluster_non_negativo"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.sottocluster} · {self.anno} · {self.natura}"
+
+
 class Fornitore(Archiviabile):
     ragione_sociale = models.CharField(max_length=200)
     # NULL = assente (TC-08 normalizza i nulli a NULL); univoca solo se presente.

@@ -16,6 +16,7 @@ from reports.budget import (
     PARTI,
     RAGGRUPPAMENTI,
     VISTE,
+    budget_assegnato,
     calcola_budget,
 )
 from reports.export import budget_xlsx, descrivi_filtri, piano_xlsx, suffisso_cluster, voci_filtri
@@ -32,11 +33,36 @@ def _celle(totali, livello) -> list:
     return [[totali[parte][vista][livello] for parte in PARTI] for vista in VISTE]
 
 
+def _assegnato(b, livello) -> dict | None:
+    """Box del budget assegnato al sottocluster filtrato (natura della sezione).
+
+    Il residuo è l'assegnato meno il totale del fatturato, la vista di riferimento, al livello
+    scelto. Il box non compare se il sottocluster è di un cluster fuori dalla visibilità.
+    """
+    f = b.filtri
+    if not f.sottocluster:
+        return None
+    sc = m.Sottocluster.objects.select_related("cluster").get(pk=f.sottocluster)
+    codici = codici_cluster(f.area)
+    if codici and sc.cluster.codice not in codici:
+        return None
+    assegnato = budget_assegnato(f).get(f.natura)
+    totale = b.totali()["totale"][VISTE[0]][livello]
+    return {
+        "sottocluster": sc,
+        "importo": assegnato,
+        "speso": totale,
+        "vista": ETICHETTE_VISTE[VISTE[0]],
+        "residuo": None if assegnato is None else assegnato - totale,
+    }
+
+
 def _sezione(b, criterio, livello) -> dict:
     """Una natura del budget (OPEX o CAPEX): riepilogo, gruppi e totali, mai sommati tra loro."""
     totali = b.totali()
     return {
         "natura": b.filtri.natura,
+        "assegnato": _assegnato(b, livello),
         "budget": b,
         "criterio": RAGGRUPPAMENTI[criterio],
         "riepilogo": [

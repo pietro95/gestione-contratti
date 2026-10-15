@@ -32,6 +32,18 @@
 {% for s in sezioni %}
 <section class="mb-5" aria-labelledby="natura-{{ s.natura }}">
 <h2 class="h4 mb-3 natura-titolo" id="natura-{{ s.natura }}"><i class="bi {% if s.natura == 'CAPEX' %}bi-building-gear{% else %}bi-arrow-repeat{% endif %}" aria-hidden="true"></i> Budget {{ s.natura }} {{ budget.filtri.anno|stringformat:"s" }}</h2>
+{% if s.assegnato %}{% with a=s.assegnato %}
+<div class="card kpi {% if a.importo is None %}{% elif a.residuo < 0 %}rosso{% else %}verde{% endif %} mb-4" id="assegnato-{{ s.natura }}"><div class="card-body">
+  <div class="kpi-etichetta">Budget {{ s.natura }} assegnato · {{ a.sottocluster }} · {{ budget.filtri.anno|stringformat:"s" }}</div>
+  {% if a.importo is None %}
+  <div class="kpi-valore">Non assegnato</div>
+  <div class="kpi-nota">Nessun budget {{ s.natura }} inserito per questo sottocluster nell'anno.</div>
+  {% else %}
+  <div class="kpi-valore">{{ a.importo|euro }}</div>
+  <div class="kpi-nota">{{ a.vista }} · {{ livello.value }}: {{ a.speso|euro }} · {% if a.residuo < 0 %}sforamento{% else %}residuo{% endif %} {{ a.residuo|euro }}</div>
+  {% endif %}
+</div></div>
+{% endwith %}{% endif %}
 <div class="row g-3 mb-4">
   {% for vista, consolidato, previsionale, totale in s.kpi %}
   <div class="col-md-4"><div class="card kpi {% if forloop.first %}blu{% endif %}"><div class="card-body">
