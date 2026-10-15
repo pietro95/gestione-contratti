@@ -322,6 +322,29 @@ def test_xlsx_stipulati_raggruppati_con_le_righe_comprimibili(make_user):
     assert Decimal(str(righe[0][-4])) == Decimal(str(righe[1][-4])) + Decimal(str(righe[2][-4]))
 
 
+def test_pdf_senza_totali_in_testa(make_user, monkeypatch):
+    from django.template.loader import render_to_string
+
+    from reports import pdf as modulo_pdf
+
+    make_user("admin_pdf2", role=ADMIN)
+    client = Client()
+    client.login(username="admin_pdf2", password=PASSWORD)
+    _registrato("Stipulato A", inizio=D(2026, 3, 1))
+    catturato = {}
+
+    def finto(template, contesto, nome, request):
+        catturato.update(template=template, contesto=contesto)
+        return HttpResponse(b"%PDF", content_type="application/pdf")
+
+    monkeypatch.setattr(modulo_pdf, "risposta", finto)
+    client.get(reverse("reports:piano_ordini") + "?anno=2026&area=tutti&formato=pdf")
+    html = render_to_string(catturato["template"], catturato["contesto"], None)
+    assert "Ordini da emettere" in html
+    assert "valore probabile" not in html and "valore massimo" not in html
+    assert "Totale OPEX" in html  # i totali restano in fondo a ogni sezione
+
+
 def test_pdf_due_versioni_dei_stipulati(make_user, monkeypatch):
     from django.template.loader import render_to_string
 
