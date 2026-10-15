@@ -240,7 +240,13 @@ def test_lavorazione_13_2026_e_pac(registro, tmp_path):
     assert fatture.passo_fattura(f13, OGGI) == Passo.CONVALIDA
     fatture.convalida(f13, "convalidabile", data=OGGI)
     assert fatture.passo_fattura(_fattura("13/2026"), OGGI) == Passo.RDC
-    fatture.aggiorna_importi(f13, Decimal("1504.17"), Decimal("173.66"), Decimal("2.00"))
+    fatture.aggiorna_importi(
+        f13,
+        Decimal("1504.17"),
+        Decimal("173.66"),
+        Decimal("2.00"),
+        competenza=(datetime.date(2026, 1, 1), datetime.date(2026, 12, 31)),
+    )
     f13 = _fattura("13/2026")
     assert fatture.anomalie(f13) == []
     assert fatture.indicazioni_validazione(f13) == (

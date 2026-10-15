@@ -1711,6 +1711,10 @@ class Fattura(Archiviabile):
     bollo = importo("bollo", null=True, blank=True)
     # IVA compresa nell'importo del documento (SAP lo riporta spesso con l'IVA).
     iva = importo("IVA compresa nell'importo", null=True, blank=True)
+    # Rev21: periodo di competenza della fattura. Il budget a competenza imputa il valore base
+    # agli anni di questo periodo (pro-rata a giorni); obbligatorio con il valore base.
+    competenza_dal = models.DateField("competenza dal", null=True, blank=True)
+    competenza_al = models.DateField("competenza al", null=True, blank=True)
     # Imputazione propria della fattura, se diversa da quella della voce (es. acquisti vari
     # sullo stesso contratto): vale per le indicazioni di validazione e il commento per PAC.
     conto = models.ForeignKey(
@@ -1786,6 +1790,14 @@ class Fattura(Archiviabile):
                 condition=Q(archiviato=False),
                 name="contratti_fattura_numero_unico",
             ),
+            models.CheckConstraint(
+                condition=(Q(competenza_dal__isnull=True, competenza_al__isnull=True))
+                | (
+                    Q(competenza_dal__isnull=False, competenza_al__isnull=False)
+                    & Q(competenza_al__gte=F("competenza_dal"))
+                ),
+                name="contratti_fattura_competenza_coerente",
+            ),
         ]
 
     def __str__(self):
@@ -1813,6 +1825,81 @@ class Fattura(Archiviabile):
             raise ValidationError({"voce": "La voce deve essere dello stesso contratto."})
         if self.rata_id and self.rata.piano.voce.contratto_id != self.contratto_id:
             raise ValidationError({"rata": "La rata deve essere dello stesso contratto."})
+        if (self.competenza_dal is None) != (self.competenza_al is None):
+            raise ValidationError("La competenza va indicata con data di inizio e di fine.")
+        if self.competenza_dal and self.competenza_al < self.competenza_dal:
+            raise ValidationError({"competenza_al": "La fine precede l'inizio della competenza."})
+
+
+class Stanziamento(Archiviabile):
+    """Costo di competenza non ancora fatturato (SPEC §5.2, Rev21).
+
+    Alcuni fornitori non fatturano quando dovrebbero: il costo si stanzia per il periodo di
+    competenza, sulla voce del contratto (e, se c'è, sulla rata dello scadenzario che
+    sostituisce). Conta nel budget a competenza finché non arriva la fattura: la fattura
+    abbinata alla stessa rata, o indicata qui, lo chiude (valore derivato, non si salva).
+    """
+
+    voce = models.ForeignKey(VoceContratto, on_delete=models.PROTECT, related_name="stanziamenti")
+    rata = models.ForeignKey(
+        Rata,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="stanziamenti",
+        help_text="Rata dello scadenzario che lo stanziamento sostituisce, se c'è.",
+    )
+    importo = importo("importo stanziato (IVA esclusa)")
+    competenza_dal = models.DateField("competenza dal")
+    competenza_al = models.DateField("competenza al")
+    data_stanziamento = models.DateField("stanziato il", default=timezone.localdate)
+    fattura = models.ForeignKey(
+        Fattura,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="stanziamenti_chiusi",
+        help_text="Fattura arrivata che chiude lo stanziamento.",
+    )
+    note = models.TextField(blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "stanziamento"
+        verbose_name_plural = "stanziamenti"
+        ordering = ["competenza_dal", "id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(importo__gte=0), name="contratti_stanziamento_importo_non_negativo"
+            ),
+            models.CheckConstraint(
+                condition=Q(competenza_al__gte=F("competenza_dal")),
+                name="contratti_stanziamento_competenza_coerente",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Stanziamento {self.competenza_dal:%d/%m/%Y}-{self.competenza_al:%d/%m/%Y}"
+
+    @property
+    def contratto(self):
+        return self.voce.contratto
+
+    @property
+    def chiuso(self) -> bool:
+        """Chiuso da una fattura: indicata qui o abbinata alla stessa rata."""
+        if self.fattura_id:
+            return True
+        return bool(self.rata_id and hasattr(self.rata, "fattura"))
+
+    def clean(self):
+        super().clean()
+        if self.competenza_dal and self.competenza_al and self.competenza_al < self.competenza_dal:
+            raise ValidationError({"competenza_al": "La fine precede l'inizio della competenza."})
+        if self.rata_id and self.rata.piano.voce_id != self.voce_id:
+            raise ValidationError({"rata": "La rata deve essere della stessa voce."})
+        if self.fattura_id and self.fattura.contratto_id != self.voce.contratto_id:
+            raise ValidationError({"fattura": "La fattura è di un altro contratto."})
 
 
 class DocumentoEsecuzione(Archiviabile):

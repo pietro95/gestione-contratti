@@ -708,6 +708,8 @@ def _importi(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:
         "oneri": f.oneri,
         "bollo": f.bollo,
         "iva": f.iva,
+        "competenza_dal": f.competenza_dal,
+        "competenza_al": f.competenza_al,
         "voce": f.voce_id,
         "rata": f.rata_id,
         "conto": f.conto_id,
@@ -715,6 +717,7 @@ def _importi(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:
         "wbs": f.wbs_id,
     }
     for campo, chiave in (("valore_base",) * 2, ("oneri",) * 2, ("bollo",) * 2, ("iva",) * 2,
+                          ("competenza_dal",) * 2, ("competenza_al",) * 2,
                           ("voce", "voce_id"), ("rata", "rata_id"), ("conto", "conto_id"),
                           ("centro_costo",) * 2, ("wbs", "wbs_id")):  # fmt: skip
         if chiave in argomenti:
@@ -1179,6 +1182,13 @@ STRUMENTI = [
                     "«22»): valore base e IVA calcolati; ignora «valore_base» e "
                     "«iva».",
                 },
+                "competenza_dal": {
+                    **SCHEMA_DATA,
+                    "description": "Inizio del periodo di competenza della fattura: decide "
+                    "l'anno di budget. Obbligatorio, con «competenza_al», se la fattura ha "
+                    "un valore base.",
+                },
+                "competenza_al": {**SCHEMA_DATA, "description": "Fine della competenza."},
                 "voce_id": SCHEMA_ID,
                 "rata_id": SCHEMA_ID,
                 "conto_id": {

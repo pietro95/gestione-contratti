@@ -236,6 +236,8 @@ def fattura_dettaglio(request, pk):
         "oneri": f.oneri,
         "bollo": f.bollo,
         "iva": f.iva,
+        "competenza_dal": f.competenza_dal,
+        "competenza_al": f.competenza_al,
         "voce": f.voce_id,
         "rata": f.rata_id,
         "conto": f.conto_id,
@@ -487,6 +489,13 @@ def contesto_esecuzione(contratto: m.Contratto, oggi) -> dict:
         "form_documento_esecuzione": forms.DocumentoEsecuzioneForm(
             contratto=contratto, initial={"data": oggi}
         ),
+        "stanziamenti": list(
+            m.Stanziamento.objects.filter(voce__contratto=contratto, archiviato=False)
+            .select_related("voce", "rata", "fattura")
+            .order_by("competenza_dal", "pk")
+        ),
+        "form_stanziamento": forms.StanziamentoForm(contratto=contratto),
+        "form_chiudi_stanziamento": forms.ChiudiStanziamentoForm(contratto=contratto),
     }  # fmt: skip
 
 
@@ -510,6 +519,53 @@ def contratto_documento(request, pk):
             f"{k}: {' '.join(v)}" for k, v in form.errors.items()
         ))  # fmt: skip
     return redirect(f"/contratti/{pk}/#esecuzione")
+
+
+@editor_required
+@require_POST
+def contratto_stanziamento(request, pk):
+    contratto = get_object_or_404(m.Contratto, pk=pk)
+    permessi.verifica_oggetto(request.user, contratto)
+    if contratto.data_chiusura is not None:
+        messages.error(request, "Il contratto è chiuso: prima si annulla la chiusura.")
+        return redirect("contratti:contratto", pk=pk)
+    form = forms.StanziamentoForm(request.POST, contratto=contratto)
+    if form.is_valid():
+        stanziamento = form.save(commit=False)
+        stanziamento._change_reason = "Stanziamento registrato dal contratto"
+        stanziamento.save()
+        messages.success(request, "Stanziamento registrato.")
+    else:
+        messages.error(request, "Stanziamento non valido: " + "; ".join(
+            f"{k}: {' '.join(v)}" for k, v in form.errors.items()
+        ))  # fmt: skip
+    return redirect(f"/contratti/{pk}/#esecuzione")
+
+
+@editor_required
+@require_POST
+def stanziamento_azione(request, pk):
+    """Chiude lo stanziamento con la fattura arrivata, oppure lo annulla (archivia)."""
+    stanziamento = get_object_or_404(
+        m.Stanziamento.objects.select_related("voce__contratto"), pk=pk
+    )
+    contratto = stanziamento.voce.contratto
+    permessi.verifica_oggetto(request.user, contratto)
+    if request.POST.get("annulla"):
+        stanziamento.archiviato = True
+        stanziamento._change_reason = "Stanziamento annullato"
+        stanziamento.save(update_fields=["archiviato"])
+        messages.success(request, "Stanziamento annullato.")
+    else:
+        form = forms.ChiudiStanziamentoForm(request.POST, contratto=contratto)
+        if form.is_valid():
+            stanziamento.fattura = form.cleaned_data["fattura"]
+            stanziamento._change_reason = "Chiuso dalla fattura"
+            stanziamento.save(update_fields=["fattura"])
+            messages.success(request, "Stanziamento chiuso dalla fattura.")
+        else:
+            messages.error(request, "Scegli la fattura che chiude lo stanziamento.")
+    return redirect(f"/contratti/{contratto.pk}/#esecuzione")
 
 
 @editor_required

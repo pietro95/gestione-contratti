@@ -74,7 +74,8 @@ def test_dalla_pagina_e_reader(client, make_user, dati):
     url = reverse("contratti:fattura_importi", args=[x.pk])
     dati_post = {"valore_base": "100,00", "oneri": "", "bollo": "", "iva": "",
                  "voce": dati["voce"].pk, "rata": "", "conto": dati["conti"]["600020"].pk,
-                 "centro_costo": "C0009", "wbs": ""}  # fmt: skip
+                 "centro_costo": "C0009", "wbs": "",
+                 "competenza_dal": "01/01/2026", "competenza_al": "31/12/2026"}  # fmt: skip
     client.force_login(make_user("lettore", role=READER))
     assert client.post(url, dati_post).status_code == 403
     client.force_login(make_user("redattore", role=EDITOR))
@@ -91,7 +92,9 @@ def test_dal_connettore(make_user, dati):
     x = dati["fattura"]
     risposta, _ = protocollo.gestisci(
         chiama("importi_fattura", {"id": x.pk, "conto_id": dati["conti"]["600020"].pk,
-                                   "centro_costo": "C0009"}), ctx,
+                                   "centro_costo": "C0009",
+                                   "competenza_dal": "2026-01-01",
+                                   "competenza_al": "2026-12-31"}), ctx,
     )  # fmt: skip
     anteprima = risposta["result"]["structuredContent"]
     assert (

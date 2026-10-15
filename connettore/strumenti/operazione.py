@@ -33,7 +33,12 @@ from reports.budget import VISTE, Filtri, calcola_budget
 from .base import Contesto, ErroreTool, Strumento
 
 ZERO = Decimal("0.00")
-NOMI_VISTE = {"cassa": "fatturato", "impegno": "ordinato", "competenza": "competenza"}
+NOMI_VISTE = {
+    "consuntivo": "fatturato_stanziato_competenza",
+    "cassa": "fatturato",
+    "impegno": "ordinato",
+    "competenza": "competenza",
+}
 ERRORI_DI_DOMINIO = (
     servizi.OperazioneNonAmmessa,
     acquisti.OperazioneNonAmmessa,

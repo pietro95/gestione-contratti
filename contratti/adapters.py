@@ -16,6 +16,7 @@ from contratti.engine import previsioni, scadenze
 from contratti.engine.date import UN_GIORNO
 from contratti.engine.tipi import (
     Alert,
+    Consuntivo,
     ContrattoBase,
     ContrattoPrevisto,
     Esito,
@@ -24,6 +25,7 @@ from contratti.engine.tipi import (
     Quota,
     Rata,
     Scadenza,
+    TipoConsuntivo,
     Voce,
 )
 
@@ -46,6 +48,8 @@ PREFETCH_CALCOLO = (
     ),
     "voci__quote",
     "voci__piano_fatturazione__rate",
+    "voci__stanziamenti",
+    "fatture",
 )
 
 
@@ -146,15 +150,73 @@ def scadenza(contratto: m.Contratto) -> Scadenza | None:
     )
 
 
-def _rate_salvate(voce: m.VoceContratto) -> tuple[Rata, ...] | None:
+def _rate_salvate(
+    voce: m.VoceContratto, consuntivi: dict[int, Consuntivo] | None = None
+) -> tuple[Rata, ...] | None:
     piano = getattr(voce, "piano_fatturazione", None)
     if piano is None:
         return None
+    consuntivi = consuntivi or {}
     rate = tuple(
-        Rata(r.numero, r.data_fattura, r.data_pagamento_stimata, r.importo)
+        Rata(
+            r.numero,
+            r.data_fattura,
+            r.data_pagamento_stimata,
+            r.importo,
+            consuntivo=consuntivi.get(r.pk),
+        )
         for r in sorted(piano.rate.all(), key=lambda r: r.numero)
     )
     return rate or None
+
+
+def _consuntivo_fattura(f: m.Fattura, senza_voce: bool = False) -> Consuntivo | None:
+    """Fattura registrata a budget: valore base e periodo di competenza (Rev21).
+
+    Senza valore base non conta (come per il fatturato del contratto); senza competenza si
+    usa la data della fattura, segnalato."""
+    if f.valore_base is None or f.archiviato or f.fuori_registro:
+        return None
+    mancante = f.competenza_dal is None
+    dal, al = (f.data, f.data) if mancante else (f.competenza_dal, f.competenza_al)
+    return Consuntivo(
+        TipoConsuntivo.FATTURA, f.valore_base, dal, al, senza_competenza=mancante,
+        senza_voce=senza_voce,
+    )  # fmt: skip
+
+
+def _consuntivi_contratto(
+    contratto: m.Contratto, voci: list[m.VoceContratto]
+) -> tuple[dict[int, Consuntivo], dict[int, list[Consuntivo]]]:
+    """Fatture e stanziamenti del contratto: per rata (prendono il posto della rata) e per
+    voce (quelli non abbinati a una rata). Fattura prima dello stanziamento sulla stessa rata."""
+    per_rata: dict[int, Consuntivo] = {}
+    per_voce: dict[int, list[Consuntivo]] = {v.pk: [] for v in voci}
+    principale = next((v for v in voci if not v.proroga_id), voci[0] if voci else None)
+    fatture = list(contratto.fatture.all())
+    con_fattura = {f.rata_id for f in fatture if f.rata_id and not f.archiviato}
+    for f in fatture:
+        c = _consuntivo_fattura(f)
+        if c is None:
+            continue
+        if f.rata_id:
+            per_rata[f.rata_id] = c
+        elif f.voce_id in per_voce:
+            per_voce[f.voce_id].append(c)
+        elif principale is not None:
+            per_voce[principale.pk].append(replace(c, senza_voce=len(voci) > 1))
+    for v in voci:
+        for s in v.stanziamenti.all():
+            if s.archiviato or s.fattura_id or s.rata_id in con_fattura:
+                continue
+            c = Consuntivo(
+                TipoConsuntivo.STANZIAMENTO, s.importo, s.competenza_dal, s.competenza_al
+            )
+            if s.rata_id and s.rata_id not in per_rata:
+                per_rata[s.rata_id] = c
+            else:
+                per_voce[v.pk].append(c)
+    return per_rata, per_voce
 
 
 def periodi_proroghe(contratto: m.Contratto) -> dict[int, tuple[datetime.date, datetime.date]]:
@@ -175,6 +237,8 @@ def voce_engine(
     anno_impegno: int,
     *,
     con_rate_salvate: bool = True,
+    consuntivi_rata: dict[int, Consuntivo] | None = None,
+    consuntivi: tuple[Consuntivo, ...] = (),
 ) -> Voce:
     piano = getattr(voce, "piano_fatturazione", None)
     return Voce(
@@ -186,10 +250,11 @@ def voce_engine(
         massimale_variabile=voce.massimale_variabile,
         stima_consumo_pct=voce.stima_consumo_pct,
         stima_consumo_importo=voce.stima_consumo_importo,
-        rate=_rate_salvate(voce) if con_rate_salvate else None,
+        rate=_rate_salvate(voce, consuntivi_rata) if con_rate_salvate else None,
         quote=tuple(
             Quota(q.dal, q.al, q.importo) for q in sorted(voce.quote.all(), key=lambda q: q.dal)
         ),
+        consuntivi=consuntivi if con_rate_salvate else (),
         riferimento=voce.pk,
     )
 
@@ -213,13 +278,24 @@ def voci_contratto(
     risultato = []
     # .all() e filtri in Python: con PREFETCH_CALCOLO nessuna query per contratto.
     voci = sorted((v for v in contratto.voci.all() if not v.archiviato), key=lambda v: v.pk)
+    per_rata, per_voce = _consuntivi_contratto(contratto, voci) if con_rate_salvate else ({}, {})
     for voce in voci:
         if voce.proroga_id:
             inizio, fine = periodi[voce.proroga_id]
             anno = atti[voce.proroga_id].year
         else:
             inizio, fine, anno = contratto.data_inizio, fine_base, anno_base
-        risultato.append(voce_engine(voce, inizio, fine, anno, con_rate_salvate=con_rate_salvate))
+        risultato.append(
+            voce_engine(
+                voce,
+                inizio,
+                fine,
+                anno,
+                con_rate_salvate=con_rate_salvate,
+                consuntivi_rata=per_rata,
+                consuntivi=tuple(per_voce.get(voce.pk, ())),
+            )
+        )
     return risultato, []
 
 

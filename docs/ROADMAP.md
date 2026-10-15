@@ -625,6 +625,21 @@ convalida → RdC → MAP/MIGO → trasferimento → chiusura»; TC-16, TC-18.
 e PDF con i filtri in evidenza come in F9.5.4; import completo della fixture senza eccezioni,
 report con tutte le anomalie note (SPEC §2.3), idempotenza.
 
+### F11.5 — Competenza delle fatture e stanziamenti
+
+Bozza da approvare (SPEC Rev21, decisioni del responsabile del progetto del 15/10/2026).
+
+- Fattura: periodo di competenza (dal, al), obbligatorio con il valore base (form, servizio e
+  strumento `importi_fattura`); anomalia `COMPETENZA_MANCANTE` per le fatture importate senza.
+- Stanziamento: nuova entità sulla voce (e sulla rata che sostituisce), registrato dalla
+  scheda «Esecuzione» del contratto, chiuso dalla fattura o annullato; storico e admin.
+- Budget: nuova vista «Fatturato e stanziato (competenza)», prima colonna e riferimento; la
+  cassa per data fattura resta come confronto (SPEC §5.2, TC-20). Report, export e strumento
+  `budget` del connettore la riportano.
+- Criterio di accettazione: TC-20 verde; il Reader riceve 403 sulle viste dello stanziamento.
+- Aperto: competenza nell'import settimanale, periodo memorizzato sulle rate salvate, stanziamento
+  automatico, strumenti MCP per gli stanziamenti (SPEC §9).
+
 ## F12 — Connettore MCP per il processo d'acquisto
 
 Rev00: bozza da approvare. Decisioni del responsabile del progetto del 07/10/2026 (`docs/SPEC_MCP.md` Rev08 §11,

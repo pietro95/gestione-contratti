@@ -465,8 +465,9 @@ def test_convalida_importi_documenti_trasferimento(client, editor, registro_fatt
         client, editor,
         lambda cl: cl.post(f"/fatture/{fa.pk}/importi/", {
             "valore_base": "300,00", "oneri": "", "bollo": "", "voce": voce.pk,
-            "rata": rata.pk}),
-        "importi_fattura", {"id": fa.pk, "rata_id": rata.pk},
+            "rata": rata.pk, "competenza_dal": "01/01/2026", "competenza_al": "31/12/2026"}),
+        "importi_fattura", {"id": fa.pk, "rata_id": rata.pk,
+                            "competenza_dal": "2026-01-01", "competenza_al": "2026-12-31"},
     )  # fmt: skip
     rata.refresh_from_db()
     assert rata.consuntivo and rata.numero_fattura == "FA-1/2026"
@@ -575,6 +576,7 @@ def test_tc18_via_mcp(make_user, editor, registro_fatture):
     }))  # fmt: skip
     anteprima = ok(editor, "importi_fattura", {
         "id": f13.pk, "valore_base": "1504.17", "oneri": "173.66", "bollo": "2.00",
+        "competenza_dal": "2026-01-01", "competenza_al": "2026-12-31",
     })  # fmt: skip
     dopo = anteprima["effetti"]["processo_acquisto"]["dopo"]
     assert dopo["fatture"][0]["anomalie"] == []
@@ -785,7 +787,8 @@ def test_con_l_utente_postgresql_del_container_mcp(editor, rda_bozza, registro_f
         ("prendi_in_carico", {"fatture_ids": [fa.pk]}),
         ("assegna_contratto_fattura", {"id": fa.pk, "contratto_id": c.pk}),
         ("convalida_fattura", {"id": fa.pk, "esito_convalida": "convalidabile"}),
-        ("importi_fattura", {"id": fa.pk}),
+        ("importi_fattura", {"id": fa.pk, "competenza_dal": "2026-10-01",
+                             "competenza_al": "2026-10-31"}),
         ("documento_fattura", {"id": fa.pk, "tipo": "ODA_RDC", "numero": "RDC-1"}),
         ("trasferisci_fattura", {"id": fa.pk}),
         ("documento_esecuzione", {"contratto_id": c.pk, "tipo": "DDT", "data": "2026-10-01"}),

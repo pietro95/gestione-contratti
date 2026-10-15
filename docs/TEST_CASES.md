@@ -2,7 +2,7 @@
 
 Ogni caso descrive: input, output atteso, regola della SPEC che verifica.
 
-Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (redatto su richiesta del responsabile del progetto del 02/10/2026). F9.4: aggiunto TC-13 (redatto su richiesta del responsabile del progetto del 05/10/2026). F9.5: aggiunto TC-14 (redatto su richiesta del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (redatto su decisione del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev11: aggiunti TC-15 e TC-16 (redatti su decisione del responsabile del progetto del 05/10/2026, bozza da approvare). SPEC Rev13: TC-15 riscritto sulle fasi della richiesta di RDA, aggiunto TC-17 (redatti su decisione del responsabile del progetto del 07/10/2026, bozza da approvare). SPEC Rev14: TC-15 (e) aggiornato ai tre passi della fattura (stessa origine, bozza da approvare). SPEC Rev15: aggiunto TC-18 (stessa origine, bozza da approvare).
+Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (redatto su richiesta del responsabile del progetto del 02/10/2026). F9.4: aggiunto TC-13 (redatto su richiesta del responsabile del progetto del 05/10/2026). F9.5: aggiunto TC-14 (redatto su richiesta del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (redatto su decisione del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev11: aggiunti TC-15 e TC-16 (redatti su decisione del responsabile del progetto del 05/10/2026, bozza da approvare). SPEC Rev13: TC-15 riscritto sulle fasi della richiesta di RDA, aggiunto TC-17 (redatti su decisione del responsabile del progetto del 07/10/2026, bozza da approvare). SPEC Rev14: TC-15 (e) aggiornato ai tre passi della fattura (stessa origine, bozza da approvare). SPEC Rev15: aggiunto TC-18 (stessa origine, bozza da approvare). SPEC Rev21: aggiunto TC-20 (redatto su decisione del responsabile del progetto del 15/10/2026, bozza da approvare).
 
 I valori sono stati calcolati a mano e verificati con uno script indipendente. **Se un test non passa, l'errore è nel codice, non nel caso.** Un caso si modifica solo con l'approvazione del responsabile del progetto e insieme a una nuova revisione della SPEC.
 
@@ -554,3 +554,37 @@ Atteso, budget 2026, cassa, livello fisso:
 - Collegare l'autorizzazione a una voce di un contratto non una tantum, o togliere «una
   tantum» a un contratto con voci extra budget: errore di validazione. Autorizzazione di un
   altro cluster: errore.
+
+## TC-20 — Fatturato e stanziato a competenza
+
+SPEC §4, §5.2 (Rev21), bozza da approvare.
+
+Input: contratto dal 01/01/2026, 12 mesi, un solo canone da 12.000,00 € fisso, fatturazione
+mensile posticipata (12 rate da 1.000,00 €, la rata di dicembre fatturata il 31/12/2026 per il
+mese di dicembre). Nessuna fattura registrata.
+
+Atteso, budget 2026, livello fisso:
+- fatturato e stanziato (competenza) 12.000,00 €; cassa 12.000,00 €; competenza 12.000,00 €;
+  budget 2027: tutte e tre le viste 0,00 €.
+
+Fatture e stanziamenti (abbinati alla rata, valore base):
+- **(a) Fattura a cavallo d'anno.** La rata di dicembre è sostituita da una fattura con valore
+  base 1.000,00 € e competenza 01/12/2026–31/01/2027 (62 giorni: 31 nel 2026, 31 nel 2027):
+  2026 = 11.000,00 + 500,00 = 11.500,00 €; 2027 = 500,00 €. Totale 12.000,00 €. Cassa e
+  competenza del contratto invariate (12.000,00 € nel 2026).
+- **(b) Fattura emessa dopo la fine dell'anno.** La fattura di dicembre è registrata il
+  15/01/2027 con competenza 01/12/2026–31/12/2026: 2026 = 12.000,00 €, 2027 = 0,00 €
+  (la cassa legge la data della rata, 31/12/2026).
+- **(c) Stanziamento.** Il fornitore non fattura la rata di novembre: stanziamento 1.000,00 € con
+  competenza 01/11/2026–30/11/2026, sulla rata di novembre. Fatturato e stanziato 2026 =
+  12.000,00 € (la rata è sostituita dallo stanziamento). Arriva la fattura di novembre con valore
+  base 1.050,00 € e competenza 01/11/2026–30/11/2026, abbinata alla stessa rata: lo stanziamento
+  si chiude e 2026 = 12.050,00 €. Uno stanziamento annullato (archiviato) non conta.
+- **(d) Fattura senza competenza.** La rata di maggio è sostituita da una fattura con valore
+  base 700,00 €, data 10/05/2026, nessun periodo: imputata al 2026 per intero (2026 =
+  11.000,00 + 700,00 = 11.700,00 €), con avviso `COMPETENZA_FATTURA_MANCANTE`.
+- **(e) Fattura non abbinata.** Fattura da 300,00 € con competenza 01/03/2026–31/03/2026 non
+  abbinata alla rata: si somma alle rate previste (12.300,00 € nel 2026) con avviso
+  `CONSUNTIVO_NON_ABBINATO`.
+- **(f) Competenza obbligatoria.** Salvare un valore base senza periodo, o con fine precedente
+  all'inizio: errore di validazione.

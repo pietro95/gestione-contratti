@@ -87,6 +87,16 @@ urlpatterns = [
         views_fatture.contratto_documento,
         name="contratto_documento",
     ),
+    path(
+        "contratti/<int:pk>/stanziamento/",
+        views_fatture.contratto_stanziamento,
+        name="contratto_stanziamento",
+    ),
+    path(
+        "stanziamenti/<int:pk>/",
+        views_fatture.stanziamento_azione,
+        name="stanziamento_azione",
+    ),
     path("contratti/<int:pk>/chiudi/", views_fatture.contratto_chiudi, name="contratto_chiudi"),
     path("rda/", views_rda.rda_elenco, name="rda_elenco"),
     path("rda/registra/", views_rda.rda_registra, name="rda_registra"),

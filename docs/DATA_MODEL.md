@@ -56,6 +56,7 @@ Gli importi monetari usano `Decimal` e i valori derivati sono calcolati dal moto
 - **Posizione RDA**: riga economica e contabile della richiesta.
 - **Evento RDA**: avanzamenti e storia del processo.
 - **Fattura**: documento importato o registrato e sottoposto a presa in carico, assegnazione, convalida e trasferimento.
+- **Stanziamento** (Rev21): costo di competenza non ancora fatturato, su una voce e, se c'è, sulla rata che sostituisce; conta nel budget a competenza finché non arriva la fattura. La fattura porta il proprio **periodo di competenza**.
 - **Documento di esecuzione**: evidenza operativa, ad esempio DDT, MIGO, MAP o attestazione.
 
 ### Tracciabilità

@@ -248,6 +248,8 @@ def fattura(ctx: Contesto, argomenti: dict) -> dict:
         "oneri": f.oneri,
         "bollo": f.bollo,
         "iva": f.iva,
+        "competenza_dal": f.competenza_dal,
+        "competenza_al": f.competenza_al,
         "imputazione_della_fattura": {
             "conto": f.conto.codice if f.conto_id else None,
             "centro_costo": f.centro_costo or None,

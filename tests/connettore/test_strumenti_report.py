@@ -17,7 +17,12 @@ from tests.reports.conftest import OGGI
 
 pytestmark = pytest.mark.django_db
 
-NOMI = {"cassa": "fatturato", "impegno": "ordinato", "competenza": "competenza"}
+NOMI = {
+    "consuntivo": "fatturato_stanziato_competenza",
+    "cassa": "fatturato",
+    "impegno": "ordinato",
+    "competenza": "competenza",
+}
 
 
 def esegui(utente, nome, argomenti=None):
