@@ -124,6 +124,7 @@ CAMPI_FABBISOGNO = {
     "impianto": SCHEMA_ID,
     "decisione": {"type": "string", "enum": list(m.Fabbisogno.Decisione.values)},
     "stima_prossimo_importo": SCHEMA_IMPORTO,
+    "durata_rinnovo_mesi": {"type": "integer", "minimum": 1, "maximum": 240},
     "previsto_data_avvio": SCHEMA_DATA,
     "previsto_durata_mesi": {"type": "integer", "minimum": 1, "maximum": 240},
     "previsto_procedura": {**SCHEMA_ID, "description": "id della procedura («riferimenti»)."},

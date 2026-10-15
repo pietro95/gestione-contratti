@@ -248,3 +248,17 @@ def test_previsto_riparte_dal_totale_senza_quote():
     assert (p1.inizio, p1.fine) == (D(2029, 7, 1), D(2032, 6, 30))
     assert p1.voci[0].importo_fisso == E("31500.00")  # adeguamento provvisorio 0%
     assert p1.voci[0].quote == ()
+
+
+def test_durata_rinnovo_del_fabbisogno_sostituisce_quella_del_contratto():
+    m.Parametro.objects.create(chiave="adeguamento_pct", valore=E("0"), valido_dal=D(2026, 1, 1))
+    fab = f.fabbisogno(
+        decisione="rinnovare", durata_rinnovo_mesi=24, stima_prossimo_importo=E("24000")
+    )
+    c = f.contratto(fabbisogno=fab, data_inizio=D(2025, 7, 1), durata_mesi=18)
+    f.piano(f.voce(c, importo_fisso=E("18000.00")), modalita="anticipata", periodicita="annuale")
+    (p1,) = adapters.previsti_fabbisogno(fab, D(2027, 6, 30))
+    assert (p1.inizio, p1.fine) == (D(2027, 1, 1), D(2028, 12, 31))
+    assert p1.voci[0].importo_fisso == E("24000.00")
+    fab.durata_rinnovo_mesi = None  # senza indicazione: 18 mesi, come il contratto
+    assert adapters.previsti_fabbisogno(fab, D(2027, 6, 30))[0].fine == D(2028, 6, 30)

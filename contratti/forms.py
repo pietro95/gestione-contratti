@@ -191,7 +191,10 @@ class FabbisognoForm(ModelFormBootstrap):
                 "referente",
             ],
         ),
-        ("Decisione sul rinnovo", ["decisione", "stima_prossimo_importo", "note"]),
+        (
+            "Decisione sul rinnovo",
+            ["decisione", "stima_prossimo_importo", "durata_rinnovo_mesi", "note"],
+        ),
         (
             "Previsto manuale (solo per fabbisogni nuovi, senza contratti)",
             [
@@ -219,6 +222,7 @@ class FabbisognoForm(ModelFormBootstrap):
             "referente",
             "decisione",
             "stima_prossimo_importo",
+            "durata_rinnovo_mesi",
             "note",
             "previsto_data_avvio",
             "previsto_durata_mesi",

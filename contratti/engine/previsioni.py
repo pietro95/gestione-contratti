@@ -48,14 +48,18 @@ def prossimo(
     adeguamento_pct: Decimal,
     stima_manuale: Decimal | None = None,
     numero: int = 1,
+    durata_mesi: int | None = None,
 ) -> ContrattoPrevisto:
     """Un rinnovo: inizio il giorno dopo la fine, stessa durata originale e stesso piano.
+
+    ``durata_mesi`` sostituisce la durata del contratto precedente (rinnovo deciso su una
+    durata diversa); gli importi non si ricalcolano in proporzione: li decide la stima.
 
     Fisso e massimale di ogni voce × (1 + adeguamento). Con la stima manuale, la stima
     sostituisce il fisso totale ed è ripartita tra le voci in proporzione al loro fisso.
     """
     inizio = base.fine_effettiva + UN_GIORNO
-    fine = aggiungi_mesi(inizio, base.durata_mesi) - UN_GIORNO
+    fine = aggiungi_mesi(inizio, durata_mesi or base.durata_mesi) - UN_GIORNO
     if stima_manuale is not None:
         fissi = ripartisci(stima_manuale, [v.importo_fisso for v in base.voci])
     else:
@@ -74,8 +78,11 @@ def previsti(
     orizzonte: datetime.date,
     adeguamento: AdeguamentoAllaData,
     stima_manuale: Decimal | None = None,
+    durata_mesi: int | None = None,
 ) -> list[ContrattoPrevisto]:
     """Catena di previsti finché l'inizio del successivo cade entro l'orizzonte.
+
+    ``durata_mesi``, se indicata, vale per tutti i previsti della catena.
 
     La stima manuale vale solo per il primo previsto; i successivi partono da quello
     e applicano l'adeguamento (TC-07, variante con stima).
@@ -87,9 +94,11 @@ def previsti(
     stima = stima_manuale
     while corrente.fine_effettiva + UN_GIORNO <= orizzonte:
         inizio = corrente.fine_effettiva + UN_GIORNO
-        nuovo = prossimo(corrente, adeguamento(inizio), stima, numero=len(risultato) + 1)
+        nuovo = prossimo(
+            corrente, adeguamento(inizio), stima, numero=len(risultato) + 1, durata_mesi=durata_mesi
+        )
         risultato.append(nuovo)
-        corrente = ContrattoBase(nuovo.fine, base.durata_mesi, nuovo.voci)
+        corrente = ContrattoBase(nuovo.fine, durata_mesi or base.durata_mesi, nuovo.voci)
         stima = None
     return risultato
 

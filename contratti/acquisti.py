@@ -217,7 +217,10 @@ def _primo_previsto(fabbisogno: m.Fabbisogno, contratto: m.Contratto):
     base = adapters.contratto_base(contratto)
     inizio = base.fine_effettiva + datetime.timedelta(days=1)
     return previsioni.prossimo(
-        base, adapters.adeguamento_alla_data(inizio), fabbisogno.stima_prossimo_importo
+        base,
+        adapters.adeguamento_alla_data(inizio),
+        fabbisogno.stima_prossimo_importo,
+        durata_mesi=fabbisogno.durata_rinnovo_mesi,
     )
 
 

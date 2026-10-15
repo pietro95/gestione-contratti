@@ -138,3 +138,22 @@ def test_previsto_manuale_di_un_fabbisogno_nuovo():
     )
     assert (p.inizio, p.fine) == (D(2027, 7, 1), D(2029, 6, 30))
     assert [r.data_fattura for r in genera_rate(p.voci[0])] == [D(2027, 7, 1), D(2028, 7, 1)]
+
+
+def test_durata_rinnovo_diversa_dal_contratto_precedente():
+    # Contratto di 18 mesi (01/07/2025-31/12/2026): il rinnovo è deciso a 24 mesi, e la
+    # durata vale anche per i previsti successivi.
+    v = voce("18000.00", D(2025, 7, 1), D(2026, 12, 31), piano=piano("anticipata", "annuale"))
+    base = ContrattoBase(fine_effettiva=D(2026, 12, 31), durata_mesi=18, voci=(v,))
+    p1, p2 = previsti(
+        base,
+        decisione="rinnovare",
+        orizzonte=D(2029, 1, 1),
+        adeguamento=adeguamento_3,
+        stima_manuale=euro("24000.00"),
+        durata_mesi=24,
+    )
+    assert (p1.inizio, p1.fine) == (D(2027, 1, 1), D(2028, 12, 31))
+    assert (p2.inizio, p2.fine) == (D(2029, 1, 1), D(2030, 12, 31))
+    assert [v.importo_fisso for v in p1.voci] == [euro("24000.00")]
+    assert [v.importo_fisso for v in p2.voci] == [euro("24720.00")]

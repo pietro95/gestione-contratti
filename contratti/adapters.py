@@ -329,6 +329,7 @@ def previsti_fabbisogno(
         orizzonte=orizzonte,
         adeguamento=adeguamento_alla_data,
         stima_manuale=fabbisogno.stima_prossimo_importo,
+        durata_mesi=fabbisogno.durata_rinnovo_mesi,
     )
 
 

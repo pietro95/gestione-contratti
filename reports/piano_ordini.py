@@ -496,7 +496,9 @@ def _righe_previste(f, anno, oggi, orizzonte, procedura_default, recupero) -> li
     base = adapters.contratto_base_previsti(f)
     if base is not None and base.senza_contratto:
         return []  # rinnovi senza contratto: nessun ordine al Procurement (SPEC §5.4, §5.6)
-    durata = base.durata_mesi if base is not None else f.previsto_durata_mesi
+    durata = (
+        (f.durata_rinnovo_mesi or base.durata_mesi) if base is not None else f.previsto_durata_mesi
+    )
     righe = []
     for p in previsti:
         r = _riga(f, base, p, durata, procedura_default, oggi, anno)

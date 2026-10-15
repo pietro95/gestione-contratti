@@ -726,6 +726,13 @@ class Fabbisogno(Archiviabile):
         default=Decisione.DA_VALUTARE,
     )
     stima_prossimo_importo = importo("stima del prossimo importo", null=True, blank=True)
+    durata_rinnovo_mesi = models.PositiveSmallIntegerField(
+        "durata del rinnovo (mesi)",
+        null=True,
+        blank=True,
+        help_text="Vuota: i rinnovi previsti durano come il contratto precedente. "
+        "Se la durata cambia, indica anche la stima dell'importo: non si ricalcola da solo.",
+    )
     note = models.TextField(blank=True)
 
     # Dati decisi per un fabbisogno nuovo, senza contratto: il motore ne ricava il previsto.
@@ -790,6 +797,10 @@ class Fabbisogno(Archiviabile):
             models.CheckConstraint(
                 condition=Q(stima_prossimo_importo__isnull=True) | Q(stima_prossimo_importo__gte=0),
                 name="contratti_fabbisogno_stima_non_negativa",
+            ),
+            models.CheckConstraint(
+                condition=Q(durata_rinnovo_mesi__isnull=True) | Q(durata_rinnovo_mesi__gt=0),
+                name="contratti_fabbisogno_durata_rinnovo_positiva",
             ),
             models.CheckConstraint(
                 condition=Q(previsto_durata_mesi__isnull=True) | Q(previsto_durata_mesi__gt=0),

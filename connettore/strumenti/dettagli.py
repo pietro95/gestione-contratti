@@ -207,6 +207,7 @@ def fabbisogno(ctx: Contesto, argomenti: dict) -> dict:
         "impianto": f.impianto.nome if f.impianto_id else None,
         "decisione": f.decisione,
         "stima_prossimo_importo": f.stima_prossimo_importo,
+        "durata_rinnovo_mesi": f.durata_rinnovo_mesi,
         "archiviato": f.archiviato,
         "previsto_manuale": {
             "data_avvio": f.previsto_data_avvio,

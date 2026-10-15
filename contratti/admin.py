@@ -279,7 +279,10 @@ class FabbisognoAdmin(ArchiviabileAdmin):
             },
         ),
         ("Responsabilità", {"fields": ("referente", "referente_utente")}),
-        ("Continuità", {"fields": ("decisione", "stima_prossimo_importo", "note")}),
+        (
+            "Continuità",
+            {"fields": ("decisione", "stima_prossimo_importo", "durata_rinnovo_mesi", "note")},
+        ),
         (
             "Previsto manuale (fabbisogno senza contratti)",
             {

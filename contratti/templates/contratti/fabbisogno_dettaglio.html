@@ -15,12 +15,13 @@
 {% endif %}
 {% endblock %}
 {% block content %}
-{% if f.stima_prossimo_importo or f.note or f.natura_previsti or f.conto_previsti or f.wbs_previsti %}
+{% if f.stima_prossimo_importo or f.durata_rinnovo_mesi or f.note or f.natura_previsti or f.conto_previsti or f.wbs_previsti %}
 <div class="card mb-4"><div class="card-body"><dl class="dati">
   {% if f.natura_previsti %}<dt>Natura del previsto</dt><dd>{{ f.natura_previsti }}</dd>{% endif %}
   {% if f.conto_previsti %}<dt>Conto del previsto</dt><dd>{{ f.conto_previsti }}</dd>{% endif %}
   {% if f.wbs_previsti %}<dt>WBS del previsto</dt><dd>{{ f.wbs_previsti }}</dd>{% endif %}
   {% if f.stima_prossimo_importo %}<dt>Stima del prossimo importo</dt><dd>{{ f.stima_prossimo_importo|euro }}</dd>{% endif %}
+  {% if f.durata_rinnovo_mesi %}<dt>Durata del rinnovo</dt><dd>{{ f.durata_rinnovo_mesi }} mesi</dd>{% endif %}
   {% if f.note %}<dt>Note</dt><dd>{{ f.note|linebreaksbr }}</dd>{% endif %}
 </dl></div></div>
 {% endif %}
