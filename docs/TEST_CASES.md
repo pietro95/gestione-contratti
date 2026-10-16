@@ -2,7 +2,7 @@
 
 Ogni caso descrive: input, output atteso, regola della SPEC che verifica.
 
-Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (redatto su richiesta del responsabile del progetto del 02/10/2026). F9.4: aggiunto TC-13 (redatto su richiesta del responsabile del progetto del 05/10/2026). F9.5: aggiunto TC-14 (redatto su richiesta del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (redatto su decisione del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev11: aggiunti TC-15 e TC-16 (redatti su decisione del responsabile del progetto del 05/10/2026, bozza da approvare). SPEC Rev13: TC-15 riscritto sulle fasi della richiesta di RDA, aggiunto TC-17 (redatti su decisione del responsabile del progetto del 07/10/2026, bozza da approvare). SPEC Rev14: TC-15 (e) aggiornato ai tre passi della fattura (stessa origine, bozza da approvare). SPEC Rev15: aggiunto TC-18 (stessa origine, bozza da approvare). SPEC Rev21: aggiunto TC-20 (redatto su decisione del responsabile del progetto del 15/10/2026, bozza da approvare). SPEC Rev22: TC-20 esteso (g)–(i), stessa origine.
+Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (redatto su richiesta del responsabile del progetto del 02/10/2026). F9.4: aggiunto TC-13 (redatto su richiesta del responsabile del progetto del 05/10/2026). F9.5: aggiunto TC-14 (redatto su richiesta del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (redatto su decisione del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev11: aggiunti TC-15 e TC-16 (redatti su decisione del responsabile del progetto del 05/10/2026, bozza da approvare). SPEC Rev13: TC-15 riscritto sulle fasi della richiesta di RDA, aggiunto TC-17 (redatti su decisione del responsabile del progetto del 07/10/2026, bozza da approvare). SPEC Rev14: TC-15 (e) aggiornato ai tre passi della fattura (stessa origine, bozza da approvare). SPEC Rev15: aggiunto TC-18 (stessa origine, bozza da approvare). SPEC Rev21: aggiunto TC-20 (redatto su decisione del responsabile del progetto del 15/10/2026, bozza da approvare). SPEC Rev22: TC-20 esteso (g)–(i), stessa origine; TC-20 approvato il 16/10/2026.
 
 I valori sono stati calcolati a mano e verificati con uno script indipendente. **Se un test non passa, l'errore è nel codice, non nel caso.** Un caso si modifica solo con l'approvazione del responsabile del progetto e insieme a una nuova revisione della SPEC.
 
@@ -557,7 +557,7 @@ Atteso, budget 2026, cassa, livello fisso:
 
 ## TC-20 — Fatturato e stanziato a competenza
 
-SPEC §4, §5.2 (Rev21), bozza da approvare.
+SPEC §4, §5.2 (Rev21, Rev22), approvato dal responsabile del progetto il 16/10/2026.
 
 Input: contratto dal 01/01/2026, 12 mesi, un solo canone da 12.000,00 € fisso, fatturazione
 mensile posticipata (12 rate da 1.000,00 €, la rata di dicembre fatturata il 31/12/2026 per il

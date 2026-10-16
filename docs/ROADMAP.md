@@ -627,7 +627,7 @@ report con tutte le anomalie note (SPEC §2.3), idempotenza.
 
 ### F11.5 — Competenza delle fatture e stanziamenti
 
-Bozza da approvare (SPEC Rev21, decisioni del responsabile del progetto del 15/10/2026).
+Approvata dal responsabile del progetto il 16/10/2026 (SPEC Rev21 e Rev22, decisioni del 15/10/2026).
 
 - Fattura: periodo di competenza (dal, al), obbligatorio con il valore base (form, servizio e
   strumento `importi_fattura`); anomalia `COMPETENZA_MANCANTE` per le fatture importate senza.
