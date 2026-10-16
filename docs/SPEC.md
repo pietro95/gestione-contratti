@@ -28,6 +28,7 @@ Storico revisioni:
 - Rev20 (14/10/2026): decisioni del responsabile del progetto, **bozza da approvare**. Import settimanale delle fatture (§7): un **fornitore non in anagrafica si crea al momento** (`FORNITORE_CREATO`, da verificare), invece di scartare la riga; l'import è disponibile anche **nella pagina delle fatture** per l'amministrazione acquisti. Fatture (§4, §5.7): una fattura con «bloccata fino al» in corso è al passo **`Bloccata`**, non `Da convalidare`; la pagina delle fatture si apre di default su «Le mie fatture» quando tutte le fatture sono state prese in carico. Il test del TC-18 sul passo di una fattura bloccata segue la nuova regola.
 - Rev21 (15/10/2026): decisioni del responsabile del progetto, **approvata** dal responsabile del progetto il 16/10/2026. Il budget si legge sulla **competenza delle fatture**, non più sulla data fattura: la fattura indica il **periodo di competenza** (§4), obbligatorio con il valore base, e nuova vista **«Fatturato e stanziato (competenza)»** (§5.2), prima colonna e riferimento del budget. Nuova entità **stanziamento** (§4): costo di competenza non ancora fatturato, che conta nel budget finché non arriva la fattura. La cassa per data fattura resta come confronto. Nuovo TC-20. Il §5.8 («il budget non cambia») è superato.
 - Rev22 (15/10/2026): decisioni del responsabile del progetto sulle questioni aperte di Rev21, **approvata** dal responsabile del progetto il 16/10/2026. **Competenza di default** delle fatture importate o registrate a mano: il **mese prima della data fattura** (§4, §7). **Periodo salvato sulla rata** alla generazione dello scadenzario, dalla data di avvio del contratto e dalla periodicità (§4, §5.2); per le rate salvate prima si ricava rigenerando. **Stanziamento proposto** dalle rate scadute senza fattura, con giorni di tolleranza parametrici (§4, §5.2, §8.1). **Connettore MCP** esteso a lettura e scrittura degli stanziamenti (`SPEC_MCP` Rev09). TC-20 esteso (g)–(i).
+- Rev23 (16/10/2026): decisioni del responsabile del progetto, **bozza da approvare**. **Budget assegnato al sottocluster** (§4): importo per sottocluster, anno e natura (OPEX/CAPEX), inserito dall'amministrazione. Il budget (§5.2) ha il filtro per sottocluster e, con il filtro attivo, un box con l'assegnato e il **residuo rispetto alla vista di riferimento «Fatturato e stanziato (competenza)»** (Rev21).
 
 ## 1. Obiettivo
 
@@ -142,6 +143,8 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
 **Impianto** (tabella): nome e note.
 
 **Sottocluster** (tabella, Rev18): sottocategoria di un cluster; cluster, nome (unico nel cluster) e note; si archivia, non si cancella. Raggruppa i fabbisogni nel piano ordini (§5.4).
+
+**Budget del sottocluster** (tabella, Rev23): budget assegnato a un sottocluster per un **anno** e una **natura** (OPEX o CAPEX); importo imponibile, maggiore o uguale a zero, note. Uno solo per sottocluster, anno e natura; si archivia, non si cancella; storia delle modifiche. È un dato deciso, non calcolato. Lo inserisce l'amministrazione (Admin). OPEX e CAPEX restano distinti, mai sommati.
 
 **Fonte di finanziamento** (tabella di configurazione, Rev18): nome unico, attiva, note; nessun valore iniziale. Si assegna al fabbisogno e alla WBS. Per una riga del piano ordini vale la fonte del fabbisogno; se manca, quella della WBS delle voci; se manca, «Ordinaria».
 
@@ -294,6 +297,8 @@ In cassa la quota variabile (stimata o massima) si distribuisce sulle date delle
 - Le voci su WBS a progetto sono fuori dai budget dei cluster; un filtro le include o le mostra da sole.
 - (Rev19) Anche le voci extra budget sono fuori dai budget dei cluster, OPEX e CAPEX; un filtro separato le include o le mostra da sole.
 - Di default ogni utente vede i propri cluster (§8.1).
+- (Rev23) **Filtro per sottocluster**: limita il budget ai fabbisogni del sottocluster scelto, contratti reali e previsti; i budget dei sottocluster sommano al budget del cluster più i fabbisogni senza sottocluster.
+- (Rev23) **Budget assegnato**: con il filtro per sottocluster attivo, ogni sezione di natura mostra un box con il budget assegnato al sottocluster per l'anno e quella natura (§4), il totale della vista **«Fatturato e stanziato (competenza)»** (il riferimento del budget, Rev21) al livello scelto e il **residuo** (assegnato meno totale; negativo = sforamento, segnalato). Se per anno e natura non c'è nulla, il box dice «Non assegnato» e non calcola il residuo. Il confronto usa il totale mostrato, quindi comprende WBS a progetto ed extra budget solo se il rispettivo filtro li include. Il box non compare se il sottocluster è di un cluster fuori dal filtro cluster dell'utente (§8.1). Compare anche nel PDF.
 
 ### 5.3 Previsione rinnovi (scenario)
 

@@ -35,6 +35,8 @@ def voci_filtri(budget: Budget) -> list[str]:
         permessi.descrivi_filtro(codici_cluster(f.area)),
         f"natura {f.natura}" if f.natura else "OPEX e CAPEX separati",
     ]
+    if f.sottocluster:
+        parti.append(f"sottocluster {m.Sottocluster.objects.filter(pk=f.sottocluster).first()}")
     if f.conto:
         parti.append(f"conto {m.ContoCoge.objects.filter(pk=f.conto).first()}")
     if f.fornitore:

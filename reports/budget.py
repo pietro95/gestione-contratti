@@ -29,6 +29,9 @@ ETICHETTE_VISTE = {
     "impegno": "Ordinato (contratti emessi)",
     "competenza": "Competenza del contratto (pro-rata a giorni)",
 }
+# Vista con cui si confronta il budget assegnato al sottocluster: il riferimento del budget
+# (SPEC Rev23, §5.2).
+VISTA_ASSEGNATO = "consuntivo"
 # Nomi brevi per le intestazioni delle colonne dell'export.
 SIGLE_VISTE = {
     "consuntivo": "fatt+stanz competenza",
@@ -76,6 +79,7 @@ class Filtri:
     previsionali: bool = True
     natura: str = ""  # vuoto: entrambe, da presentare separate
     wbs: int | None = None
+    sottocluster: int | None = None  # pk del sottocluster del fabbisogno
 
     def ammette(self, cl: adapters.Classificazione) -> bool:
         """La voce, con la sua classificazione, entra in questo budget?"""
@@ -239,6 +243,19 @@ def _totali(voci: list[VoceBudget]) -> dict[str, Somme]:
     return totali
 
 
+def budget_assegnato(filtri: Filtri) -> dict[str, Decimal | None]:
+    """Budget assegnato al sottocluster filtrato nell'anno, per natura (None: non assegnato)."""
+    if not filtri.sottocluster:
+        return {}
+    assegnati = {
+        b.natura: b.importo
+        for b in m.BudgetSottocluster.objects.filter(
+            sottocluster_id=filtri.sottocluster, anno=filtri.anno, archiviato=False
+        )
+    }
+    return {natura: assegnati.get(natura) for natura in NATURE}
+
+
 def importi_anno(voce: Voce, anno: int) -> tuple[Somme, list[Esito]]:
     """Importi della singola voce nell'anno, per vista e livello (motore)."""
     viste, esiti = budget.calcola([voce])
@@ -264,6 +281,8 @@ def _contratti(filtri: Filtri):
         qs = qs.filter(fabbisogno__cluster__codice__in=codici)
     if filtri.fornitore:
         qs = qs.filter(fornitore_id=filtri.fornitore)
+    if filtri.sottocluster:
+        qs = qs.filter(fabbisogno__sottocluster_id=filtri.sottocluster)
     return qs.select_related("fabbisogno__cluster", "fornitore", "procedura").prefetch_related(
         *adapters.PREFETCH_CALCOLO
     )
@@ -328,6 +347,8 @@ def _voci_previste(filtri: Filtri, oggi: datetime.date):
     )
     if codici := codici_cluster(filtri.area):
         fabbisogni = fabbisogni.filter(cluster__codice__in=codici)
+    if filtri.sottocluster:
+        fabbisogni = fabbisogni.filter(sottocluster_id=filtri.sottocluster)
     voci: list[VoceBudget] = []
     mancanti: list[RinnovoMancante] = []
     for f in fabbisogni.order_by("pk"):
