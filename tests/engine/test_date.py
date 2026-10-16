@@ -41,3 +41,11 @@ def test_periodi_per_anno():
         2025: 365,
         2026: 82,
     }
+
+
+def test_mese_precedente():
+    from contratti.engine.date import mese_precedente
+
+    assert mese_precedente(D(2026, 9, 4)) == (D(2026, 8, 1), D(2026, 8, 31))
+    assert mese_precedente(D(2026, 1, 10)) == (D(2025, 12, 1), D(2025, 12, 31))
+    assert mese_precedente(D(2024, 3, 31)) == (D(2024, 2, 1), D(2024, 2, 29))

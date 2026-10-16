@@ -13,11 +13,33 @@
 
 <div class="d-flex justify-content-between align-items-center mt-3 mb-2"><h2 class="h6 text-uppercase text-body-secondary mb-0">Fatture</h2>{% if puo_modificare and not c.data_chiusura %}<a class="btn btn-sm btn-outline-primary" href="{% url 'contratti:contratto_fattura_nuova' c.pk %}"><i class="bi bi-receipt" aria-hidden="true"></i> Registra una fattura</a>{% endif %}</div>
 <div class="tabella-card mb-4"><div class="table-responsive"><table class="table table-sm table-hover align-middle">
-  <thead><tr><th>Fattura</th><th class="text-end">Documento</th><th class="text-end">Valore base</th><th>Rata</th><th>Passo</th></tr></thead>
+  <thead><tr><th>Fattura</th><th class="text-end">Documento</th><th class="text-end">Valore base</th><th>Competenza</th><th>Rata</th><th>Passo</th></tr></thead>
   <tbody>{% for r in fatture %}{% url 'contratti:fattura' r.f.pk as link %}
-    <tr data-href="{{ link }}"><td><a href="{{ link }}">{{ r.f.numero }}</a> <span class="small text-body-secondary">del {{ r.f.data|date:"d/m/Y" }}</span>{% if r.f.fuori_registro %} <span class="stato stato-grigio">fuori registro</span>{% endif %}</td><td class="text-end">{{ r.f.importo_documento|euro }}</td><td class="text-end">{{ r.f.valore_base|euro }}</td><td class="small">{{ r.f.rata|default:"—" }}</td><td>{{ r.passo|passo_badge }}{% if r.f.referente %} <span class="small text-body-secondary">{{ r.f.referente }}</span>{% endif %}</td></tr>
-  {% empty %}<tr><td colspan="5" class="text-body-secondary small">Nessuna fattura abbinata.</td></tr>{% endfor %}</tbody>
+    <tr data-href="{{ link }}"><td><a href="{{ link }}">{{ r.f.numero }}</a> <span class="small text-body-secondary">del {{ r.f.data|date:"d/m/Y" }}</span>{% if r.f.fuori_registro %} <span class="stato stato-grigio">fuori registro</span>{% endif %}</td><td class="text-end">{{ r.f.importo_documento|euro }}</td><td class="text-end">{{ r.f.valore_base|euro }}</td><td class="small">{% if r.f.competenza_dal %}{{ r.f.competenza_dal|date:"d/m/Y" }} – {{ r.f.competenza_al|date:"d/m/Y" }}{% else %}—{% endif %}</td><td class="small">{{ r.f.rata|default:"—" }}</td><td>{{ r.passo|passo_badge }}{% if r.f.referente %} <span class="small text-body-secondary">{{ r.f.referente }}</span>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="6" class="text-body-secondary small">Nessuna fattura abbinata.</td></tr>{% endfor %}</tbody>
 </table></div></div>
+
+<h2 class="h6 text-uppercase text-body-secondary">Stanziamenti</h2>
+<p class="small text-body-secondary">Costi di competenza per cui il fornitore non ha ancora fatturato: contano nel budget a competenza finché non arriva la fattura.</p>
+<div class="tabella-card mb-3"><div class="table-responsive"><table class="table table-sm align-middle">
+  <thead><tr><th>Voce</th><th>Competenza</th><th class="text-end">Importo</th><th>Rata</th><th>Stato</th>{% if puo_modificare %}<th></th>{% endif %}</tr></thead>
+  <tbody>{% for s in stanziamenti %}<tr><td>{{ s.voce.descrizione }}</td><td>{{ s.competenza_dal|date:"d/m/Y" }} – {{ s.competenza_al|date:"d/m/Y" }}</td><td class="text-end">{{ s.importo|euro }}</td><td class="small">{{ s.rata|default:"—" }}</td><td>{% if s.fattura %}<span class="stato stato-verde">chiuso dalla fattura <a href="{% url 'contratti:fattura' s.fattura.pk %}">{{ s.fattura.numero }}</a></span>{% elif s.chiuso %}<span class="stato stato-verde">fattura abbinata alla rata</span>{% else %}<span class="stato stato-giallo">stanziato</span>{% endif %}</td>
+    {% if puo_modificare %}<td class="text-nowrap">{% if not s.chiuso %}<form method="post" action="{% url 'contratti:stanziamento_azione' s.pk %}" class="d-inline-flex gap-1">{% csrf_token %}<select name="fattura" class="form-select form-select-sm" aria-label="Fattura che chiude lo stanziamento">{% for f in form_chiudi_stanziamento.fields.fattura.queryset %}<option value="{{ f.pk }}">{{ f.numero }} del {{ f.data|date:"d/m/Y" }}</option>{% endfor %}</select><button class="btn btn-sm btn-outline-primary" type="submit">Chiudi</button></form> {% endif %}<form method="post" action="{% url 'contratti:stanziamento_azione' s.pk %}" class="d-inline" data-conferma="Lo stanziamento esce dal budget." data-conferma-etichetta="Annulla lo stanziamento">{% csrf_token %}<button class="btn btn-sm btn-outline-danger" type="submit" name="annulla" value="1">Annulla</button></form></td>{% endif %}</tr>
+  {% empty %}<tr><td colspan="6" class="text-body-secondary small">Nessuno stanziamento.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% if proposte_stanziamento %}
+<div class="alert alert-warning small"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Rate scadute senza fattura: sono proposte allo stanziamento (nel budget contano già come previsione). {% if puo_modificare %}Conferma per registrarle come stanziamenti.{% endif %}
+  <ul class="mb-2 mt-1">{% for p in proposte_stanziamento %}<li>{{ p.voce.descrizione }}, rata {{ p.rata.numero }}: {{ p.importo|euro }}, competenza {{ p.dal|date:"d/m/Y" }} – {{ p.al|date:"d/m/Y" }} (fattura prevista il {{ p.rata.data_fattura|date:"d/m/Y" }}, {{ p.giorni_ritardo }} giorni fa)</li>{% endfor %}</ul>
+  {% if puo_modificare %}<form method="post" action="{% url 'contratti:stanziamenti_conferma' %}">{% csrf_token %}<input type="hidden" name="next" value="/contratti/{{ c.pk }}/#esecuzione">{% for p in proposte_stanziamento %}<input type="hidden" name="rata" value="{{ p.rata.pk }}">{% endfor %}<button class="btn btn-sm btn-outline-primary" type="submit">Stanzia {% if proposte_stanziamento|length > 1 %}le {{ proposte_stanziamento|length }} rate{% else %}la rata{% endif %}</button></form>{% endif %}</div>
+{% endif %}
+{% if puo_modificare and not c.data_chiusura %}
+<details class="mb-4"><summary class="small">Registra uno stanziamento</summary>
+<form method="post" action="{% url 'contratti:contratto_stanziamento' c.pk %}" class="mt-2" novalidate>
+  {% csrf_token %}
+  {% include "contratti/_campi.html" with form=form_stanziamento %}
+  <button class="btn btn-primary" type="submit">Stanzia</button>
+</form></details>
+{% endif %}
 
 <h2 class="h6 text-uppercase text-body-secondary">Documenti di esecuzione</h2>
 <div class="tabella-card mb-3"><div class="table-responsive"><table class="table table-sm align-middle">

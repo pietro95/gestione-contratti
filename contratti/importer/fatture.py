@@ -27,6 +27,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from contratti import models as m
+from contratti.engine.date import mese_precedente
 from contratti.importer import normalizza
 from contratti.importer.report import Report
 from contratti.importer.tabelle import FileNonValido
@@ -217,6 +218,8 @@ def _importa(report, foglio, righe, inizio, col, oggi) -> None:
             importo_documento=importo,
             data_registrazione=oggi,
         )
+        # Rev22: l'estrazione non porta la competenza; di default è il mese prima della data.
+        fattura.competenza_dal, fattura.competenza_al = mese_precedente(data)
         fattura._change_reason = "Import settimanale delle fatture"
         fattura.save()
         create.append(fattura)

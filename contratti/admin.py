@@ -493,6 +493,16 @@ class FatturaAdmin(ArchiviabileAdmin):
     date_hierarchy = "data"
 
 
+@admin.register(m.Stanziamento)
+class StanziamentoAdmin(ArchiviabileAdmin):
+    list_display = (
+        "voce", "competenza_dal", "competenza_al", "importo", "rata", "fattura", "archiviato",
+    )  # fmt: skip
+    list_filter = ("archiviato",)
+    search_fields = ("voce__contratto__numero_contratto", "voce__descrizione")
+    raw_id_fields = ("voce", "rata", "fattura")
+
+
 @admin.register(m.DocumentoEsecuzione)
 class DocumentoEsecuzioneAdmin(ArchiviabileAdmin):
     list_display = ("tipo", "numero", "data", "contratto", "fattura", "finale", "archiviato")

@@ -18,6 +18,7 @@ from tests.connettore.conftest import chiama
 from . import factories as f
 
 D = Decimal
+COMPETENZA = (datetime.date(2026, 1, 1), datetime.date(2026, 12, 31))
 ALIQUOTE = [D("22"), D("10"), D("5"), D("4")]
 
 
@@ -84,20 +85,22 @@ def test_aliquote_iniziali(db):
 
 
 def test_iva_riconosciuta_al_salvataggio(fattura):
-    fatture.aggiorna_importi(fattura, D("1000.00"), None, None)
+    fatture.aggiorna_importi(fattura, D("1000.00"), None, None, competenza=COMPETENZA)
     x = _ricarica(fattura)
     assert x.iva == D("220.00") and fatture.anomalie(x) == []
     # Senza IVA riconoscibile l'avviso resta; un'IVA indicata a mano vale.
-    fatture.aggiorna_importi(x, D("900.00"), None, None)
+    fatture.aggiorna_importi(x, D("900.00"), None, None, competenza=COMPETENZA)
     assert "IMPORTO_NON_QUADRA" in fatture.anomalie(_ricarica(fattura))
-    fatture.aggiorna_importi(_ricarica(fattura), D("900.00"), None, None, iva=D("320.00"))
+    fatture.aggiorna_importi(
+        _ricarica(fattura), D("900.00"), None, None, iva=D("320.00"), competenza=COMPETENZA
+    )
     assert fatture.anomalie(_ricarica(fattura)) == []
 
 
 def test_fatturato_sul_valore_base(fattura):
     from contratti import acquisti
 
-    fatture.scorpora_iva(fattura, D("22"), None, None)
+    fatture.scorpora_iva(fattura, D("22"), None, None, competenza=COMPETENZA)
     esecuzione = acquisti.riepilogo_esecuzione(fattura.contratto).esecuzione
     assert esecuzione.fatturato == D("1000.00")  # l'IVA non è fatturato del contratto
 
@@ -118,7 +121,8 @@ def test_pulsante_scorpora_e_reader(client, make_user, fattura):
     pagina = client.get(reverse("contratti:fattura", args=[fattura.pk])).content.decode()
     assert "Scorpora IVA 22%" in pagina and "Scorpora IVA 4%" in pagina
     client.post(url, {"scorporo": "22", "valore_base": "", "oneri": "", "bollo": "",
-                      "iva": ""})  # fmt: skip
+                      "iva": "", "competenza_dal": "01/01/2026",
+                      "competenza_al": "31/12/2026"})  # fmt: skip
     x = _ricarica(fattura)
     assert (x.valore_base, x.iva) == (D("1000.00"), D("220.00"))
 
@@ -127,7 +131,16 @@ def test_dal_connettore(make_user, fattura):
     editor = make_user("redattore", role=EDITOR)
     ctx = Contesto(editor, datetime.date(2026, 10, 12), scrittura=True, client_id="prova")
     risposta, _ = protocollo.gestisci(
-        chiama("importi_fattura", {"id": fattura.pk, "scorpora_iva": "22"}), ctx
+        chiama(
+            "importi_fattura",
+            {
+                "id": fattura.pk,
+                "scorpora_iva": "22",
+                "competenza_dal": "2026-01-01",
+                "competenza_al": "2026-12-31",
+            },
+        ),
+        ctx,
     )
     anteprima = risposta["result"]["structuredContent"]
     dopo = anteprima["effetti"]["processo_acquisto"]["dopo"]["fatture"][0]

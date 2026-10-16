@@ -18,18 +18,27 @@ from contratti.engine.importi import ZERO
 from contratti.engine.tipi import Esito, Livello, Voce
 from contratti.selettori import codici_cluster
 
-# Il fatturato (rate per data fattura) è il budget di riferimento: prima colonna.
-# "impegno" resta il nome interno della vista (SPEC §5.2, TEST_CASES); in pagina è "Ordinato".
-VISTE = ("cassa", "impegno", "competenza")
+# Rev21: il budget di riferimento è il consuntivo a competenza (fatture registrate e
+# stanziamenti per periodo di competenza, rate previste dove manca il consuntivo): prima
+# colonna. "impegno" resta il nome interno della vista (SPEC §5.2, TEST_CASES); in pagina è
+# "Ordinato". La cassa (rate per data fattura) resta come confronto.
+VISTE = ("consuntivo", "cassa", "impegno", "competenza")
 ETICHETTE_VISTE = {
+    "consuntivo": "Fatturato e stanziato (competenza)",
     "cassa": "Fatturato (data fattura)",
     "impegno": "Ordinato (contratti emessi)",
-    "competenza": "Competenza (pro-rata a giorni)",
+    "competenza": "Competenza del contratto (pro-rata a giorni)",
 }
-# Vista con cui si confronta il budget assegnato al sottocluster (SPEC Rev22, §5.2).
-VISTA_ASSEGNATO = "competenza"
+# Vista con cui si confronta il budget assegnato al sottocluster: il riferimento del budget
+# (SPEC Rev23, §5.2).
+VISTA_ASSEGNATO = "consuntivo"
 # Nomi brevi per le intestazioni delle colonne dell'export.
-SIGLE_VISTE = {"cassa": "fatturato", "impegno": "ordinato", "competenza": "competenza"}
+SIGLE_VISTE = {
+    "consuntivo": "fatt+stanz competenza",
+    "cassa": "fatturato data fattura",
+    "impegno": "ordinato",
+    "competenza": "competenza contratto",
+}
 NATURE = tuple(m.Natura.values)
 LIVELLI = tuple(Livello)
 PARTI = ("consolidato", "previsionale", "totale")

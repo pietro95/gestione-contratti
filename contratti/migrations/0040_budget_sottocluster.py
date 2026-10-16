@@ -8,7 +8,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("contratti", "0035_extra_budget"),
+        ("contratti", "0039_parametro_stanziamento"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

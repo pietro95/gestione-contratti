@@ -46,6 +46,10 @@ def dati(db):
     v = f.voce(c, importo_fisso=Decimal("10000.00"))
     p = f.piano(v, modalita="anticipata", periodicita="annuale")
     rata = f.rata(p, data_fattura=D(2026, 1, 1), data_pagamento_stimata=D(2026, 3, 31))
+    m.Stanziamento.objects.create(
+        voce=v, importo=Decimal("100.00"),
+        competenza_dal=D(2026, 2, 1), competenza_al=D(2026, 2, 28),
+    )  # fmt: skip
     altro = f.contratto(fabbisogno=f.fabbisogno("Altro"), numero_contratto="5800000002")
     rag = m.PropostaRaggruppamento.objects.create(motivazione="prova", chiave="k")
     rag.contratti.set([c, altro])

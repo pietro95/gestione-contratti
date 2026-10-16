@@ -37,7 +37,8 @@ def _celle(totali, livello) -> list:
 def _assegnato(b, livello) -> dict | None:
     """Box del budget assegnato al sottocluster filtrato (natura della sezione).
 
-    Il residuo è l'assegnato meno il totale della vista Competenza al livello scelto.
+    Il residuo è l'assegnato meno il totale della vista di riferimento (Fatturato e stanziato)
+    al livello scelto.
     Il box non compare se il sottocluster è di un cluster fuori dalla visibilità.
     """
     f = b.filtri

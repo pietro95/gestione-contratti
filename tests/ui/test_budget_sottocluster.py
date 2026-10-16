@@ -65,9 +65,9 @@ def test_box_assegnato_e_residuo(reader, sotto):
     a = sezione["assegnato"]
     assert a["importo"] == Decimal("12000.00")
     assert a["residuo"] == a["importo"] - a["speso"]
-    # Il confronto è con la competenza (pro-rata a giorni): un contratto annuale da 10.000,00 €
-    # con quota fissa e fatturazione anticipata.
-    assert a["vista"] == "Competenza (pro-rata a giorni)"
+    # Il confronto è con il riferimento del budget (Rev21): un contratto annuale da 10.000,00 €
+    # con rata a inizio anno e nessuna fattura, quindi vale la previsione della rata.
+    assert a["vista"] == "Fatturato e stanziato (competenza)"
     assert a["speso"] == Decimal("10000.00")
     assert a["residuo"] == Decimal("2000.00")
     html = risposta.content.decode()

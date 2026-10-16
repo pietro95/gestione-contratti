@@ -97,6 +97,9 @@ def dati():
     m.DocumentoEsecuzione.objects.create(
         contratto=c, tipo="MAP", data=D(2026, 3, 5), fattura=fattura
     )
+    m.Stanziamento.objects.create(
+        voce=v, importo=Decimal("50"), competenza_dal=D(2026, 4, 1), competenza_al=D(2026, 4, 30)
+    )
     return {"contratto": c, "voce": v, "piano": p, "proroga": proroga}
 
 
@@ -105,7 +108,8 @@ def test_tutti_i_modelli_registrati():
         "procedura", "soglia", "parametro", "categoria", "impianto", "wbs", "cluster", "contocoge",
         "fornitore", "fabbisogno", "contratto", "proroga", "vocecontratto",
         "pianofatturazione", "rata", "statopratica", "richiestaacquisto", "fattura",
-        "documentoesecuzione", "richiedentesap", "gruppoacquisti", "gruppomerci", "funzioneutente",
+        "documentoesecuzione", "stanziamento", "richiedentesap", "gruppoacquisti", "gruppomerci",
+        "funzioneutente",
     }  # fmt: skip
     assert attesi <= {model._meta.model_name for model in MODELLI}
 

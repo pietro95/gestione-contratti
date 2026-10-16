@@ -14,5 +14,6 @@ urlpatterns = [
     path("acquisti/", views_acquisti.cruscotto_acquisti, name="cruscotto_acquisti"),
     path("rda/", views_acquisti.stato_rda, name="stato_rda"),
     path("da-chiudere/", views_acquisti.contratti_da_chiudere, name="contratti_da_chiudere"),
+    path("stanziamenti/", views_acquisti.stanziamenti, name="stanziamenti"),
     path("anomalie/", views_acquisti.anomalie_esecuzione, name="anomalie_esecuzione"),
 ]

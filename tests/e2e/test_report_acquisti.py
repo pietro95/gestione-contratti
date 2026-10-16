@@ -34,6 +34,7 @@ def test_viste_del_processo_d_acquisto(pagina):
     m.Fattura.objects.create(
         contratto=c, numero="FA-1", data=D(2025, 1, 20), importo_documento=Decimal("200.00"),
         valore_base=Decimal("200.00"), referente=editor, data_presa_in_carico=D(2025, 1, 21),
+        competenza_dal=D(2025, 1, 1), competenza_al=D(2025, 1, 31),
     )  # fmt: skip
 
     pagina.goto(f"{pagina.base}/report/acquisti/")
