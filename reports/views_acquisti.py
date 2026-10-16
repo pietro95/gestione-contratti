@@ -5,7 +5,9 @@ e PDF con i filtri in evidenza."""
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
+from contratti import models as m
 from contratti import permessi
+from contratti import stanziamenti as servizi_stanziamenti
 from contratti.engine import acquisti as motore
 from contratti.views import oggi_richiesta
 from reports import acquisti, pdf, xlsx
@@ -110,6 +112,39 @@ def contratti_da_chiudere(request):
             "Contratti da chiudere", f"{nome}.pdf",
         )  # fmt: skip
     return render(request, "reports/contratti_da_chiudere.html", contesto)
+
+
+@login_required
+def stanziamenti(request):
+    """Stanziamenti proposti (rate scadute senza fattura) e registrati attivi (SPEC Rev22)."""
+    oggi = oggi_richiesta(request)
+    form = FiltriClusterForm(request.GET, utente=request.user)
+    contesto = {"form": form, "oggi": oggi}
+    if not form.is_valid():
+        return render(request, "reports/stanziamenti.html", contesto)
+    codici = form.codici_cluster()
+    registrati = m.Stanziamento.objects.filter(
+        archiviato=False, fattura__isnull=True, voce__contratto__archiviato=False
+    )
+    if codici:
+        registrati = registrati.filter(voce__contratto__fabbisogno__cluster__codice__in=codici)
+    registrati = [
+        s
+        for s in registrati.select_related(
+            "voce__contratto__fabbisogno", "voce__contratto__fornitore", "rata"
+        ).order_by("competenza_dal", "pk")
+        if not s.chiuso
+    ]
+    proposte = servizi_stanziamenti.proposte(oggi, codici)
+    contesto |= {
+        "proposte": proposte,
+        "registrati": registrati,
+        "totale_proposto": sum((p.importo for p in proposte), acquisti.ZERO),
+        "totale_registrato": sum((s.importo for s in registrati), acquisti.ZERO),
+        "tolleranza": servizi_stanziamenti.tolleranza(oggi),
+        "puo_modificare": permessi.cluster_modificabili(request.user) != frozenset(),
+    }
+    return render(request, "reports/stanziamenti.html", contesto)
 
 
 @login_required

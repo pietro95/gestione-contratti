@@ -152,7 +152,13 @@ def f1():
 
 def _fattura(c, numero, data, valore):
     return m.Fattura.objects.create(
-        contratto=c, numero=numero, data=data, importo_documento=valore, valore_base=valore
+        contratto=c,
+        numero=numero,
+        data=data,
+        importo_documento=valore,
+        valore_base=valore,
+        competenza_dal=data,
+        competenza_al=data,
     )
 
 
@@ -197,6 +203,8 @@ def test_anomalie_esecuzione(f1):
         importo_documento=Decimal("100.00"),
         valore_base=Decimal("90.00"),
         bollo=Decimal("2.00"),
+        competenza_dal=D(2026, 3, 21),
+        competenza_al=D(2026, 3, 21),
     )  # fmt: skip non quadra
     righe = acquisti.anomalie_esecuzione((), D(2026, 4, 1))
     assert len(righe) == 1
@@ -207,7 +215,9 @@ def test_anomalie_esecuzione(f1):
     assert acquisti.conteggi_anomalie(righe) == {
         "FATTURATO_OLTRE_MASSIMO": 1, "IMPORTO_NON_QUADRA": 1, "VALORE_BASE_MANCANTE": 1,
     }  # fmt: skip
-    fatture.aggiorna_importi(fa, Decimal("100.00"), None, None)
+    fatture.aggiorna_importi(
+        fa, Decimal("100.00"), None, None, competenza=(D(2026, 3, 20), D(2026, 3, 20))
+    )
     assert acquisti.conteggi_anomalie(acquisti.anomalie_esecuzione((), D(2026, 4, 1))) == {
         "FATTURATO_OLTRE_MASSIMO": 1, "IMPORTO_NON_QUADRA": 1,
     }  # fmt: skip

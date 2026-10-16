@@ -9,7 +9,7 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 
-from accounts.roles import EDITOR
+from accounts.roles import EDITOR, READER
 from contratti import fatture
 from contratti import models as m
 from contratti.engine.acquisti import PassoFattura
@@ -65,6 +65,7 @@ def _viste_di_modifica(fa, c):
         ("post", reverse("contratti:fattura_fuori_registro", args=[fa.pk])),
         ("post", reverse("contratti:contratto_documento", args=[c.pk])),
         ("post", reverse("contratti:contratto_chiudi", args=[c.pk])),
+        ("post", reverse("contratti:contratto_stanziamento", args=[c.pk])),
     ]
 
 
@@ -171,6 +172,8 @@ def test_lavorazione_completa(scenario):
             "oneri": "173,66",
             "bollo": "2,00",
             "voce": scenario["voce"].pk,
+            "competenza_dal": "01/01/2026",
+            "competenza_al": "31/12/2026",
         },
     )
     for tipo, numero in (("ODA_RDC", "RDC-0001"), ("MAP", "MAP-0001")):
@@ -321,3 +324,64 @@ def test_fattura_bloccata_non_e_da_convalidare(scenario, editor):
     fa.bloccata_fino_al = OGGI - datetime.timedelta(days=1)
     fa.save()
     assert fatture.passo_fattura(fa, OGGI) == PassoFattura.RDC
+
+
+def test_competenza_obbligatoria_con_il_valore_base(editor, scenario):
+    fa = scenario["fattura"]
+    editor.post(reverse("contratti:fattura_prendi", args=[fa.pk]))
+    url = reverse("contratti:fattura_importi", args=[fa.pk])
+    base = {"valore_base": "1.000,00", "oneri": "", "bollo": "", "iva": ""}
+    editor.post(url, base)
+    fa.refresh_from_db()
+    assert fa.valore_base is None  # senza competenza non si salva
+    editor.post(url, {**base, "competenza_dal": "01/06/2026", "competenza_al": "01/05/2026"})
+    fa.refresh_from_db()
+    assert fa.valore_base is None  # fine prima dell'inizio
+    editor.post(url, {**base, "competenza_dal": "01/06/2026", "competenza_al": "31/05/2027"})
+    fa.refresh_from_db()
+    assert (fa.valore_base, fa.competenza_dal, fa.competenza_al) == (
+        Decimal("1000.00"), D(2026, 6, 1), D(2027, 5, 31),
+    )  # fmt: skip
+    assert "COMPETENZA_MANCANTE" not in fatture.anomalie(fa)
+
+
+def test_stanziamento_dal_contratto(editor, scenario, make_user):
+    c, voce = scenario["contratto"], scenario["voce"]
+    make_user("lettore", role=READER)
+    reader = Client()
+    reader.login(username="lettore", password=PASSWORD)
+    dati = {
+        "voce": voce.pk, "importo": "1.500,00",
+        "competenza_dal": "01/09/2026", "competenza_al": "30/09/2026", "note": "non fatturato",
+    }  # fmt: skip
+    assert (
+        reader.post(reverse("contratti:contratto_stanziamento", args=[c.pk]), dati).status_code
+        == 403
+    )
+    editor.post(reverse("contratti:contratto_stanziamento", args=[c.pk]), dati)
+    s = m.Stanziamento.objects.get()
+    assert (s.importo, s.competenza_dal, s.competenza_al) == (
+        Decimal("1500.00"), D(2026, 9, 1), D(2026, 9, 30),
+    )  # fmt: skip
+    pagina = editor.get(reverse("contratti:contratto", args=[c.pk])).content.decode()
+    assert "Stanziamenti" in pagina and "1.500,00" in pagina
+    # La fine prima dell'inizio non si registra.
+    editor.post(
+        reverse("contratti:contratto_stanziamento", args=[c.pk]),
+        {**dati, "competenza_dal": "30/09/2026", "competenza_al": "01/09/2026"},
+    )
+    assert m.Stanziamento.objects.count() == 1
+    # Il Reader non chiude né annulla; l'Editor chiude con la fattura arrivata.
+    azione = reverse("contratti:stanziamento_azione", args=[s.pk])
+    assert reader.post(azione, {"annulla": "1"}).status_code == 403
+    editor.post(azione, {"fattura": scenario["fattura"].pk})
+    s.refresh_from_db()
+    assert s.fattura_id is None  # la fattura non è ancora del contratto
+    scenario["fattura"].contratto = c
+    scenario["fattura"].save()
+    editor.post(azione, {"fattura": scenario["fattura"].pk})
+    s.refresh_from_db()
+    assert s.fattura_id == scenario["fattura"].pk and s.chiuso
+    editor.post(azione, {"annulla": "1"})
+    s.refresh_from_db()
+    assert s.archiviato

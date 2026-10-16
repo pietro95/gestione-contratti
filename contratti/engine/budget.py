@@ -1,8 +1,11 @@
-"""Tre viste di budget per anno, con i livelli fisso / probabile / massimo (SPEC §5.2).
+"""Viste di budget per anno, con i livelli fisso / probabile / massimo (SPEC §5.2).
 
 - Impegno: intero valore della voce nel suo anno di impegno.
 - Cassa: rate per data fattura (la data di pagamento non entra nel budget).
 - Competenza: pro-rata a giorni sul periodo di servizio, indipendente dalla fatturazione.
+- Consuntivo a competenza (Rev21): fatture registrate e stanziamenti al posto delle rate,
+  imputati a giorni al periodo di competenza; le rate senza fattura né stanziamento restano
+  la previsione.
 
 Ogni ripartizione quadra al centesimo con il valore ripartito.
 """
@@ -13,7 +16,7 @@ from decimal import Decimal
 from contratti.engine.date import giorni, periodi_per_anno
 from contratti.engine.importi import ZERO, arrotonda, ripartisci
 from contratti.engine.scadenzario import genera_rate, quote_valide
-from contratti.engine.tipi import Esito, Livello, Rata, Totali, Voce
+from contratti.engine.tipi import Consuntivo, Esito, Livello, Rata, Totali, Voce
 
 
 def quota_variabile(voce: Voce, livello: Livello) -> Decimal:
@@ -107,9 +110,84 @@ def cassa_per_anno(voce: Voce, livello: Livello, esiti: list[Esito]) -> dict[int
     return risultato
 
 
+def _a_competenza(importo: Decimal, inizio, fine) -> dict[int, Decimal]:
+    """Importo ripartito a giorni sugli anni del periodo; residuo sull'ultimo anno."""
+    return competenza_per_anno(
+        Voce(importo_fisso=importo, inizio=inizio, fine=fine, anno_impegno=0), importo
+    )
+
+
+def _aggiungi(risultato: dict[int, Decimal], parte: dict[int, Decimal]) -> None:
+    for anno, importo in parte.items():
+        risultato[anno] = risultato.get(anno, ZERO) + importo
+
+
+def _segnala_consuntivo(c: Consuntivo, esiti: list[Esito]) -> None:
+    if c.senza_competenza:
+        esiti.append(
+            Esito(
+                "COMPETENZA_FATTURA_MANCANTE",
+                "Fattura senza periodo di competenza: imputata all'anno della data fattura.",
+            )
+        )
+    if c.senza_voce:
+        esiti.append(
+            Esito(
+                "FATTURA_SENZA_VOCE",
+                "Fattura del contratto senza voce indicata: attribuita alla voce principale.",
+            )
+        )
+
+
+def consuntivo_per_anno(voce: Voce, livello: Livello, esiti: list[Esito]) -> dict[int, Decimal]:
+    """Consuntivo a competenza della voce (Rev21).
+
+    Per ogni rata: la fattura registrata (valore base) o lo stanziamento che la sostituisce,
+    imputati a giorni sul loro periodo di competenza; altrimenti la previsione della rata,
+    sul periodo della rata se noto, altrimenti nell'anno della data fattura. Si sommano le
+    fatture e gli stanziamenti non abbinati a una rata. La quota variabile segue il
+    pro-rata a giorni della voce, come la competenza.
+    """
+    rate = rate_della_voce(voce)
+    risultato: dict[int, Decimal] = {}
+    if not rate:
+        # Stesso caso della cassa (CASSA_PRO_RATA): un solo avviso.
+        _aggiungi(risultato, competenza_fisso(voce, []))
+    for rata in rate:
+        c = rata.consuntivo
+        if c is not None:
+            _segnala_consuntivo(c, esiti)
+            _aggiungi(risultato, _a_competenza(c.importo, c.inizio, c.fine))
+        elif rata.periodo_inizio and rata.periodo_fine:
+            _aggiungi(
+                risultato, _a_competenza(rata.importo, rata.periodo_inizio, rata.periodo_fine)
+            )
+        else:
+            anno = rata.data_fattura.year
+            risultato[anno] = risultato.get(anno, ZERO) + rata.importo
+    for c in voce.consuntivi:
+        _segnala_consuntivo(c, esiti)
+        _aggiungi(risultato, _a_competenza(c.importo, c.inizio, c.fine))
+    if voce.consuntivi and rate:
+        esiti.append(
+            Esito(
+                "CONSUNTIVO_NON_ABBINATO",
+                "Fatture o stanziamenti non abbinati a una rata si sommano alle rate previste: "
+                "abbinali alla rata per evitare il doppio conteggio.",
+            )
+        )
+    _aggiungi(risultato, competenza_per_anno(voce, quota_variabile(voce, livello)))
+    return risultato
+
+
 def calcola(voci: Iterable[Voce]) -> tuple[dict[str, Totali], list[Esito]]:
-    """Impegno, cassa e competenza per anno e livello, sommati su tutte le voci."""
-    viste = {"impegno": Totali(), "cassa": Totali(), "competenza": Totali()}
+    """Consuntivo, impegno, cassa e competenza per anno e livello, sommati su tutte le voci."""
+    viste = {
+        "consuntivo": Totali(),
+        "impegno": Totali(),
+        "cassa": Totali(),
+        "competenza": Totali(),
+    }
     esiti: list[Esito] = []
     for voce in voci:
         for livello in Livello:
@@ -117,6 +195,8 @@ def calcola(voci: Iterable[Voce]) -> tuple[dict[str, Totali], list[Esito]]:
             viste["impegno"].aggiungi(voce.anno_impegno, livello, importo_livello)
             for anno, importo in cassa_per_anno(voce, livello, esiti).items():
                 viste["cassa"].aggiungi(anno, livello, importo)
+            for anno, importo in consuntivo_per_anno(voce, livello, esiti).items():
+                viste["consuntivo"].aggiungi(anno, livello, importo)
             fisso = competenza_fisso(voce, esiti)
             var = competenza_per_anno(voce, quota_variabile(voce, livello))
             for anno in sorted(set(fisso) | set(var)):

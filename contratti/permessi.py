@@ -75,7 +75,7 @@ def verifica(user, *cluster_ids) -> None:
 
 
 def cluster_del(oggetto) -> int:
-    """Cluster di un fabbisogno, contratto, voce, rata o proroga."""
+    """Cluster di un fabbisogno, contratto, voce, rata, stanziamento o proroga."""
     if isinstance(oggetto, m.Fabbisogno):
         return oggetto.cluster_id
     if isinstance(oggetto, m.Contratto):
@@ -84,6 +84,8 @@ def cluster_del(oggetto) -> int:
         return oggetto.contratto.fabbisogno.cluster_id
     if isinstance(oggetto, m.Rata):
         return oggetto.piano.voce.contratto.fabbisogno.cluster_id
+    if isinstance(oggetto, m.Stanziamento):
+        return oggetto.voce.contratto.fabbisogno.cluster_id
     raise TypeError(f"Oggetto senza cluster: {type(oggetto).__name__}")
 
 

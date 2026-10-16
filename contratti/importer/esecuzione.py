@@ -22,6 +22,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from contratti import models as m
+from contratti.engine.date import mese_precedente
 from contratti.importer import normalizza, tabelle
 from contratti.importer.report import Report
 from contratti.importer.riepilogo import data as leggi_data
@@ -363,6 +364,7 @@ class Importatore:
                 data_trasferimento=leggi_data(r.get("trasferita_il")),
                 data_registrazione=self.oggi,
             )
+            fattura.competenza_dal, fattura.competenza_al = mese_precedente(d)
             if contratto is not None:
                 voci = list(contratto.voci.filter(archiviato=False))
                 fattura.voce = voci[0] if len(voci) == 1 else None

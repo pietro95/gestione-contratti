@@ -99,6 +99,9 @@ def test_flusso_della_fattura(pagina, tmp_path):
     pagina.fill("#id_valore_base", "1.504,17")
     pagina.fill("#id_oneri", "173,66")
     pagina.fill("#id_bollo", "2,00")
+    pagina.fill("#id_competenza_dal", "01/01/2026")
+    pagina.fill("#id_competenza_al", "31/12/2026")
+    pagina.keyboard.press("Escape")
     pagina.click("button:has-text('Salva gli importi')")
     for tipo, numero in (("ODA_RDC", "RDC-0001"), ("MAP", "MAP-0001")):
         pagina.select_option("#id_tipo", tipo)

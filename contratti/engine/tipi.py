@@ -50,6 +50,29 @@ class Piano:
     pagamento_fine_mese: bool = True
 
 
+class TipoConsuntivo(StrEnum):
+    FATTURA = "fattura"
+    STANZIAMENTO = "stanziamento"
+
+
+@dataclass(frozen=True)
+class Consuntivo:
+    """Costo già maturato di una voce, con il suo periodo di competenza (SPEC §5.2, Rev21).
+
+    Una fattura registrata (valore base) o uno stanziamento (fattura non ancora arrivata).
+    ``senza_competenza``: il periodo non è stato indicato e l'adapter ha messo la data della
+    fattura come periodo di un giorno; ``senza_voce``: l'adapter l'ha attribuita alla voce
+    principale perché il contratto ne ha più d'una.
+    """
+
+    tipo: TipoConsuntivo
+    importo: Decimal
+    inizio: datetime.date
+    fine: datetime.date
+    senza_competenza: bool = False
+    senza_voce: bool = False
+
+
 @dataclass(frozen=True)
 class Rata:
     numero: int
@@ -59,6 +82,8 @@ class Rata:
     # Periodo coperto dalla rata, se noto (le rate inserite a mano possono non averlo).
     periodo_inizio: datetime.date | None = None
     periodo_fine: datetime.date | None = None
+    # Fattura o stanziamento che prende il posto della rata nel consuntivo a competenza.
+    consuntivo: Consuntivo | None = None
 
 
 @dataclass(frozen=True)
@@ -86,6 +111,8 @@ class Voce:
     rate: tuple[Rata, ...] | None = None
     # Quote per periodo, facoltative: contigue, a copertura del servizio, somma = fisso.
     quote: tuple[Quota, ...] = ()
+    # Fatture e stanziamenti della voce non abbinati a una rata (Rev21).
+    consuntivi: tuple[Consuntivo, ...] = ()
     riferimento: object = None
 
 

@@ -171,7 +171,13 @@ def test_fatture_tc18(registro, tmp_path, lettore):  # noqa: F811
         "convalida", "rossi", "1679.83",
     )  # fmt: skip
     fatture.convalida(f13, "convalidabile", data=OGGI)
-    fatture.aggiorna_importi(f13, Decimal("1504.17"), Decimal("173.66"), Decimal("2.00"))
+    fatture.aggiorna_importi(
+        f13,
+        Decimal("1504.17"),
+        Decimal("173.66"),
+        Decimal("2.00"),
+        competenza=(datetime.date(2026, 1, 1), datetime.date(2026, 12, 31)),
+    )
     for tipo, numero in (("ODA_RDC", "RDC-0001"), ("MAP", "MAP-0001")):
         fatture.registra_documento(fatture.QS_FATTURE.get(pk=f13.pk), tipo, numero, OGGI)
     dati = esegui(lettore, "fattura", {"id": f13.pk})
@@ -207,7 +213,13 @@ def f1():
     f.voce(c, importo_fisso=Decimal("10000.00"), massimale_variabile=Decimal("2000.00"))
     for numero, data, valore in (("FA-1", D(2026, 3, 15), 4000), ("FA-2", D(2026, 4, 20), 5000)):
         m.Fattura.objects.create(
-            contratto=c, numero=numero, data=data, importo_documento=valore, valore_base=valore
+            contratto=c,
+            numero=numero,
+            data=data,
+            importo_documento=valore,
+            valore_base=valore,
+            competenza_dal=data,
+            competenza_al=data,
         )
     return c
 
@@ -222,7 +234,7 @@ def test_esecuzione_e_viste_tc16(f1, lettore):
     assert chiudere["per_motivo"] == {"Attestazione mancante": 1}
     m.Fattura.objects.create(
         contratto=f1, numero="FA-3", data=D(2026, 5, 5), importo_documento=3500,
-        valore_base=3500,
+        valore_base=3500, competenza_dal=D(2026, 5, 5), competenza_al=D(2026, 5, 5),
     )  # fmt: skip
     anomalie = esegui(lettore, "anomalie_esecuzione", {"cluster": ["tutti"]}, D(2026, 5, 6))
     assert anomalie["conteggi"] == {"FATTURATO_OLTRE_MASSIMO": 1}

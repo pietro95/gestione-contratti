@@ -21,6 +21,7 @@ from contratti import adapters, permessi
 from contratti import models as m
 from contratti.acquisti import OperazioneNonAmmessa, _salva
 from contratti.engine import acquisti as motore
+from contratti.engine.date import mese_precedente
 
 Esito = m.Fattura.Esito
 Passo = motore.PassoFattura
@@ -106,6 +107,13 @@ def anomalie(fattura: m.Fattura) -> list[str]:
         codici.append("IMPORTO_NON_QUADRA")
     if fattura.contratto_id and fattura.valore_base is None and not fattura.fuori_registro:
         codici.append("VALORE_BASE_MANCANTE")
+    if (
+        fattura.contratto_id
+        and fattura.valore_base is not None
+        and fattura.competenza_dal is None
+        and not fattura.fuori_registro
+    ):
+        codici.append("COMPETENZA_MANCANTE")
     return codici
 
 
@@ -429,9 +437,11 @@ def aggiorna_importi(
     rata: m.Rata | None = None,
     *,
     iva: Decimal | None = None,
+    competenza: tuple[datetime.date | None, datetime.date | None] | None = None,
 ) -> None:
-    """Valore base, oneri, bollo e IVA; con il contratto anche voce e rata abbinata (la rata
-    diventa consuntivo e riceve il numero di fattura; il suo importo non cambia).
+    """Valore base, oneri, bollo e IVA (e, se indicata, la competenza: dal, al); con il
+    contratto anche voce e rata abbinata (la rata diventa consuntivo e riceve il numero di
+    fattura; il suo importo non cambia).
 
     Senza IVA indicata: se la differenza dall'importo del documento è l'IVA di un'aliquota
     della tabella (SAP riporta spesso l'importo con l'IVA), l'IVA si registra da sola."""
@@ -449,6 +459,9 @@ def aggiorna_importi(
     fattura.valore_base, fattura.oneri, fattura.bollo = valore_base, oneri, bollo
     fattura.iva = iva
     campi = ["valore_base", "oneri", "bollo", "iva"]
+    if competenza is not None:
+        fattura.competenza_dal, fattura.competenza_al = competenza
+        campi += ["competenza_dal", "competenza_al"]
     if fattura.contratto_id:
         precedente = fattura.rata if fattura.rata_id and fattura.rata_id != getattr(
             rata, "pk", None
@@ -491,6 +504,7 @@ def scorpora_iva(
     bollo: Decimal | None,
     voce: m.VoceContratto | None = None,
     rata: m.Rata | None = None,
+    competenza: tuple[datetime.date | None, datetime.date | None] | None = None,
 ) -> None:
     """Importo del documento con l'IVA: valore base e IVA dallo scorporo dell'aliquota."""
     if aliquota not in aliquote_iva():
@@ -498,20 +512,27 @@ def scorpora_iva(
     valore_base, iva = motore.scorporo_iva(fattura.importo_documento, oneri, bollo, aliquota)
     if valore_base < 0:
         raise OperazioneNonAmmessa("Oneri e bollo superano l'importo senza IVA.")
-    aggiorna_importi(fattura, valore_base, oneri, bollo, voce, rata, iva=iva)
+    aggiorna_importi(fattura, valore_base, oneri, bollo, voce, rata, iva=iva, competenza=competenza)
 
 
 @transaction.atomic
 def salva_importi(fattura: m.Fattura, dati: dict, aliquota_scorporo: Decimal | None = None):
     """Il pannello «Importi» (dati del form): importi o scorporo dell'IVA, voce e rata,
     imputazione propria della fattura."""
+    competenza = (dati.get("competenza_dal"), dati.get("competenza_al"))
+    if (aliquota_scorporo is not None or dati.get("valore_base") is not None) and not all(
+        competenza
+    ):
+        raise OperazioneNonAmmessa(
+            "Indica il periodo di competenza della fattura (dal e al): decide l'anno di budget."
+        )
     if aliquota_scorporo is not None:
         scorpora_iva(fattura, aliquota_scorporo, dati.get("oneri"), dati.get("bollo"),
-                     dati.get("voce"), dati.get("rata"))  # fmt: skip
+                     dati.get("voce"), dati.get("rata"), competenza)  # fmt: skip
     else:
         aggiorna_importi(
             fattura, dati.get("valore_base"), dati.get("oneri"), dati.get("bollo"),
-            dati.get("voce"), dati.get("rata"), iva=dati.get("iva"),
+            dati.get("voce"), dati.get("rata"), iva=dati.get("iva"), competenza=competenza,
         )  # fmt: skip
     imputa(fattura, dati.get("conto"), dati.get("centro_costo") or "", dati.get("wbs"))
 
@@ -537,6 +558,8 @@ def registra(
         importo_documento=importo_documento,
         note=note,
     )
+    # Rev22: competenza di default, il mese prima della data; la corregge il referente.
+    fattura.competenza_dal, fattura.competenza_al = mese_precedente(data)
     if contratto is not None:
         voci = [v for v in contratto.voci.all() if not v.archiviato]
         fattura.voce = voci[0] if len(voci) == 1 else None
