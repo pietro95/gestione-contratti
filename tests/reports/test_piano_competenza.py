@@ -216,7 +216,6 @@ def test_sottocluster_validato_sul_cluster(struttura):
     dati = {
         "descrizione": "Fabbisogno di prova",
         "cluster": struttura["tlc"].pk,
-        "categoria": f.categoria().pk,
         "decisione": "da_valutare",
         "sottocluster": struttura["reti"].pk,  # sottocluster di IT su un fabbisogno TLC
     }

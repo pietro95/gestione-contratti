@@ -1,5 +1,5 @@
 {% load registro %}{% with r=rn.riga %}<tr>
-      <td class="sx"><b>{{ r.fabbisogno.descrizione }}</b><div class="tenue">{{ rn.natura }} · {{ r.stato }}{% if r.a_progetto %} · WBS a progetto{% endif %} · {{ r.categoria }}{% if r.contratto %}{% if r.contratto.una_tantum %} · una tantum{% endif %}{% elif not r.contratto_uscente %} · nuovo{% endif %}{% if r.fase == 'da_concludere' %} · da concludere (fuori dai totali){% endif %}{% if r.in_ritardo %} · <b>in ritardo</b>{% endif %}{% if con_avvisi and r.sopra_soglia %} · oltre soglia{% endif %}</div></td>
+      <td class="sx"><b>{{ r.fabbisogno.descrizione }}</b><div class="tenue">{{ rn.natura }} · {{ r.stato }}{% if r.a_progetto %} · WBS a progetto{% endif %}{% if r.contratto %}{% if r.contratto.una_tantum %} · una tantum{% endif %}{% elif not r.contratto_uscente %} · nuovo{% endif %}{% if r.fase == 'da_concludere' %} · da concludere (fuori dai totali){% endif %}{% if r.in_ritardo %} · <b>in ritardo</b>{% endif %}{% if con_avvisi and r.sopra_soglia %} · oltre soglia{% endif %}</div></td>
       <td class="sx">{{ r.fornitore|default:"—" }}</td>
       <td class="sx">{{ r.procedura|default:"—" }}<div class="tenue">{{ r.lead_time_mesi }} mesi di lead time</div></td>
       <td class="num">{{ r.data_limite|date:"d/m/Y"|default:"—" }}</td>

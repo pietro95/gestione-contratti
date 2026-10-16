@@ -3,7 +3,7 @@
 python manage.py import_tabelle_sap /import/tabelle_sap.xlsx [--dry-run]
 
 Fogli «Richiedenti», «Gruppi merci», «Gruppi acquisti» (almeno uno), colonne codice,
-descrizione (o nome), predefinito e, per i gruppi merci, categoria; oppure gli elenchi SAP
+descrizione (o nome), predefinito; oppure gli elenchi SAP
 dei gruppi merci e dei codici di rilascio così come sono. Idempotente; un errore annulla
 tutto il file. La stessa operazione è disponibile dall'interfaccia (Import).
 """

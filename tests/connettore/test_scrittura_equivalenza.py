@@ -194,11 +194,16 @@ def test_modifica_fornitore(client, editor):
     )  # fmt: skip
 
 
+@pytest.fixture(autouse=True)
+def _sottocluster_it(db):
+    f.sottocluster()
+
+
 def _dati_fabbisogno(**kw):
     dati = {
         "descrizione": "Servizio nuovo di prova",
         "cluster": f.cluster("IT").pk,
-        "categoria": m.Categoria.objects.get(nome="Da classificare").pk,
+        "sottocluster": f.sottocluster().pk,
         "decisione": m.Fabbisogno.Decisione.DA_VALUTARE,
     }
     return {k: v for k, v in (dati | kw).items() if v is not None}
@@ -210,7 +215,11 @@ def test_crea_fabbisogno(client, editor):
         editor,
         lambda cl: cl.post("/fabbisogni/nuovo/", _dati_fabbisogno()),
         "crea_fabbisogno",
-        {"descrizione": "Servizio nuovo di prova", "cluster": "IT"},
+        {
+            "descrizione": "Servizio nuovo di prova",
+            "cluster": "IT",
+            "sottocluster": f.sottocluster().pk,
+        },
     )
 
 
@@ -233,6 +242,7 @@ def test_crea_fabbisogno_con_previsto_manuale(client, editor):
         {
             "descrizione": "Servizio nuovo di prova",
             "cluster": "IT",
+            "sottocluster": f.sottocluster().pk,
             "decisione": "rinnovare",
             "stima_prossimo_importo": "12000.00",
             "previsto_data_avvio": "2027-03-01",
@@ -252,7 +262,7 @@ def test_modifica_fabbisogno(client, editor, contratto):
             f"/fabbisogni/{fab.pk}/modifica/",
             _dati_fabbisogno(
                 descrizione=fab.descrizione,
-                categoria=fab.categoria_id,
+                sottocluster=fab.sottocluster_id,
                 decisione="dismettere",
                 stima_prossimo_importo="900,00",
             ),
@@ -273,7 +283,12 @@ def test_stessi_errori_del_form(editor):
         "method": "tools/call",
         "params": {
             "name": "crea_fabbisogno",
-            "arguments": {"descrizione": "X", "cluster": "IT", "previsto_data_avvio": "2027-01-01"},
+            "arguments": {
+                "descrizione": "X",
+                "cluster": "IT",
+                "sottocluster": f.sottocluster().pk,
+                "previsto_data_avvio": "2027-01-01",
+            },
         },
     }
     testo = protocollo.gestisci(messaggio, c)[0]["result"]["content"][0]["text"]

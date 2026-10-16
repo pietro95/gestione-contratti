@@ -120,8 +120,12 @@ def _pk_cluster(codice: str):
 CAMPI_FABBISOGNO = {
     "descrizione": {"type": "string", "minLength": 1, "maxLength": 250},
     "cluster": {"type": "string", "maxLength": 10, "description": "Codice del cluster."},
-    "categoria": {**SCHEMA_ID, "description": "id della categoria («riferimenti»)."},
-    "impianto": SCHEMA_ID,
+    "sottocluster": {
+        **SCHEMA_ID,
+        "description": "id del sottocluster, del cluster del fabbisogno («riferimenti»). "
+        "Obbligatorio alla creazione.",
+    },
+    "referente_utente": {**SCHEMA_ID, "description": "id dell'utente referente."},
     "decisione": {"type": "string", "enum": list(m.Fabbisogno.Decisione.values)},
     "stima_prossimo_importo": SCHEMA_IMPORTO,
     "previsto_data_avvio": SCHEMA_DATA,
@@ -140,9 +144,6 @@ def _salva_fabbisogno(ctx: Contesto, argomenti: dict) -> dict:
     if "id" in argomenti:
         istanza = trova(m.Fabbisogno.objects, argomenti["id"], "fabbisogno")
     dati = _dati(forms.FabbisognoForm, istanza, argomenti, {"cluster": _pk_cluster})
-    if istanza is None and not dati.get("categoria"):
-        da_classificare = m.Categoria.objects.filter(nome="Da classificare").first()
-        dati["categoria"] = da_classificare.pk if da_classificare else ""
     form = forms.FabbisognoForm(dati, instance=istanza, utente=ctx.utente)
     valida(form)
     return {"oggetti": [_oggetto_link(form.save())]}
@@ -299,10 +300,10 @@ STRUMENTI = [
     strumento(
         Scrittura("crea_fabbisogno", lambda a: [], _salva_fabbisogno),
         "Nuovo fabbisogno",
-        "Crea un fabbisogno (servizio ricorrente) in un cluster che puoi modificare; categoria "
-        "di default «Da classificare». Per un fabbisogno nuovo, senza contratti, si può dare il "
+        "Crea un fabbisogno (servizio ricorrente) in un cluster che puoi modificare, con il "
+        "sottocluster (obbligatorio). Per un fabbisogno nuovo, senza contratti, si può dare il "
         "previsto manuale: avvio e durata insieme, CAPEX solo con una WBS.",
-        _schema(CAMPI_FABBISOGNO, ["descrizione", "cluster"]),
+        _schema(CAMPI_FABBISOGNO, ["descrizione", "cluster", "sottocluster"]),
     ),
     strumento(
         Scrittura(

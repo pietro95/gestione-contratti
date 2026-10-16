@@ -126,8 +126,10 @@ class FiltriBudgetForm(FormBase):
 class FiltriPianoForm(FormBase):
     anno = forms.IntegerField(min_value=2000, max_value=2100)
     area = _campo_cluster()
-    categoria = forms.ModelChoiceField(
-        queryset=m.Categoria.objects.all(), required=False, empty_label="Tutte le categorie"
+    sottocluster = forms.ModelChoiceField(
+        queryset=m.Sottocluster.objects.filter(archiviato=False).select_related("cluster"),
+        required=False,
+        empty_label="Tutti i sottocluster",
     )
     natura = forms.ChoiceField(choices=[("", "OPEX e CAPEX"), *m.Natura.choices], required=False)
 
@@ -147,7 +149,9 @@ class FiltriPianoForm(FormBase):
         return [
             f"Anno {d['anno']}",
             permessi.descrivi_filtro(self.codici_cluster()),
-            f"categoria {d['categoria']}" if d.get("categoria") else "tutte le categorie",
+            f"sottocluster {d['sottocluster']}"
+            if d.get("sottocluster")
+            else "tutti i sottocluster",
             d["natura"] if d.get("natura") else "OPEX e CAPEX",
         ]
 

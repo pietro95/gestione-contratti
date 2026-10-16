@@ -106,6 +106,7 @@ def test_nuovo_contratto_e_voce_con_anteprima(editor, dati):
                 durata_mesi="24",
             ),
             "fabbisogno": dati["fabbisogno"].pk,
+            "sottocluster": f.sottocluster().pk,
         },
     )
     assert risposta.status_code == 302
@@ -257,7 +258,7 @@ def test_fabbisogno_e_fornitore_da_interfaccia(editor, dati):
         {
             "descrizione": "Firewall perimetrale",
             "cluster": m.Cluster.objects.get(codice="IT").pk,
-            "categoria": m.Categoria.objects.get(nome="Licenze software").pk,
+            "sottocluster": f.sottocluster().pk,
             "decisione": "da_valutare",
             "previsto_data_avvio": "2027-01-01",
             "previsto_durata_mesi": "",

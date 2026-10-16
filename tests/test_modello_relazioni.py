@@ -138,8 +138,6 @@ def test_storia_delle_modifiche():
         m.Procedura,
         m.Soglia,
         m.Parametro,
-        m.Categoria,
-        m.Impianto,
         m.WBS,
         m.Cluster,
         m.ContoCoge,

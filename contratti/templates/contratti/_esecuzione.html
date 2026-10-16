@@ -1,7 +1,7 @@
 {% load registro %}
 {% with e=esecuzione.esecuzione %}
 <div class="row g-3 mb-3">
-  <div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">Fatturato</div><div class="kpi-valore">{{ e.fatturato|euro }}</div><div class="kpi-nota">somma dei valori base</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">Fatturato</div><div class="kpi-valore">{{ e.fatturato|euro }}</div><div class="kpi-nota">somma dei valori base{% if pregresso %} e del pregresso{% endif %}</div></div></div></div>
   <div class="col-sm-6 col-xl-3"><div class="card kpi {% if e.residuo_fisso < 0 %}rosso{% endif %}"><div class="card-body"><div class="kpi-etichetta">Residuo sul fisso</div><div class="kpi-valore">{{ e.residuo_fisso|euro }}</div><div class="kpi-nota">sul massimo {{ e.residuo_massimo|euro }}</div></div></div></div>
   <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Avanzamento</div><div class="kpi-valore">{% if e.avanzamento_pct is not None %}{{ e.avanzamento_pct }}%{% else %}—{% endif %}</div><div class="kpi-nota">rispetto al fisso (senza fisso, al massimale)</div></div></div></div>
   <div class="col-sm-6 col-xl-3"><div class="card kpi {% if c.chiuso %}verde{% endif %}"><div class="card-body"><div class="kpi-etichetta">Chiusura</div><div class="kpi-valore fs-6">{% if c.data_chiusura %}chiuso il {{ c.data_chiusura|date:"d/m/Y" }}{% elif motivo_chiusura %}{{ motivo_chiusura }}{% else %}prestazione in corso{% endif %}</div>
@@ -18,6 +18,22 @@
     <tr data-href="{{ link }}"><td><a href="{{ link }}">{{ r.f.numero }}</a> <span class="small text-body-secondary">del {{ r.f.data|date:"d/m/Y" }}</span>{% if r.f.fuori_registro %} <span class="stato stato-grigio">fuori registro</span>{% endif %}</td><td class="text-end">{{ r.f.importo_documento|euro }}</td><td class="text-end">{{ r.f.valore_base|euro }}</td><td class="small">{{ r.f.rata|default:"—" }}</td><td>{{ r.passo|passo_badge }}{% if r.f.referente %} <span class="small text-body-secondary">{{ r.f.referente }}</span>{% endif %}</td></tr>
   {% empty %}<tr><td colspan="5" class="text-body-secondary small">Nessuna fattura abbinata.</td></tr>{% endfor %}</tbody>
 </table></div></div>
+
+<h2 class="h6 text-uppercase text-body-secondary">Fatturato pregresso</h2>
+<p class="small text-body-secondary">Totale fatturato per anno prima dell'uso del registro (imponibile). Conta nel fatturato, nel residuo e nell'avanzamento; non genera fatture né rate. Si può registrare anche su un contratto chiuso.</p>
+<div class="tabella-card mb-3"><div class="table-responsive"><table class="table table-sm align-middle">
+  <thead><tr><th>Anno</th><th class="text-end">Fatturato totale</th><th>Nota</th>{% if puo_modificare %}<th><span class="visually-hidden">Azioni</span></th>{% endif %}</tr></thead>
+  <tbody>{% for p in pregresso %}<tr><td>{{ p.anno }}</td><td class="text-end">{{ p.importo|euro }}</td><td class="small">{{ p.note|default:"—" }}</td>{% if puo_modificare %}<td class="text-end"><form method="post" action="{% url 'contratti:pregresso_rimuovi' c.pk p.pk %}" class="d-inline" data-conferma="Il totale {{ p.anno }} viene tolto dal fatturato del contratto (resta nello storico)." data-conferma-etichetta="Rimuovi">{% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash" aria-hidden="true"></i> Rimuovi</button></form></td>{% endif %}</tr>
+  {% empty %}<tr><td colspan="4" class="text-body-secondary small">Nessun fatturato pregresso.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% if puo_modificare %}
+<details class="mb-4"><summary class="small">Registra il fatturato totale di un anno (lo stesso anno corregge il totale)</summary>
+<form method="post" action="{% url 'contratti:pregresso_salva' c.pk %}" class="mt-2" novalidate>
+  {% csrf_token %}
+  {% include "contratti/_campi.html" with form=form_pregresso %}
+  <button class="btn btn-primary" type="submit">Registra</button>
+</form></details>
+{% endif %}
 
 <h2 class="h6 text-uppercase text-body-secondary">Documenti di esecuzione</h2>
 <div class="tabella-card mb-3"><div class="table-responsive"><table class="table table-sm align-middle">

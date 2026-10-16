@@ -43,7 +43,6 @@ def dati():
     )
     m.OpzioneContratto.objects.create(contratto=c, tipo="rinnovo", mesi=12)
     m.StatoPratica.objects.create(contratto=c, stato="non_avviata", data=D(2026, 9, 1))
-    m.Impianto.objects.create(nome="Impianto di prova")
     m.WBS.objects.create(codice_wbs="WBS-PROVA-01", descrizione="Progetto prova")
     m.AutorizzazioneExtraBudget.objects.create(
         codice="EB-PROVA-01",
@@ -99,7 +98,7 @@ def dati():
 
 def test_tutti_i_modelli_registrati():
     attesi = {
-        "procedura", "soglia", "parametro", "categoria", "impianto", "wbs", "cluster", "contocoge",
+        "procedura", "soglia", "parametro", "wbs", "cluster", "contocoge",
         "fornitore", "fabbisogno", "contratto", "proroga", "vocecontratto",
         "pianofatturazione", "rata", "statopratica", "richiestaacquisto", "fattura",
         "documentoesecuzione", "richiedentesap", "gruppoacquisti", "gruppomerci", "funzioneutente",

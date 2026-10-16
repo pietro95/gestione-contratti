@@ -360,19 +360,27 @@ def importo_quadra(
     oneri: Decimal | None,
     bollo: Decimal | None,
     iva: Decimal | None = None,
+    altri: Decimal | None = None,
 ) -> bool:
-    """Valore base + oneri + bollo + IVA = importo del documento; senza valore base non si
-    giudica. L'IVA c'è quando SAP riporta l'importo con l'IVA."""
+    """Valore base + oneri + bollo + IVA + altri importi = importo del documento; senza valore
+    base non si giudica. L'IVA c'è quando SAP riporta l'importo con l'IVA; gli altri importi
+    (more, danni, ...) sono in fattura ma non imputabili all'ufficio."""
     if valore_base is None:
         return True
-    return valore_base + (oneri or ZERO) + (bollo or ZERO) + (iva or ZERO) == importo_documento
+    return (
+        valore_base + (oneri or ZERO) + (bollo or ZERO) + (iva or ZERO) + (altri or ZERO)
+        == importo_documento
+    )
 
 
 def valore_base_proposto(
-    importo_documento: Decimal, oneri: Decimal | None, bollo: Decimal | None
+    importo_documento: Decimal,
+    oneri: Decimal | None,
+    bollo: Decimal | None,
+    altri: Decimal | None = None,
 ) -> Decimal:
-    """Proposta: importo del documento meno oneri e bollo (SPEC §4)."""
-    return arrotonda(importo_documento - (oneri or ZERO) - (bollo or ZERO))
+    """Proposta: importo del documento meno oneri, bollo e altri importi (SPEC §4)."""
+    return arrotonda(importo_documento - (oneri or ZERO) - (bollo or ZERO) - (altri or ZERO))
 
 
 TOLLERANZA_IVA = Decimal("0.01")  # l'IVA della fattura può differire di un arrotondamento
@@ -384,6 +392,7 @@ def iva_riconosciuta(
     oneri: Decimal | None,
     bollo: Decimal | None,
     aliquote: list[Decimal],
+    altri: Decimal | None = None,
 ) -> tuple[Decimal, Decimal] | None:
     """(aliquota, IVA) se la differenza tra l'importo del documento e valore base + oneri +
     bollo è l'IVA di una delle aliquote su valore base + oneri, a meno di un centesimo.
@@ -391,7 +400,7 @@ def iva_riconosciuta(
     if valore_base is None:
         return None
     imponibile = valore_base + (oneri or ZERO)
-    differenza = importo_documento - imponibile - (bollo or ZERO)
+    differenza = importo_documento - imponibile - (bollo or ZERO) - (altri or ZERO)
     if differenza <= ZERO:
         return None
     for aliquota in sorted(aliquote, reverse=True):
@@ -401,11 +410,16 @@ def iva_riconosciuta(
 
 
 def scorporo_iva(
-    importo_documento: Decimal, oneri: Decimal | None, bollo: Decimal | None, aliquota: Decimal
+    importo_documento: Decimal,
+    oneri: Decimal | None,
+    bollo: Decimal | None,
+    aliquota: Decimal,
+    altri: Decimal | None = None,
 ) -> tuple[Decimal, Decimal]:
-    """(valore base, IVA) di un importo con l'IVA: imponibile = (importo − bollo) / (1 +
-    aliquota), arrotondato al centesimo; IVA = il resto, così l'importo quadra."""
-    lordo = importo_documento - (bollo or ZERO)
+    """(valore base, IVA) di un importo con l'IVA: imponibile = (importo − bollo − altri
+    importi) / (1 + aliquota), arrotondato al centesimo; IVA = il resto, così l'importo
+    quadra."""
+    lordo = importo_documento - (bollo or ZERO) - (altri or ZERO)
     imponibile = arrotonda(lordo * 100 / (100 + aliquota))
     return imponibile - (oneri or ZERO), lordo - imponibile
 
@@ -470,9 +484,13 @@ def esecuzione(
     massimale: Decimal,
     fatture: Iterable[FatturaRegistrata],
     oggi: datetime.date,
+    pregresso: Decimal = ZERO,
 ) -> Esecuzione:
-    """Fatturato, residui e avanzamento (fisso e massimale delle voci, proroghe comprese)."""
-    fatturato = _fatturato(f for f in fatture if f.data <= oggi)
+    """Fatturato, residui e avanzamento (fisso e massimale delle voci, proroghe comprese).
+
+    ``pregresso``: totali per anno del fatturato anteriore al registro (Rev20), in più dei
+    valori base delle fatture."""
+    fatturato = _fatturato(f for f in fatture if f.data <= oggi) + pregresso
     if fisso > 0:
         avanzamento = _percentuale(fatturato, fisso)
     elif massimale > 0:
@@ -530,11 +548,12 @@ def anomalie_esecuzione(
     documenti: Sequence[DocumentoEseguito],
     data_chiusura: datetime.date | None,
     oggi: datetime.date,
+    pregresso: Decimal = ZERO,
 ) -> list[str]:
     """Codici di SPEC §5.8 (``FATTURA_DOPO_CHIUSURA`` è dell'import)."""
     codici = []
     valide = [f for f in fatture if f.data <= oggi]
-    if _fatturato(valide) > fisso + massimale:
+    if _fatturato(valide) + pregresso > fisso + massimale:
         codici.append("FATTURATO_OLTRE_MASSIMO")
     if any(f.valore_base is None for f in valide):
         codici.append("VALORE_BASE_MANCANTE")

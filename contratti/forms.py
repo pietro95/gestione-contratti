@@ -1,6 +1,8 @@
 """Form dell'interfaccia operativa. Importi localizzati (1.234,56), date in formato ISO."""
 
 from django import forms
+from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Q
 from django.forms import inlineformset_factory
 
@@ -171,6 +173,21 @@ def tendina_centro_costo(form, campo: str = "centro_costo", attuale: str = "", n
         form.initial.setdefault(campo, m.CentroCosto.codice_predefinito())
 
 
+def utenti_attivi():
+    """Utenti dell'applicazione, per le tendine dei referenti."""
+    return (
+        get_user_model()
+        .objects.filter(is_active=True)
+        .order_by("last_name", "first_name", "username")
+    )
+
+
+def nome_utente(utente) -> str:
+    """«Cognome Nome» se noto, altrimenti lo username."""
+    nome = f"{utente.last_name} {utente.first_name}".strip()
+    return nome or utente.get_username()
+
+
 class FornitoreForm(ModelFormBootstrap):
     class Meta:
         model = m.Fornitore
@@ -185,10 +202,8 @@ class FabbisognoForm(ModelFormBootstrap):
                 "descrizione",
                 "cluster",
                 "sottocluster",
-                "categoria",
-                "impianto",
                 "fonte_finanziamento",
-                "referente",
+                "referente_utente",
             ],
         ),
         ("Decisione sul rinnovo", ["decisione", "stima_prossimo_importo", "note"]),
@@ -213,10 +228,8 @@ class FabbisognoForm(ModelFormBootstrap):
             "descrizione",
             "cluster",
             "sottocluster",
-            "categoria",
-            "impianto",
             "fonte_finanziamento",
-            "referente",
+            "referente_utente",
             "decisione",
             "stima_prossimo_importo",
             "note",
@@ -238,8 +251,31 @@ class FabbisognoForm(ModelFormBootstrap):
         _solo_attivi(self, "cluster", cluster)
         _solo_attivi(self, "sottocluster", m.Sottocluster.objects.filter(archiviato=False))
         _solo_attivi(self, "fonte_finanziamento", m.FonteFinanziamento.objects.filter(attiva=True))
-        _solo_attivi(self, "categoria", m.Categoria.objects.filter(attiva=True))
-        _solo_attivi(self, "impianto", m.Impianto.objects.filter(archiviato=False))
+        # Nuovo: obbligatorio; un fabbisogno già classificato non perde il sottocluster; quelli
+        # importati senza si completano quando conviene, senza bloccare altre modifiche.
+        self.fields["sottocluster"].required = not self.instance.pk or bool(
+            self.instance.sottocluster_id
+        )
+        self.fields["sottocluster"].empty_label = "— scegli il sottocluster —"
+        self.fields["sottocluster"].queryset = self.fields["sottocluster"].queryset.select_related(
+            "cluster"
+        )
+        self.fields[
+            "sottocluster"
+        ].help_text = (
+            "Obbligatorio: classifica il fabbisogno nel cluster (deve essere del cluster scelto)."
+        )
+        referente = self.fields["referente_utente"]
+        referente.queryset = utenti_attivi()
+        referente.label = "Referente"
+        referente.label_from_instance = nome_utente
+        referente.empty_label = "— nessuno —"
+        referente.widget.attrs["class"] = referente.widget.attrs.get("class", "") + " js-cerca"
+        if self.instance.pk and self.instance.referente and not self.instance.referente_utente_id:
+            referente.help_text = (
+                f"Registrato come testo: «{self.instance.referente}». "
+                "Sceglilo tra gli utenti per collegarlo."
+            )
         _solo_attivi(self, "previsto_procedura", m.Procedura.objects.filter(attiva=True))
         _solo_attivi(self, "wbs_previsti", m.WBS.objects.filter(archiviato=False))
 
@@ -254,6 +290,18 @@ class FabbisognoForm(ModelFormBootstrap):
             self, dati.get("natura_previsti") or m.Natura.OPEX, "wbs_previsti", dati.get("cluster")
         )
         return dati
+
+    def save(self, commit=True):
+        fabbisogno = super().save(commit=False)
+        utente = self.cleaned_data.get("referente_utente")
+        if utente is not None:
+            fabbisogno.referente = nome_utente(utente)[:150]
+        elif "referente_utente" in self.changed_data:
+            fabbisogno.referente = ""  # tolto il referente: non resta il nome di prima
+        if commit:
+            fabbisogno.save()
+            self.save_m2m()
+        return fabbisogno
 
 
 CAMPI_CONTRATTO = [
@@ -324,11 +372,127 @@ class ContrattoForm(ModelFormBootstrap):
         if "tipo_acquisto" in self.fields:
             # Chi non lo indica (connettore, form di prima) tiene il valore registrato.
             self.fields["tipo_acquisto"].required = False
-            self.fields["tipo_acquisto"].help_text = "Propone MAP (servizi) o MIGO (forniture)."
+            self.fields[
+                "tipo_acquisto"
+            ].help_text = "Servizi / lavori (propone MAP) o forniture (propone MIGO)."
 
     def clean_tipo_acquisto(self):
         valore = self.cleaned_data.get("tipo_acquisto")
         return valore or self.instance.tipo_acquisto or m.Contratto.TipoAcquisto.SERVIZIO
+
+
+class ContrattoNuovoForm(ContrattoForm):
+    """Creazione: il sottocluster del fabbisogno è obbligatorio e, se il fornitore non è in
+    elenco, lo si apre qui (ragione sociale, partita IVA, codice SAP)."""
+
+    sezioni = [
+        (
+            "Oggetto e fornitore",
+            [
+                "fabbisogno",
+                "sottocluster",
+                "fornitore",
+                "descrizione",
+                "tipo_acquisto",
+                "senza_contratto",
+            ],
+        ),
+        (
+            "Nuovo fornitore (solo se non è in elenco)",
+            ["nuovo_fornitore", "nuovo_fornitore_piva", "nuovo_fornitore_codice_sap"],
+        ),
+        *ContrattoForm.sezioni[1:],
+    ]
+
+    sottocluster = forms.ModelChoiceField(
+        queryset=m.Sottocluster.objects.none(),
+        label="Sottocluster",
+        required=False,  # obbligatorio: lo impone clean(); il fabbisogno lo propone
+        help_text="Obbligatorio. Vuoto: quello del fabbisogno (se diverso, lo si imposta).",
+    )
+    nuovo_fornitore = forms.CharField(
+        label="Ragione sociale del nuovo fornitore", max_length=200, required=False
+    )
+    nuovo_fornitore_piva = forms.CharField(
+        label="Partita IVA del nuovo fornitore", max_length=20, required=False
+    )
+    nuovo_fornitore_codice_sap = forms.CharField(
+        label="Codice SAP del nuovo fornitore", max_length=20, required=False
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["sottocluster"].queryset = m.Sottocluster.objects.filter(
+            archiviato=False
+        ).select_related("cluster")
+        self.fields["sottocluster"].empty_label = "— quello del fabbisogno —"
+        self.fields["fornitore"].required = False
+        self.fields["fornitore"].empty_label = "— scegli o apri un nuovo fornitore —"
+        self.fields["tipo_acquisto"].choices = m.Contratto.TipoAcquisto.choices
+        self._form_fornitore = None
+
+    def clean(self):
+        dati = super().clean()
+        fabbisogno = dati.get("fabbisogno")
+        sottocluster = dati.get("sottocluster") or (fabbisogno and fabbisogno.sottocluster)
+        if fabbisogno is not None:
+            if sottocluster is None:
+                self.add_error("sottocluster", "Il sottocluster è obbligatorio.")
+            elif sottocluster.cluster_id != fabbisogno.cluster_id:
+                self.add_error(
+                    "sottocluster",
+                    f"Il sottocluster è del cluster {sottocluster.cluster.codice}, "
+                    f"il fabbisogno è del cluster {fabbisogno.cluster.codice}.",
+                )
+            else:
+                dati["sottocluster"] = sottocluster
+        nome = (dati.get("nuovo_fornitore") or "").strip()
+        altri = [dati.get("nuovo_fornitore_piva"), dati.get("nuovo_fornitore_codice_sap")]
+        if dati.get("fornitore") and (nome or any(altri)):
+            self.add_error(
+                "nuovo_fornitore", "Scegli un fornitore dall'elenco oppure aprine uno nuovo."
+            )
+        elif not dati.get("fornitore") and not nome:
+            self.add_error("fornitore", "Scegli il fornitore o indica quello nuovo.")
+        elif nome:
+            nuovo = FornitoreForm(
+                {
+                    "ragione_sociale": nome,
+                    "partita_iva": dati.get("nuovo_fornitore_piva") or "",
+                    "codice_sap": dati.get("nuovo_fornitore_codice_sap") or "",
+                }
+            )
+            if nuovo.is_valid():
+                self._form_fornitore = nuovo
+            else:
+                nomi = {
+                    "ragione_sociale": "nuovo_fornitore",
+                    "partita_iva": "nuovo_fornitore_piva",
+                    "codice_sap": "nuovo_fornitore_codice_sap",
+                }
+                for campo, errori in nuovo.errors.items():
+                    for errore in errori:
+                        self.add_error(nomi.get(campo, "nuovo_fornitore_piva"), errore)
+        return dati
+
+    @transaction.atomic
+    def save(self, commit=True):
+        if self._form_fornitore is not None:
+            fornitore = self._form_fornitore.instance
+            fornitore._change_reason = "Aperto dalla creazione del contratto"
+            fornitore.save()
+            self.instance.fornitore = fornitore
+        contratto = super().save(commit=False)
+        sottocluster = self.cleaned_data.get("sottocluster")
+        fabbisogno = contratto.fabbisogno
+        if sottocluster is not None and fabbisogno.sottocluster_id != sottocluster.pk:
+            fabbisogno.sottocluster = sottocluster
+            fabbisogno._change_reason = "Sottocluster indicato alla creazione del contratto"
+            fabbisogno.save()
+        if commit:
+            contratto.save()
+            self.save_m2m()
+        return contratto
 
 
 class ContrattoModificaForm(ContrattoForm):
@@ -353,7 +517,7 @@ class SceltaFabbisognoForm(FormBase):
             destinazioni = permessi.fabbisogni_modificabili(utente, destinazioni)
         campo.queryset = (
             destinazioni.exclude(pk=escludi.pk)
-            .select_related("categoria")
+            .select_related("cluster", "sottocluster")
             .order_by("cluster__codice", "descrizione")
         )
         campo.widget.attrs["class"] = campo.widget.attrs.get("class", "") + " js-cerca"

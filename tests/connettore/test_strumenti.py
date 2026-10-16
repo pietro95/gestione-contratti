@@ -109,7 +109,7 @@ def test_scadenze_di_default_i_cluster_propri(utente_reader, dati):
 
 
 def test_scadenze_uguali_al_cruscotto(utente_reader, dati):
-    gruppi = selettori.cruscotto(OGGI, {"area": [], "categoria": ""})
+    gruppi = selettori.cruscotto(OGGI, {"area": [], "sottocluster": ""})
     attese = [r.contratto.pk for colore in gruppi for r in gruppi[colore]]
     righe = esegui(utente_reader, "scadenze", {"cluster": ["tutti"]})[0]["structuredContent"]
     assert [r["id"] for r in righe["righe"]] == attese

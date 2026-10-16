@@ -17,7 +17,7 @@
 <div class="row g-4">
 {% if risultati.fabbisogni %}
 <div class="col-lg-6"><h2 class="sezione-titolo">Fabbisogni <span class="badge rounded-pill text-bg-light">{{ risultati.fabbisogni|length }}</span></h2>
-<div class="card"><ul class="list-group list-group-flush">{% for f in risultati.fabbisogni %}<li class="list-group-item"><a href="{% url 'contratti:fabbisogno' f.pk %}">{{ f.descrizione }}</a> <span class="small text-body-secondary">{{ f.area }} · {{ f.categoria }}</span></li>{% endfor %}</ul></div></div>
+<div class="card"><ul class="list-group list-group-flush">{% for f in risultati.fabbisogni %}<li class="list-group-item"><a href="{% url 'contratti:fabbisogno' f.pk %}">{{ f.descrizione }}</a> <span class="small text-body-secondary">{{ f.area }}{% if f.sottocluster %} · {{ f.sottocluster.nome }}{% endif %}</span></li>{% endfor %}</ul></div></div>
 {% endif %}
 {% if risultati.fatture %}
 <div class="col-lg-6"><h2 class="sezione-titolo">Fatture <span class="badge rounded-pill text-bg-light">{{ risultati.fatture|length }}</span></h2>

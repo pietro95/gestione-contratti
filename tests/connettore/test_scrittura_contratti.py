@@ -63,7 +63,7 @@ VOCE_MCP = {
 
 
 def test_crea_contratto(client, editor):
-    fab = f.fabbisogno("Servizio da contrattualizzare")
+    fab = f.fabbisogno("Servizio da contrattualizzare", sottocluster=f.sottocluster())
     fornitore = f.fornitore("Fornitore Nuovo S.r.l.")
 
     def web(cl):
@@ -338,7 +338,7 @@ def test_anteprima_senza_id_provvisori(editor):
     from connettore.strumenti.operazione import NUOVO
     from tests.connettore.test_scrittura_equivalenza import OGGI
 
-    fab = f.fabbisogno("Servizio da contrattualizzare")
+    fab = f.fabbisogno("Servizio da contrattualizzare", sottocluster=f.sottocluster())
     argomenti = {
         "fabbisogno": fab.pk,
         "fornitore": f.fornitore("Fornitore Nuovo S.r.l.").pk,

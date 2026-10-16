@@ -5,7 +5,7 @@
 {% block titolo_pagina %}{{ c.fabbisogno.descrizione }}{% endblock %}
 {% block sottotitolo %}
 <div class="sottotitolo">
-  {{ riga.stato|stato_badge }} {{ riga.alert|alert_badge }}{% if c.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}{% if c.senza_contratto %} <span class="stato stato-grigio">senza contratto</span>{% endif %}{% if c.una_tantum %} <span class="stato stato-grigio">una tantum</span>{% endif %}{% if c.chiuso %} <span class="stato stato-verde">chiuso</span>{% endif %}
+  {{ riga.stato|stato_badge }} {{ riga.alert|alert_badge }}{% if c.archiviato %} <span class="stato stato-grigio">archiviato</span>{% endif %}{% if c.tipo_acquisto == "fornitura" %} <span class="stato stato-blu">forniture</span>{% endif %}{% if c.senza_contratto %} <span class="stato stato-grigio">senza contratto</span>{% endif %}{% if c.una_tantum %} <span class="stato stato-grigio">una tantum</span>{% endif %}{% if c.chiuso %} <span class="stato stato-verde">chiuso</span>{% endif %}
   <span>· <a href="{% url 'contratti:fornitore' c.fornitore.pk %}">{{ c.fornitore }}</a></span>
   <span>· {{ c.fabbisogno.area }}</span>
   {% if c.numero_contratto %}<span>· N. {{ c.numero_contratto }}</span>{% endif %}

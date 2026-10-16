@@ -66,6 +66,7 @@ def editor(make_user):
 @pytest.fixture
 def contratto_in_alert():
     """Contratto scaduto senza rinnovo: alert rosso al 05/10/2026."""
+    f.sottocluster()
     c = f.contratto(data_inizio=datetime.date(2025, 6, 1), durata_mesi=12)
     v = f.voce(c, importo_fisso=Decimal("1200.00"))
     f.piano(v, modalita="anticipata", periodicita="trimestrale")
@@ -127,7 +128,8 @@ def test_editor_fuori_dai_propri_cluster(editor, contratto_in_alert):
         ("avanza_pratica", lambda c: {"contratto_id": c.pk, "stato": "offerta_richiesta",
                                       "data": "2026-10-05"}),
         ("genera_scadenzario", lambda c: {"voce_id": c.voci.get().pk}),
-        ("crea_fabbisogno", lambda c: {"descrizione": "Nuovo servizio", "cluster": "IT"}),
+        ("crea_fabbisogno", lambda c: {"descrizione": "Nuovo servizio", "cluster": "IT",
+                                      "sottocluster": f.sottocluster().pk}),
         ("archivia", lambda c: {"tipo": "contratto", "id": c.pk}),
     ],
 )  # fmt: skip
@@ -170,7 +172,11 @@ def test_nuovo_fabbisogno_vuoto_non_sposta_il_budget(editor, contratto_in_alert)
     né previsti non cambia nulla (errore visto in produzione il 07/10/2026)."""
     cluster = contratto_in_alert.fabbisogno.cluster.codice
     assert any(budget_probabile(cluster, 2026).values())  # il cluster ha già un budget
-    dati = ok(ctx(editor), "crea_fabbisogno", {"descrizione": "Nuovo servizio", "cluster": cluster})
+    dati = ok(
+        ctx(editor),
+        "crea_fabbisogno",
+        {"descrizione": "Nuovo servizio", "cluster": cluster, "sottocluster": f.sottocluster().pk},
+    )
     assert dati["effetti"]["budget_livello_probabile"] == []
     (fab,) = dati["effetti"]["fabbisogni"]
     assert fab["nuovo"] is True
@@ -214,7 +220,12 @@ def test_anteprima_di_dati_non_validi(editor):
     testo = errore(
         ctx(editor),
         "crea_fabbisogno",
-        {"descrizione": "X", "cluster": "IT", "previsto_data_avvio": "2027-01-01"},
+        {
+            "descrizione": "X",
+            "cluster": "IT",
+            "sottocluster": f.sottocluster().pk,
+            "previsto_data_avvio": "2027-01-01",
+        },
     )
     assert "servono insieme avvio e durata" in testo
     assert not OperazioneMCP.objects.exists()

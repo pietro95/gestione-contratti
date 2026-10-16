@@ -187,7 +187,7 @@ def contratto(ctx: Contesto, argomenti: dict) -> dict:
 def fabbisogno(ctx: Contesto, argomenti: dict) -> dict:
     f = oggetto(
         m.Fabbisogno.objects.select_related(
-            "cluster", "categoria", "impianto", "previsto_procedura", "conto_previsti"
+            "cluster", "sottocluster", "previsto_procedura", "conto_previsti"
         ).select_related("wbs_previsti"),
         argomenti["id"],
         "fabbisogno",
@@ -203,8 +203,7 @@ def fabbisogno(ctx: Contesto, argomenti: dict) -> dict:
         "versione": versione(f),
         "descrizione": f.descrizione,
         "cluster": f.cluster.codice,
-        "categoria": f.categoria.nome,
-        "impianto": f.impianto.nome if f.impianto_id else None,
+        "sottocluster": f.sottocluster.nome if f.sottocluster_id else None,
         "decisione": f.decisione,
         "stima_prossimo_importo": f.stima_prossimo_importo,
         "archiviato": f.archiviato,
@@ -354,7 +353,7 @@ STRUMENTI = [
         nome="fabbisogno",
         titolo="Dettaglio di un fabbisogno",
         descrizione=(
-            "Il servizio ricorrente: cluster, categoria, decisione di continuità, stima del "
+            "Il servizio ricorrente: cluster, sottocluster, decisione di continuità, stima del "
             "prossimo importo, previsto manuale, catena dei contratti con date e alert, "
             "rinnovi previsti calcolati (date e importi ai tre livelli) e storico della "
             "pratica. Un fabbisogno senza previsti con decisione «Rinnovare» va segnalato."

@@ -83,25 +83,11 @@ class AliquotaIVAAdmin(BaseAdmin):
     list_filter = ("attiva",)
 
 
-@admin.register(m.Categoria)
-class CategoriaAdmin(BaseAdmin):
-    list_display = ("nome", "attiva")
-    list_filter = ("attiva",)
-    search_fields = ("nome",)
-
-
 @admin.register(m.FonteFinanziamento)
 class FonteFinanziamentoAdmin(BaseAdmin):
     list_display = ("nome", "attiva")
     list_filter = ("attiva",)
     search_fields = ("nome", "note")
-
-
-@admin.register(m.Impianto)
-class ImpiantoAdmin(ArchiviabileAdmin):
-    list_display = ("nome", "archiviato")
-    list_filter = ("archiviato",)
-    search_fields = ("nome",)
 
 
 @admin.register(m.Cluster)
@@ -206,8 +192,8 @@ admin.site.register(m.CentroCosto, TabellaSAPAdmin)
 
 @admin.register(m.GruppoMerci)
 class GruppoMerciAdmin(TabellaSAPAdmin):
-    list_display = ("codice", "descrizione", "categoria", "predefinito", "attivo")
-    list_filter = ("attivo", "predefinito", "categoria")
+    list_display = ("codice", "descrizione", "predefinito", "attivo")
+    list_filter = ("attivo", "predefinito")
 
 
 # --- Dominio ---------------------------------------------------------------
@@ -249,17 +235,12 @@ class ContrattoInline(InlineSenzaCancellazione):
 
 @admin.register(m.Fabbisogno)
 class FabbisognoAdmin(ArchiviabileAdmin):
-    list_display = (
-        "descrizione", "cluster", "sottocluster", "categoria", "decisione", "impianto",
-        "archiviato",
-    )  # fmt: skip
-    list_filter = ("cluster", "sottocluster", "categoria", "decisione", "impianto", "archiviato")
+    list_display = ("descrizione", "cluster", "sottocluster", "decisione", "archiviato")
+    list_filter = ("cluster", "sottocluster", "decisione", "archiviato")
     search_fields = ("descrizione", "referente", "note")
     autocomplete_fields = (
-        "categoria",
         "sottocluster",
         "fonte_finanziamento",
-        "impianto",
         "referente_utente",
         "previsto_procedura",
     )
@@ -272,8 +253,6 @@ class FabbisognoAdmin(ArchiviabileAdmin):
                     "descrizione",
                     "cluster",
                     "sottocluster",
-                    "categoria",
-                    "impianto",
                     "fonte_finanziamento",
                 )
             },

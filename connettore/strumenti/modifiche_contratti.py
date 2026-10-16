@@ -94,10 +94,10 @@ def _salva_voce(contratto, argomenti: dict, prefisso: str = "", voce=None) -> di
 
 
 def _crea_contratto(ctx: Contesto, argomenti: dict) -> dict:
-    dati = _dati(forms.ContrattoForm, None, argomenti, CONVERSIONI_CONTRATTO)
+    dati = _dati(forms.ContrattoNuovoForm, None, argomenti, CONVERSIONI_CONTRATTO)
     if "procedura" not in argomenti:  # come il form vuoto dell'interfaccia
         dati["procedura"] = _procedura("affidamento_diretto")
-    form = forms.ContrattoForm(dati, utente=ctx.utente)
+    form = forms.ContrattoNuovoForm(dati, utente=ctx.utente)
     valida(form)
     contratto = form.save()
     voci = [

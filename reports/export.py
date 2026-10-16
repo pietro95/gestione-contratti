@@ -173,19 +173,17 @@ def piano_xlsx(
     natura: str = "",
     semplificata: bool = False,
 ):
-    """Export del piano ordini. Semplificato (per il Procurement): senza categoria, procedura,
+    """Export del piano ordini. Semplificato (per il Procurement): senza procedura,
     lead time, data limite, fase, ritardo e senza il fisso e il probabile (solo il massimo)."""
     wb = xlsx.nuovo_libro()
     intestazione = [
         f"Piano ordini {piano.anno}" + (" (semplificato)" if semplificata else ""),
-        filtri or "Tutti i cluster e le categorie",
+        filtri or "Tutti i cluster e i sottocluster",
         NOTA_IMPONIBILE,
         _generato(oggi),
     ]
     livelli = [Livello.MASSIMO] if semplificata else LIVELLI
     colonne = ["Fabbisogno", "Cluster", "Sottocluster"]
-    if not semplificata:
-        colonne.append("Categoria")
     colonne += ["Stato", "Fornitore"]
     if not semplificata:
         colonne += ["Procedura presunta", "Lead time (mesi)", "Data limite di avvio"]
@@ -213,8 +211,6 @@ def piano_xlsx(
     def riga_xlsx(rn, gc, gs):
         r = rn.riga
         riga = [r.fabbisogno.descrizione, gc.cluster.codice, gs.nome]
-        if not semplificata:
-            riga.append(r.categoria.nome)
         riga += [r.stato, str(r.fornitore or "")]
         if not semplificata:
             riga += [str(r.procedura or ""), r.lead_time_mesi, r.data_limite]

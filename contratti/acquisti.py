@@ -198,13 +198,8 @@ class PropostaRichiesta:
 
 
 def gruppo_merci_proposto(fabbisogno: m.Fabbisogno) -> m.GruppoMerci | None:
-    """Quello indicato per la categoria del fabbisogno, altrimenti il predefinito."""
-    per_categoria = (
-        m.GruppoMerci.objects.filter(categoria_id=fabbisogno.categoria_id, attivo=True)
-        .order_by("codice")
-        .first()
-    )
-    return per_categoria or m.GruppoMerci.predefinito_attivo()
+    """Il gruppo merci predefinito (la tabella non lega più i gruppi alle categorie)."""
+    return m.GruppoMerci.predefinito_attivo()
 
 
 def _ha_contratti_da_rinnovare(fabbisogno: m.Fabbisogno) -> bool:
@@ -482,7 +477,10 @@ def riepilogo_esecuzione(
         for d in contratto.documenti_esecuzione.all()
         if not d.archiviato
     ]
-    risultato = motore.esecuzione(fisso, massimale, fatture, oggi)
+    pregresso = sum(
+        (p.importo for p in contratto.fatturato_pregresso.all() if not p.archiviato), ZERO
+    )
+    risultato = motore.esecuzione(fisso, massimale, fatture, oggi, pregresso)
     return RiepilogoEsecuzione(
         esecuzione=risultato,
         motivo_da_chiudere=motore.motivo_da_chiudere(
@@ -493,7 +491,7 @@ def riepilogo_esecuzione(
             oggi,
         ),
         anomalie=motore.anomalie_esecuzione(
-            fisso, massimale, fatture, documenti, contratto.data_chiusura, oggi
+            fisso, massimale, fatture, documenti, contratto.data_chiusura, oggi, pregresso
         ),
     )
 

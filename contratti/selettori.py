@@ -46,7 +46,7 @@ def contratti_base():
     return (
         m.Contratto.objects.select_related(
             "fabbisogno",
-            "fabbisogno__categoria",
+            "fabbisogno__sottocluster",
             "fabbisogno__cluster",
             "fornitore",
             "procedura",
@@ -117,7 +117,7 @@ def righe_previsti_manuali(oggi: datetime.date, filtri: dict) -> list[RigaContra
             previsto_data_avvio__isnull=False,
             contratti__isnull=True,
         )
-        .select_related("previsto_procedura", "categoria")
+        .select_related("previsto_procedura", "sottocluster")
         .prefetch_related(
             Prefetch("stati_pratica", queryset=m.StatoPratica.objects.order_by("-data", "-id")),
             acquisti.PREFETCH_PRATICA_FABBISOGNO,
@@ -125,8 +125,8 @@ def righe_previsti_manuali(oggi: datetime.date, filtri: dict) -> list[RigaContra
     )
     if codici := codici_cluster(filtri.get("area")):
         qs = qs.filter(cluster__codice__in=codici)
-    if filtri.get("categoria"):
-        qs = qs.filter(categoria_id=filtri["categoria"])
+    if filtri.get("sottocluster"):
+        qs = qs.filter(sottocluster_id=filtri["sottocluster"])
     default = m.Procedura.objects.filter(codice="da_verificare").first()
     righe = []
     for f in qs:
@@ -174,8 +174,8 @@ def cruscotto(oggi: datetime.date, filtri: dict) -> dict[Alert, list[RigaContrat
     qs = contratti_terminali().filter(fabbisogno__archiviato=False)
     if codici := codici_cluster(filtri.get("area")):
         qs = qs.filter(fabbisogno__cluster__codice__in=codici)
-    if filtri.get("categoria"):
-        qs = qs.filter(fabbisogno__categoria_id=filtri["categoria"])
+    if filtri.get("sottocluster"):
+        qs = qs.filter(fabbisogno__sottocluster_id=filtri["sottocluster"])
     gruppi: dict[Alert, list[RigaContratto]] = {
         Alert.ROSSO: [],
         Alert.ARANCIONE: [],
@@ -239,7 +239,7 @@ def cerca(q: str, oggi: datetime.date) -> dict[str, list]:
     )
     risultati["fabbisogni"] = list(
         m.Fabbisogno.objects.filter(Q(descrizione__icontains=q) | Q(referente__icontains=q))
-        .select_related("categoria", "cluster")
+        .select_related("sottocluster", "cluster")
         .order_by("archiviato", "descrizione")[: LIMITE_CERCA["fabbisogni"]]
     )
     risultati["fornitori"] = list(

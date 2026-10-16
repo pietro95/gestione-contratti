@@ -7,6 +7,7 @@ from django.urls import reverse
 
 from contratti import models as m
 
+from .. import factories as f
 from .test_flussi import campi_contratto
 
 pytestmark = pytest.mark.django_db
@@ -58,6 +59,7 @@ def test_tre_passi_dal_contratto_alle_rate(editor, dati):
                 durata_mesi="24",
             ),
             "fabbisogno": dati["fabbisogno"].pk,
+            "sottocluster": f.sottocluster().pk,
         },
     )
     c = m.Contratto.objects.order_by("-pk").first()

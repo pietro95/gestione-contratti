@@ -68,6 +68,16 @@ urlpatterns = [
     path("fatture/<int:pk>/importi/", views_fatture.fattura_importi, name="fattura_importi"),
     path("fatture/<int:pk>/documento/", views_fatture.fattura_documento, name="fattura_documento"),
     path(
+        "fatture/<int:pk>/documento/<int:documento_pk>/modifica/",
+        views_fatture.fattura_documento_modifica,
+        name="fattura_documento_modifica",
+    ),
+    path(
+        "fatture/<int:pk>/documento/<int:documento_pk>/rimuovi/",
+        views_fatture.fattura_documento_rimuovi,
+        name="fattura_documento_rimuovi",
+    ),
+    path(
         "fatture/<int:pk>/trasferimento/",
         views_fatture.fattura_trasferisci,
         name="fattura_trasferisci",
@@ -88,6 +98,12 @@ urlpatterns = [
         name="contratto_documento",
     ),
     path("contratti/<int:pk>/chiudi/", views_fatture.contratto_chiudi, name="contratto_chiudi"),
+    path("contratti/<int:pk>/pregresso/", views_fatture.pregresso_salva, name="pregresso_salva"),
+    path(
+        "contratti/<int:pk>/pregresso/<int:riga_pk>/rimuovi/",
+        views_fatture.pregresso_rimuovi,
+        name="pregresso_rimuovi",
+    ),
     path("rda/", views_rda.rda_elenco, name="rda_elenco"),
     path("rda/registra/", views_rda.rda_registra, name="rda_registra"),
     path("rda/nuova/<int:fabbisogno_pk>/", views_rda.rda_nuova, name="rda_nuova"),

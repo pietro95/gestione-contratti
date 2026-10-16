@@ -809,7 +809,7 @@ def anteprima_accorpamento(
     )
     for campo, etichetta in (
         ("cluster_id", "Cluster diverso"),
-        ("categoria_id", "Categoria diversa"),
+        ("sottocluster_id", "Sottocluster diverso"),
         ("decisione", "Decisione diversa"),
         ("natura_previsti", "Natura dei rinnovi diversa"),
         ("conto_previsti_id", "Conto dei rinnovi diverso"),

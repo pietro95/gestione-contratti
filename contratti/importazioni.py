@@ -32,6 +32,7 @@ from contratti.importer.esecuzione import FOGLI as FOGLI_ESECUZIONE
 from contratti.importer.esecuzione import OBBLIGATORIE as OBBLIGATORIE_ESECUZIONE
 from contratti.importer.esecuzione import importa_esecuzione
 from contratti.importer.fatture import importa_fatture
+from contratti.importer.pregresso import importa_pregresso
 from contratti.importer.report import Report
 from contratti.importer.riepilogo import importa_riepilogo
 from contratti.importer.struttura import importa_struttura
@@ -92,6 +93,14 @@ def _date(percorso, dry_run, opzioni):
     if ammessi is not None:
         contratti = m.Contratto.objects.filter(fabbisogno__cluster_id__in=ammessi)
     return serializza(importa_date(percorso, dry_run=dry_run, contratti=contratti)), None
+
+
+def _pregresso(percorso, dry_run, opzioni):
+    ammessi = opzioni.get("cluster_ammessi")  # None: tutti i cluster
+    contratti = None
+    if ammessi is not None:
+        contratti = m.Contratto.objects.filter(fabbisogno__cluster_id__in=ammessi)
+    return serializza(importa_pregresso(percorso, dry_run=dry_run, contratti=contratti)), None
 
 
 def _conti(percorso, dry_run, opzioni):
@@ -177,6 +186,29 @@ def modello_date() -> Workbook:
     )
 
 
+def modello_pregresso() -> Workbook:
+    return _modello(
+        [
+            (
+                "Fatturato",
+                ["numero_contratto", "id_contratto", "anno", "fatturato", "nota"],
+                {"anno", "fatturato"},
+            )
+        ],
+        [
+            "Fatturato pregresso dei contratti (totale per anno)",
+            "Una riga per contratto e anno. Il contratto si indica con il numero di contratto "
+            "SAP oppure, se il numero manca o è su più contratti, con l'id (l'ultimo numero "
+            "nell'indirizzo della pagina del contratto). Serve una delle due colonne.",
+            "fatturato: totale dell'anno, imponibile (IVA esclusa), come il valore base delle "
+            "fatture. Conta nel fatturato, nel residuo e nell'avanzamento del contratto.",
+            "Rieseguire il file non duplica: lo stesso anno con lo stesso importo non cambia, con "
+            "un importo diverso corregge il totale. Le righe non applicabili vanno nel report.",
+            "Esempio (fittizio): 5800000000 | | 2024 | 12000,00 | da Excel di cluster",
+        ],
+    )
+
+
 def modello_conti() -> Workbook:
     return _modello(
         [
@@ -202,23 +234,21 @@ def modello_tabelle_sap() -> Workbook:
     return _modello(
         [
             ("Richiedenti", ["codice", "descrizione", "predefinito"], {"codice"}),
-            ("Gruppi merci", ["codice", "descrizione", "predefinito", "categoria"], {"codice"}),
+            ("Gruppi merci", ["codice", "descrizione", "predefinito"], {"codice"}),
             ("Gruppi acquisti", ["codice", "nome", "predefinito"], {"codice"}),
             ("Centri di costo", ["codice", "descrizione", "predefinito"], {"codice"}),
         ],
         [
             "Tabelle SAP del processo d'acquisto",
             "Un foglio per tabella; si può caricare anche un foglio solo. Il codice identifica "
-            "la riga: una riga già presente aggiorna descrizione (o nome) e categoria. Nessuna "
+            "la riga: una riga già presente aggiorna descrizione (o nome). Nessuna "
             "cancellazione: un codice tolto dal file resta, si disattiva dall'amministrazione.",
             "predefinito: «sì» su una sola riga per foglio (es. il richiedente, il gruppo "
             "acquisti e il centro di costo dell'ufficio); diventa l'unico predefinito e si "
             "propone su RDA, voci e posizioni nuove. Vuoto = no.",
             "Centri di costo: dopo il caricamento il report elenca i codici già usati da voci e "
             "posizioni che la tabella non ha (CENTRO_COSTO_NON_IN_TABELLA).",
-            "categoria (solo gruppi merci, facoltativa): nome della categoria di fabbisogno a cui "
-            "proporre il gruppo merci.",
-            "Un errore (due predefiniti, codici ripetuti, categoria inesistente) annulla il file.",
+            "Un errore (due predefiniti, codici ripetuti) annulla il file.",
             "Esempio (fittizio): 999901 | Ufficio di prova | sì",
         ],
     )
@@ -341,6 +371,22 @@ TIPI: dict[str, Tipo] = {
             },
             modello=modello_date,
             oggetti_modello="DateEmissione",
+        ),
+        Tipo(
+            "pregresso",
+            "Fatturato pregresso",
+            "Totale fatturato per anno dei contratti in corso o chiusi, da un foglio con numero "
+            "di contratto (o id), anno e importo imponibile.",
+            (".xlsx", ".csv"),
+            _pregresso,
+            {
+                "creati": "Totali creati",
+                "corretti": "Totali corretti",
+                "invariati": "Già uguali",
+                "scartati": "Righe scartate",
+            },
+            modello=modello_pregresso,
+            oggetti_modello="FatturatoPregresso",
         ),
         Tipo(
             "conti",
@@ -548,7 +594,7 @@ def carica(tipo: Tipo, file, opzioni: dict, utente) -> m.Importazione:
         cluster_importabili(tipo, utente)
     ):
         raise ImportNonAmmesso("Puoi importare contratti solo nei tuoi cluster.")
-    if tipo.codice == "date_emissione":
+    if tipo.codice in ("date_emissione", "pregresso"):
         ammessi = permessi.cluster_modificabili(utente)
         opzioni = {**opzioni, "cluster_ammessi": None if ammessi is None else sorted(ammessi)}
     nome = file.name or "file"

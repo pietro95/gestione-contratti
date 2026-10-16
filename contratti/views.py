@@ -170,7 +170,10 @@ def cerca(request):
 @login_required
 def cruscotto(request):
     oggi = oggi_richiesta(request)
-    filtri = {"area": _cluster_richiesti(request), "categoria": request.GET.get("categoria", "")}
+    filtri = {
+        "area": _cluster_richiesti(request),
+        "sottocluster": request.GET.get("sottocluster", ""),
+    }
     gruppi = selettori.cruscotto(oggi, filtri)
     return render(
         request,
@@ -188,7 +191,7 @@ def cruscotto(request):
             ],
             "filtri": filtri,
             **_contesto_cluster(request),
-            "categorie": m.Categoria.objects.all(),
+            "sottocluster_elenco": _sottocluster_scelta(),
             "proposte_aperte": m.PropostaRaggruppamento.objects.filter(stato="proposta").count()
             + m.PropostaPredecessore.objects.filter(stato="proposta").count(),
         },
@@ -285,6 +288,10 @@ def _ordine_qs(ordina: str, campi: dict, default: tuple) -> tuple:
     if not campo:
         return default
     return (f"-{campo}" if ordina.startswith("-") else campo, "pk")
+
+
+def _sottocluster_scelta():
+    return m.Sottocluster.objects.filter(archiviato=False).select_related("cluster")
 
 
 def _nome(modello, pk):
@@ -465,7 +472,7 @@ def contratto_nuovo(request):
     iniziali.setdefault(
         "procedura", m.Procedura.objects.filter(codice="affidamento_diretto").first()
     )
-    form = forms.ContrattoForm(request.POST or None, initial=iniziali, utente=request.user)
+    form = forms.ContrattoNuovoForm(request.POST or None, initial=iniziali, utente=request.user)
     if request.method == "POST" and form.is_valid():
         contratto = form.save()
         messages.success(
@@ -959,7 +966,7 @@ def archivia(request, tipo, pk):
 @login_required
 def fabbisogni_elenco(request):
     g = request.GET
-    qs = m.Fabbisogno.objects.select_related("categoria").annotate(
+    qs = m.Fabbisogno.objects.select_related("sottocluster").annotate(
         n_contratti=Count("contratti", filter=Q(contratti__archiviato=False))
     )
     if not g.get("archiviati"):
@@ -972,14 +979,14 @@ def fabbisogni_elenco(request):
         qs = qs.filter(cluster__codice__in=codici)
     if g.get("decisione"):
         qs = qs.filter(decisione=g["decisione"])
-    if g.get("categoria"):
-        qs = qs.filter(categoria_id=g["categoria"])
+    if g.get("sottocluster"):
+        qs = qs.filter(sottocluster_id=g["sottocluster"])
     ordine = _ordine_qs(
         g.get("ordina", ""),
         {
             "descrizione": "descrizione",
             "area": "cluster__codice",
-            "categoria": "categoria__nome",
+            "sottocluster": "sottocluster__nome",
             "decisione": "decisione",
             "contratti": "n_contratti",
         },
@@ -999,13 +1006,13 @@ def fabbisogni_elenco(request):
                     "area": _etichetta_cluster,
                     "decisione": lambda v: "Decisione: "
                     + dict(m.Fabbisogno.Decisione.choices).get(v, v),
-                    "categoria": lambda v: _nome(m.Categoria, v),
+                    "sottocluster": lambda v: _nome(m.Sottocluster, v),
                     "archiviati": lambda v: "Con gli archiviati",
                 },
             ),
             **_contesto_cluster(request),
             "decisioni": m.Fabbisogno.Decisione.choices,
-            "categorie": m.Categoria.objects.all(),
+            "sottocluster_elenco": _sottocluster_scelta(),
         },
     )
 
@@ -1015,7 +1022,7 @@ def fabbisogno_dettaglio(request, pk):
     from contratti import views_rda
 
     oggi = oggi_richiesta(request)
-    f = get_object_or_404(m.Fabbisogno.objects.select_related("categoria", "impianto"), pk=pk)
+    f = get_object_or_404(m.Fabbisogno.objects.select_related("sottocluster", "cluster"), pk=pk)
     contratti = selettori.righe_contratti(
         selettori.contratti_base().filter(fabbisogno=f).order_by("data_inizio"), oggi
     )
@@ -1048,12 +1055,7 @@ def fabbisogno_modifica(request, pk=None):
     f = get_object_or_404(m.Fabbisogno, pk=pk) if pk else None
     if f is not None:
         permessi.verifica_oggetto(request.user, f)
-    iniziali = (
-        {} if f else {"categoria": m.Categoria.objects.filter(nome="Da classificare").first()}
-    )
-    form = forms.FabbisognoForm(
-        request.POST or None, instance=f, initial=iniziali, utente=request.user
-    )
+    form = forms.FabbisognoForm(request.POST or None, instance=f, utente=request.user)
     if request.method == "POST" and form.is_valid():
         f = form.save()
         messages.success(request, "Fabbisogno salvato.")

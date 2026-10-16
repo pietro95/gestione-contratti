@@ -101,7 +101,12 @@ def documento_proposto(fattura: m.Fattura) -> str:
 def anomalie(fattura: m.Fattura) -> list[str]:
     codici = []
     if not motore.importo_quadra(
-        fattura.importo_documento, fattura.valore_base, fattura.oneri, fattura.bollo, fattura.iva
+        fattura.importo_documento,
+        fattura.valore_base,
+        fattura.oneri,
+        fattura.bollo,
+        fattura.iva,
+        fattura.altri_importi,
     ):
         codici.append("IMPORTO_NON_QUADRA")
     if fattura.contratto_id and fattura.valore_base is None and not fattura.fuori_registro:
@@ -429,15 +434,16 @@ def aggiorna_importi(
     rata: m.Rata | None = None,
     *,
     iva: Decimal | None = None,
+    altri_importi: Decimal | None = None,
 ) -> None:
-    """Valore base, oneri, bollo e IVA; con il contratto anche voce e rata abbinata (la rata
-    diventa consuntivo e riceve il numero di fattura; il suo importo non cambia).
+    """Valore base, oneri, bollo, IVA e altri importi; con il contratto anche voce e rata
+    abbinata (la rata diventa consuntivo e riceve il numero di fattura; il suo importo non cambia).
 
     Senza IVA indicata: se la differenza dall'importo del documento è l'IVA di un'aliquota
     della tabella (SAP riporta spesso l'importo con l'IVA), l'IVA si registra da sola."""
     if iva is None:
         riconosciuta = motore.iva_riconosciuta(
-            fattura.importo_documento, valore_base, oneri, bollo, aliquote_iva()
+            fattura.importo_documento, valore_base, oneri, bollo, aliquote_iva(), altri_importi
         )
         iva = riconosciuta[1] if riconosciuta else None
     if voce is not None and voce.contratto_id != fattura.contratto_id:
@@ -448,7 +454,8 @@ def aggiorna_importi(
         raise OperazioneNonAmmessa("La rata è già abbinata a un'altra fattura.")
     fattura.valore_base, fattura.oneri, fattura.bollo = valore_base, oneri, bollo
     fattura.iva = iva
-    campi = ["valore_base", "oneri", "bollo", "iva"]
+    fattura.altri_importi = altri_importi
+    campi = ["valore_base", "oneri", "bollo", "iva", "altri_importi"]
     if fattura.contratto_id:
         precedente = fattura.rata if fattura.rata_id and fattura.rata_id != getattr(
             rata, "pk", None
@@ -491,14 +498,20 @@ def scorpora_iva(
     bollo: Decimal | None,
     voce: m.VoceContratto | None = None,
     rata: m.Rata | None = None,
+    altri_importi: Decimal | None = None,
 ) -> None:
-    """Importo del documento con l'IVA: valore base e IVA dallo scorporo dell'aliquota."""
+    """Importo del documento con l'IVA: valore base e IVA dallo scorporo dell'aliquota, tolti
+    oneri, bollo e altri importi."""
     if aliquota not in aliquote_iva():
         raise OperazioneNonAmmessa("Aliquota IVA non prevista dalla tabella.")
-    valore_base, iva = motore.scorporo_iva(fattura.importo_documento, oneri, bollo, aliquota)
+    valore_base, iva = motore.scorporo_iva(
+        fattura.importo_documento, oneri, bollo, aliquota, altri_importi
+    )
     if valore_base < 0:
-        raise OperazioneNonAmmessa("Oneri e bollo superano l'importo senza IVA.")
-    aggiorna_importi(fattura, valore_base, oneri, bollo, voce, rata, iva=iva)
+        raise OperazioneNonAmmessa("Oneri, bollo e altri importi superano l'importo senza IVA.")
+    aggiorna_importi(
+        fattura, valore_base, oneri, bollo, voce, rata, iva=iva, altri_importi=altri_importi
+    )
 
 
 @transaction.atomic
@@ -507,11 +520,12 @@ def salva_importi(fattura: m.Fattura, dati: dict, aliquota_scorporo: Decimal | N
     imputazione propria della fattura."""
     if aliquota_scorporo is not None:
         scorpora_iva(fattura, aliquota_scorporo, dati.get("oneri"), dati.get("bollo"),
-                     dati.get("voce"), dati.get("rata"))  # fmt: skip
+                     dati.get("voce"), dati.get("rata"), dati.get("altri_importi"))  # fmt: skip
     else:
         aggiorna_importi(
             fattura, dati.get("valore_base"), dati.get("oneri"), dati.get("bollo"),
             dati.get("voce"), dati.get("rata"), iva=dati.get("iva"),
+            altri_importi=dati.get("altri_importi"),
         )  # fmt: skip
     imputa(fattura, dati.get("conto"), dati.get("centro_costo") or "", dati.get("wbs"))
 
@@ -576,6 +590,46 @@ def registra_documento(
     doc._change_reason = f"Registrato dalla fattura {fattura.numero}"[:100]
     doc.save()
     return doc
+
+
+def _documento_modificabile(fattura: m.Fattura, doc: m.DocumentoEsecuzione) -> None:
+    if doc.fattura_id != fattura.pk or doc.archiviato:
+        raise OperazioneNonAmmessa("Il documento non è di questa fattura.")
+    if doc.tipo not in (Tipo.ODA, Tipo.MAP, Tipo.MIGO):
+        raise OperazioneNonAmmessa("Documento non previsto per la fattura.")
+    if fattura.contratto_id and fattura.contratto.data_chiusura is not None:
+        raise OperazioneNonAmmessa("Il contratto è chiuso: prima si annulla la chiusura.")
+    if fattura.data_trasferimento is not None:
+        raise OperazioneNonAmmessa("La fattura è trasferita: prima si annulla il trasferimento.")
+
+
+def modifica_documento(
+    fattura: m.Fattura, doc: m.DocumentoEsecuzione, tipo: str, numero: str, data: datetime.date
+) -> m.DocumentoEsecuzione:
+    """Corregge tipo, numero e data di una RdC, MAP o MIGO già registrata."""
+    _documento_modificabile(fattura, doc)
+    if tipo not in (Tipo.ODA, Tipo.MAP, Tipo.MIGO):
+        raise OperazioneNonAmmessa("Documento non previsto per la fattura.")
+    if not numero.strip():
+        raise OperazioneNonAmmessa("Indica il numero del documento.")
+    altra_rdc = (
+        fattura.documenti.filter(tipo=Tipo.ODA, archiviato=False).exclude(pk=doc.pk).exists()
+    )
+    if tipo == Tipo.ODA and altra_rdc:
+        raise OperazioneNonAmmessa("La fattura ha già la sua RdC (una per fattura).")
+    doc.tipo, doc.numero, doc.data = tipo, numero.strip(), data
+    doc.full_clean()
+    doc._change_reason = f"Corretto dalla fattura {fattura.numero}"[:100]
+    doc.save()
+    return doc
+
+
+def rimuovi_documento(fattura: m.Fattura, doc: m.DocumentoEsecuzione) -> None:
+    """Toglie una RdC, MAP o MIGO dalla fattura: si archivia, non si cancella (regola 8)."""
+    _documento_modificabile(fattura, doc)
+    doc.archiviato = True
+    doc._change_reason = f"Rimosso dalla fattura {fattura.numero}"[:100]
+    doc.save(update_fields=["archiviato"])
 
 
 def trasferisci(fattura: m.Fattura, utente=None, data=None) -> None:

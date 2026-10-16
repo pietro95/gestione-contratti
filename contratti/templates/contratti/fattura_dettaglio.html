@@ -17,12 +17,12 @@
 {% if scrive %}<form method="post" action="{% url 'contratti:fattura_fuori_registro' f.pk %}" class="m-0">{% csrf_token %}<input type="hidden" name="valore" value="{% if f.fuori_registro %}0{% else %}1{% endif %}"><button class="btn btn-outline-secondary" type="submit"><i class="bi bi-slash-circle" aria-hidden="true"></i> {% if f.fuori_registro %}Rimetti nel registro{% else %}Fuori registro{% endif %}</button></form>{% endif %}
 {% endblock %}
 {% block content %}
-{% for a in r.anomalie %}<div class="alert alert-warning small"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> {% if a == "IMPORTO_NON_QUADRA" %}Valore base + oneri + bollo ({{ f.valore_base|euro }} + {{ f.oneri|euro }} + {{ f.bollo|euro }}) diverso dall'importo del documento ({{ f.importo_documento|euro }}).{% elif a == "VALORE_BASE_MANCANTE" %}Manca il valore base prelevato dal contratto: la fattura non conta nel fatturato del contratto.{% else %}{{ a }}{% endif %}</div>{% endfor %}
+{% for a in r.anomalie %}<div class="alert alert-warning small"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> {% if a == "IMPORTO_NON_QUADRA" %}Valore base + oneri + bollo + IVA + altri importi ({{ f.valore_base|euro }} + {{ f.oneri|euro }} + {{ f.bollo|euro }} + {{ f.iva|euro }} + {{ f.altri_importi|euro }}) diverso dall'importo del documento ({{ f.importo_documento|euro }}).{% elif a == "VALORE_BASE_MANCANTE" %}Manca il valore base prelevato dal contratto: la fattura non conta nel fatturato del contratto.{% else %}{{ a }}{% endif %}</div>{% endfor %}
 
 <div class="row g-3 mb-4">
   <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Passo da fare</div><div class="kpi-valore fs-5">{{ r.passo_label }}</div><div class="kpi-nota">{% if f.data_trasferimento %}trasferita il {{ f.data_trasferimento|date:"d/m/Y" }}{% endif %}</div></div></div></div>
   <div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">Importo del documento</div><div class="kpi-valore">{{ f.importo_documento|euro }}</div><div class="kpi-nota">Importo SAP</div></div></div></div>
-  <div class="col-sm-6 col-xl-3"><div class="card kpi verde"><div class="card-body"><div class="kpi-etichetta">Valore base dal contratto</div><div class="kpi-valore">{{ f.valore_base|euro }}</div><div class="kpi-nota">{% if f.oneri %}oneri {{ f.oneri|euro }}{% endif %}{% if f.bollo %} · bollo {{ f.bollo|euro }}{% endif %}</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi verde"><div class="card-body"><div class="kpi-etichetta">Valore base dal contratto</div><div class="kpi-valore">{{ f.valore_base|euro }}</div><div class="kpi-nota">{% if f.oneri %}oneri {{ f.oneri|euro }}{% endif %}{% if f.bollo %} · bollo {{ f.bollo|euro }}{% endif %}{% if f.altri_importi %} · altri importi {{ f.altri_importi|euro }}{% endif %}</div></div></div></div>
   <div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">In carico a</div><div class="kpi-valore fs-6">{% if f.referente %}{{ f.referente }}{% else %}nessuno{% endif %}</div><div class="kpi-nota">{% if f.data_presa_in_carico %}dal {{ f.data_presa_in_carico|date:"d/m/Y" }}{% elif referente_proposto %}proposto: {{ referente_proposto }}{% else %}nessun referente proposto{% endif %}</div></div></div></div>
 </div>
 
@@ -67,8 +67,9 @@
         <div class="col-sm-6 col-lg-3"><label class="form-label" for="{{ form_importi.valore_base.id_for_label }}">Valore base</label>{{ form_importi.valore_base }}</div>
         <div class="col-sm-6 col-lg-3"><label class="form-label" for="{{ form_importi.oneri.id_for_label }}">Oneri previdenziali</label>{{ form_importi.oneri }}</div>
         <div class="col-sm-6 col-lg-3"><label class="form-label" for="{{ form_importi.bollo.id_for_label }}">Bollo</label>{{ form_importi.bollo }}</div>
-        <div class="col-sm-6 col-lg-3"><label class="form-label" for="{{ form_importi.iva.id_for_label }}">IVA compresa</label>{{ form_importi.iva }}</div>
-        <div class="col-12 form-text">Valore base + oneri + bollo + IVA = importo del documento ({{ f.importo_documento|euro }}). {{ form_importi.iva.help_text }}{% if f.valore_base is None %} Proposto: importo del documento meno oneri e bollo; si salva solo confermando.{% endif %}</div>
+        <div class="col-sm-6 col-lg-3"><label class="form-label" for="{{ form_importi.iva.id_for_label }}">IVA</label>{{ form_importi.iva }}</div>
+        <div class="col-12"><label class="form-label" for="{{ form_importi.altri_importi.id_for_label }}">{{ form_importi.altri_importi.label }}</label>{{ form_importi.altri_importi }}<div class="form-text">{{ form_importi.altri_importi.help_text }}</div></div>
+        <div class="col-12 form-text">Valore base + oneri + bollo + IVA + altri importi = importo del documento ({{ f.importo_documento|euro }}). {{ form_importi.iva.help_text }}{% if f.valore_base is None %} Proposto: importo del documento meno oneri, bollo e altri importi; si salva solo confermando.{% endif %}</div>
         {% if form_importi.voce %}<div class="col-sm-6"><label class="form-label" for="{{ form_importi.voce.id_for_label }}">Voce</label>{{ form_importi.voce }}</div>
         <div class="col-sm-6"><label class="form-label" for="{{ form_importi.rata.id_for_label }}">Rata dello scadenzario</label>{{ form_importi.rata }}<div class="form-text">{{ form_importi.rata.help_text }}</div></div>{% endif %}
         <fieldset class="col-12 border rounded p-2 mt-2"><legend class="fs-6 float-none w-auto px-1 mb-0">Imputazione della fattura, se diversa dalla voce</legend>
@@ -80,10 +81,10 @@
           </div>
         </fieldset>
         <div class="col-12 d-flex flex-wrap gap-2"><button class="btn btn-primary" type="submit">Salva gli importi</button>
-          {% for a in aliquote_iva %}<button class="btn btn-outline-secondary" type="submit" name="scorporo" value="{{ a|stringformat:"s" }}" title="Valore base e IVA dall'importo del documento, con oneri e bollo indicati">Scorpora IVA {{ a|floatformat:"-2" }}%</button>{% endfor %}</div>
+          {% for a in aliquote_iva %}<button class="btn btn-outline-secondary" type="submit" name="scorporo" value="{{ a|stringformat:"s" }}" title="Valore base e IVA dall'importo del documento, tolti oneri, bollo e altri importi indicati">Scorpora IVA {{ a|floatformat:"-2" }}%</button>{% endfor %}</div>
       </form>
       {% else %}
-      <dl class="dati mb-0"><dt>Valore base</dt><dd>{{ f.valore_base|euro }}</dd><dt>Oneri</dt><dd>{{ f.oneri|euro }}</dd><dt>Bollo</dt><dd>{{ f.bollo|euro }}</dd><dt>IVA compresa</dt><dd>{{ f.iva|euro }}</dd>{% if f.conto or f.centro_costo or f.wbs %}<dt>Imputazione della fattura</dt><dd>COGE {{ f.conto.codice|default:"--" }}, CDC {{ f.centro_costo|default:"--" }}, WBS {{ f.wbs.codice_wbs|default:"--" }}</dd>{% endif %}<dt>Rata</dt><dd>{{ f.rata|default:"—" }}</dd></dl>
+      <dl class="dati mb-0"><dt>Valore base</dt><dd>{{ f.valore_base|euro }}</dd><dt>Oneri</dt><dd>{{ f.oneri|euro }}</dd><dt>Bollo</dt><dd>{{ f.bollo|euro }}</dd><dt>IVA</dt><dd>{{ f.iva|euro }}</dd><dt>Altri importi non imputabili all'ufficio</dt><dd>{{ f.altri_importi|euro }}</dd>{% if f.conto or f.centro_costo or f.wbs %}<dt>Imputazione della fattura</dt><dd>COGE {{ f.conto.codice|default:"--" }}, CDC {{ f.centro_costo|default:"--" }}, WBS {{ f.wbs.codice_wbs|default:"--" }}</dd>{% endif %}<dt>Rata</dt><dd>{{ f.rata|default:"—" }}</dd></dl>
       {% endif %}
     </div></section>
 
@@ -107,8 +108,18 @@
         <div class="input-group"><input id="indicazioni" class="form-control small" value="{{ indicazioni }}" readonly><button type="button" class="btn btn-outline-secondary" data-copia="indicazioni"><i class="bi bi-clipboard" aria-hidden="true"></i> Copia</button></div>
       </div>
       <div class="tabella-card mb-3"><div class="table-responsive"><table class="table table-sm align-middle scheda-sap">
-        <thead><tr><th>Documento</th><th>Numero</th><th>Data</th></tr></thead>
-        <tbody>{% for d in documenti %}<tr><td>{{ d.get_tipo_display }}</td><td>{{ d.numero|default:"—" }}</td><td>{{ d.data|date:"d/m/Y" }}</td></tr>{% empty %}<tr><td colspan="3" class="text-body-secondary small">Nessun documento SAP registrato.</td></tr>{% endfor %}</tbody>
+        <thead><tr><th>Documento</th><th>Numero</th><th>Data</th>{% if puo_lavorare %}<th><span class="visually-hidden">Azioni</span></th>{% endif %}</tr></thead>
+        <tbody>{% for d in documenti %}<tr><td>{{ d.get_tipo_display }}</td><td>{{ d.numero|default:"—" }}</td><td>{{ d.data|date:"d/m/Y" }}</td>{% if puo_lavorare %}<td class="text-end text-nowrap">{% if not f.data_trasferimento %}
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#doc-{{ d.pk }}" aria-expanded="false" aria-controls="doc-{{ d.pk }}"><i class="bi bi-pencil" aria-hidden="true"></i> Modifica</button>
+          <form method="post" action="{% url 'contratti:fattura_documento_rimuovi' f.pk d.pk %}" class="d-inline" data-conferma="Il documento {{ d.get_tipo_display }} {{ d.numero }} viene tolto dalla fattura (resta nello storico)." data-conferma-etichetta="Rimuovi">{% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash" aria-hidden="true"></i> Rimuovi</button></form>{% else %}<span class="small text-body-secondary">annulla il trasferimento per modificarlo</span>{% endif %}</td>{% endif %}</tr>
+        {% if puo_lavorare and not f.data_trasferimento %}<tr class="collapse" id="doc-{{ d.pk }}"><td colspan="4">
+          <form method="post" action="{% url 'contratti:fattura_documento_modifica' f.pk d.pk %}" class="row g-2" novalidate>{% csrf_token %}
+            <div class="col-sm-4"><label class="form-label" for="dt-{{ d.pk }}">Documento</label><select id="dt-{{ d.pk }}" name="tipo" class="form-select">{% for v, n in form_documento.fields.tipo.choices %}<option value="{{ v }}" {% if v == d.tipo %}selected{% endif %}>{{ n }}</option>{% endfor %}</select></div>
+            <div class="col-sm-4"><label class="form-label" for="dn-{{ d.pk }}">Numero</label><input id="dn-{{ d.pk }}" name="numero" class="form-control" maxlength="40" value="{{ d.numero }}"></div>
+            <div class="col-sm-4"><label class="form-label" for="dd-{{ d.pk }}">Data</label><input id="dd-{{ d.pk }}" name="data" class="form-control js-data" value="{{ d.data|date:'d/m/Y' }}" autocomplete="off"></div>
+            <div class="col-12"><button class="btn btn-primary btn-sm" type="submit">Salva la correzione</button></div>
+          </form></td></tr>{% endif %}
+        {% empty %}<tr><td colspan="4" class="text-body-secondary small">Nessun documento SAP registrato.</td></tr>{% endfor %}</tbody>
       </table></div></div>
       {% if puo_lavorare and f.contratto %}
       <form method="post" action="{% url 'contratti:fattura_documento' f.pk %}" class="row g-2" novalidate>

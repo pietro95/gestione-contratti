@@ -97,7 +97,7 @@ def test_contratti_creati_e_collegati(registro, file):
     primo = creati[0]
     assert primo.una_tantum and primo.data_inizio == D(2025, 5, 12)
     assert primo.fabbisogno.descrizione == "Acquisti una tantum IT (dal Riepilogo)"
-    assert primo.fabbisogno.categoria.nome == "Da classificare"
+    assert primo.fabbisogno.sottocluster is None
     assert primo.data_chiusura == OGGI
     assert primo.fornitore.ragione_sociale == "Fornitore Prova B S.r.l."
     assert primo.voci.get().importo_fisso == Decimal("1000.00")
