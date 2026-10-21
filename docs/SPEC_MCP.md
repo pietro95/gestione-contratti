@@ -2,7 +2,7 @@
 
 > Specifica normativa del connettore. L'inquadramento architetturale è in [ARCHITECTURE](ARCHITECTURE.md), i principi di protezione in [SECURITY](SECURITY.md) e le procedure di esercizio in [RUNBOOK](RUNBOOK.md).
 
-Rev08 — 07/10/2026 — decisioni del responsabile del progetto, da approvare. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
+Rev09 — 21/10/2026 — decisioni del responsabile del progetto, da approvare. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
 
 Storico revisioni:
 - Rev00 (05/10/2026): prima bozza, raccomandata l'opzione «solo rete interna con ponte locale».
@@ -141,7 +141,7 @@ Convenzioni comuni:
 | `scadenzario` | `contratto_id` o `voce_id` | rate: numero, data fattura, pagamento stimato, importo, consuntivo, modificata a mano | modelli `Rata` |
 | `budget` | `anno`, `cluster`, `sottocluster`, `natura`, `conto`, `fornitore`, `wbs`, `progetti`, `previsionali`, `raggruppa_per` (cluster, conto, fornitore, wbs, fabbisogno) | per gruppo: fatturato, ordinato, competenza × fisso, probabile, massimo; OPEX e CAPEX **separati e mai sommati**; rinnovi mancanti | `reports.budget.calcola_budget`, `raggruppa` |
 | `piano_ordini` | `anno`, `cluster`, `categoria`, `natura` | righe del piano (SPEC §5.4), avvisi di frazionamento | `reports.piano_ordini.calcola_piano` |
-| `spese_wbs` | `wbs_id`, `vista`, `livello` | contratti e importi anno per anno sulla WBS | `reports.wbs` |
+| `spese_wbs` | `wbs_id`, `vista`, `livello`; senza WBS (elenco): `cluster`, `sottocluster`, `tipo` | contratti e importi anno per anno sulla WBS | `reports.wbs` |
 | `piani_da_verificare` | `cluster`, `sottocluster` | voci con piano `Da verificare` | `selettori.voci_piano_da_verificare` |
 | `fornitore` | `id` | anagrafica, contratti attivi e storici, totali per anno | viste fornitore |
 | `riferimenti` | — | cluster visibili e propri, categorie, procedure con lead time e se sono proponibili per un fabbisogno (`per_fabbisogni`, Rev24), soglie valide | tabelle di configurazione |
