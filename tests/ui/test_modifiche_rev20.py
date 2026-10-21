@@ -195,7 +195,15 @@ def _fattura(importo="1320.00"):
 
 def test_scorporo_toglie_gli_altri_importi():
     fa = _fattura()
-    fatture.salva_importi(fa, {"altri_importi": DEC("100.00")}, aliquota_scorporo=DEC("22"))
+    fatture.salva_importi(
+        fa,
+        {
+            "altri_importi": DEC("100.00"),
+            "competenza_dal": D(2026, 2, 1),
+            "competenza_al": D(2026, 2, 28),
+        },
+        aliquota_scorporo=DEC("22"),
+    )
     fa.refresh_from_db()
     assert (fa.valore_base, fa.iva, fa.altri_importi) == (
         DEC("1000.00"),
@@ -207,11 +215,27 @@ def test_scorporo_toglie_gli_altri_importi():
 
 def test_altri_importi_riconosciuti_e_quadratura():
     fa = _fattura()
-    fatture.salva_importi(fa, {"valore_base": DEC("1000.00"), "altri_importi": DEC("100.00")})
+    fatture.salva_importi(
+        fa,
+        {
+            "valore_base": DEC("1000.00"),
+            "altri_importi": DEC("100.00"),
+            "competenza_dal": D(2026, 2, 1),
+            "competenza_al": D(2026, 2, 28),
+        },
+    )
     fa.refresh_from_db()
     assert fa.iva == DEC("220.00") and fatture.anomalie(fa) == []
     # Senza gli altri importi la fattura non quadra più.
-    fatture.salva_importi(fa, {"valore_base": DEC("1000.00"), "iva": DEC("220.00")})
+    fatture.salva_importi(
+        fa,
+        {
+            "valore_base": DEC("1000.00"),
+            "iva": DEC("220.00"),
+            "competenza_dal": D(2026, 2, 1),
+            "competenza_al": D(2026, 2, 28),
+        },
+    )
     fa.refresh_from_db()
     assert fatture.anomalie(fa) == ["IMPORTO_NON_QUADRA"]
 
@@ -220,7 +244,13 @@ def test_la_vista_importi_registra_gli_altri_importi(editor):
     fa = _fattura()
     risposta = editor.post(
         reverse("contratti:fattura_importi", args=[fa.pk]),
-        {"valore_base": "1.000,00", "iva": "220,00", "altri_importi": "100,00"},
+        {
+            "valore_base": "1.000,00",
+            "iva": "220,00",
+            "altri_importi": "100,00",
+            "competenza_dal": "01/02/2026",
+            "competenza_al": "28/02/2026",
+        },
     )
     assert risposta.status_code == 302
     fa.refresh_from_db()
