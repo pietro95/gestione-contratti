@@ -3,8 +3,7 @@ gruppi acquisti, centri di costo.
 
 Il modello ha un foglio per tabella (``Richiedenti``, ``Gruppi merci``, ``Gruppi acquisti``,
 ``Centri di costo``; almeno uno), colonne ``codice``, ``descrizione`` (per i gruppi acquisti
-anche ``nome``), ``predefinito`` (sì/no) e, per i gruppi merci, ``categoria`` facoltativa (nome
-della categoria di fabbisogno).
+anche ``nome``), ``predefinito`` (sì/no). Una colonna ``categoria`` dei vecchi modelli si ignora.
 
 Si leggono anche i due elenchi di SAP così come arrivano, riconosciuti dall'intestazione (in
 una delle prime righe, in qualsiasi foglio):
@@ -17,10 +16,10 @@ una delle prime righe, in qualsiasi foglio):
 
 - Tutto o niente; idempotente per codice; nessuna cancellazione: un codice assente dal file
   resta com'è (si disattiva dall'amministrazione).
-- Un codice del file aggiorna descrizione e, se la colonna c'è, categoria.
+- Un codice del file aggiorna la descrizione.
 - Un foglio con un predefinito lo rende l'unico predefinito della tabella; senza predefiniti
   nel foglio il predefinito registrato resta.
-- Errori bloccanti: più predefiniti nello stesso foglio, codici doppi, categorie inesistenti,
+- Errori bloccanti: più predefiniti nello stesso foglio, codici doppi,
   valori di «predefinito» illeggibili, codice mancante.
 """
 
@@ -42,12 +41,11 @@ class Foglio:
     chiave: str  # prefisso dei conteggi
     modello: type
     alias_descrizione: tuple[str, ...] = ("descrizione",)
-    con_categoria: bool = False
 
 
 FOGLI = (
     Foglio("Richiedenti", "richiedenti", m.RichiedenteSAP),
-    Foglio("Gruppi merci", "gruppi_merci", m.GruppoMerci, con_categoria=True),
+    Foglio("Gruppi merci", "gruppi_merci", m.GruppoMerci),
     Foglio("Gruppi acquisti", "gruppi_acquisti", m.GruppoAcquisti, ("nome", "descrizione")),
     Foglio("Centri di costo", "centri_costo", m.CentroCosto),
 )
@@ -193,16 +191,6 @@ def _leggi(foglio: Foglio, righe: list[dict]) -> list[dict]:
             ),
             "predefinito": predefinito,
         }
-        if foglio.con_categoria and "categoria" in presenti:
-            nome = str(r.get("categoria") or "").strip()
-            categoria = None
-            if nome:
-                categoria = m.Categoria.objects.filter(nome__iexact=nome).first()
-                if categoria is None:
-                    raise tabelle.FileNonValido(
-                        f"{foglio.nome}, riga {n}: categoria inesistente ({nome})."
-                    )
-            letta["categoria"] = categoria
         lette.append(letta)
     if len(predefiniti) > 1:
         raise tabelle.FileNonValido(
@@ -225,14 +213,12 @@ def _importa_foglio(report: Report, foglio: Foglio, righe: list[dict]) -> None:
         esito = "aggiornati"
         if oggetto is None:
             oggetto, esito = modello(codice=r["codice"]), "creati"
-        prima = (oggetto.descrizione, getattr(oggetto, "categoria_id", None), oggetto.predefinito)
+        prima = (oggetto.descrizione, oggetto.predefinito)
         if r["descrizione"] is not None:
             oggetto.descrizione = r["descrizione"]
-        if "categoria" in r:
-            oggetto.categoria = r["categoria"]
         if r["predefinito"]:
             oggetto.predefinito = True
-        dopo = (oggetto.descrizione, getattr(oggetto, "categoria_id", None), oggetto.predefinito)
+        dopo = (oggetto.descrizione, oggetto.predefinito)
         if esito == "aggiornati" and prima == dopo:
             report.conteggi[f"{foglio.chiave}_invariati"] += 1
             continue

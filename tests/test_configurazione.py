@@ -54,17 +54,6 @@ def test_soglia_affidamento_diretto():
     assert soglia.provvisorio
 
 
-def test_categorie_iniziali():
-    assert set(m.Categoria.objects.values_list("nome", flat=True)) == {
-        "Licenze software",
-        "Manutenzione hardware",
-        "Connettività",
-        "Servizi professionali",
-        "Noleggio",
-        "Da classificare",  # migration 0008, per l'import Excel
-    }
-
-
 def test_nessun_conto_reale_caricato():
     # Il piano dei conti reale si carica sulla VM, mai dal repository.
     assert not m.ContoCoge.objects.exists()

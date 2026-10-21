@@ -236,6 +236,7 @@ def fattura_dettaglio(request, pk):
         "oneri": f.oneri,
         "bollo": f.bollo,
         "iva": f.iva,
+        "altri_importi": f.altri_importi,
         "competenza_dal": f.competenza_dal,
         "competenza_al": f.competenza_al,
         "voce": f.voce_id,
@@ -246,7 +247,7 @@ def fattura_dettaglio(request, pk):
     }
     if f.valore_base is None:
         iniziali_importi["valore_base"] = motore.valore_base_proposto(
-            f.importo_documento, f.oneri, f.bollo
+            f.importo_documento, f.oneri, f.bollo, f.altri_importi
         )
     return render(
         request,
@@ -438,6 +439,35 @@ def fattura_documento(request, pk):
     )  # fmt: skip
 
 
+def _documento_della_fattura(pk, documento_pk) -> m.DocumentoEsecuzione:
+    return get_object_or_404(m.DocumentoEsecuzione, pk=documento_pk, fattura_id=pk)
+
+
+@editor_required
+@require_POST
+def fattura_documento_modifica(request, pk, documento_pk):
+    doc = _documento_della_fattura(pk, documento_pk)
+    form = forms.DocumentoFatturaForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Documento non valido: " + "; ".join(
+            f"{k}: {' '.join(v)}" for k, v in form.errors.items()
+        ))  # fmt: skip
+        return redirect("contratti:fattura", pk=pk)
+    d = form.cleaned_data
+    return _azione(
+        request, pk,
+        lambda x: fatture.modifica_documento(x, doc, d["tipo"], d["numero"], d["data"]),
+        "Documento corretto.",
+    )  # fmt: skip
+
+
+@editor_required
+@require_POST
+def fattura_documento_rimuovi(request, pk, documento_pk):
+    doc = _documento_della_fattura(pk, documento_pk)
+    return _azione(request, pk, lambda x: fatture.rimuovi_documento(x, doc), "Documento rimosso.")
+
+
 @editor_required
 @require_POST
 def fattura_trasferisci(request, pk):
@@ -489,6 +519,10 @@ def contesto_esecuzione(contratto: m.Contratto, oggi) -> dict:
         "form_documento_esecuzione": forms.DocumentoEsecuzioneForm(
             contratto=contratto, initial={"data": oggi}
         ),
+        "pregresso": list(contratto.fatturato_pregresso.filter(archiviato=False).order_by("anno")),
+        "form_pregresso": forms.FatturatoPregressoForm(
+            contratto=contratto, initial={"anno": oggi.year - 1}
+        ),
         "stanziamenti": list(
             m.Stanziamento.objects.filter(voce__contratto=contratto, archiviato=False)
             .select_related("voce", "rata", "fattura")
@@ -521,6 +555,40 @@ def contratto_documento(request, pk):
         messages.error(request, "Documento non valido: " + "; ".join(
             f"{k}: {' '.join(v)}" for k, v in form.errors.items()
         ))  # fmt: skip
+    return redirect(f"/contratti/{pk}/#esecuzione")
+
+
+@editor_required
+@require_POST
+def pregresso_salva(request, pk):
+    """Registra (o corregge, per lo stesso anno) il fatturato totale di un anno pregresso.
+    Ammesso anche su un contratto chiuso: serve proprio a caricare lo storico."""
+    contratto = get_object_or_404(m.Contratto, pk=pk)
+    permessi.verifica_oggetto(request.user, contratto)
+    form = forms.FatturatoPregressoForm(request.POST, contratto=contratto)
+    if form.is_valid():
+        riga = form.save(commit=False)
+        riga.contratto = contratto
+        riga._change_reason = "Fatturato pregresso dal contratto"
+        riga.save()
+        messages.success(request, f"Fatturato {riga.anno} registrato.")
+    else:
+        messages.error(request, "Fatturato pregresso non valido: " + "; ".join(
+            f"{k}: {' '.join(v)}" for k, v in form.errors.items()
+        ))  # fmt: skip
+    return redirect(f"/contratti/{pk}/#esecuzione")
+
+
+@editor_required
+@require_POST
+def pregresso_rimuovi(request, pk, riga_pk):
+    contratto = get_object_or_404(m.Contratto, pk=pk)
+    permessi.verifica_oggetto(request.user, contratto)
+    riga = get_object_or_404(m.FatturatoPregresso, pk=riga_pk, contratto=contratto)
+    riga.archiviato = True
+    riga._change_reason = "Fatturato pregresso rimosso"
+    riga.save(update_fields=["archiviato"])
+    messages.success(request, f"Fatturato {riga.anno} rimosso.")
     return redirect(f"/contratti/{pk}/#esecuzione")
 
 

@@ -130,7 +130,7 @@ def rda_elenco(request):
 def rda_nuova(request, fabbisogno_pk):
     """Richiesta di RDA dal fabbisogno: rinnovo, primo acquisto o acquisto aggiuntivo."""
     f = get_object_or_404(
-        m.Fabbisogno.objects.select_related("cluster", "categoria"), pk=fabbisogno_pk
+        m.Fabbisogno.objects.select_related("cluster", "sottocluster"), pk=fabbisogno_pk
     )
     permessi.verifica_oggetto(request.user, f)
     dati = request.POST if request.method == "POST" else request.GET

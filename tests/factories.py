@@ -10,8 +10,8 @@ def procedura(codice="affidamento_diretto"):
     return m.Procedura.objects.get(codice=codice)
 
 
-def categoria(nome="Licenze software"):
-    return m.Categoria.objects.get(nome=nome)
+def sottocluster(nome="Licenze software", cluster_codice="IT"):
+    return m.Sottocluster.objects.get_or_create(nome=nome, cluster=cluster(cluster_codice))[0]
 
 
 def fornitore(ragione_sociale="Fornitore Esempio S.r.l.", **kw):
@@ -26,7 +26,6 @@ def fabbisogno(descrizione="Licenze gestionale di prova", **kw):
     if "area" in kw:  # codice del cluster, come prima di F9.2
         kw["cluster"] = cluster(kw.pop("area"))
     kw.setdefault("cluster", cluster())
-    kw.setdefault("categoria", categoria())
     return m.Fabbisogno.objects.create(descrizione=descrizione, **kw)
 
 

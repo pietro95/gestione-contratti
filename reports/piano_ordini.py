@@ -35,7 +35,6 @@ from contratti.engine.tipi import ContrattoPrevisto, Livello, Voce
 from contratti.selettori import codici_cluster
 from reports.budget import LIVELLI, NATURE, importi_anno, orizzonte_report
 
-CATEGORIA_NON_CLASSIFICATA = "Da classificare"
 DA_AVVIARE = "da_avviare"
 DA_CONCLUDERE = "da_concludere"
 REGISTRATO = "registrato"
@@ -85,10 +84,6 @@ class RigaPiano:
         return self.fase == REGISTRATO
 
     @property
-    def categoria(self) -> m.Categoria:
-        return self.fabbisogno.categoria
-
-    @property
     def sottocluster(self) -> m.Sottocluster | None:
         return self.fabbisogno.sottocluster
 
@@ -120,7 +115,7 @@ class RigaPiano:
 
 @dataclass
 class AvvisoFrazionamento:
-    tipo: str  # "categoria" o "fornitore"
+    tipo: str  # "sottocluster" o "fornitore"
     nome: str
     soglia: m.Soglia
     totale_massimo: Decimal
@@ -444,14 +439,14 @@ def calcola_piano(
     oggi: datetime.date,
     *,
     area: str | tuple[str, ...] = "",
-    categoria: int | None = None,
+    sottocluster: int | None = None,
     natura: str = "",
 ) -> PianoOrdini:
     with adapters.parametri_in_cache():
-        return _calcola_piano(anno, oggi, area, categoria, natura)
+        return _calcola_piano(anno, oggi, area, sottocluster, natura)
 
 
-def _calcola_piano(anno: int, oggi: datetime.date, area, categoria: int | None, natura: str):
+def _calcola_piano(anno: int, oggi: datetime.date, area, sottocluster: int | None, natura: str):
     inizio_anno = datetime.date(anno, 1, 1)
     # Un previsto con data limite nell'anno X può partire fino a lead time mesi dopo il 31/12/X.
     orizzonte = max(
@@ -464,9 +459,8 @@ def _calcola_piano(anno: int, oggi: datetime.date, area, categoria: int | None, 
         m.Fabbisogno.objects.filter(archiviato=False)
         .select_related(
             "cluster",
-            "categoria",
             "previsto_procedura",
-            "sottocluster",
+            "sottocluster__cluster",
             "fonte_finanziamento",
             "wbs_previsti__fonte_finanziamento",
         )
@@ -474,8 +468,8 @@ def _calcola_piano(anno: int, oggi: datetime.date, area, categoria: int | None, 
     )
     if codici := codici_cluster(area):
         fabbisogni = fabbisogni.filter(cluster__codice__in=codici)
-    if categoria:
-        fabbisogni = fabbisogni.filter(categoria_id=categoria)
+    if sottocluster:
+        fabbisogni = fabbisogni.filter(sottocluster_id=sottocluster)
     righe: list[RigaPiano] = []
     for f in fabbisogni.order_by("pk"):
         righe += _righe_previste(f, anno, oggi, orizzonte, procedura_default, recupero)
@@ -528,15 +522,15 @@ def _righe_registrate(f, anno, oggi) -> list[RigaPiano]:
 
 
 def avvisi_frazionamento(righe: list[RigaPiano], soglie: list[m.Soglia]):
-    """Gruppi (categoria o fornitore) di almeno 2 previsti che sommati raggiungono la soglia.
+    """Gruppi (sottocluster o fornitore) di almeno 2 previsti che sommati raggiungono la soglia.
 
     Il confronto usa il livello massimo: il valore stimato dell'appalto comprende le
     opzioni. I singoli previsti già oltre soglia sono marcati sulla riga.
     """
     gruppi: dict[tuple[str, str], list[RigaPiano]] = defaultdict(list)
     for r in righe:
-        if r.categoria.nome != CATEGORIA_NON_CLASSIFICATA:
-            gruppi[("categoria", r.categoria.nome)].append(r)
+        if (sc := r.sottocluster) is not None:
+            gruppi[("sottocluster", str(sc))].append(r)
         f = r.fornitore_uscente
         if f is not None and not f.ragione_sociale.startswith("("):
             gruppi[("fornitore", f.ragione_sociale)].append(r)

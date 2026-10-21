@@ -340,9 +340,7 @@ def _voci_previste(filtri: Filtri, oggi: datetime.date):
     orizzonte = orizzonte_report(filtri.anno, oggi)
     fabbisogni = (
         m.Fabbisogno.objects.filter(archiviato=False)
-        .select_related(
-            "cluster", "categoria", "previsto_procedura", "conto_previsti", "wbs_previsti"
-        )
+        .select_related("cluster", "previsto_procedura", "conto_previsti", "wbs_previsti")
         .prefetch_related(*adapters.PREFETCH_FABBISOGNO)
     )
     if codici := codici_cluster(filtri.area):

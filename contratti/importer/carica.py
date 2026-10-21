@@ -96,7 +96,6 @@ class _Caricamento:
             raise ValueError(f"Cluster inesistente: {area}.") from exc
         self.oggi = oggi
         self.procedura = m.Procedura.objects.get(codice="da_verificare")
-        self.categoria = m.Categoria.objects.get(nome="Da classificare")
         conti = m.ContoCoge.objects.select_related("cluster").order_by("valido_dal")
         self.conti = {c.codice: c for c in conti}
         # Struttura caricata: un conto senza cluster va completato (SPEC §4).
@@ -226,7 +225,6 @@ class _Caricamento:
         fabbisogno = m.Fabbisogno.objects.create(
             descrizione=descrizione,
             cluster=self.cluster,
-            categoria=self.categoria,
             decisione=primo.decisione,
             note="Fabbisogno provvisorio creato dall'import Excel.",
         )

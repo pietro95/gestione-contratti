@@ -126,8 +126,13 @@ class ImportiForm(FormBase):
     bollo = ImportoField(max_digits=14, decimal_places=2, min_value=0, required=False)
     iva = ImportoField(
         max_digits=14, decimal_places=2, min_value=0, required=False,
-        label="IVA compresa nell'importo",
+        label="IVA",
         help_text="Vuota: si riconosce da sola se la differenza è l'IVA di un'aliquota.",
+    )  # fmt: skip
+    altri_importi = ImportoField(
+        max_digits=14, decimal_places=2, min_value=0, required=False,
+        label="Altri importi (es. more/danni) in fattura, non imputabili al nostro ufficio",
+        help_text="Si tolgono dall'importo del documento: non contano per il contratto.",
     )  # fmt: skip
     competenza_dal = forms.DateField(
         required=False,
@@ -221,6 +226,43 @@ class RiassegnaForm(FormBase):
             "last_name", "first_name", "username"
         )
         self.fields["utente"].widget.attrs["class"] += " js-cerca"
+
+
+class FatturatoPregressoForm(ModelFormBootstrap):
+    """Totale fatturato di un anno prima del registro; stesso anno = correzione del totale."""
+
+    class Meta:
+        model = m.FatturatoPregresso
+        fields = ["anno", "importo", "note"]
+        widgets = {"note": forms.TextInput()}
+
+    def __init__(self, *args, contratto: m.Contratto, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.contratto = contratto
+        self.fields["anno"].min_value = 2000
+        self.fields["importo"].label = "Fatturato totale dell'anno (imponibile)"
+        self.fields["importo"].help_text = "IVA esclusa, come il valore base delle fatture."
+        self.fields["note"].required = False
+
+    def clean_anno(self):
+        anno = self.cleaned_data["anno"]
+        if not 2000 <= anno <= 2100:
+            raise forms.ValidationError("Indica un anno tra il 2000 e il 2100.")
+        return anno
+
+    def clean(self):
+        dati = super().clean()
+        if (anno := dati.get("anno")) and self.instance.pk is None:
+            esistente = m.FatturatoPregresso.objects.filter(
+                contratto=self.contratto, anno=anno, archiviato=False
+            ).first()
+            if esistente is not None:
+                self.instance = esistente  # stesso anno: si corregge il totale
+        return dati
+
+    def _post_clean(self):
+        self.instance.contratto = self.contratto
+        super()._post_clean()
 
 
 class DocumentoEsecuzioneForm(ModelFormBootstrap):

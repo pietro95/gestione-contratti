@@ -331,7 +331,7 @@ def _salva_rda(ctx, rda, form, posizioni: list[dict], invia: bool) -> m.Richiest
 
 def _fabbisogno(argomenti: dict) -> m.Fabbisogno:
     return trova(
-        m.Fabbisogno.objects.select_related("cluster", "categoria"),
+        m.Fabbisogno.objects.select_related("cluster", "sottocluster"),
         argomenti["fabbisogno_id"],
         "fabbisogno",
     )
@@ -705,10 +705,11 @@ def _importi(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:
     dati = {
         "valore_base": f.valore_base
         if f.valore_base is not None
-        else motore.valore_base_proposto(f.importo_documento, f.oneri, f.bollo),
+        else motore.valore_base_proposto(f.importo_documento, f.oneri, f.bollo, f.altri_importi),
         "oneri": f.oneri,
         "bollo": f.bollo,
         "iva": f.iva,
+        "altri_importi": f.altri_importi,
         "competenza_dal": f.competenza_dal,
         "competenza_al": f.competenza_al,
         "voce": f.voce_id,
@@ -718,7 +719,7 @@ def _importi(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:
         "wbs": f.wbs_id,
     }
     for campo, chiave in (("valore_base",) * 2, ("oneri",) * 2, ("bollo",) * 2, ("iva",) * 2,
-                          ("competenza_dal",) * 2, ("competenza_al",) * 2,
+                          ("altri_importi",) * 2, ("competenza_dal",) * 2, ("competenza_al",) * 2,
                           ("voce", "voce_id"), ("rata", "rata_id"), ("conto", "conto_id"),
                           ("centro_costo",) * 2, ("wbs", "wbs_id")):  # fmt: skip
         if chiave in argomenti:
@@ -1231,7 +1232,8 @@ STRUMENTI = [
     strumento(
         _scrittura("importi_fattura", _oggetti_fattura, _azione_fattura(_importi)),
         "Importi della fattura",
-        "Valore base prelevato dal contratto (di default quello proposto), oneri, bollo, IVA; "
+        "Valore base prelevato dal contratto (di default quello proposto), oneri, bollo, IVA, "
+        "altri importi (more, danni: non imputabili all'ufficio, tolti dal valore base); "
         "imputazione propria della fattura (conto, centro di costo, WBS) se diversa dalla voce; "
         "con il contratto anche voce e rata dello scadenzario, che diventa consuntivo con il "
         "numero di fattura. L'anteprima riporta anomalie (importo che non quadra), fatturato, "
@@ -1244,8 +1246,13 @@ STRUMENTI = [
                 "bollo": SCHEMA_IMPORTO,
                 "iva": {
                     **SCHEMA_IMPORTO,
-                    "description": "IVA compresa nell'importo del "
+                    "description": "IVA nell'importo del "
                     "documento; omessa: riconosciuta se è l'IVA di un'aliquota.",
+                },
+                "altri_importi": {
+                    **SCHEMA_IMPORTO,
+                    "description": "Altri importi (es. more/danni) in fattura e non "
+                    "imputabili all'ufficio: si tolgono dal valore base.",
                 },
                 "scorpora_iva": {
                     "type": "string",

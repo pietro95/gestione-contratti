@@ -87,11 +87,11 @@ def test_export_piano_ordini(reader, dati):
         assert len(righe) == sezione.numero_righe + 1
         assert righe[-1][0] == f"Totale {sezione.natura}"
         t = sezione.totali
-        assert [Decimal(str(x)) for x in righe[-1][16:22]] == [
+        assert [Decimal(str(x)) for x in righe[-1][15:21]] == [
             *[t.contrattuale[liv] for liv in LIVELLI],
             *[t.normalizzato[liv] for liv in LIVELLI],
         ]
-    assert isinstance(_righe(wb["OPEX"])[0][8], datetime.datetime)  # date come date, non testo
+    assert isinstance(_righe(wb["OPEX"])[0][7], datetime.datetime)  # date come date, non testo
 
 
 def test_export_piano_ordini_semplificato(reader, dati):
@@ -107,7 +107,7 @@ def test_export_piano_ordini_semplificato(reader, dati):
         foglio = wb[sezione.natura]
         intestazione = [c.value for c in foglio[6]]
         for tolta in (
-            "Categoria", "Procedura presunta", "Lead time (mesi)", "Data limite di avvio",
+            "Procedura presunta", "Lead time (mesi)", "Data limite di avvio",
             "Fase", "In ritardo", "Contrattuale fisso", "Contrattuale probabile",
             "Normalizzato 2027 fisso", "Normalizzato 2027 probabile",
         ):  # fmt: skip

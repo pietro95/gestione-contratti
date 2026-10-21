@@ -533,10 +533,9 @@ def test_tc17_d_catena_interrotta(licenze_cad):
     assert acquisti.proposta_richiesta(fab, D(2026, 9, 29)).contratto_in_scadenza == c3
 
 
-def test_gruppo_merci_dalla_categoria(tabelle_sap):
+def test_gruppo_merci_proposto_e_il_predefinito(tabelle_sap):
     fab = f.fabbisogno()
-    m.GruppoMerci.objects.create(codice="GM-CAT", categoria=fab.categoria)
-    assert acquisti.gruppo_merci_proposto(fab).codice == "GM-CAT"
+    assert acquisti.gruppo_merci_proposto(fab).codice == "GM-TEST01"
 
 
 # --- Migration: il n. RDA dei contratti diventa una RDA -----------------------------------------

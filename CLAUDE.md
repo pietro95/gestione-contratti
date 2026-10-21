@@ -44,6 +44,7 @@ uv run python manage.py import_conti <piano_conti.csv> --dry-run
 uv run python manage.py import_date_contratti <date_contratti.csv|xlsx> --dry-run
 uv run python manage.py import_tabelle_sap <tabelle_sap.xlsx> --dry-run   # richiedenti, gruppi merci e acquisti (F11)
 uv run python manage.py import_fatture <estrazione_fatture.xlsx> --dry-run  # fatture settimanali (F11.3)
+uv run python manage.py import_pregresso <pregresso.xlsx|csv> --dry-run          # fatturato pregresso per anno (Rev20)
 uv run python manage.py import_esecuzione <esecuzione.xlsx> --dry-run       # modello XLSX dell'esecuzione (F11.4)
 uv run python manage.py import_riepilogo <Riepilogo_RDA_Ordini.xlsx> --dry-run  # una tantum (F11.4)
 uv run python manage.py quadratura_excel <file.xlsx> --area IT

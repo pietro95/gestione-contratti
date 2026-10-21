@@ -177,7 +177,6 @@ def _riga_piano(r) -> dict:
         "fabbisogno": {"id": r.fabbisogno.pk, "descrizione": r.fabbisogno.descrizione},
         "cluster": r.fabbisogno.cluster.codice,
         "sottocluster": r.sottocluster.nome if r.sottocluster else None,
-        "categoria": r.categoria.nome,
         "stato": r.stato,
         "contratto_id": r.contratto.pk if r.contratto else None,
         "contratto_uscente_id": uscente.pk if uscente else None,
@@ -215,7 +214,11 @@ def piano_ordini(ctx: Contesto, argomenti: dict) -> dict:
     anno = argomenti.get("anno", ctx.oggi.year)
     natura = argomenti.get("natura", "")
     p = calcola_piano(
-        anno, ctx.oggi, area=tuple(codici), categoria=argomenti.get("categoria"), natura=natura
+        anno,
+        ctx.oggi,
+        area=tuple(codici),
+        sottocluster=argomenti.get("sottocluster"),
+        natura=natura,
     )
     righe = sorted(p.righe, key=lambda r: (r.data_ordinamento, r.fabbisogno.descrizione))
     porzione, info = pagina(righe, argomenti)
@@ -226,7 +229,7 @@ def piano_ordini(ctx: Contesto, argomenti: dict) -> dict:
         "anno": anno,
         "filtri": {
             "cluster": codici or "tutti",
-            "categoria": argomenti.get("categoria"),
+            "sottocluster": argomenti.get("sottocluster"),
             "natura": natura or "OPEX e CAPEX",
         },
         "nota": (
@@ -412,15 +415,18 @@ STRUMENTI = [
             "nell'anno, con sottocluster, procedura presunta, lead time, data limite di "
             "avvio della procedura, stato della pratica, natura, fonte di finanziamento, "
             "valore contrattuale sull'intera durata e valore normalizzato sull'anno. "
-            "Avvisi di possibile frazionamento quando più fabbisogni della stessa "
-            "categoria o dello stesso fornitore superano una soglia. Ordinato per data limite."
+            "Avvisi di possibile frazionamento quando più fabbisogni dello stesso "
+            "sottocluster o dello stesso fornitore superano una soglia. Ordinato per data limite."
         ),
         input_schema={
             "type": "object",
             "properties": {
                 "anno": SCHEMA_ANNO,
                 "cluster": SCHEMA_CLUSTER,
-                "categoria": {**SCHEMA_ID, "description": "id della categoria («riferimenti»)."},
+                "sottocluster": {
+                    **SCHEMA_ID,
+                    "description": "id del sottocluster («riferimenti»).",
+                },
                 "natura": {"type": "string", "enum": list(m.Natura.values)},
                 **SCHEMA_PAGINA,
             },

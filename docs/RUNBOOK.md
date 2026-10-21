@@ -319,11 +319,24 @@ qui sotto restano per l'emergenza: fanno la stessa cosa con lo stesso codice.
    ./manage.sh import_date_contratti /import/date_contratti.csv
    ```
    Finché la data manca, l'"Ordinato" di quel contratto cade nell'anno di inizio del servizio.
+   **Fatturato pregresso** (Rev20): per i contratti in corso o chiusi con fatturato anteriore
+   al registro, un foglio (CSV o XLSX, modello in Gestione → Import «Fatturato pregresso») con
+   `numero_contratto` (o `id_contratto`), `anno`, `fatturato` (imponibile) e, facoltativa,
+   `nota`: una riga per contratto e anno. Conta nel fatturato, nel residuo e nell'avanzamento
+   del contratto; non genera fatture né rate e non tocca le viste di budget. Idempotente: lo
+   stesso anno con lo stesso importo non cambia, con un importo diverso corregge. Le righe non
+   applicabili (contratto non trovato o su più contratti, anno o importo illeggibili) sono
+   nel report:
+   ```bash
+   ./manage.sh import_pregresso /import/pregresso.xlsx --dry-run
+   ./manage.sh import_pregresso /import/pregresso.xlsx
+   ```
+   Lo stesso totale si inserisce a mano dalla scheda «Esecuzione» del contratto.
    **Tabelle SAP delle RDA** (F11): richiedenti SAP, gruppi merci e gruppi acquisti, dal
    modello «Tabelle SAP (RDA)» (Gestione → Import, solo Admin): un foglio per tabella,
    colonne `codice`, `descrizione` (per i gruppi acquisti `nome`), `predefinito` (sì su una
-   sola riga: il richiedente e il gruppo acquisti dell'ufficio) e, per i gruppi merci,
-   `categoria`. Nessuna cancellazione; un errore annulla tutto il file:
+   sola riga: il richiedente e il gruppo acquisti dell'ufficio); una colonna `categoria` dei
+   vecchi modelli si ignora (le categorie non esistono più). Nessuna cancellazione; un errore annulla tutto il file:
    ```bash
    ./manage.sh import_tabelle_sap /import/tabelle_sap.xlsx --dry-run
    ./manage.sh import_tabelle_sap /import/tabelle_sap.xlsx
@@ -331,7 +344,7 @@ qui sotto restano per l'emergenza: fanno la stessa cosa con lo stesso codice.
    Lo stesso import accetta anche i due elenchi di SAP così come arrivano, senza copiarli nel
    modello (riconosciuti dall'intestazione):
    - **gruppi merci** («Gruppo Merci», «Definizione», «Definizione»): tutti, con la definizione
-     lunga come descrizione; la categoria di fabbisogno si assegna poi dall'amministrazione;
+     lunga come descrizione;
    - **codici di rilascio** («Unità», «Richiedente», «Gr Acquisti …», «Responsabile»): per ogni
      unità il richiedente e il gruppo acquisti, con l'unità come descrizione, legati fra loro:
      nella richiesta di RDA, scegliendo il richiedente si propone il gruppo acquisti della sua

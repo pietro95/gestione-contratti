@@ -339,7 +339,9 @@ def _contratti(cluster: tuple[str, ...]):
     qs = (
         m.Contratto.objects.filter(archiviato=False)
         .select_related("fornitore", "fabbisogno__cluster", "procedura")
-        .prefetch_related("voci", "proroghe", "fatture", "documenti_esecuzione")
+        .prefetch_related(
+            "voci", "proroghe", "fatture", "documenti_esecuzione", "fatturato_pregresso"
+        )
     )
     if cluster:
         qs = qs.filter(fabbisogno__cluster__codice__in=cluster)
@@ -365,7 +367,11 @@ def anomalie_esecuzione(cluster: tuple[str, ...], oggi: datetime.date) -> list[R
     righe = []
     candidati = (
         _contratti(cluster)
-        .filter(Q(fatture__isnull=False) | Q(data_chiusura__isnull=False))
+        .filter(
+            Q(fatture__isnull=False)
+            | Q(fatturato_pregresso__isnull=False)
+            | Q(data_chiusura__isnull=False)
+        )
         .distinct()
     )
     for c in candidati:

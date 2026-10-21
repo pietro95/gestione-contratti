@@ -76,8 +76,9 @@ def riferimenti(ctx: Contesto, argomenti: dict) -> dict:
             for c in m.Cluster.objects.filter(archiviato=False)
         ],
         "cluster_propri_definiti": bool(propri),
-        "categorie": [
-            {"id": c.pk, "nome": c.nome} for c in m.Categoria.objects.filter(attiva=True)
+        "sottocluster": [
+            {"id": s.pk, "cluster": s.cluster.codice, "nome": s.nome}
+            for s in m.Sottocluster.objects.filter(archiviato=False).select_related("cluster")
         ],
         "procedure": [
             {"codice": p.codice, "nome": p.nome, "lead_time_mesi": p.lead_time_mesi}
@@ -103,10 +104,9 @@ def riferimenti(ctx: Contesto, argomenti: dict) -> dict:
                 "codice": g.codice,
                 "descrizione": g.descrizione,
                 "predefinito": g.predefinito,
-                "categoria": g.categoria.nome if g.categoria_id else None,
             }
-            for g in m.GruppoMerci.objects.filter(attivo=True).select_related("categoria")
-        ],  # fmt: skip
+            for g in m.GruppoMerci.objects.filter(attivo=True)
+        ],
         "centri_di_costo": [
             {"codice": c.codice, "descrizione": c.descrizione, "predefinito": c.predefinito}
             for c in m.CentroCosto.objects.filter(attivo=True)
@@ -161,7 +161,7 @@ def cerca(ctx: Contesto, argomenti: dict) -> dict:
                 "id": f.pk,
                 "descrizione": f.descrizione,
                 "cluster": f.cluster.codice,
-                "categoria": f.categoria.nome,
+                "sottocluster": f.sottocluster.nome if f.sottocluster_id else None,
                 "decisione": f.decisione,
                 "archiviato": f.archiviato,
                 "link": link("contratti:fabbisogno", f.pk),
@@ -246,7 +246,7 @@ ALERT_SCADENZE = [Alert.ROSSO.value, Alert.ARANCIONE.value, Alert.GIALLO.value]
 
 def scadenze(ctx: Contesto, argomenti: dict) -> dict:
     codici = cluster_filtro(ctx.utente, argomenti.get("cluster"))
-    filtri = {"area": codici, "categoria": argomenti.get("categoria") or ""}
+    filtri = {"area": codici, "sottocluster": argomenti.get("sottocluster") or ""}
     gruppi = selettori.cruscotto(ctx.oggi, filtri)
     colori = argomenti.get("alert") or ALERT_SCADENZE
     entro = argomenti.get("entro")
@@ -265,7 +265,7 @@ def scadenze(ctx: Contesto, argomenti: dict) -> dict:
             "cluster": codici or "tutti",
             "alert": colori,
             "entro": entro,
-            "categoria": argomenti.get("categoria"),
+            "sottocluster": argomenti.get("sottocluster"),
         },
         "legenda_alert": {
             "rosso": "scaduto senza rinnovo",
@@ -283,7 +283,7 @@ STRUMENTI = [
         nome="riferimenti",
         titolo="Tabelle di riferimento",
         descrizione=(
-            "Cluster (con quelli dell'utente), categorie dei fabbisogni, procedure di "
+            "Cluster (con quelli dell'utente), sottocluster dei fabbisogni, procedure di "
             "affidamento con il lead time in mesi, soglie d'importo valide oggi; per le RDA "
             "richiedenti SAP, gruppi acquisti e gruppi merci (con il predefinito), tipi "
             "d'acquisto e scopi. Con "
@@ -348,7 +348,7 @@ STRUMENTI = [
                     "items": {"type": "string", "enum": ALERT_SCADENZE},
                 },
                 "entro": {"type": "string", "format": "date"},
-                "categoria": {"type": "integer", "minimum": 1},
+                "sottocluster": {"type": "integer", "minimum": 1},
                 **SCHEMA_PAGINA,
             },
             "additionalProperties": False,

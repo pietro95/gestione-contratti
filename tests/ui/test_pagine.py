@@ -112,7 +112,6 @@ def test_id_oltre_mille_non_formattati_con_il_separatore(editor, dati):
         pk=23456,
         descrizione="Id grande",
         cluster=dati["fabbisogno"].cluster,
-        categoria=dati["fabbisogno"].categoria,
     )
     html = editor.get(reverse("contratti:contratti")).content.decode()
     assert f'value="{fornitore.pk}"' in html

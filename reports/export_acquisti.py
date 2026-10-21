@@ -18,7 +18,8 @@ DESCRIZIONE_ANOMALIE = {
     "FATTURA_DUPLICATA": "Stesso numero di fattura dello stesso fornitore",
     "VALORE_BASE_MANCANTE": "Fattura senza valore base: non conta nel fatturato",
     "COMPETENZA_MANCANTE": "Fattura senza periodo di competenza: nel budget va all'anno della data",
-    "IMPORTO_NON_QUADRA": "Valore base + oneri + bollo diverso dall'importo del documento",
+    "IMPORTO_NON_QUADRA": "Valore base + oneri + bollo + IVA + altri importi "
+    "diverso dall'importo del documento",
 }
 
 

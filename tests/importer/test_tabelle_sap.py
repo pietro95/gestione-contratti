@@ -54,7 +54,7 @@ def test_carica_aggiorna_idempotente(tmp_path):
     assert m.RichiedenteSAP.predefinito_attivo().codice == "999901"
     assert m.GruppoAcquisti.objects.get(codice="G01").descrizione == "Gruppo di prova"
     gm = m.GruppoMerci.objects.get(codice="GM-TEST01")
-    assert gm.predefinito and gm.categoria.nome == "Licenze software"
+    assert gm.predefinito
 
     report = importa_tabelle_sap(_xlsx(tmp_path, COMPLETO))
     assert report.conteggi["richiedenti_invariati"] == 2
@@ -90,7 +90,6 @@ def test_dry_run_non_scrive(tmp_path):
             "un solo predefinito",
         ),
         ({"Richiedenti": [["codice"], ["1"], [1]]}, "codice ripetuto"),
-        ({"Gruppi merci": [["codice", "categoria"], ["GM", "Inesistente"]]}, "categoria"),
         ({"Richiedenti": [["codice", "predefinito"], ["1", "forse"]]}, "non leggibile"),
         ({"Richiedenti": [["codice", "descrizione"], [None, "Senza codice"]]}, "codice mancante"),
         ({"Richiedenti": [["descrizione"], ["Senza colonna"]]}, "colonna mancante"),

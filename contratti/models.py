@@ -191,20 +191,6 @@ class Parametro(ConfigurazioneProvvisoria):
         return f"{self.get_chiave_display()} = {self.valore} (dal {self.valido_dal:%d/%m/%Y})"
 
 
-class Categoria(models.Model):
-    nome = models.CharField(max_length=100, unique=True)
-    attiva = models.BooleanField(default=True)
-    history = HistoricalRecords()
-
-    class Meta:
-        verbose_name = "categoria"
-        verbose_name_plural = "categorie"
-        ordering = ["nome"]
-
-    def __str__(self):
-        return self.nome
-
-
 class FonteFinanziamento(models.Model):
     """Fonte di finanziamento di una spesa (tabella di configurazione, SPEC §5.4).
 
@@ -220,22 +206,6 @@ class FonteFinanziamento(models.Model):
     class Meta:
         verbose_name = "fonte di finanziamento"
         verbose_name_plural = "fonti di finanziamento"
-        ordering = ["nome"]
-
-    def __str__(self):
-        return self.nome
-
-
-class Impianto(Archiviabile):
-    """Impianto a cui si riferisce un fabbisogno (es. un dissalatore)."""
-
-    nome = models.CharField(max_length=150, unique=True)
-    note = models.TextField(blank=True)
-    history = HistoricalRecords()
-
-    class Meta:
-        verbose_name = "impianto"
-        verbose_name_plural = "impianti"
         ordering = ["nome"]
 
     def __str__(self):
@@ -589,16 +559,8 @@ class CentroCosto(TabellaSAP):
 
 
 class GruppoMerci(TabellaSAP):
-    """Gruppo merci SAP; facoltativa la categoria di fabbisogno a cui si propone (Rev13)."""
+    """Gruppo merci SAP (tabella di SAP; se ne propone uno predefinito)."""
 
-    categoria = models.ForeignKey(
-        Categoria,
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name="gruppi_merci",
-        help_text="Categoria dei fabbisogni a cui si propone questo gruppo merci.",
-    )
     history = HistoricalRecords()
 
     class Meta(TabellaSAP.Meta):
@@ -728,14 +690,13 @@ class Fabbisogno(Archiviabile):
 
     descrizione = models.CharField(max_length=250)
     cluster = models.ForeignKey(Cluster, on_delete=models.PROTECT, related_name="fabbisogni")
-    categoria = models.ForeignKey(Categoria, on_delete=models.PROTECT, related_name="fabbisogni")
     sottocluster = models.ForeignKey(
         Sottocluster,
         on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name="fabbisogni",
-        help_text="Sottocategoria del cluster, per raggruppare il piano ordini.",
+        help_text="Classificazione del fabbisogno nel cluster; raggruppa il piano ordini.",
     )
     fonte_finanziamento = models.ForeignKey(
         FonteFinanziamento,
@@ -745,9 +706,6 @@ class Fabbisogno(Archiviabile):
         related_name="fabbisogni",
         verbose_name="fonte di finanziamento",
         help_text="Vuota: vale quella della WBS della voce, altrimenti «Ordinaria».",
-    )
-    impianto = models.ForeignKey(
-        Impianto, on_delete=models.PROTECT, null=True, blank=True, related_name="fabbisogni"
     )
     referente = models.CharField(max_length=150, blank=True)
     referente_utente = models.ForeignKey(
@@ -967,8 +925,8 @@ class Contratto(Archiviabile):
     )
 
     class TipoAcquisto(models.TextChoices):
-        SERVIZIO = "servizio", "Servizio"
-        FORNITURA = "fornitura", "Fornitura"
+        SERVIZIO = "servizio", "Servizi / lavori"
+        FORNITURA = "fornitura", "Forniture"
 
     # Propone MAP (servizio) o MIGO (fornitura) nella lavorazione delle fatture (Rev14).
     tipo_acquisto = models.CharField(
@@ -1752,8 +1710,16 @@ class Fattura(Archiviabile):
     valore_base = importo("valore base prelevato dal contratto", null=True, blank=True)
     oneri = importo("oneri previdenziali", null=True, blank=True)
     bollo = importo("bollo", null=True, blank=True)
-    # IVA compresa nell'importo del documento (SAP lo riporta spesso con l'IVA).
-    iva = importo("IVA compresa nell'importo", null=True, blank=True)
+    # IVA nell'importo del documento (SAP lo riporta spesso con l'IVA).
+    iva = importo("IVA", null=True, blank=True)
+    # More, danni e simili presenti in fattura ma non imputabili all'ufficio: si tolgono
+    # dall'importo che conta per il contratto.
+    altri_importi = importo(
+        "altri importi non imputabili all'ufficio",
+        null=True,
+        blank=True,
+        help_text="Es. more o danni presenti in fattura e non imputabili al nostro ufficio.",
+    )
     # Rev21: periodo di competenza della fattura. Il budget a competenza imputa il valore base
     # agli anni di questo periodo (pro-rata a giorni); obbligatorio con il valore base.
     competenza_dal = models.DateField("competenza dal", null=True, blank=True)
@@ -1825,7 +1791,8 @@ class Fattura(Archiviabile):
                 condition=(Q(valore_base__isnull=True) | Q(valore_base__gte=0))
                 & (Q(oneri__isnull=True) | Q(oneri__gte=0))
                 & (Q(bollo__isnull=True) | Q(bollo__gte=0))
-                & (Q(iva__isnull=True) | Q(iva__gte=0)),
+                & (Q(iva__isnull=True) | Q(iva__gte=0))
+                & (Q(altri_importi__isnull=True) | Q(altri_importi__gte=0)),
                 name="contratti_fattura_importi_non_negativi",
             ),
             models.UniqueConstraint(
@@ -1943,6 +1910,41 @@ class Stanziamento(Archiviabile):
             raise ValidationError({"rata": "La rata deve essere della stessa voce."})
         if self.fattura_id and self.fattura.contratto_id != self.voce.contratto_id:
             raise ValidationError({"fattura": "La fattura è di un altro contratto."})
+
+
+class FatturatoPregresso(Archiviabile):
+    """Totale fatturato in un anno prima dell'uso del registro, su un contratto in corso o
+    chiuso (SPEC §4, Rev20). Conta nel fatturato, nel residuo e nell'avanzamento del contratto
+    (§5.8); non genera fatture né rate e non entra nelle viste di budget."""
+
+    contratto = models.ForeignKey(
+        Contratto, on_delete=models.PROTECT, related_name="fatturato_pregresso"
+    )
+    anno = models.PositiveSmallIntegerField()
+    importo = importo("fatturato totale dell'anno (imponibile)")
+    note = models.TextField(blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "fatturato pregresso"
+        verbose_name_plural = "fatturato pregresso"
+        ordering = ["contratto", "anno"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(importo__gte=0), name="contratti_pregresso_importo_non_negativo"
+            ),
+            models.CheckConstraint(
+                condition=Q(anno__gte=2000, anno__lte=2100), name="contratti_pregresso_anno_valido"
+            ),
+            models.UniqueConstraint(
+                fields=["contratto", "anno"],
+                condition=Q(archiviato=False),
+                name="contratti_pregresso_un_totale_per_anno",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Fatturato {self.anno}: {self.importo}"
 
 
 class DocumentoEsecuzione(Archiviabile):

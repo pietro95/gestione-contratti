@@ -133,12 +133,12 @@ def piano_ordini(request):
     if not form.is_valid():
         return render(request, "reports/piano_ordini.html", contesto)
     d = form.cleaned_data
-    categoria = d["categoria"].pk if d.get("categoria") else None
+    sottocluster = d["sottocluster"].pk if d.get("sottocluster") else None
     piano = calcola_piano(
         d["anno"],
         oggi,
         area=form.codici_cluster(),
-        categoria=categoria,
+        sottocluster=sottocluster,
         natura=d.get("natura") or "",
     )
     semplificata = request.GET.get("vista") == VISTA_SEMPLIFICATA
@@ -149,7 +149,7 @@ def piano_ordini(request):
         wb = piano_xlsx(piano, oggi, form.descrizione(), natura, semplificata=semplificata)
         return xlsx.risposta(wb, nome)
     # Vista semplificata per il Procurement: solo il valore massimo, senza gli elementi di lavoro
-    # interni (categoria, procedura, lead time, data limite, fase, ritardo, fisso e probabile).
+    # interni (procedura, lead time, data limite, fase, ritardo, fisso e probabile).
     livelli_mostrati = [Livello.MASSIMO] if semplificata else LIVELLI
     query = request.GET.copy()
     query.pop("formato", None)

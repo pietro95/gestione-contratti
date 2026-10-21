@@ -12,8 +12,8 @@
 - Centro di costo e conto invertiti (il «centro di costo» è un conto del piano dei conti e il
   «conto» no) si scambiano e si segnalano (``CONTO_CDC_SCAMBIATI``).
 - Contratto già registrato (numero SAP) → si collega alla RDA; altrimenti si crea in un
-  fabbisogno per cluster e categoria «Da classificare» (``CONTRATTO_CREATO``), una tantum se
-  non ha inizio e fine delle prestazioni.
+  fabbisogno per cluster, senza sottocluster da completare a mano (``CONTRATTO_CREATO``), una
+  tantum se non ha inizio e fine delle prestazioni.
 - Fatture, DDT, attestazioni e numeri SAP (ODA/RDC, MAP, MIGO) vanno al contratto della loro
   riga o, se la riga non ne ha, all'ultimo contratto sopra nella stessa RDA. Le fatture sono
   storiche: valore base = imponibile, convalidate, trasferite alla data della fattura se la nota
@@ -44,7 +44,6 @@ RE_RDA = re.compile(r"^51\d{8}$")
 RE_CONTRATTO = re.compile(r"^\d{10}$")
 NULLI = {"", "-", "--", "---", "n/a", "n/d", "na", "nd", "non previsto in sap", "nessuno"}
 EPOCA_EXCEL = datetime.date(1899, 12, 30)
-CATEGORIA = "Da classificare"
 PROCEDURA = "da_verificare"
 FOGLIO = "Riepilogo"
 
@@ -308,9 +307,6 @@ class Importatore:
         self.procedura = (
             m.Procedura.objects.filter(codice=PROCEDURA).first() or m.Procedura.objects.first()
         )
-        self.categoria = m.Categoria.objects.filter(nome=CATEGORIA).first()
-        if self.categoria is None:
-            self.categoria = m.Categoria.objects.create(nome=CATEGORIA)
 
     def anomalia(self, riga, codice, campo="", valore="", messaggio=""):
         self.report.anomalia(FOGLIO, riga, codice, campo, valore or "", messaggio)
@@ -576,7 +572,6 @@ class Importatore:
             fab = m.Fabbisogno.objects.create(
                 descrizione=descrizione,
                 cluster=cluster,
-                categoria=self.categoria,
                 note="Creato dall'import del Riepilogo RDA Ordini: contratti da ricollocare.",
             )
         return fab
