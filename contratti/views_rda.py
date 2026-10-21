@@ -21,7 +21,9 @@ from contratti.views import (
     PER_PAGINA,
     _cluster_richiesti,
     _contesto_cluster,
+    _nome,
     _pk_o_none,
+    _sottocluster_richiesto,
     filtri_attivi,
     oggi_richiesta,
     storico,
@@ -84,6 +86,7 @@ def rda_elenco(request):
         qs = qs.filter(archiviato=False)
     if codici := _cluster_richiesti(request):
         qs = qs.filter(cluster__codice__in=codici)
+    qs = acquisti.filtra_rda_per_sottocluster(qs, _sottocluster_richiesto(request))
     if g.get("mie"):
         qs = qs.filter(referente_utente=request.user)
     if q := g.get("q", "").strip():
@@ -112,6 +115,7 @@ def rda_elenco(request):
                 g,
                 {
                     "q": "Testo",
+                    "sottocluster": lambda v: _nome(m.Sottocluster, v),
                     "fase": lambda v: "Fase: " + motore.ETICHETTE_FASE.get(v, v),
                     "mie": lambda v: "Le mie RDA",
                     "archiviate": lambda v: "Con le archiviate",

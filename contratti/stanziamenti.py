@@ -49,8 +49,13 @@ def _periodi_derivati(contratto: m.Contratto) -> dict[tuple[int, int], tuple]:
     }
 
 
-def proposte(oggi: datetime.date, codici_cluster=(), contratto: m.Contratto | None = None):
-    """Rate da stanziare, dalla più vecchia. ``codici_cluster`` vuoto: tutti."""
+def proposte(
+    oggi: datetime.date,
+    codici_cluster=(),
+    contratto: m.Contratto | None = None,
+    sottocluster: int | None = None,
+):
+    """Rate da stanziare, dalla più vecchia. ``codici_cluster`` e ``sottocluster`` vuoti: tutti."""
     limite = oggi - datetime.timedelta(days=tolleranza(oggi))
     qs = (
         m.Rata.objects.filter(
@@ -69,6 +74,8 @@ def proposte(oggi: datetime.date, codici_cluster=(), contratto: m.Contratto | No
         qs = qs.filter(piano__voce__contratto=contratto)
     if codici_cluster:
         qs = qs.filter(piano__voce__contratto__fabbisogno__cluster__codice__in=codici_cluster)
+    if sottocluster:
+        qs = qs.filter(piano__voce__contratto__fabbisogno__sottocluster_id=sottocluster)
     rate = list(qs)
     derivati: dict[int, dict] = {}
     risultato = []

@@ -40,9 +40,10 @@ def cruscotto_acquisti(request):
     oggi = oggi_richiesta(request)
     form = FiltriClusterForm(request.GET, utente=request.user)
     codici = form.codici_cluster() if form.is_valid() else ()
-    rda = acquisti.rda_da_processare(codici, oggi)
+    sottocluster = form.sottocluster_id() if form.is_valid() else None
+    rda = acquisti.rda_da_processare(codici, oggi, sottocluster)
     fatture = acquisti.fatture_da_lavorare(oggi)
-    da_chiudere = acquisti.contratti_da_chiudere(codici, oggi)
+    da_chiudere = acquisti.contratti_da_chiudere(codici, oggi, sottocluster)
     return render(
         request,
         "reports/cruscotto_acquisti.html",
@@ -97,7 +98,7 @@ def contratti_da_chiudere(request):
     contesto = {"form": form, "oggi": oggi}
     if not form.is_valid():
         return render(request, "reports/contratti_da_chiudere.html", contesto)
-    righe = acquisti.contratti_da_chiudere(form.codici_cluster(), oggi)
+    righe = acquisti.contratti_da_chiudere(form.codici_cluster(), oggi, form.sottocluster_id())
     nome = f"{oggi:%Y.%m.%d}_Contratti_da_chiudere{suffisso_cluster(form.codici_cluster())}"
     if request.GET.get("formato") == "xlsx":
         wb = contratti_da_chiudere_xlsx(righe, oggi, form.descrizione())
@@ -128,6 +129,8 @@ def stanziamenti(request):
     )
     if codici:
         registrati = registrati.filter(voce__contratto__fabbisogno__cluster__codice__in=codici)
+    if sottocluster := form.sottocluster_id():
+        registrati = registrati.filter(voce__contratto__fabbisogno__sottocluster_id=sottocluster)
     registrati = [
         s
         for s in registrati.select_related(
@@ -135,7 +138,7 @@ def stanziamenti(request):
         ).order_by("competenza_dal", "pk")
         if not s.chiuso
     ]
-    proposte = servizi_stanziamenti.proposte(oggi, codici)
+    proposte = servizi_stanziamenti.proposte(oggi, codici, sottocluster=form.sottocluster_id())
     contesto |= {
         "proposte": proposte,
         "registrati": registrati,
@@ -154,7 +157,7 @@ def anomalie_esecuzione(request):
     contesto = {"form": form, "oggi": oggi}
     if not form.is_valid():
         return render(request, "reports/anomalie_esecuzione.html", contesto)
-    righe = acquisti.anomalie_esecuzione(form.codici_cluster(), oggi)
+    righe = acquisti.anomalie_esecuzione(form.codici_cluster(), oggi, form.sottocluster_id())
     nome = f"{oggi:%Y.%m.%d}_Anomalie_esecuzione{suffisso_cluster(form.codici_cluster())}"
     if request.GET.get("formato") == "xlsx":
         return xlsx.risposta(anomalie_xlsx(righe, oggi, form.descrizione()), f"{nome}.xlsx")

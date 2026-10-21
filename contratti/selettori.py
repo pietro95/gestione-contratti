@@ -190,11 +190,11 @@ def cruscotto(oggi: datetime.date, filtri: dict) -> dict[Alert, list[RigaContrat
     return gruppi
 
 
-def voci_piano_da_verificare(codici: list[str] | None = None):
+def voci_piano_da_verificare(codici: list[str] | None = None, sottocluster: int | None = None):
     """Voci attive senza piano di fatturazione reale: il loro fatturato è un pro-rata.
 
     Le più pesanti prima (fisso + massimale): sono quelle che spostano di più il budget.
-    ``codici``: cluster da mostrare; vuoto = tutti.
+    ``codici``: cluster da mostrare, ``sottocluster``: id del sottocluster; vuoto = tutti.
     """
     qs = (
         m.VoceContratto.objects.filter(
@@ -210,6 +210,8 @@ def voci_piano_da_verificare(codici: list[str] | None = None):
     )
     if codici:
         qs = qs.filter(contratto__fabbisogno__cluster__codice__in=codici)
+    if sottocluster:
+        qs = qs.filter(contratto__fabbisogno__sottocluster_id=sottocluster)
     return qs
 
 

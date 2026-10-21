@@ -6,6 +6,7 @@
 {% block content %}
 <form method="get" class="filtri row g-3 align-items-end">
   <div class="col-sm-4 col-xl-3"><label class="form-label" for="f-area">Cluster</label><select id="f-area" name="area" class="form-select js-cluster" multiple>{% for v, t in aree %}<option value="{{ v }}" {% if v in area_scelte %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+  {% include "contratti/_filtro_sottocluster.html" with colonne="col-sm-4 col-xl-2" %}
   <div class="col-auto"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="archiviate" value="1" id="f-arch" {% if filtri.archiviate %}checked{% endif %}><label class="form-check-label" for="f-arch">Archiviate</label></div></div>
   <div class="col-auto"><button class="btn btn-primary" type="submit">Applica</button></div>
 </form>

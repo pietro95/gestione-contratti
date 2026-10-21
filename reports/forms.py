@@ -166,9 +166,14 @@ class FiltriPianoForm(FormBase):
 
 
 class FiltriClusterForm(FormBase):
-    """Solo il cluster: contratti da chiudere, anomalie dell'esecuzione (F11.4)."""
+    """Cluster e sottocluster: contratti da chiudere, anomalie dell'esecuzione (F11.4)."""
 
     area = _campo_cluster()
+    sottocluster = forms.ModelChoiceField(
+        queryset=m.Sottocluster.objects.filter(archiviato=False).select_related("cluster"),
+        required=False,
+        empty_label="Tutti i sottocluster",
+    )
 
     def __init__(self, dati, *, utente=None):
         dati = dati.copy()
@@ -180,8 +185,15 @@ class FiltriClusterForm(FormBase):
     def codici_cluster(self) -> tuple[str, ...]:
         return _codici(self.utente, self.cleaned_data.get("area"))
 
+    def sottocluster_id(self) -> int | None:
+        scelto = self.cleaned_data.get("sottocluster")
+        return scelto.pk if scelto else None
+
     def voci(self) -> list[str]:
-        return [permessi.descrivi_filtro(self.codici_cluster())]
+        voci = [permessi.descrivi_filtro(self.codici_cluster())]
+        if self.sottocluster_id():
+            voci.append(permessi.descrivi_sottocluster(self.sottocluster_id()))
+        return voci
 
     def descrizione(self) -> str:
         return "; ".join(self.voci())
@@ -229,6 +241,7 @@ class FiltriRdaForm(FiltriClusterForm):
         d = self.cleaned_data
         return FiltriRDA(
             cluster=self.codici_cluster(),
+            sottocluster=self.sottocluster_id(),
             referente=d["referente"].pk if d.get("referente") else None,
             fasi=tuple(d.get("fase") or ()),
             anno=d.get("anno"),
@@ -241,7 +254,7 @@ class FiltriRdaForm(FiltriClusterForm):
         from contratti.engine.acquisti import ETICHETTE_FASE
 
         d = self.cleaned_data
-        voci = [permessi.descrivi_filtro(self.codici_cluster())]
+        voci = super().voci()
         if d.get("fase"):
             voci.append("fase " + ", ".join(ETICHETTE_FASE[f].lower() for f in d["fase"]))
         if d.get("anno"):

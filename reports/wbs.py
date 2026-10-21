@@ -81,15 +81,25 @@ def importi_per_anno(ve, vista: str, livello: Livello) -> dict[int, Decimal]:
     }
 
 
-def elenco_wbs(codici_cluster: list[str], tipo: str = "", archiviate: bool = False):
-    """WBS con il numero di voci; di default quelle dei cluster dati e tutte le WBS a progetto."""
+def elenco_wbs(
+    codici_cluster: list[str],
+    tipo: str = "",
+    archiviate: bool = False,
+    sottocluster: int | None = None,
+):
+    """WBS con il numero di voci; di default quelle dei cluster dati e tutte le WBS a progetto.
+
+    Con ``sottocluster``: solo le WBS con almeno una voce di un fabbisogno di quel sottocluster,
+    e il numero di voci conta solo quelle.
+    """
+    voci = Q(voci__archiviato=False, voci__contratto__archiviato=False)
+    if sottocluster:
+        voci &= Q(voci__contratto__fabbisogno__sottocluster_id=sottocluster)
     qs = m.WBS.objects.select_related("cluster").annotate(
-        n_voci=Count(
-            "voci",
-            filter=Q(voci__archiviato=False, voci__contratto__archiviato=False),
-            distinct=True,
-        )
+        n_voci=Count("voci", filter=voci, distinct=True)
     )
+    if sottocluster:
+        qs = qs.filter(n_voci__gt=0)
     if not archiviate:
         qs = qs.filter(archiviato=False)
     if tipo:

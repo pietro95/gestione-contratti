@@ -193,17 +193,31 @@ def piano_ordini(request):
     return render(request, "reports/piano_ordini.html", contesto)
 
 
+def _contesto_sottocluster(scelto: int | None) -> dict:
+    """Tendina «Sottocluster» dei filtri (come nelle viste dei contratti)."""
+    return {
+        "sottocluster_elenco": m.Sottocluster.objects.filter(archiviato=False).select_related(
+            "cluster"
+        ),
+        "sottocluster_scelto": "" if scelto is None else str(scelto),
+    }
+
+
 @login_required
 def wbs_elenco(request):
     """WBS di cluster (di default dei propri cluster) e WBS a progetto, con il numero di voci."""
     g = request.GET
     codici = permessi.codici_filtro(request.user, g.getlist("area"))
+    sottocluster = permessi.id_sottocluster(g.get("sottocluster"))
     tipo = g.get("tipo", "") if g.get("tipo") in m.WBS.Tipo.values else ""
     return render(
         request,
         "reports/wbs_elenco.html",
         {
-            "elenco": elenco_wbs(codici, tipo, archiviate=bool(g.get("archiviate"))),
+            "elenco": elenco_wbs(
+                codici, tipo, archiviate=bool(g.get("archiviate")), sottocluster=sottocluster
+            ),
+            **_contesto_sottocluster(sottocluster),
             "aree": permessi.scelte_filtro(request.user),
             "area_scelte": permessi.selezione_filtro(request.user, g.getlist("area")),
             "tipi": m.WBS.Tipo.choices,
@@ -250,7 +264,12 @@ def extra_budget_elenco(request):
     """Autorizzazioni extra budget dell'AD (Rev18) con voci collegate, consumato e residuo."""
     g = request.GET
     codici = permessi.codici_filtro(request.user, g.getlist("area"))
-    elenco = list(elenco_autorizzazioni(codici, archiviate=bool(g.get("archiviate"))))
+    sottocluster = permessi.id_sottocluster(g.get("sottocluster"))
+    elenco = list(
+        elenco_autorizzazioni(
+            codici, archiviate=bool(g.get("archiviate")), sottocluster=sottocluster
+        )
+    )
     for a in elenco:
         a.residuo = a.importo_autorizzato - a.consumato
         a.avviso = avviso_sforamento(a, a.consumato)
@@ -259,6 +278,7 @@ def extra_budget_elenco(request):
         "reports/extra_budget_elenco.html",
         {
             "elenco": elenco,
+            **_contesto_sottocluster(sottocluster),
             "aree": permessi.scelte_filtro(request.user),
             "area_scelte": permessi.selezione_filtro(request.user, g.getlist("area")),
             "filtri": g,

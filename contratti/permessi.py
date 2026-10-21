@@ -203,6 +203,25 @@ def selezione_filtro(user, valori: list[str]) -> list[str]:
     return list(dict.fromkeys(valori))
 
 
+def id_sottocluster(valore) -> int | None:
+    """Il parametro «sottocluster» dei filtri: id intero, oppure ``None`` (vuoto o non valido)."""
+    try:
+        return int(valore) if valore not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+
+def descrivi_sottocluster(valore) -> str:
+    """«Sottocluster: ICT · IT» o «Sottocluster: tutti», per intestazioni ed export."""
+    sottocluster = id_sottocluster(valore)
+    trovato = (
+        m.Sottocluster.objects.select_related("cluster").filter(pk=sottocluster).first()
+        if sottocluster
+        else None
+    )
+    return f"Sottocluster: {trovato}" if trovato else "Sottocluster: tutti"
+
+
 def descrivi_filtro(codici) -> str:
     """«Cluster: IT (nome), TLC (nome)» o «Cluster: tutti», per intestazioni ed export."""
     if not codici:
