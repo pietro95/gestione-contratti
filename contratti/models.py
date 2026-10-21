@@ -70,6 +70,12 @@ class Procedura(ConfigurazioneProvvisoria):
     lead_time_mesi = models.PositiveSmallIntegerField("lead time (mesi)")
     ordine = models.PositiveSmallIntegerField(default=0)
     attiva = models.BooleanField(default=True)
+    per_fabbisogni = models.BooleanField(
+        "proponibile come procedura presunta",
+        default=True,
+        help_text="Se spuntata, la procedura è tra le scelte della procedura presunta del "
+        "fabbisogno. Le procedure già scelte restano valide.",
+    )
     history = HistoricalRecords()
 
     class Meta:
@@ -925,7 +931,7 @@ class Contratto(Archiviabile):
     )
 
     class TipoAcquisto(models.TextChoices):
-        SERVIZIO = "servizio", "Servizi / lavori"
+        SERVIZIO = "servizio", "Lavori/Servizi"
         FORNITURA = "fornitura", "Forniture"
 
     # Propone MAP (servizio) o MIGO (fornitura) nella lavorazione delle fatture (Rev14).
