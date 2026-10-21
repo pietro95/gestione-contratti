@@ -134,6 +134,13 @@ class ImportiForm(FormBase):
         label="Altri importi (es. more/danni) in fattura, non imputabili al nostro ufficio",
         help_text="Si tolgono dall'importo del documento: non contano per il contratto.",
     )  # fmt: skip
+    competenza_dal = forms.DateField(
+        required=False,
+        label="Competenza dal",
+        help_text="Periodo di competenza della fattura: decide l'anno di budget. "
+        "Obbligatorio con il valore base.",
+    )
+    competenza_al = forms.DateField(required=False, label="Competenza al")
     voce = forms.ModelChoiceField(queryset=m.VoceContratto.objects.none(), required=False)
     rata = forms.ModelChoiceField(
         queryset=m.Rata.objects.none(),
@@ -174,6 +181,23 @@ class ImportiForm(FormBase):
         else:
             del self.fields["voce"]
             del self.fields["rata"]
+
+    def clean(self):
+        dati = super().clean()
+        dal, al = dati.get("competenza_dal"), dati.get("competenza_al")
+        if dal and al and al < dal:
+            self.add_error("competenza_al", "La fine precede l'inizio della competenza.")
+        elif dati.get("valore_base") is not None and not (dal and al):
+            self.add_error(
+                "competenza_dal" if not dal else "competenza_al",
+                "Indica il periodo di competenza (dal e al): decide l'anno di budget.",
+            )
+        elif bool(dal) != bool(al):
+            self.add_error(
+                "competenza_dal" if not dal else "competenza_al",
+                "Indica sia l'inizio sia la fine della competenza.",
+            )
+        return dati
 
 
 class DocumentoFatturaForm(FormBase):
@@ -260,3 +284,48 @@ class DocumentoEsecuzioneForm(ModelFormBootstrap):
         if dati.get("finale") and dati.get("tipo") not in (Tipo.ATTESTAZIONE, Tipo.RICEZIONE):
             self.add_error("finale", "Solo un'attestazione o un modello di ricezione è finale.")
         return dati
+
+
+class StanziamentoForm(ModelFormBootstrap):
+    """Stanziamento di un costo di competenza non ancora fatturato (SPEC §5.2, Rev21)."""
+
+    class Meta:
+        model = m.Stanziamento
+        fields = ["voce", "rata", "importo", "competenza_dal", "competenza_al", "note"]
+        widgets = {"note": forms.Textarea(attrs={"rows": 2})}
+
+    def __init__(self, *args, contratto: m.Contratto, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.contratto = contratto
+        self.fields["voce"].queryset = contratto.voci.filter(archiviato=False)
+        self.fields["rata"].queryset = (
+            m.Rata.objects.filter(piano__voce__contratto=contratto, fattura__isnull=True)
+            .select_related("piano__voce")
+            .order_by("data_fattura", "pk")
+        )
+        self.fields["importo"].help_text = "Imponibile, IVA esclusa."
+        self.fields[
+            "rata"
+        ].help_text = "Rata dello scadenzario che lo stanziamento sostituisce nel budget, se c'è."
+
+    def clean(self):
+        dati = super().clean()
+        voce, rata = dati.get("voce"), dati.get("rata")
+        if rata and voce and rata.piano.voce_id != voce.pk:
+            self.add_error("rata", "La rata è di un'altra voce.")
+        dal, al = dati.get("competenza_dal"), dati.get("competenza_al")
+        if dal and al and al < dal:
+            self.add_error("competenza_al", "La fine precede l'inizio della competenza.")
+        return dati
+
+
+class ChiudiStanziamentoForm(FormBase):
+    fattura = forms.ModelChoiceField(
+        queryset=m.Fattura.objects.none(),
+        label="Fattura arrivata",
+        help_text="La fattura sostituisce lo stanziamento nel budget.",
+    )
+
+    def __init__(self, *args, contratto: m.Contratto, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["fattura"].queryset = contratto.fatture.filter(archiviato=False)

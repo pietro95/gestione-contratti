@@ -296,6 +296,7 @@ Rev08, decisioni del responsabile del progetto del 07/10/2026 (D14–D17). La re
 | `esecuzione` | `contratto_id` | fatturato, residuo sul fisso e sul massimo, avanzamento, motivo «da chiudere», anomalie del contratto e delle fatture, fatture con il passo, documenti di esecuzione | `acquisti.riepilogo_esecuzione`, `fatture.anomalie` |
 | `cruscotto_acquisti` | `cluster` | RDA da processare per azione con le ferme, fatture da lavorare per passo, contratti da chiudere | `reports.acquisti` |
 | `contratti_da_chiudere` | `cluster` | righe con motivo, fatturato e residui | `reports.acquisti.contratti_da_chiudere` |
+| `stanziamenti` | `cluster`, `contratto_id` | rate scadute senza fattura proposte allo stanziamento (importo e competenza proposti) e stanziamenti registrati; totali proposto e stanziato | `contratti.stanziamenti.proposte`, `m.Stanziamento` |
 | `anomalie_esecuzione` | `cluster` | contratti e fatture con le anomalie, conteggi | `reports.acquisti.anomalie_esecuzione`, `conteggi_anomalie` |
 
 Tool esistenti estesi:
@@ -329,10 +330,13 @@ Tutto il processo d'acquisto si fa dalla chat con anteprima e conferma (§8.1), 
 | | `lascia_fattura`, `riassegna_fattura` (Admin e addetto) | `fatture.lascia`, `riassegna` | — |
 | | `assegna_contratto_fattura` (contratto, voce; o scollega) | `ContrattoFatturaForm`, `fatture.assegna_contratto` | passo, fatturato e residuo del contratto |
 | | `convalida_fattura` (esito, nota, bloccata fino al) | `ConvalidaForm`, `fatture.convalida` | passo |
-| | `importi_fattura` (valore base, oneri, bollo, voce, rata) | `ImportiForm`, `fatture.aggiorna_importi` | `IMPORTO_NON_QUADRA`, fatturato e residuo, rata che diventa consuntivo, commento per PAC |
+| | `importi_fattura` (valore base, oneri, bollo, competenza dal/al, voce, rata) | `ImportiForm`, `fatture.aggiorna_importi` | `IMPORTO_NON_QUADRA`, fatturato e residuo, rata che diventa consuntivo, commento per PAC |
 | | `documento_fattura` (RdC, MAP, MIGO) | `DocumentoFatturaForm`, `fatture.registra_documento` | passo, commento per PAC |
 | | `trasferisci_fattura` (data; o annulla) | `TrasferimentoForm`, `fatture.trasferisci`, `annulla_trasferimento` | passo |
 | **Esecuzione** | `documento_esecuzione` (DDT, attestazione, modello di ricezione, finale) | `DocumentoEsecuzioneForm` | motivo «da chiudere» |
+| **Stanziamenti** (Rev09) | `registra_stanziamento` (voce, importo, competenza dal/al, rata) | `StanziamentoForm` | budget a competenza dei cluster toccati |
+| | `stanzia_rate` (fino a 50 rate) | `stanziamenti.conferma` | budget, stanziamenti creati |
+| | `chiudi_stanziamento` (fattura), `annulla_stanziamento` | `ChiudiStanziamentoForm`, archiviazione | budget |
 | | `chiudi_contratto`, `annulla_chiusura` | `acquisti.chiudi`, `annulla_chiusura` | fase delle RDA, anomalie (`CHIUSO_SENZA_ATTESTAZIONE`) |
 
 **Operazioni su più fatture (D15)**: eccezione esplicita alla regola «un oggetto principale per operazione» (§8.2), solo per `prendi_in_carico`, `segna_fuori_registro` e `assegna_ai_referenti_proposti`:

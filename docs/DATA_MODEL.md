@@ -37,6 +37,7 @@ Il diagramma è intenzionalmente concettuale: omette configurazioni, tabelle di 
 
 - **Fabbisogno**: esigenza continuativa o una tantum da pianificare.
 - **Sottocluster**: sottocategoria di un cluster, assegnabile al fabbisogno; raggruppa il piano ordini.
+- **Budget del sottocluster**: importo assegnato a un sottocluster per anno e natura (OPEX/CAPEX), inserito dall'amministrazione; il report del budget lo mostra, con il residuo rispetto al budget di riferimento (fatturato e stanziato a competenza), quando si filtra per sottocluster (Rev23).
 - **Fonte di finanziamento**: tabella di configurazione assegnabile a fabbisogno e WBS; compare sulle righe del piano ordini.
 - **Fornitore**: controparte del contratto.
 - **Configurazioni**: soglie, lead time, giorni di pagamento, tabelle SAP e altri parametri gestibili.
@@ -56,6 +57,7 @@ Gli importi monetari usano `Decimal` e i valori derivati sono calcolati dal moto
 - **Posizione RDA**: riga economica e contabile della richiesta.
 - **Evento RDA**: avanzamenti e storia del processo.
 - **Fattura**: documento importato o registrato e sottoposto a presa in carico, assegnazione, convalida e trasferimento.
+- **Stanziamento** (Rev21): costo di competenza non ancora fatturato, su una voce e, se c'è, sulla rata che sostituisce; conta nel budget a competenza finché non arriva la fattura. La fattura porta il proprio **periodo di competenza**.
 - **Documento di esecuzione**: evidenza operativa, ad esempio DDT, MIGO, MAP o attestazione.
 
 ### Tracciabilità

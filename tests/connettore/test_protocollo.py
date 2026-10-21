@@ -64,6 +64,7 @@ def test_tools_list_sola_lettura(ctx):
         "esecuzione",
         "cruscotto_acquisti",
         "contratti_da_chiudere",
+        "stanziamenti",  # Rev22
         "anomalie_esecuzione",
     ]
     for t in tools:

@@ -57,6 +57,11 @@ class FiltriBudgetForm(FormBase):
         choices=[*m.Natura.choices, (ENTRAMBE, "OPEX e CAPEX, separati")], required=False
     )
     area = _campo_cluster()
+    sottocluster = forms.ModelChoiceField(
+        queryset=m.Sottocluster.objects.filter(archiviato=False).select_related("cluster"),
+        required=False,
+        empty_label="Tutti i sottocluster",
+    )
     conto = forms.ModelChoiceField(
         queryset=m.ContoCoge.objects.order_by("codice"), required=False, empty_label="Tutti i conti"
     )
@@ -105,6 +110,7 @@ class FiltriBudgetForm(FormBase):
             area=_codici(self.utente, d.get("area")),
             conto=d["conto"].pk if d.get("conto") else None,
             fornitore=d["fornitore"].pk if d.get("fornitore") else None,
+            sottocluster=d["sottocluster"].pk if d.get("sottocluster") else None,
             progetti=d.get("progetti") or "",
             extra_budget=d.get("extra_budget") or "",
             previsionali=d.get("previsti") != "no",

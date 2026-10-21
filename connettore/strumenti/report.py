@@ -32,7 +32,12 @@ from .base import (
 ZERO = Decimal("0.00")
 
 # Nomi delle viste per il modello: quelli dell'interfaccia, non quelli interni (SPEC §5.2).
-NOMI_VISTE = {"cassa": "fatturato", "impegno": "ordinato", "competenza": "competenza"}
+NOMI_VISTE = {
+    "consuntivo": "fatturato_stanziato_competenza",
+    "cassa": "fatturato",
+    "impegno": "ordinato",
+    "competenza": "competenza",
+}
 DA_NOME_VISTA = {v: k for k, v in NOMI_VISTE.items()}
 RAGGRUPPAMENTI = {"conto": "conto", "cluster": "area", "fornitore": "fornitore", "wbs": "wbs"}
 RAGGRUPPAMENTI["fabbisogno"] = "fabbisogno"

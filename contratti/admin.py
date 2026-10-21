@@ -105,6 +105,14 @@ class SottoclusterAdmin(ArchiviabileAdmin):
     autocomplete_fields = ("cluster",)
 
 
+@admin.register(m.BudgetSottocluster)
+class BudgetSottoclusterAdmin(ArchiviabileAdmin):
+    list_display = ("sottocluster", "anno", "natura", "importo", "archiviato")
+    list_filter = ("anno", "natura", "sottocluster__cluster", "archiviato")
+    search_fields = ("sottocluster__nome", "sottocluster__cluster__codice", "note")
+    autocomplete_fields = ("sottocluster",)
+
+
 @admin.register(m.WBS)
 class WBSAdmin(ArchiviabileAdmin):
     list_display = (
@@ -462,6 +470,16 @@ class FatturaAdmin(ArchiviabileAdmin):
     autocomplete_fields = ("contratto", "fornitore", "referente")
     raw_id_fields = ("voce", "rata")
     date_hierarchy = "data"
+
+
+@admin.register(m.Stanziamento)
+class StanziamentoAdmin(ArchiviabileAdmin):
+    list_display = (
+        "voce", "competenza_dal", "competenza_al", "importo", "rata", "fattura", "archiviato",
+    )  # fmt: skip
+    list_filter = ("archiviato",)
+    search_fields = ("voce__contratto__numero_contratto", "voce__descrizione")
+    raw_id_fields = ("voce", "rata", "fattura")
 
 
 @admin.register(m.DocumentoEsecuzione)

@@ -6,6 +6,9 @@
 {% for s in sezioni %}
 <section{% if not forloop.first %} class="nuova-pagina"{% endif %}>
 <h2>Budget {{ s.natura }} {{ budget.filtri.anno|stringformat:"s" }}</h2>
+{% if s.assegnato %}{% with a=s.assegnato %}
+<p class="nota"><strong>Budget {{ s.natura }} assegnato · {{ a.sottocluster }}:</strong> {% if a.importo is None %}non assegnato{% else %}{{ a.importo|euro }} · {{ a.vista }} {{ livello.value }} {{ a.speso|euro }} · {% if a.residuo < 0 %}sforamento{% else %}residuo{% endif %} {{ a.residuo|euro }}{% endif %}</p>
+{% endwith %}{% endif %}
 <table class="kpi"><tr>
   {% for vista, consolidato, previsionale, totale in s.kpi %}
   <td><div class="etichetta">{{ vista }} · {{ livello.value }}</div><div class="valore">{{ totale|euro }}</div><div class="nota">consolidato {{ consolidato|euro }} · previsionale {{ previsionale|euro }}</div></td>

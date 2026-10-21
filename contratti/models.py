@@ -163,6 +163,11 @@ class Parametro(ConfigurazioneProvvisoria):
         # Processo d'acquisto (SPEC §5.7, F11).
         RDA_FERMA_GIORNI = "rda_ferma_giorni", "RDA ferma in una fase dell'addetto (giorni)"
         FATTURA_FERMA_GIORNI = "fattura_ferma_giorni", "fattura ferma da lavorare (giorni)"
+        # Stanziamenti (SPEC §5.2, Rev22).
+        STANZIAMENTO_GIORNI = (
+            "stanziamento_giorni",
+            "giorni dalla data prevista della fattura oltre i quali si propone lo stanziamento",
+        )
 
     chiave = models.CharField(max_length=40, choices=Chiave.choices)
     valore = models.DecimalField(max_digits=10, decimal_places=4)
@@ -574,6 +579,40 @@ class Natura(models.TextChoices):
 
     OPEX = "OPEX", "OPEX"
     CAPEX = "CAPEX", "CAPEX"
+
+
+class BudgetSottocluster(Archiviabile):
+    """Budget assegnato a un sottocluster per un anno e una natura (OPEX o CAPEX).
+
+    È un dato deciso (non derivato): il report del budget lo mostra accanto al totale del
+    sottocluster filtrato. OPEX e CAPEX restano budget distinti, mai sommati.
+    """
+
+    sottocluster = models.ForeignKey(
+        Sottocluster, on_delete=models.PROTECT, related_name="budget_assegnati"
+    )
+    anno = models.PositiveSmallIntegerField(db_index=True)
+    natura = models.CharField(max_length=5, choices=Natura.choices)
+    importo = importo("budget assegnato (imponibile)")
+    note = models.TextField(blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "budget assegnato al sottocluster"
+        verbose_name_plural = "budget assegnati ai sottocluster"
+        ordering = ["-anno", "sottocluster__cluster__codice", "sottocluster__nome", "natura"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["sottocluster", "anno", "natura"],
+                name="contratti_budget_sottocluster_unico",
+            ),
+            models.CheckConstraint(
+                condition=Q(importo__gte=0), name="contratti_budget_sottocluster_non_negativo"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.sottocluster} · {self.anno} · {self.natura}"
 
 
 class Fornitore(Archiviabile):
@@ -1294,6 +1333,10 @@ class Rata(models.Model):
     modificata_manualmente = models.BooleanField(default=False)
     consuntivo = models.BooleanField(default=False, help_text="Rata effettivamente fatturata.")
     numero_fattura = models.CharField(max_length=40, blank=True)
+    # Rev22: periodo di competenza della rata, salvato alla generazione dello scadenzario
+    # (es. fattura bimestrale posticipata di un contratto che parte l'01/12: 01/12-31/01).
+    periodo_dal = models.DateField("periodo dal", null=True, blank=True)
+    periodo_al = models.DateField("periodo al", null=True, blank=True)
     history = HistoricalRecords()
 
     class Meta:
@@ -1677,6 +1720,10 @@ class Fattura(Archiviabile):
         blank=True,
         help_text="Es. more o danni presenti in fattura e non imputabili al nostro ufficio.",
     )
+    # Rev21: periodo di competenza della fattura. Il budget a competenza imputa il valore base
+    # agli anni di questo periodo (pro-rata a giorni); obbligatorio con il valore base.
+    competenza_dal = models.DateField("competenza dal", null=True, blank=True)
+    competenza_al = models.DateField("competenza al", null=True, blank=True)
     # Imputazione propria della fattura, se diversa da quella della voce (es. acquisti vari
     # sullo stesso contratto): vale per le indicazioni di validazione e il commento per PAC.
     conto = models.ForeignKey(
@@ -1753,6 +1800,14 @@ class Fattura(Archiviabile):
                 condition=Q(archiviato=False),
                 name="contratti_fattura_numero_unico",
             ),
+            models.CheckConstraint(
+                condition=(Q(competenza_dal__isnull=True, competenza_al__isnull=True))
+                | (
+                    Q(competenza_dal__isnull=False, competenza_al__isnull=False)
+                    & Q(competenza_al__gte=F("competenza_dal"))
+                ),
+                name="contratti_fattura_competenza_coerente",
+            ),
         ]
 
     def __str__(self):
@@ -1780,6 +1835,81 @@ class Fattura(Archiviabile):
             raise ValidationError({"voce": "La voce deve essere dello stesso contratto."})
         if self.rata_id and self.rata.piano.voce.contratto_id != self.contratto_id:
             raise ValidationError({"rata": "La rata deve essere dello stesso contratto."})
+        if (self.competenza_dal is None) != (self.competenza_al is None):
+            raise ValidationError("La competenza va indicata con data di inizio e di fine.")
+        if self.competenza_dal and self.competenza_al < self.competenza_dal:
+            raise ValidationError({"competenza_al": "La fine precede l'inizio della competenza."})
+
+
+class Stanziamento(Archiviabile):
+    """Costo di competenza non ancora fatturato (SPEC §5.2, Rev21).
+
+    Alcuni fornitori non fatturano quando dovrebbero: il costo si stanzia per il periodo di
+    competenza, sulla voce del contratto (e, se c'è, sulla rata dello scadenzario che
+    sostituisce). Conta nel budget a competenza finché non arriva la fattura: la fattura
+    abbinata alla stessa rata, o indicata qui, lo chiude (valore derivato, non si salva).
+    """
+
+    voce = models.ForeignKey(VoceContratto, on_delete=models.PROTECT, related_name="stanziamenti")
+    rata = models.ForeignKey(
+        Rata,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="stanziamenti",
+        help_text="Rata dello scadenzario che lo stanziamento sostituisce, se c'è.",
+    )
+    importo = importo("importo stanziato (IVA esclusa)")
+    competenza_dal = models.DateField("competenza dal")
+    competenza_al = models.DateField("competenza al")
+    data_stanziamento = models.DateField("stanziato il", default=timezone.localdate)
+    fattura = models.ForeignKey(
+        Fattura,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="stanziamenti_chiusi",
+        help_text="Fattura arrivata che chiude lo stanziamento.",
+    )
+    note = models.TextField(blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "stanziamento"
+        verbose_name_plural = "stanziamenti"
+        ordering = ["competenza_dal", "id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(importo__gte=0), name="contratti_stanziamento_importo_non_negativo"
+            ),
+            models.CheckConstraint(
+                condition=Q(competenza_al__gte=F("competenza_dal")),
+                name="contratti_stanziamento_competenza_coerente",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Stanziamento {self.competenza_dal:%d/%m/%Y}-{self.competenza_al:%d/%m/%Y}"
+
+    @property
+    def contratto(self):
+        return self.voce.contratto
+
+    @property
+    def chiuso(self) -> bool:
+        """Chiuso da una fattura: indicata qui o abbinata alla stessa rata."""
+        if self.fattura_id:
+            return True
+        return bool(self.rata_id and hasattr(self.rata, "fattura"))
+
+    def clean(self):
+        super().clean()
+        if self.competenza_dal and self.competenza_al and self.competenza_al < self.competenza_dal:
+            raise ValidationError({"competenza_al": "La fine precede l'inizio della competenza."})
+        if self.rata_id and self.rata.piano.voce_id != self.voce_id:
+            raise ValidationError({"rata": "La rata deve essere della stessa voce."})
+        if self.fattura_id and self.fattura.contratto_id != self.voce.contratto_id:
+            raise ValidationError({"fattura": "La fattura è di un altro contratto."})
 
 
 class FatturatoPregresso(Archiviabile):

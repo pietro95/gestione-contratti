@@ -53,7 +53,10 @@ def dati():
         importo_autorizzato=Decimal("1000.00"),
     )
     it, _ = m.Cluster.objects.get_or_create(codice="IT", defaults={"nome": "IT"})
-    m.Sottocluster.objects.create(cluster=it, nome="Sottocluster di prova")
+    sottocluster = m.Sottocluster.objects.create(cluster=it, nome="Sottocluster di prova")
+    m.BudgetSottocluster.objects.create(
+        sottocluster=sottocluster, anno=2026, natura="OPEX", importo=Decimal("1000.00")
+    )
     m.FonteFinanziamento.objects.create(nome="Fonte di prova")
     m.AssegnazioneCluster.objects.create(username="responsabile.prova", cluster=it)
     successore = f.contratto(fabbisogno=c.fabbisogno, numero_contratto="5800000002")
@@ -93,6 +96,9 @@ def dati():
     m.DocumentoEsecuzione.objects.create(
         contratto=c, tipo="MAP", data=D(2026, 3, 5), fattura=fattura
     )
+    m.Stanziamento.objects.create(
+        voce=v, importo=Decimal("50"), competenza_dal=D(2026, 4, 1), competenza_al=D(2026, 4, 30)
+    )
     return {"contratto": c, "voce": v, "piano": p, "proroga": proroga}
 
 
@@ -101,7 +107,8 @@ def test_tutti_i_modelli_registrati():
         "procedura", "soglia", "parametro", "wbs", "cluster", "contocoge",
         "fornitore", "fabbisogno", "contratto", "proroga", "vocecontratto",
         "pianofatturazione", "rata", "statopratica", "richiestaacquisto", "fattura",
-        "documentoesecuzione", "richiedentesap", "gruppoacquisti", "gruppomerci", "funzioneutente",
+        "documentoesecuzione", "stanziamento", "richiedentesap", "gruppoacquisti", "gruppomerci",
+        "funzioneutente",
     }  # fmt: skip
     assert attesi <= {model._meta.model_name for model in MODELLI}
 

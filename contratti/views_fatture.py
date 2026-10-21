@@ -17,7 +17,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from accounts.permissions import editor_required
-from contratti import acquisti, fatture, permessi
+from contratti import acquisti, fatture, permessi, stanziamenti
 from contratti import forms_fatture as forms
 from contratti import models as m
 from contratti.engine import acquisti as motore
@@ -237,6 +237,8 @@ def fattura_dettaglio(request, pk):
         "bollo": f.bollo,
         "iva": f.iva,
         "altri_importi": f.altri_importi,
+        "competenza_dal": f.competenza_dal,
+        "competenza_al": f.competenza_al,
         "voce": f.voce_id,
         "rata": f.rata_id,
         "conto": f.conto_id,
@@ -521,6 +523,16 @@ def contesto_esecuzione(contratto: m.Contratto, oggi) -> dict:
         "form_pregresso": forms.FatturatoPregressoForm(
             contratto=contratto, initial={"anno": oggi.year - 1}
         ),
+        "stanziamenti": list(
+            m.Stanziamento.objects.filter(voce__contratto=contratto, archiviato=False)
+            .select_related("voce", "rata", "fattura")
+            .order_by("competenza_dal", "pk")
+        ),
+        "proposte_stanziamento": (
+            [] if contratto.data_chiusura else stanziamenti.proposte(oggi, contratto=contratto)
+        ),
+        "form_stanziamento": forms.StanziamentoForm(contratto=contratto),
+        "form_chiudi_stanziamento": forms.ChiudiStanziamentoForm(contratto=contratto),
     }  # fmt: skip
 
 
@@ -578,6 +590,79 @@ def pregresso_rimuovi(request, pk, riga_pk):
     riga.save(update_fields=["archiviato"])
     messages.success(request, f"Fatturato {riga.anno} rimosso.")
     return redirect(f"/contratti/{pk}/#esecuzione")
+
+
+@editor_required
+@require_POST
+def contratto_stanziamento(request, pk):
+    contratto = get_object_or_404(m.Contratto, pk=pk)
+    permessi.verifica_oggetto(request.user, contratto)
+    if contratto.data_chiusura is not None:
+        messages.error(request, "Il contratto è chiuso: prima si annulla la chiusura.")
+        return redirect("contratti:contratto", pk=pk)
+    form = forms.StanziamentoForm(request.POST, contratto=contratto)
+    if form.is_valid():
+        stanziamento = form.save(commit=False)
+        stanziamento._change_reason = "Stanziamento registrato dal contratto"
+        stanziamento.save()
+        messages.success(request, "Stanziamento registrato.")
+    else:
+        messages.error(request, "Stanziamento non valido: " + "; ".join(
+            f"{k}: {' '.join(v)}" for k, v in form.errors.items()
+        ))  # fmt: skip
+    return redirect(f"/contratti/{pk}/#esecuzione")
+
+
+@editor_required
+@require_POST
+def stanziamenti_conferma(request):
+    """Conferma le proposte di stanziamento delle rate scadute senza fattura (Rev22)."""
+    oggi = oggi_richiesta(request)
+    fatte = 0
+    for rata in m.Rata.objects.filter(pk__in=request.POST.getlist("rata")).select_related(
+        "piano__voce__contratto"
+    ):
+        try:
+            stanziamenti.conferma(rata, request.user, oggi)
+        except (acquisti.OperazioneNonAmmessa, ValidationError) as exc:
+            _errore(request, exc)
+        else:
+            fatte += 1
+    if fatte:
+        messages.success(
+            request,
+            "Stanziamento registrato." if fatte == 1 else f"{fatte} stanziamenti registrati.",
+        )
+    destinazione = request.POST.get("next", "")
+    if destinazione.startswith("/") and not destinazione.startswith("//"):
+        return redirect(destinazione)
+    return redirect("reports:stanziamenti")
+
+
+@editor_required
+@require_POST
+def stanziamento_azione(request, pk):
+    """Chiude lo stanziamento con la fattura arrivata, oppure lo annulla (archivia)."""
+    stanziamento = get_object_or_404(
+        m.Stanziamento.objects.select_related("voce__contratto"), pk=pk
+    )
+    contratto = stanziamento.voce.contratto
+    permessi.verifica_oggetto(request.user, contratto)
+    if request.POST.get("annulla"):
+        stanziamento.archiviato = True
+        stanziamento._change_reason = "Stanziamento annullato"
+        stanziamento.save(update_fields=["archiviato"])
+        messages.success(request, "Stanziamento annullato.")
+    else:
+        form = forms.ChiudiStanziamentoForm(request.POST, contratto=contratto)
+        if form.is_valid():
+            stanziamento.fattura = form.cleaned_data["fattura"]
+            stanziamento._change_reason = "Chiuso dalla fattura"
+            stanziamento.save(update_fields=["fattura"])
+            messages.success(request, "Stanziamento chiuso dalla fattura.")
+        else:
+            messages.error(request, "Scegli la fattura che chiude lo stanziamento.")
+    return redirect(f"/contratti/{contratto.pk}/#esecuzione")
 
 
 @editor_required

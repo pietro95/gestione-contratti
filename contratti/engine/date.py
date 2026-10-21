@@ -26,6 +26,12 @@ def aggiungi_mesi(d: datetime.date, mesi: int) -> datetime.date:
     return fine_mese(risultato) if is_fine_mese(d) else risultato
 
 
+def mese_precedente(d: datetime.date) -> tuple[datetime.date, datetime.date]:
+    """Primo e ultimo giorno del mese che precede quello di ``d``."""
+    ultimo = d.replace(day=1) - UN_GIORNO
+    return ultimo.replace(day=1), ultimo
+
+
 def giorni(inizio: datetime.date, fine: datetime.date) -> int:
     """Giorni tra due date, estremi inclusi."""
     return (fine - inizio).days + 1

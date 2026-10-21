@@ -26,6 +26,9 @@ Storico revisioni:
 - Rev18 (14/10/2026): decisione del responsabile del progetto, da approvare. Piano ordini (§5.4): diviso in sezioni OPEX e CAPEX con totali propri; ogni riga ha valore contrattuale e valore normalizzato sull'anno (competenza a giorni); entrano anche i contratti già registrati con competenza nell'anno, anche una tantum (in deroga a Rev11); righe raggruppate per cluster e sottocluster con subtotali; fonte di finanziamento sulla riga. Nuove tabelle **Sottocluster** e **Fonte di finanziamento** (§4).
 - Rev19 (14/10/2026): decisioni del responsabile del progetto, **bozza da approvare**. **Autorizzazione extra budget**: attività spot non previste nel budget ma autorizzate espressamente dall'AD (§4). Si collega alla **voce**, OPEX o CAPEX; le voci extra budget sono fuori dai budget dei cluster, con un filtro come le WBS a progetto (§5.2). Il contratto con voci extra budget è **una tantum**: nessun rinnovo, fuori dal piano ordini. Importo autorizzato confrontato con il **massimo** delle voci collegate (fisso + massimale): oltre, avviso e non blocco. Vista Spese extra budget (§5.5 bis). La marcano Admin ed Editor. Nuovo TC-19.
 - Rev20 (14/10/2026): decisioni del responsabile del progetto, **bozza da approvare**. Import settimanale delle fatture (§7): un **fornitore non in anagrafica si crea al momento** (`FORNITORE_CREATO`, da verificare), invece di scartare la riga; l'import è disponibile anche **nella pagina delle fatture** per l'amministrazione acquisti. Fatture (§4, §5.7): una fattura con «bloccata fino al» in corso è al passo **`Bloccata`**, non `Da convalidare`; la pagina delle fatture si apre di default su «Le mie fatture» quando tutte le fatture sono state prese in carico. Il test del TC-18 sul passo di una fattura bloccata segue la nuova regola.
+- Rev21 (15/10/2026): decisioni del responsabile del progetto, **approvata** dal responsabile del progetto il 16/10/2026. Il budget si legge sulla **competenza delle fatture**, non più sulla data fattura: la fattura indica il **periodo di competenza** (§4), obbligatorio con il valore base, e nuova vista **«Fatturato e stanziato (competenza)»** (§5.2), prima colonna e riferimento del budget. Nuova entità **stanziamento** (§4): costo di competenza non ancora fatturato, che conta nel budget finché non arriva la fattura. La cassa per data fattura resta come confronto. Nuovo TC-20. Il §5.8 («il budget non cambia») è superato.
+- Rev22 (15/10/2026): decisioni del responsabile del progetto sulle questioni aperte di Rev21, **approvata** dal responsabile del progetto il 16/10/2026. **Competenza di default** delle fatture importate o registrate a mano: il **mese prima della data fattura** (§4, §7). **Periodo salvato sulla rata** alla generazione dello scadenzario, dalla data di avvio del contratto e dalla periodicità (§4, §5.2); per le rate salvate prima si ricava rigenerando. **Stanziamento proposto** dalle rate scadute senza fattura, con giorni di tolleranza parametrici (§4, §5.2, §8.1). **Connettore MCP** esteso a lettura e scrittura degli stanziamenti (`SPEC_MCP` Rev09). TC-20 esteso (g)–(i).
+- Rev23 (16/10/2026): decisioni del responsabile del progetto, **bozza da approvare**. **Budget assegnato al sottocluster** (§4): importo per sottocluster, anno e natura (OPEX/CAPEX), inserito dall'amministrazione. Il budget (§5.2) ha il filtro per sottocluster e, con il filtro attivo, un box con l'assegnato e il **residuo rispetto alla vista di riferimento «Fatturato e stanziato (competenza)»** (Rev21).
 
 ## 1. Obiettivo
 
@@ -141,6 +144,8 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
 
 **Sottocluster** (tabella, Rev18): sottocategoria di un cluster; cluster, nome (unico nel cluster) e note; si archivia, non si cancella. Raggruppa i fabbisogni nel piano ordini (§5.4).
 
+**Budget del sottocluster** (tabella, Rev23): budget assegnato a un sottocluster per un **anno** e una **natura** (OPEX o CAPEX); importo imponibile, maggiore o uguale a zero, note. Uno solo per sottocluster, anno e natura; si archivia, non si cancella; storia delle modifiche. È un dato deciso, non calcolato. Lo inserisce l'amministrazione (Admin). OPEX e CAPEX restano distinti, mai sommati.
+
 **Fonte di finanziamento** (tabella di configurazione, Rev18): nome unico, attiva, note; nessun valore iniziale. Si assegna al fabbisogno e alla WBS. Per una riga del piano ordini vale la fonte del fabbisogno; se manca, quella della WBS delle voci; se manca, «Ordinaria».
 
 **Voce di contratto** (1..n per contratto):
@@ -161,6 +166,8 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
 - nessun adeguamento sul piano: i contratti che prevedono importi diversi negli anni li fissano già a contratto, anno per anno.
 
 Da questi dati il sistema genera uno **scadenzario rate** (data fattura, data pagamento stimata, importo) modificabile riga per riga. Le rate effettivamente fatturate possono essere marcate come consuntivo. Una rata aggiunta o modificata a mano resta marcata come tale.
+
+**Periodo della rata** (Rev22): ogni rata salva il **periodo di competenza** che copre (dal, al), calcolato alla generazione dalla data di avvio e dalla periodicità. Esempio: un contratto che parte l'01/12 con fatturazione bimestrale posticipata ha la prima rata con periodo 01/12–31/01 (data fattura 31/01): nel budget a competenza il suo importo si ripartisce a giorni tra dicembre e gennaio. Le rate salvate prima, senza periodo, lo ricavano rigenerando lo scadenzario (per numero di rata); una rata aggiunta a mano può non averlo, e allora conta nell'anno della data fattura.
 
 Regole di generazione:
 - la rata contiene **solo la quota fissa**; la quota variabile non si salva sulle rate e la ripartisce il motore (§5.2, livelli);
@@ -199,6 +206,7 @@ Regole di generazione:
 - **contratto** (Rev15): facoltativo finché la fattura è **da assegnare** (arrivata dall'import senza contratto); voce e rata facoltative. Una fattura si può abbinare a una rata dello scadenzario: la rata diventa consuntivo e riceve il numero di fattura; il suo importo non cambia da solo (resta modificabile a mano, tracciato);
 - **valore base prelevato dal contratto** (Rev15): è l'importo che conta per fatturato, residuo e avanzamento del contratto (§5.8); vuoto finché qualcuno non lo indica; la proposta è l'importo del documento meno oneri e bollo;
 - **oneri previdenziali** e **bollo** (Rev15, facoltativi): entrano nel commento per PAC (§5.9);
+- **periodo di competenza** (Rev21): data di inizio e di fine (estremi inclusi), **obbligatorio quando si indica il valore base**. Decide l'anno di budget della fattura (§5.2): il valore base si ripartisce a giorni sugli anni del periodo. **Di default** (Rev22), alla registrazione (import settimanale, import dell'esecuzione, registrazione a mano) la competenza è il **mese precedente la data della fattura** (intero mese, dal primo all'ultimo giorno): il referente la corregge con gli importi. Una fattura con valore base e senza competenza (solo i dati storici del Riepilogo) è segnalata (`COMPETENZA_MANCANTE`) e nel budget si imputa provvisoriamente all'anno della data fattura (`COMPETENZA_FATTURA_MANCANTE`);
 - **presa in carico** (Rev15): referente (utente) e data. La fattura importata non ha referente: la vedono tutti e la prende in carico un Admin o un Editor, di qualunque cluster, per sé, una per volta o più insieme dall'elenco. Una fattura già in carico a un altro non si prende: la si lascia (chi l'ha in carico, che la rimette tra quelle da prendere) o la si riassegna (Admin e addetto). Per abbinarla a un contratto servono comunque i permessi sul cluster del contratto;
 - **referente proposto** (Rev15, valore derivato, non si salva): per una fattura non in carico, il primo che si trova, tra gli utenti attivi, in quest'ordine:
   1. chi ha in carico (o ha avuto in carico, se trasferita) l'**ultima fattura** dello stesso contratto, assegnato o proposto, per data del documento;
@@ -212,6 +220,11 @@ Regole di generazione:
 - data di registrazione, trasferimento (Rev14: data e utente), note, chiave d'import.
 
 Lo stesso numero di fattura dello stesso fornitore non si registra due volte. La registra l'addetto amministrativo (o il referente), a mano o con l'import settimanale (§7); la scheda SAP della fattura propone i campi (§5.9).
+
+**Stanziamento** (Rev21, 0..n per voce): costo di competenza per cui il fornitore non ha ancora fatturato quando dovrebbe. Campi: **voce** del contratto, **rata** dello scadenzario che sostituisce (facoltativa), **importo** (imponibile, IVA esclusa), **periodo di competenza** (dal, al), data dello stanziamento, note, **fattura che lo chiude** (facoltativa). Lo registra l'addetto o il referente (Editor del cluster) sul contratto; non ha numero di fattura. Un contratto chiuso non riceve stanziamenti.
+- È **attivo** finché non arriva la fattura: lo chiude la fattura abbinata alla stessa rata, oppure indicata sullo stanziamento. Lo stato «chiuso» è derivato (non si salva); un stanziamento si annulla archiviandolo.
+- Nel budget a competenza (§5.2) prende il posto della rata che sostituisce, per il suo periodo di competenza; senza rata si somma.
+- **Stanziamento proposto** (Rev22, valore derivato, non si salva): una **rata dello scadenzario** la cui data fattura è passata da **oltre i giorni di tolleranza** (parametro `stanziamento_giorni`, valore iniziale provvisorio 15), senza fattura abbinata, senza stanziamento attivo e di un contratto non chiuso né archiviato, si propone allo stanziamento con l'importo della rata e il suo periodo di competenza. Nel budget la rata conta già come previsione per lo stesso importo e periodo: la proposta serve a farla **registrare**, con una conferma (singola o su più rate) che crea lo stanziamento. La conferma la danno gli Editor del cluster. Elenco: pagina «Stanziamenti» dei report e scheda «Esecuzione» del contratto.
 - **Lavorazione** (Rev14, rivista in Rev15), per ogni fattura, in quest'ordine: (0a) **presa in carico**; (0b) **assegnazione al contratto**, se manca; (0c) **convalida del referente**: esito `Convalidabile`; (1) **RdC**, documento di esecuzione `ODA/RDC` collegato alla fattura, una per fattura; (2) **MAP** (servizi) o **MIGO** (forniture), documento collegato alla fattura, proposto dal tipo d'acquisto del contratto e modificabile; (3) **trasferimento per il pagamento**: data e utente sulla fattura, senza numero SAP.
 - Il **passo da fare** è il primo che manca, nell'ordine: `Da prendere in carico` → `Da assegnare` → `Da convalidare` (o `Bloccata`) → `RdC da fare` → `MAP/MIGO da fare` → `Da trasferire`; con il trasferimento registrato la fattura è `Trasferita`. Con esito `In attesa` o `Non convalidabile` la fattura resta al passo `Da convalidare`. (Rev20) Con «bloccata fino al» uguale o successiva a oggi, qualunque sia l'esito, il passo è `Bloccata` (non `Da convalidare`): la fattura è da lavorare ma **non è «ferma»**, perché aspetta la data del blocco; passata la data torna al passo che le spetta (`Da convalidare` se l'esito non è `Convalidabile`, altrimenti `RdC da fare`). Una fattura è **da lavorare** finché non è trasferita, salvo se fuori registro. Un passo registrato fuori ordine si accetta: conta il primo mancante.
 
@@ -253,7 +266,8 @@ Nessun dato di dominio si cancella fisicamente: si archivia, e la storia delle m
 
 | Vista | Domanda a cui risponde | Regola |
 |---|---|---|
-| **Cassa / fatturato** | Quanto viene fatturato nell'anno X? | somma delle rate dello scadenzario **per data fattura**. La data di pagamento non è usata: il flusso di cassa effettivo è fuori perimetro. È **il riferimento del budget**: prima colonna e vista di default |
+| **Fatturato e stanziato (competenza)** (Rev21) | Quanto costa all'anno X, sulle fatture e sugli stanziamenti? | per ogni rata: la **fattura registrata** (valore base) o lo **stanziamento** che la sostituisce, imputati **a giorni** al loro periodo di competenza; la rata senza fattura né stanziamento resta la **previsione** (sul **periodo della rata**, Rev22; se manca, nell'anno della data fattura). Si sommano le fatture e gli stanziamenti non abbinati a una rata. È **il riferimento del budget**: prima colonna e vista di default |
+| **Cassa / fatturato** | Quanto viene fatturato nell'anno X? | somma delle rate dello scadenzario **per data fattura** (Rev21: solo confronto, non è più il riferimento). La data di pagamento non è usata: il flusso di cassa effettivo è fuori perimetro |
 | **Impegno / ordinato** | Quanto devo ordinare nell'anno X? (Procurement) | intero valore contrattuale nell'anno di emissione del contratto (o di previsto avvio) |
 | **Competenza** | Quanto costa all'esercizio X? (conto economico) | pro-rata **a giorni** sul periodo di servizio, indipendente dalla fatturazione |
 
@@ -262,6 +276,14 @@ Esempio: licenza triennale da 30 k€ con pagamento anticipato unico → impegno
 Regole di dettaglio:
 - **Impegno**: contratto reale nell'anno della data di emissione del contratto, o se manca nell'anno di inizio del servizio; voce di una proroga nell'anno della data dell'atto; contratto previsto nell'anno di inizio del servizio.
 - **Competenza**: il periodo di servizio di una voce è quello del contratto; con quote per periodo, il fisso si ripartisce a giorni quota per quota (TC-11), il variabile sull'intera voce; per una voce di proroga va dal giorno dopo la data di fine precedente alla nuova data di fine. I contratti CAPEX seguono lo stesso pro-rata a giorni: l'ammortamento è fuori perimetro.
+
+**Fatturato e stanziato a competenza, regole di dettaglio (Rev21).**
+- Una fattura entra con il **valore base** (senza valore base non conta, come per il residuo del contratto, §5.8); fuori registro e archiviate sono escluse. Si abbina alla voce indicata, o alla voce della rata abbinata; senza voce, all'unica voce del contratto o, se ce n'è più d'una, alla voce principale (`FATTURA_SENZA_VOCE`).
+- Sulla stessa rata la fattura prevale sullo stanziamento; lo stanziamento chiuso dalla fattura o archiviato non conta.
+- Fatture e stanziamenti non abbinati a una rata si **sommano** alle rate previste (`CONSUNTIVO_NON_ABBINATO`): per non contare due volte lo stesso costo si abbinano alla rata.
+- La quota variabile (probabile, massimo) segue la competenza a giorni della voce, come nella vista «Competenza».
+- Nei contratti previsti non ci sono fatture né stanziamenti: la vista coincide con le rate.
+- La vista «Competenza» (pro-rata a giorni sul periodo del contratto) resta com'è, come stima indipendente dalla fatturazione.
 
 Ogni vista ha tre livelli:
 - **fisso**: somma delle quote fisse;
@@ -275,6 +297,8 @@ In cassa la quota variabile (stimata o massima) si distribuisce sulle date delle
 - Le voci su WBS a progetto sono fuori dai budget dei cluster; un filtro le include o le mostra da sole.
 - (Rev19) Anche le voci extra budget sono fuori dai budget dei cluster, OPEX e CAPEX; un filtro separato le include o le mostra da sole.
 - Di default ogni utente vede i propri cluster (§8.1).
+- (Rev23) **Filtro per sottocluster**: limita il budget ai fabbisogni del sottocluster scelto, contratti reali e previsti; i budget dei sottocluster sommano al budget del cluster più i fabbisogni senza sottocluster.
+- (Rev23) **Budget assegnato**: con il filtro per sottocluster attivo, ogni sezione di natura mostra un box con il budget assegnato al sottocluster per l'anno e quella natura (§4), il totale della vista **«Fatturato e stanziato (competenza)»** (il riferimento del budget, Rev21) al livello scelto e il **residuo** (assegnato meno totale; negativo = sforamento, segnalato). Se per anno e natura non c'è nulla, il box dice «Non assegnato» e non calcola il residuo. Il confronto usa il totale mostrato, quindi comprende WBS a progetto ed extra budget solo se il rispettivo filtro li include. Il box non compare se il sottocluster è di un cluster fuori dal filtro cluster dell'utente (§8.1). Compare anche nel PDF.
 
 ### 5.3 Previsione rinnovi (scenario)
 
@@ -381,7 +405,7 @@ Per un contratto, con importi imponibili e voci delle proroghe comprese:
 2. `Fatture mancanti`: residuo sul fisso > 0;
 3. `Pronto da chiudere`: negli altri casi.
 
-Il budget non cambia: resta basato sullo scadenzario (§5.2). Le fatture servono all'esecuzione e, abbinate alle rate, al consuntivo (TC-16).
+(Rev21) Le fatture registrate entrano anche nel budget, nella vista «Fatturato e stanziato (competenza)» (§5.2), con il periodo di competenza; il residuo del contratto continua a usare il valore base (TC-16).
 
 ### 5.9 Scheda SAP e testo della richiesta (Rev13)
 
@@ -488,7 +512,7 @@ Regole di dettaglio per la release 2.0 (Rev11):
   - **struttura**: primo foglio; l'intestazione è la riga che contiene «Fornitore» e «Numero Documento» (sopra può esserci la riga di revisione); colonne `Fornitore`, `Numero Documento`, `Data`, `Importo SAP`; le altre colonne (`#`, `Note`, `REFERENTE`, `CONVALIDABILE ?` o altre) si ignorano, anche se assenti o compilate. Una riga senza fornitore, numero, data e importo non è una fattura (righe vuote, legenda in fondo): si ignora, e se è compilata solo in parte va nel report;
   - **valori**: data `gg.mm.aaaa`, `gg.mm.aa`, `gg/mm/aaaa` o data Excel; numero conservato come scritto (un numero intero di Excel senza decimali); un numero con testo aggiunto (es. «76 In attesa di nota credito») si importa così com'è ed è segnalato (`NUMERO_DA_VERIFICARE`); l'importo è l'importo del documento;
   - **fornitore**: riconosciuto per ragione sociale o nome breve (stessa normalizzazione dell'import dei contratti); non riconosciuto → (Rev20) il fornitore si **crea al momento**, con la ragione sociale scritta nel file, e la riga si importa; il fatto è segnalato (`FORNITORE_CREATO`, «da verificare»: può essere un nome diverso di un fornitore già in anagrafica, da unire a mano) e contato nel riepilogo (fornitori creati). Il fornitore si crea solo se la riga è valida (numero, data e importo leggibili; importo non negativo); in anteprima non si scrive nulla. Un nome che corrisponde a più fornitori non si importa (`FORNITORE_NON_TROVATO`). Le fatture di un fornitore nuovo entrano da prendere in carico, senza contratto né referente proposti;
-  - **abbinamento**: la fattura entra **da prendere in carico**, senza referente, visibile a tutti (§5.7); se il fornitore ha un solo contratto non archiviato e non chiuso in servizio alla data della fattura, il contratto è **proposto** (si conferma a mano); le fatture che non riguardano il registro si segnano **fuori registro**;
+  - **abbinamento**: la fattura entra **da prendere in carico**, senza referente, visibile a tutti (§5.7); se il fornitore ha un solo contratto non archiviato e non chiuso in servizio alla data della fattura, il contratto è **proposto** (si conferma a mano); le fatture che non riguardano il registro si segnano **fuori registro**; (Rev21) la fattura importata non ha periodo di competenza: lo indica poi il referente con gli importi (§4);
   - **idempotenza**: fornitore + numero già registrati → nessun duplicato; importo o data diversi → segnalati (`IMPORTO_DIVERSO`, `DATA_DIVERSA`), senza sovrascrivere: da qui in poi il riferimento è l'applicazione;
   - anteprima, conferma e registro come gli altri import.
 - **Import dell'esecuzione** (modello XLSX dell'applicazione, un foglio per tipo: RDA con una riga per posizione, documenti di esecuzione, fatture): per caricare in blocco ciò che si legge in SAP, a mano o da un'estrazione riportata nel modello. Nessun collegamento a SAP. Le righe si legano al contratto per numero di contratto SAP (o CIG) e alla RDA per numero SAP; senza corrispondenza vanno nel report (`CONTRATTO_NON_TROVATO`, `RDA_NON_TROVATA`). Idempotente: chiave per tipo, numero e data (fatture: fornitore e numero). Stessi passaggi degli altri import (anteprima, conferma, registro). Le estrazioni SAP standard, se disponibili, si mappano sul modello in una fase successiva.
@@ -552,7 +576,12 @@ Import dall'interfaccia (Gestione → Import), con lo stesso codice dei comandi 
 
 ## 9. Decisioni ancora aperte
 
-- ~~Budget di riferimento per il Controllo di gestione~~: deciso in F8, il riferimento è il fatturato (cassa per data fattura); la natura OPEX/CAPEX si indica sulla voce (F9.2).
+- ~~Budget di riferimento per il Controllo di gestione~~: deciso in F8, il riferimento è il fatturato (cassa per data fattura); la natura OPEX/CAPEX si indica sulla voce (F9.2). (Rev21) Superato: il riferimento è il consuntivo a competenza (fatture e stanziamenti).
+- ~~(Rev21) Competenza delle fatture importate~~: deciso in Rev22, default il mese prima della data fattura.
+- ~~(Rev21) Rate salvate senza periodo~~: deciso in Rev22, periodo salvato alla generazione.
+- ~~(Rev21) Stanziamento in automatico~~: deciso in Rev22, proposto dalle rate scadute (confermato a mano).
+- ~~(Rev21) Connettore MCP~~: esteso in Rev22 (`SPEC_MCP` Rev09).
+- (Rev22) **Tolleranza dello stanziamento**: 15 giorni è un valore provvisorio, da confermare con il Controllo di gestione. ~~Differenza tra importo stanziato e fattura~~: deciso il 16/10/2026, l'importo della fattura sostituisce lo stanziamento senza segnalare la differenza.
 - **Lead time per procedura** e soglie: parametri con valori iniziali provvisori, modificabili dall'amministrazione. Non bloccano lo sviluppo; le soglie UE dei settori speciali non sono caricate.
 - **Anno di imputazione dell'impegno per i contratti previsti**: il default è l'anno di inizio del servizio. Da confermare con il Procurement se preferisce l'anno della data limite di avvio.
 - **IVA**: gli importi sono sempre imponibile. Da verificare se il Procurement vuole anche l'IVA nel piano ordini.

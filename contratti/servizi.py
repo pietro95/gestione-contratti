@@ -47,6 +47,8 @@ def genera_scadenzario(voce: m.VoceContratto) -> list[m.Rata]:
             data_fattura=r.data_fattura,
             data_pagamento_stimata=r.data_pagamento,
             importo=r.importo,
+            periodo_dal=r.periodo_inizio,
+            periodo_al=r.periodo_fine,
             modificata_manualmente=False,
         )
         for r in genera_rate(voce_engine)

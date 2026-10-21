@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load registro %}
+{% block title %}Stanziamenti{% endblock %}
+{% block titolo_pagina %}Stanziamenti{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">Al {{ oggi|date:"d/m/Y" }} · costi di competenza non ancora fatturati · proposta: rata scaduta da oltre {{ tolleranza }} giorni senza fattura</div>{% endblock %}
+{% block content %}
+{% include "reports/_filtri.html" %}
+{% if proposte is not None %}
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3"><div class="card kpi giallo"><div class="card-body"><div class="kpi-etichetta">Proposti</div><div class="kpi-valore">{{ proposte|length }}</div><div class="kpi-nota">{{ totale_proposto|euro }}</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Stanziati</div><div class="kpi-valore">{{ registrati|length }}</div><div class="kpi-nota">{{ totale_registrato|euro }}</div></div></div></div>
+</div>
+<h2 class="h6 text-uppercase text-body-secondary">Proposti dalle rate scadute</h2>
+<form method="post" action="{% url 'contratti:stanziamenti_conferma' %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+<div class="tabella-card mb-3"><div class="table-responsive">
+<table class="table table-hover align-middle" id="stanziamenti-proposti">
+  <thead><tr>{% if puo_modificare %}<th><span class="visually-hidden">Seleziona</span></th>{% endif %}<th>Contratto</th><th>Voce</th><th>Fattura prevista</th><th>Competenza</th><th class="text-end">Importo</th><th class="text-end">Giorni</th></tr></thead>
+  <tbody>{% for p in proposte %}<tr>{% if puo_modificare %}<td><input class="form-check-input" type="checkbox" name="rata" value="{{ p.rata.pk }}" aria-label="Stanzia la rata {{ p.rata.numero }} di {{ p.voce.descrizione }}"></td>{% endif %}<td><a href="{% url 'contratti:contratto' p.contratto.pk %}#esecuzione">{{ p.contratto.fabbisogno.descrizione }}</a></td><td>{{ p.voce.descrizione }}, rata {{ p.rata.numero }}</td><td>{{ p.rata.data_fattura|date:"d/m/Y" }}</td><td>{{ p.dal|date:"d/m/Y" }} – {{ p.al|date:"d/m/Y" }}</td><td class="text-end">{{ p.importo|euro }}</td><td class="text-end">{{ p.giorni_ritardo }}</td></tr>
+  {% empty %}<tr><td colspan="7"><div class="vuoto">Nessuna rata da stanziare.</div></td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% if puo_modificare and proposte %}<button class="btn btn-primary mb-4" type="submit">Stanzia le rate selezionate</button>{% endif %}
+</form>
+<h2 class="h6 text-uppercase text-body-secondary">Stanziamenti registrati, in attesa di fattura</h2>
+<div class="tabella-card"><div class="table-responsive">
+<table class="table table-hover align-middle" id="stanziamenti-registrati">
+  <thead><tr><th>Contratto</th><th>Voce</th><th>Competenza</th><th class="text-end">Importo</th></tr></thead>
+  <tbody>{% for s in registrati %}<tr><td><a href="{% url 'contratti:contratto' s.voce.contratto.pk %}#esecuzione">{{ s.voce.contratto.fabbisogno.descrizione }}</a></td><td>{{ s.voce.descrizione }}</td><td>{{ s.competenza_dal|date:"d/m/Y" }} – {{ s.competenza_al|date:"d/m/Y" }}</td><td class="text-end">{{ s.importo|euro }}</td></tr>
+  {% empty %}<tr><td colspan="4"><div class="vuoto">Nessuno stanziamento in attesa di fattura.</div></td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endif %}
+{% endblock %}

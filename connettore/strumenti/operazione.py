@@ -33,7 +33,12 @@ from reports.budget import VISTE, Filtri, calcola_budget
 from .base import Contesto, ErroreTool, Strumento
 
 ZERO = Decimal("0.00")
-NOMI_VISTE = {"cassa": "fatturato", "impegno": "ordinato", "competenza": "competenza"}
+NOMI_VISTE = {
+    "consuntivo": "fatturato_stanziato_competenza",
+    "cassa": "fatturato",
+    "impegno": "ordinato",
+    "competenza": "competenza",
+}
 ERRORI_DI_DOMINIO = (
     servizi.OperazioneNonAmmessa,
     acquisti.OperazioneNonAmmessa,
@@ -215,6 +220,8 @@ def _fabbisogno_di(record) -> int | None:
             return m.VoceContratto.objects.get(pk=record.voce_id).contratto.fabbisogno_id
         if modello is m.Rata:
             return m.PianoFatturazione.objects.get(pk=record.piano_id).voce.contratto.fabbisogno_id
+        if modello is m.Stanziamento:
+            return m.VoceContratto.objects.get(pk=record.voce_id).contratto.fabbisogno_id
         if modello is m.StatoPratica:
             if record.contratto_id:
                 return m.Contratto.objects.get(pk=record.contratto_id).fabbisogno_id
