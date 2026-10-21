@@ -42,6 +42,17 @@ deploy/manage.sh import_esecuzione /import/<file.xlsx> --dry-run
 deploy/manage.sh import_riepilogo /import/<file.xlsx> --dry-run
 ```
 
+### Struttura cluster/sottocluster (Rev25)
+
+Due passi, in quest'ordine, ciascuno prima con `--dry-run`:
+
+```bash
+deploy/manage.sh import_struttura_budget /import/<struttura_ictdinn.xlsx> --dry-run   # cluster, sottocluster, conti, WBS
+deploy/manage.sh migra_cluster --dry-run                                              # fabbisogni, RDA, WBS, conti, assegnazioni
+```
+
+Dopo il secondo: assegnare i sottocluster ai responsabili (amministrazione → assegnazioni di cluster; l'import segnala gli owner del file con `OWNER_DA_ASSEGNARE`), aprire un campione di fabbisogni e verificare le anomalie. I fabbisogni non spostati (`FABBISOGNO_CON_SOTTOCLUSTER_VECCHIO`, vecchi cluster senza corrispondenza) si sistemano a mano o dal connettore MCP (`modifica_fabbisogno`: cluster e sottocluster insieme).
+
 Dopo l'import reale:
 
 1. verificare quantità importate e anomalie;

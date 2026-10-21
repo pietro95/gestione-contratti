@@ -1,3 +1,4 @@
+# ruff: noqa: E501 — righe di una tabella, come nel file reale
 """Riepilogo del budget in miniatura, con la stessa struttura del file reale (celle unite,
 «(non utile)», «DA EVITARE», conti multipli in una cella) e solo valori fittizi."""
 

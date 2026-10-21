@@ -1,6 +1,7 @@
 """Rev25: import della struttura dal riepilogo del budget (valori fittizi)."""
 
 import datetime
+from pathlib import Path
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -167,7 +168,7 @@ def test_file_non_riconosciuto(tmp_path):
 def test_import_dall_interfaccia_solo_admin(file, make_user):
     make_user("amm", role=ADMIN, is_superuser=True, is_staff=True)
     make_user("ed", role=EDITOR)
-    contenuto = open(file, "rb").read()
+    contenuto = Path(file).read_bytes()
     url = reverse("contratti:importazione_carica", args=["struttura_budget"])
     ed = Client()
     ed.login(username="ed", password=PASSWORD)

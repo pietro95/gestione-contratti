@@ -77,7 +77,7 @@ def riferimenti(ctx: Contesto, argomenti: dict) -> dict:
         ],
         "cluster_propri_definiti": bool(propri),
         "sottocluster": [
-            {"id": s.pk, "cluster": s.cluster.codice, "nome": s.nome}
+            {"id": s.pk, "cluster": s.cluster.codice, "nome": s.nome, "owner": s.owner}
             for s in m.Sottocluster.objects.filter(archiviato=False).select_related("cluster")
         ],
         "procedure": [

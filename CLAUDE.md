@@ -43,6 +43,8 @@ uv run python manage.py import_excel <file.xlsx> --area IT --dry-run
 uv run python manage.py import_conti <piano_conti.csv> --dry-run
 uv run python manage.py import_date_contratti <date_contratti.csv|xlsx> --dry-run
 uv run python manage.py import_tabelle_sap <tabelle_sap.xlsx> --dry-run   # richiedenti, gruppi merci e acquisti (F11)
+uv run python manage.py import_struttura_budget <budget_ictdinn.xlsx> --dry-run  # cluster, sottocluster, conti, WBS dal riepilogo del budget (Rev25)
+uv run python manage.py migra_cluster --dry-run   # sposta fabbisogni, RDA, WBS, conti, assegnazioni dai vecchi cluster ai sottocluster (Rev25)
 uv run python manage.py import_fatture <estrazione_fatture.xlsx> --dry-run  # fatture settimanali (F11.3)
 uv run python manage.py import_pregresso <pregresso.xlsx|csv> --dry-run          # fatturato pregresso per anno (Rev20)
 uv run python manage.py import_esecuzione <esecuzione.xlsx> --dry-run       # modello XLSX dell'esecuzione (F11.4)
