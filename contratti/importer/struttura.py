@@ -13,6 +13,7 @@ Responsabili, Conti, WBS; il foglio Istruzioni e la colonna «Controllo» si ign
   stesso codice; quelle senza corrispondenza vanno nel report.
 """
 
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -174,10 +175,10 @@ class _Struttura:
             descrizione = _testo(r, "descrizione")
             if codice is None or not descrizione:
                 raise _errore("Conti", numero, "codice e descrizione obbligatori.")
-            cluster = _testo(r, "cluster")
-            if not cluster:
+            elenco = [c.strip() for c in re.split(r"[;,/]", _testo(r, "cluster")) if c.strip()]
+            if not elenco:
                 raise _errore("Conti", numero, "ogni conto appartiene a un cluster.")
-            cluster = self._cluster("Conti", numero, cluster)
+            cluster = [self._cluster("Conti", numero, c) for c in dict.fromkeys(elenco)]
             dal, al = self._data(r, "valido_dal", numero), self._data(r, "valido_al", numero)
             if dal is None:
                 raise _errore("Conti", numero, "valido_dal obbligatoria.")
@@ -187,18 +188,20 @@ class _Struttura:
                 raise _errore("Conti", numero, f"conto ripetuto: {codice} dal {dal:%d/%m/%Y}.")
             visti.add((codice, dal))
             conto = m.ContoCoge.objects.filter(codice=codice, valido_dal=dal).first()
-            nuovo = (descrizione, al, cluster.pk)
             if conto is None:
                 conto = m.ContoCoge(codice=codice, valido_dal=dal)
                 esito = "conti_creati"
-            elif (conto.descrizione, conto.valido_al, conto.cluster_id) == nuovo:
+            elif (conto.descrizione, conto.valido_al) == (descrizione, al) and set(
+                conto.clusters.all()
+            ) == set(cluster):
                 esito = None
             else:
                 esito = "conti_aggiornati"
             if esito:
-                conto.descrizione, conto.valido_al, conto.cluster = descrizione, al, cluster
+                conto.descrizione, conto.valido_al = descrizione, al
                 conto._change_reason = "Import struttura"
                 conto.save()
+                conto.clusters.set(cluster)
                 self.report.conteggi[esito] += 1
             if sostituto := tabelle.codice(r.get("sostituito_da")):
                 if sostituto == codice:
@@ -288,7 +291,7 @@ class _Struttura:
                 "WBS", None, "WBS_NON_IN_STRUTTURA", "codice_wbs", codice,
                 f"{n} voci hanno questa WBS (testo importato) che non è nel foglio WBS.",
             )  # fmt: skip
-        senza = m.ContoCoge.objects.filter(cluster__isnull=True).count()
+        senza = m.ContoCoge.objects.filter(clusters__isnull=True).count()
         if senza:
             self.report.anomalia(
                 "Conti", None, "CONTO_SENZA_CLUSTER", "cluster", str(senza),

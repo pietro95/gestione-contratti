@@ -222,8 +222,9 @@ def modello_conti() -> Workbook:
             "Piano dei conti",
             "La coppia codice + valido_dal identifica il conto; una riga già presente aggiorna "
             "descrizione, fine validità e cluster. Nessuna cancellazione.",
-            "cluster: codice del cluster del conto (es. IT); vuoto = invariato. Ogni conto "
-            "appartiene a un cluster: per caricare tutto insieme usa l'import della struttura.",
+            "cluster: codice del cluster del conto (es. IT); più cluster separati da virgola; "
+            "vuoto = invariato. Ogni conto appartiene a un cluster: per caricare tutto insieme "
+            "usa l'import della struttura.",
             "Date gg/mm/aaaa. Un errore su una riga annulla tutto il file.",
             "Esempio (fittizio): 60000000 | Canoni software | 01/01/2026 | | IT",
         ],

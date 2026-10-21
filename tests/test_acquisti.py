@@ -35,12 +35,11 @@ def referente(make_user):
 
 
 def _conto(codice, cluster=None):
-    return m.ContoCoge.objects.create(
-        codice=codice,
-        descrizione=f"Conto {codice} (prova)",
-        valido_dal=D(2020, 1, 1),
-        cluster=cluster or f.cluster("IT"),
+    conto = m.ContoCoge.objects.create(
+        codice=codice, descrizione=f"Conto {codice} (prova)", valido_dal=D(2020, 1, 1)
     )
+    conto.clusters.add(cluster or f.cluster("IT"))
+    return conto
 
 
 def _rda(**kw):

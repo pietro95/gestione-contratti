@@ -25,7 +25,7 @@ PASSWORD = "password-locale-di-prova"
 
 
 def _conto(codice, cluster):
-    return m.ContoCoge.objects.create(
+    return f.conto(
         codice=codice, descrizione=f"Conto {codice}", valido_dal=D(2020, 1, 1), cluster=cluster
     )
 

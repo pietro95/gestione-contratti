@@ -107,9 +107,9 @@ class ClusterAdmin(ArchiviabileAdmin):
 
 @admin.register(m.Sottocluster)
 class SottoclusterAdmin(ArchiviabileAdmin):
-    list_display = ("nome", "cluster", "archiviato")
+    list_display = ("nome", "cluster", "owner", "archiviato")
     list_filter = ("cluster", "archiviato")
-    search_fields = ("nome", "cluster__codice", "note")
+    search_fields = ("nome", "cluster__codice", "owner", "note")
     autocomplete_fields = ("cluster",)
 
 
@@ -143,24 +143,28 @@ class AutorizzazioneExtraBudgetAdmin(ArchiviabileAdmin):
 
 
 class ContoCogeForm(forms.ModelForm):
-    """Ogni conto appartiene a un cluster (SPEC §4): obbligatorio in amministrazione."""
+    """Ogni conto appartiene ad almeno un cluster (SPEC §4): obbligatorio in amministrazione."""
 
     class Meta:
         model = m.ContoCoge
-        fields = ["codice", "descrizione", "cluster", "valido_dal", "valido_al", "sostituito_da"]
+        fields = ["codice", "descrizione", "clusters", "valido_dal", "valido_al", "sostituito_da"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["cluster"].required = True
+        self.fields["clusters"].required = True
 
 
 @admin.register(m.ContoCoge)
 class ContoCogeAdmin(BaseAdmin):
     form = ContoCogeForm
-    list_display = ("codice", "descrizione", "cluster", "valido_dal", "valido_al", "sostituito_da")
-    list_filter = ("cluster",)
+    list_display = ("codice", "descrizione", "cluster_elenco", "valido_dal", "valido_al")
+    list_filter = ("clusters",)
     search_fields = ("codice", "descrizione")
-    autocomplete_fields = ("sostituito_da", "cluster")
+    autocomplete_fields = ("sostituito_da", "clusters")
+
+    @admin.display(description="cluster")
+    def cluster_elenco(self, conto):
+        return ", ".join(c.codice for c in conto.clusters.all())
 
 
 @admin.register(m.AssegnazioneCluster)
@@ -170,10 +174,10 @@ class AssegnazioneClusterAdmin(ArchiviabileAdmin):
     Per togliere un'assegnazione si archivia.
     """
 
-    list_display = ("username", "cluster", "note", "archiviato")
+    list_display = ("username", "cluster", "sottocluster", "note", "archiviato")
     list_filter = ("cluster", "archiviato")
     search_fields = ("username", "note")
-    autocomplete_fields = ("cluster",)
+    autocomplete_fields = ("cluster", "sottocluster")
 
 
 @admin.register(m.FunzioneUtente)

@@ -295,7 +295,7 @@ class Importatore:
         self.report = report
         self.oggi = oggi
         self.conti = {}
-        for c in m.ContoCoge.objects.select_related("cluster").order_by("valido_dal"):
+        for c in m.ContoCoge.objects.prefetch_related("clusters").order_by("valido_dal"):
             self.conti[c.codice] = c  # l'ultimo per validità
         self.fornitori = {}
         for f in m.Fornitore.objects.filter(archiviato=False):
@@ -329,7 +329,7 @@ class Importatore:
         if tabelle.centro_costo_da_segnalare(centro):
             self.anomalia(n, "CENTRO_COSTO_NON_IN_TABELLA", "centro_costo", centro,
                           tabelle.MESSAGGIO_CENTRO_COSTO)  # fmt: skip
-        if data_rda is None or data_rda < INIZIO_SAP or conto is None or not conto.cluster_id:
+        if data_rda is None or data_rda < INIZIO_SAP or conto is None or not conto.clusters.all():
             # Fuori perimetro: solo questa anomalia, non quelle del conto.
             del self.report.anomalie[prima:]
         if data_rda is None or data_rda < INIZIO_SAP:
@@ -342,7 +342,7 @@ class Importatore:
                 "RDA prima del 01/04/2025 (numerazione SAP) o senza data.",
             )
             return
-        if conto is None or conto.cluster_id is None:
+        if conto is None or not conto.clusters.all():
             self.conta("fuori_perimetro")
             self.anomalia(
                 n,
@@ -438,6 +438,20 @@ class Importatore:
         codici = [c for c in re.findall(r"[0-9A-Z]{4,10}", centro) if c != conto.codice]
         return conto, (codici[0] if codici else centro)[:20]
 
+    def _cluster_conto(self, conto, numero) -> m.Cluster:
+        """Cluster della RDA: quello del conto; con più cluster il primo, segnalato (Rev25)."""
+        cluster = sorted(conto.clusters.all(), key=lambda c: c.codice)
+        if len(cluster) > 1:
+            self.anomalia(
+                numero,
+                "CONTO_SU_PIU_CLUSTER",
+                "conto",
+                conto.codice,
+                f"Il conto è di più cluster ({', '.join(c.codice for c in cluster)}): "
+                f"RDA assegnata a {cluster[0].codice}, verifica.",
+            )
+        return cluster[0]
+
     def _rda(self, primo, numero, data_rda, conto, centro) -> m.RichiestaAcquisto:
         descrizione = (pulisci(primo.get("descrizione")) or "RDA importata dal Riepilogo")[:250]
         richiedente_testo = pulisci(primo.get("richiedente")) or ""
@@ -449,7 +463,7 @@ class Importatore:
             note.append(nota)
         rda = m.RichiestaAcquisto(
             origine=m.RichiestaAcquisto.Origine.IMPORT,
-            cluster=conto.cluster,
+            cluster=self._cluster_conto(conto, numero),
             descrizione=descrizione,
             numero_rda=numero,
             data_creazione=data_rda,

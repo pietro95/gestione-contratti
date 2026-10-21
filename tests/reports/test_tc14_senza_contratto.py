@@ -24,7 +24,7 @@ PASSWORD = "password-locale-di-prova"
 def c1():
     """Contratto 15/03/2024–14/03/2025, 300,00 anticipati (affidamento diretto, 2 mesi)."""
     it = f.cluster("IT")
-    conto = m.ContoCoge.objects.create(
+    conto = f.conto(
         codice="61000009", descrizione="Domini (prova)", valido_dal=D(2020, 1, 1), cluster=it
     )
     fab = f.fabbisogno("Dominio di prova", cluster=it, decisione="rinnovare")

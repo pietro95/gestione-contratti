@@ -24,7 +24,7 @@ OGGI = D(2026, 10, 7)
 def registro():
     it, ot = f.cluster("IT"), f.cluster("OT")
     for codice, cluster in (("600010", it), ("600020", ot), ("700001", None)):
-        m.ContoCoge.objects.create(
+        f.conto(
             codice=codice, descrizione=f"Conto {codice}", valido_dal=D(2020, 1, 1),
             cluster=cluster,
         )  # fmt: skip

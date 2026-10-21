@@ -403,8 +403,8 @@ def contratto_dettaglio(request, pk):
             "storico": storico(contratto),
             "catena": selettori.catena(contratto),
             "previsti": selettori.previsti_dopo(contratto, oggi),
-            "puo_modificare": permessi.puo_modificare(
-                request.user, contratto.fabbisogno.cluster_id
+            "puo_modificare": permessi.puo_modificare_fabbisogno(
+                request.user, contratto.fabbisogno
             ),
         },
     )
@@ -1045,7 +1045,7 @@ def fabbisogno_dettaglio(request, pk):
             **views_rda.contesto_pratica(f, oggi),
             "richieste": views_rda.richieste_del_fabbisogno(f, oggi),
             "storico": storico(f),
-            "puo_modificare": permessi.puo_modificare(request.user, f.cluster_id),
+            "puo_modificare": permessi.puo_modificare_fabbisogno(request.user, f),
         },
     )
 
@@ -1184,7 +1184,8 @@ def proposta_azione(request, tipo, pk, azione):
         coinvolti = proposta.contratti.select_related("fabbisogno")
     else:
         coinvolti = [proposta.predecessore, proposta.successore]
-    permessi.verifica(request.user, *{c.fabbisogno.cluster_id for c in coinvolti})
+    for c in coinvolti:
+        permessi.verifica_oggetto(request.user, c)
     funzione = {
         ("raggruppamento", "conferma"): proposte_import.conferma_raggruppamento,
         ("predecessore", "conferma"): proposte_import.conferma_predecessore,

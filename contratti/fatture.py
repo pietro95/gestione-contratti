@@ -259,7 +259,7 @@ def puo_lavorare(utente, fattura: m.Fattura) -> bool:
     if not scrive(utente):
         return False
     if fattura.contratto_id:
-        return permessi.puo_modificare(utente, fattura.contratto.fabbisogno.cluster_id)
+        return permessi.puo_modificare_fabbisogno(utente, fattura.contratto.fabbisogno)
     return fattura.referente_id == utente.pk or gestisce(utente)
 
 

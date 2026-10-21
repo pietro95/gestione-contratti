@@ -169,7 +169,7 @@ class PosizioneForm(FormBase):
         self.fields["gruppo_merci"].queryset = m.GruppoMerci.objects.filter(attivo=True)
         conti = m.ContoCoge.objects.all()
         if cluster is not None and permessi.conti_per_cluster():
-            conti = conti.filter(cluster=cluster)
+            conti = conti.filter(clusters=cluster)
         self.fields["conto"].queryset = conti
         self.fields["wbs"].queryset = wbs_ammesse(cluster)
         self.fields["quantita"].widget.attrs["inputmode"] = "decimal"
