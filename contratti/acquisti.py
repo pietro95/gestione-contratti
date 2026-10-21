@@ -762,3 +762,15 @@ def registra_contratto_da_rda(
 
             servizi.genera_scadenzario(voce)
     return contratto
+
+
+def filtra_rda_per_sottocluster(qs, sottocluster: int | None):
+    """RDA del sottocluster: il suo, o quello del fabbisogno della pratica se non ce l'ha."""
+    if not sottocluster:
+        return qs
+    senza = Q(sottocluster__isnull=True)
+    return qs.filter(
+        Q(sottocluster_id=sottocluster)
+        | (senza & Q(fabbisogno__sottocluster_id=sottocluster))
+        | (senza & Q(contratto_in_scadenza__fabbisogno__sottocluster_id=sottocluster))
+    )

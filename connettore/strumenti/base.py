@@ -103,6 +103,15 @@ def cluster_filtro(utente, valori: list[str] | None) -> list[str]:
     return codici
 
 
+def sottocluster_filtro(valore: int | None) -> int | None:
+    """Il filtro «sottocluster» degli strumenti di lettura: id esistente, o ``None`` = tutti."""
+    if not valore:
+        return None
+    if not m.Sottocluster.objects.filter(pk=valore).exists():
+        raise ErroreTool(f"Sottocluster sconosciuto: {valore}. Vedi il tool «riferimenti».")
+    return valore
+
+
 def oggetto(queryset, pk, nome: str):
     """L'oggetto con quell'id (da un manager o un queryset), o un errore leggibile."""
     try:
@@ -118,6 +127,10 @@ SCHEMA_CLUSTER = {
         "Codici dei cluster (es. IT, TLC). Vuoto o «miei»: i cluster dell'utente; "
         "«tutti»: tutti i cluster."
     ),
+}
+SCHEMA_SOTTOCLUSTER = {
+    **{"type": "integer", "minimum": 1},
+    "description": "id del sottocluster («riferimenti»); vuoto: tutti i sottocluster.",
 }
 SCHEMA_PAGINA = {
     "limite": {"type": "integer", "minimum": 1, "maximum": LIMITE_MASSIMO},

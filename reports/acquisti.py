@@ -95,6 +95,7 @@ def riga_rda(rda: m.RichiestaAcquisto, oggi: datetime.date, giorni_ferma: int) -
 @dataclass(frozen=True)
 class FiltriRDA:
     cluster: tuple[str, ...] = ()  # vuoto = tutti
+    sottocluster: int | None = None
     referente: int | None = None
     fasi: tuple[str, ...] = ()
     anno: int | None = None
@@ -108,6 +109,7 @@ def stato_rda(filtri: FiltriRDA, oggi: datetime.date) -> list[RigaRDA]:
     qs = qs_rda()
     if filtri.cluster:
         qs = qs.filter(cluster__codice__in=filtri.cluster)
+    qs = acquisti.filtra_rda_per_sottocluster(qs, filtri.sottocluster)
     if filtri.referente:
         qs = qs.filter(referente_utente_id=filtri.referente)
     if filtri.wbs:
@@ -145,10 +147,13 @@ def conteggi_per_fase(righe: list[RigaRDA]) -> list[tuple[str, str, int, Decimal
 
 
 def rda_da_processare(
-    cluster: tuple[str, ...], oggi: datetime.date
+    cluster: tuple[str, ...], oggi: datetime.date, sottocluster: int | None = None
 ) -> list[tuple[Azione, str, list[RigaRDA]]]:
     """RDA nelle fasi dell'addetto, per azione; in ogni gruppo le ferme e le più vecchie prima."""
-    righe = stato_rda(FiltriRDA(cluster=cluster, fasi=tuple(motore.AZIONE_ADDETTO)), oggi)
+    filtri = FiltriRDA(
+        cluster=cluster, sottocluster=sottocluster, fasi=tuple(motore.AZIONE_ADDETTO)
+    )
+    righe = stato_rda(filtri, oggi)
     gruppi = defaultdict(list)
     for r in righe:
         gruppi[motore.azione_addetto(r.fase)].append(r)
@@ -335,7 +340,7 @@ class RigaEsecuzione:
         return motore.ETICHETTE_MOTIVO[motivo] if motivo else ""
 
 
-def _contratti(cluster: tuple[str, ...]):
+def _contratti(cluster: tuple[str, ...], sottocluster: int | None = None):
     qs = (
         m.Contratto.objects.filter(archiviato=False)
         .select_related("fornitore", "fabbisogno__cluster", "procedura")
@@ -345,13 +350,17 @@ def _contratti(cluster: tuple[str, ...]):
     )
     if cluster:
         qs = qs.filter(fabbisogno__cluster__codice__in=cluster)
+    if sottocluster:
+        qs = qs.filter(fabbisogno__sottocluster_id=sottocluster)
     return qs.order_by("fabbisogno__descrizione", "pk")
 
 
-def contratti_da_chiudere(cluster: tuple[str, ...], oggi: datetime.date) -> list[RigaEsecuzione]:
+def contratti_da_chiudere(
+    cluster: tuple[str, ...], oggi: datetime.date, sottocluster: int | None = None
+) -> list[RigaEsecuzione]:
     """Non chiusi, con la prestazione finita (fine effettiva < oggi), con il motivo."""
     righe = []
-    for c in _contratti(cluster).filter(data_chiusura__isnull=True):
+    for c in _contratti(cluster, sottocluster).filter(data_chiusura__isnull=True):
         fine = adapters.data_fine_effettiva(c)
         if fine is None or fine >= oggi:
             continue
@@ -362,11 +371,13 @@ def contratti_da_chiudere(cluster: tuple[str, ...], oggi: datetime.date) -> list
     return sorted(righe, key=lambda r: (ordine.index(r.riepilogo.motivo_da_chiudere), r.fine))
 
 
-def anomalie_esecuzione(cluster: tuple[str, ...], oggi: datetime.date) -> list[RigaEsecuzione]:
+def anomalie_esecuzione(
+    cluster: tuple[str, ...], oggi: datetime.date, sottocluster: int | None = None
+) -> list[RigaEsecuzione]:
     """Contratti con anomalie dell'esecuzione o fatture con anomalie (SPEC §5.8)."""
     righe = []
     candidati = (
-        _contratti(cluster)
+        _contratti(cluster, sottocluster)
         .filter(
             Q(fatture__isnull=False)
             | Q(fatturato_pregresso__isnull=False)

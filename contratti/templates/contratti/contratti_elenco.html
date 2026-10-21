@@ -8,6 +8,7 @@
   <div class="row g-3 align-items-end">
     <div class="col-md-6 col-xl-4"><label class="form-label" for="f-q">Cerca</label><input id="f-q" type="search" name="q" value="{{ filtri.q }}" class="form-control" placeholder="Descrizione, n. contratto, CIG, RDA, fornitore"></div>
     <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-area">Cluster</label><select id="f-area" name="area" class="form-select js-cluster" multiple>{% for v, t in aree %}<option value="{{ v }}" {% if v in area_scelte %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+    {% include "contratti/_filtro_sottocluster.html" with colonne="col-sm-4 col-xl-2" %}
     <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-stato">Stato</label><select id="f-stato" name="stato" class="form-select"><option value="">Tutti</option>{% for v, t in stati %}<option value="{{ v }}" {% if filtri.stato == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
     <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-alert">Alert</label><select id="f-alert" name="alert" class="form-select"><option value="">Tutti</option>{% for v, t in alert %}<option value="{{ v }}" {% if filtri.alert == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
     <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-anno">Attivi nell'anno</label><input id="f-anno" type="number" name="anno" value="{{ filtri.anno }}" class="form-control" placeholder="es. {% now 'Y' %}" min="2000" max="2100"></div>

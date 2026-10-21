@@ -7,7 +7,7 @@
 {% block content %}
 <form method="get" class="filtri row g-3 align-items-end">
   <div class="col-sm-4 col-lg-3"><label class="form-label" for="f-area">Cluster</label><select id="f-area" name="area" class="form-select js-cluster" multiple>{% for v, t in aree %}<option value="{{ v }}" {% if v in area_scelte %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
-  <div class="col-sm-5 col-lg-4"><label class="form-label" for="f-cat">Sottocluster</label><select id="f-cat" name="sottocluster" class="form-select"><option value="">Tutti i sottocluster</option>{% for c in sottocluster_elenco %}<option value="{{ c.pk|stringformat:"d" }}" {% if filtri.sottocluster == c.pk|stringformat:"s" %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
+  <div class="col-sm-5 col-lg-4"><label class="form-label" for="f-cat">Sottocluster</label><select id="f-cat" name="sottocluster" class="form-select"><option value="">Tutti i sottocluster</option>{% for c in sottocluster_elenco %}<option value="{{ c.pk|stringformat:"d" }}" {% if sottocluster_scelto == c.pk|stringformat:"s" %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
   {% if request.GET.oggi %}<input type="hidden" name="oggi" value="{{ request.GET.oggi }}">{% endif %}
   <div class="col-auto"><button class="btn btn-primary" type="submit">Applica</button></div>
 </form>

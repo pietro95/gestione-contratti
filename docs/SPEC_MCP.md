@@ -2,7 +2,7 @@
 
 > Specifica normativa del connettore. L'inquadramento architetturale è in [ARCHITECTURE](ARCHITECTURE.md), i principi di protezione in [SECURITY](SECURITY.md) e le procedure di esercizio in [RUNBOOK](RUNBOOK.md).
 
-Rev08 — 07/10/2026 — decisioni del responsabile del progetto, da approvare. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
+Rev09 — 21/10/2026 — decisioni del responsabile del progetto, da approvare. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
 
 Storico revisioni:
 - Rev00 (05/10/2026): prima bozza, raccomandata l'opzione «solo rete interna con ponte locale».
@@ -14,6 +14,7 @@ Storico revisioni:
 - Rev06 (05/10/2026): decisione del responsabile del progetto, a valle della realizzazione di F10.1: tre limiti dei tool del gruppo C (§8.2): `modifica_voce` non cambia le quote per periodo esistenti, `crea_contratto` e `modifica_contratto` non gestiscono le note, `registra_rinnovo` non genera le rate.
 - Rev07 (07/10/2026): D8 chiusa con esito positivo: nella prova in produzione Claude ha accettato l'autorizzazione sull'host interno (§2.1); il piano B non serve. Nessuna decisione aperta.
 - Rev08 (07/10/2026): decisioni del responsabile del progetto, **bozza da approvare**. Il connettore copre il processo d'acquisto della release 2.0 (§11, fase F12): lettura di RDA, fatture, esecuzione e viste; scrittura di tutto il processo tranne gli import (D14); presa in carico, fuori registro e assegnazione ai proposti anche su più fatture (D15); nome dei referenti esposto (D16); testi per SAP e PAC restituiti (D17). Gruppo E di §8.2 definito in §11.3.
+- Rev09 (21/10/2026): decisione del responsabile del progetto, **approvata** il 21/10/2026 (SPEC Rev26). Gli strumenti di lettura che filtrano per `cluster` accettano anche `sottocluster` (id da `riferimenti`; id inesistente → errore): `budget`, `spese_wbs`, `piani_da_verificare`, `elenco_rda`, `cruscotto_acquisti`, `contratti_da_chiudere`, `stanziamenti`, `anomalie_esecuzione` (`scadenze` e `piano_ordini` lo avevano già).
 
 ## 1. Obiettivo
 
@@ -138,10 +139,10 @@ Convenzioni comuni:
 | `contratto` | `id` | anagrafica, catena (predecessori, successore, confluiti), proroghe, opzioni, voci con classificazione e piano, data di fine e data limite calcolate, alert, storico pratica | adapters + `servizi.contratto_e_predecessori` / `contratto_e_successivi` |
 | `fabbisogno` | `id` | descrizione, cluster, categoria, decisione di continuità, catena dei contratti, previsti calcolati con importi e date, rinnovo mancante | `adapters.previsti_fabbisogno` |
 | `scadenzario` | `contratto_id` o `voce_id` | rate: numero, data fattura, pagamento stimato, importo, consuntivo, modificata a mano | modelli `Rata` |
-| `budget` | `anno`, `cluster`, `natura`, `conto`, `fornitore`, `wbs`, `progetti`, `previsionali`, `raggruppa_per` (cluster, conto, fornitore, wbs, fabbisogno) | per gruppo: fatturato, ordinato, competenza × fisso, probabile, massimo; OPEX e CAPEX **separati e mai sommati**; rinnovi mancanti | `reports.budget.calcola_budget`, `raggruppa` |
+| `budget` | `anno`, `cluster`, `sottocluster`, `natura`, `conto`, `fornitore`, `wbs`, `progetti`, `previsionali`, `raggruppa_per` (cluster, conto, fornitore, wbs, fabbisogno) | per gruppo: fatturato, ordinato, competenza × fisso, probabile, massimo; OPEX e CAPEX **separati e mai sommati**; rinnovi mancanti | `reports.budget.calcola_budget`, `raggruppa` |
 | `piano_ordini` | `anno`, `cluster`, `categoria`, `natura` | righe del piano (SPEC §5.4), avvisi di frazionamento | `reports.piano_ordini.calcola_piano` |
-| `spese_wbs` | `wbs_id`, `vista`, `livello` | contratti e importi anno per anno sulla WBS | `reports.wbs` |
-| `piani_da_verificare` | `cluster` | voci con piano `Da verificare` | `selettori.voci_piano_da_verificare` |
+| `spese_wbs` | `wbs_id`, `vista`, `livello`; senza WBS (elenco): `cluster`, `sottocluster`, `tipo` | contratti e importi anno per anno sulla WBS | `reports.wbs` |
+| `piani_da_verificare` | `cluster`, `sottocluster` | voci con piano `Da verificare` | `selettori.voci_piano_da_verificare` |
 | `fornitore` | `id` | anagrafica, contratti attivi e storici, totali per anno | viste fornitore |
 | `riferimenti` | — | cluster visibili e propri, categorie, procedure con lead time e se sono proponibili per un fabbisogno (`per_fabbisogni`, Rev24), soglie valide | tabelle di configurazione |
 
@@ -290,14 +291,14 @@ Rev08, decisioni del responsabile del progetto del 07/10/2026 (D14–D17). La re
 | Tool | Argomenti | Restituisce | Riusa |
 |---|---|---|---|
 | `rda` | `id` | scopo, cluster, pratica (contratto in scadenza o fabbisogno) con il suo stato, fase con data, giorni e «ferma», numero SAP e date, referente, posizioni con importo, contratti generati con la differenza dalla RDA, storico della richiesta, scheda SAP, `testo_richiesta` | `acquisti.dati_rda`, `scheda`, `testo_della_richiesta`, `differenza_da_rda` |
-| `elenco_rda` | `cluster`, `fase` (più d'una), `anno`, `referente` (`me` o id), `fornitore`, `wbs`, `testo`, paginazione | righe della vista «Stato delle RDA», totale e conteggi per fase | `reports.acquisti.stato_rda`, `conteggi_per_fase` |
+| `elenco_rda` | `cluster`, `sottocluster`, `fase` (più d'una), `anno`, `referente` (`me` o id), `fornitore`, `wbs`, `testo`, paginazione | righe della vista «Stato delle RDA», totale e conteggi per fase | `reports.acquisti.stato_rda`, `conteggi_per_fase` |
 | `fattura` | `id` | fornitore, numero, data, importo del documento, valore base, oneri, bollo, passo con «ferma», contratto (o proposto) e voce, rata, referente (o proposto), convalida, documenti SAP, trasferimento, fuori registro, anomalie, `indicazioni_validazione`, `commento_pac` | `contratti.fatture` |
 | `elenco_fatture` | `vista` (`da_prendere`, `mie`, `tutte`), `proposte_a_me`, `passo`, `testo`, `fuori_registro`, paginazione | righe con passo, giorni, «ferma», contratto e referente proposti | `views_fatture`, `reports.acquisti` |
 | `esecuzione` | `contratto_id` | fatturato, residuo sul fisso e sul massimo, avanzamento, motivo «da chiudere», anomalie del contratto e delle fatture, fatture con il passo, documenti di esecuzione | `acquisti.riepilogo_esecuzione`, `fatture.anomalie` |
-| `cruscotto_acquisti` | `cluster` | RDA da processare per azione con le ferme, fatture da lavorare per passo, contratti da chiudere | `reports.acquisti` |
-| `contratti_da_chiudere` | `cluster` | righe con motivo, fatturato e residui | `reports.acquisti.contratti_da_chiudere` |
-| `stanziamenti` | `cluster`, `contratto_id` | rate scadute senza fattura proposte allo stanziamento (importo e competenza proposti) e stanziamenti registrati; totali proposto e stanziato | `contratti.stanziamenti.proposte`, `m.Stanziamento` |
-| `anomalie_esecuzione` | `cluster` | contratti e fatture con le anomalie, conteggi | `reports.acquisti.anomalie_esecuzione`, `conteggi_anomalie` |
+| `cruscotto_acquisti` | `cluster`, `sottocluster` | RDA da processare per azione con le ferme, fatture da lavorare per passo, contratti da chiudere | `reports.acquisti` |
+| `contratti_da_chiudere` | `cluster`, `sottocluster` | righe con motivo, fatturato e residui | `reports.acquisti.contratti_da_chiudere` |
+| `stanziamenti` | `cluster`, `sottocluster`, `contratto_id` | rate scadute senza fattura proposte allo stanziamento (importo e competenza proposti) e stanziamenti registrati; totali proposto e stanziato | `contratti.stanziamenti.proposte`, `m.Stanziamento` |
+| `anomalie_esecuzione` | `cluster`, `sottocluster` | contratti e fatture con le anomalie, conteggi | `reports.acquisti.anomalie_esecuzione`, `conteggi_anomalie` |
 
 Tool esistenti estesi:
 - `contratto`: RDA d'origine, tipo d'acquisto, una tantum, RUP, CUP, chiusura;

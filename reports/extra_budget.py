@@ -101,19 +101,27 @@ def spese_extra_budget(
     return risultato
 
 
-def elenco_autorizzazioni(codici_cluster: list[str], archiviate: bool = False):
-    """Autorizzazioni con numero di voci e consumato; di default dei cluster dati."""
+def elenco_autorizzazioni(
+    codici_cluster: list[str], archiviate: bool = False, sottocluster: int | None = None
+):
+    """Autorizzazioni con numero di voci e consumato; di default dei cluster dati.
+
+    Con ``sottocluster``: solo quelle con almeno una voce di un fabbisogno di quel
+    sottocluster; numero di voci e consumato contano solo quelle voci.
+    """
     zero = Value(ZERO, output_field=DecimalField(max_digits=14, decimal_places=2))
+    voci = _VOCI_ATTIVE
+    if sottocluster:
+        voci = voci & Q(voci__contratto__fabbisogno__sottocluster_id=sottocluster)
     qs = m.AutorizzazioneExtraBudget.objects.select_related("cluster").annotate(
-        n_voci=Count("voci", filter=_VOCI_ATTIVE, distinct=True),
+        n_voci=Count("voci", filter=voci, distinct=True),
         consumato=Coalesce(
-            Sum(
-                F("voci__importo_fisso") + F("voci__massimale_variabile"),
-                filter=_VOCI_ATTIVE,
-            ),
+            Sum(F("voci__importo_fisso") + F("voci__massimale_variabile"), filter=voci),
             zero,
         ),
     )
+    if sottocluster:
+        qs = qs.filter(n_voci__gt=0)
     if not archiviate:
         qs = qs.filter(archiviato=False)
     if codici_cluster:

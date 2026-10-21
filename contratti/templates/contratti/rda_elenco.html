@@ -9,6 +9,7 @@
   <div class="row g-3 align-items-end">
     <div class="col-md-6 col-xl-4"><label class="form-label" for="f-q">Cerca</label><input id="f-q" type="search" name="q" value="{{ filtri.q }}" class="form-control" placeholder="N. RDA, descrizione, fabbisogno, referente"></div>
     <div class="col-sm-4 col-xl-3"><label class="form-label" for="f-area">Cluster</label><select id="f-area" name="area" class="form-select js-cluster" multiple>{% for v, t in aree %}<option value="{{ v }}" {% if v in area_scelte %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+    {% include "contratti/_filtro_sottocluster.html" with colonne="col-sm-4 col-xl-2" %}
     <div class="col-sm-4 col-xl-2"><label class="form-label" for="f-fase">Fase</label><select id="f-fase" name="fase" class="form-select"><option value="">Tutte</option>{% for v, t in fasi %}<option value="{{ v }}" {% if filtri.fase == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
     <div class="col-sm-4 col-xl-3"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="mie" value="1" id="f-mie" {% if filtri.mie %}checked{% endif %}><label class="form-check-label" for="f-mie">Solo le mie (referente)</label></div>
       <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="archiviate" value="1" id="f-arch" {% if filtri.archiviate %}checked{% endif %}><label class="form-check-label" for="f-arch">Includi le archiviate</label></div></div>
