@@ -143,7 +143,7 @@ Convenzioni comuni:
 | `spese_wbs` | `wbs_id`, `vista`, `livello` | contratti e importi anno per anno sulla WBS | `reports.wbs` |
 | `piani_da_verificare` | `cluster` | voci con piano `Da verificare` | `selettori.voci_piano_da_verificare` |
 | `fornitore` | `id` | anagrafica, contratti attivi e storici, totali per anno | viste fornitore |
-| `riferimenti` | — | cluster visibili e propri, categorie, procedure con lead time, soglie valide | tabelle di configurazione |
+| `riferimenti` | — | cluster visibili e propri, categorie, procedure con lead time e se sono proponibili per un fabbisogno (`per_fabbisogni`, Rev24), soglie valide | tabelle di configurazione |
 
 Non esposti (minimizzazione, non serve all'uso previsto): referente (dato personale), note libere di contratti e fabbisogni (possono contenere dati imprevisti), utenti e assegnazioni, registro degli import.
 

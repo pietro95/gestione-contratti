@@ -56,6 +56,9 @@ def test_riferimenti(utente_reader, dati):
     assert dati_["alla_data"] == "2026-10-05"
     procedura = next(p for p in dati_["procedure"] if p["codice"] == "affidamento_diretto")
     assert isinstance(procedura["lead_time_mesi"], int)
+    assert procedura["per_fabbisogni"] is True
+    rdo = next(p for p in dati_["procedure"] if p["codice"] == "rdo")
+    assert rdo["per_fabbisogni"] is False
     for soglia in dati_["soglie"]:
         assert isinstance(soglia["importo"], str)
         assert soglia["importo"].count(".") == 1 and len(soglia["importo"].split(".")[1]) == 2

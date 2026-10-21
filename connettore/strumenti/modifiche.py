@@ -130,8 +130,15 @@ CAMPI_FABBISOGNO = {
     "stima_prossimo_importo": SCHEMA_IMPORTO,
     "previsto_data_avvio": SCHEMA_DATA,
     "previsto_durata_mesi": {"type": "integer", "minimum": 1, "maximum": 240},
-    "previsto_procedura": {**SCHEMA_ID, "description": "id della procedura («riferimenti»)."},
-    "previsto_modalita": {"type": "string", "enum": list(m.ModalitaFatturazione.values)},
+    "previsto_procedura": {
+        **SCHEMA_ID,
+        "description": "id della procedura («riferimenti», solo quelle con per_fabbisogni).",
+    },
+    "previsto_modalita": {
+        "type": "string",
+        "enum": [v for v in m.ModalitaFatturazione.values if v != "una_tantum"],
+        "description": "Un acquisto unico è la periodicità «intera_durata».",
+    },
     "previsto_periodicita": {"type": "string", "enum": list(m.Periodicita.values)},
     "natura_previsti": {"type": "string", "enum": list(m.Natura.values)},
     "conto_previsti": {**SCHEMA_ID, "description": "id del conto («riferimenti»)."},
