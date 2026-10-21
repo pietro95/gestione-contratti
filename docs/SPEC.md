@@ -2,7 +2,7 @@
 
 > Documento normativo per requisiti e regole di dominio. Per la vista tecnica consultare [ARCHITECTURE](ARCHITECTURE.md) e [DATA_MODEL](DATA_MODEL.md); per le procedure operative consultare [RUNBOOK](RUNBOOK.md) e [OPERATIONS](OPERATIONS.md).
 
-Rev19 — 14/10/2026 — responsabile: IT Manager ICTDINN, Siciliacque S.p.A.
+Rev24 — 21/10/2026 — responsabile: IT Manager ICTDINN, Siciliacque S.p.A.
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
@@ -29,6 +29,7 @@ Storico revisioni:
 - Rev21 (15/10/2026): decisioni del responsabile del progetto, **approvata** dal responsabile del progetto il 16/10/2026. Il budget si legge sulla **competenza delle fatture**, non più sulla data fattura: la fattura indica il **periodo di competenza** (§4), obbligatorio con il valore base, e nuova vista **«Fatturato e stanziato (competenza)»** (§5.2), prima colonna e riferimento del budget. Nuova entità **stanziamento** (§4): costo di competenza non ancora fatturato, che conta nel budget finché non arriva la fattura. La cassa per data fattura resta come confronto. Nuovo TC-20. Il §5.8 («il budget non cambia») è superato.
 - Rev22 (15/10/2026): decisioni del responsabile del progetto sulle questioni aperte di Rev21, **approvata** dal responsabile del progetto il 16/10/2026. **Competenza di default** delle fatture importate o registrate a mano: il **mese prima della data fattura** (§4, §7). **Periodo salvato sulla rata** alla generazione dello scadenzario, dalla data di avvio del contratto e dalla periodicità (§4, §5.2); per le rate salvate prima si ricava rigenerando. **Stanziamento proposto** dalle rate scadute senza fattura, con giorni di tolleranza parametrici (§4, §5.2, §8.1). **Connettore MCP** esteso a lettura e scrittura degli stanziamenti (`SPEC_MCP` Rev09). TC-20 esteso (g)–(i).
 - Rev23 (16/10/2026): decisioni del responsabile del progetto, **bozza da approvare**. **Budget assegnato al sottocluster** (§4): importo per sottocluster, anno e natura (OPEX/CAPEX), inserito dall'amministrazione. Il budget (§5.2) ha il filtro per sottocluster e, con il filtro attivo, un box con l'assegnato e il **residuo rispetto alla vista di riferimento «Fatturato e stanziato (competenza)»** (Rev21).
+- Rev24 (21/10/2026): richieste dei colleghi, **approvata** dal responsabile del progetto il 21/10/2026. **Fabbisogno** (§4): la procedura presunta ammette solo le procedure del codice degli appalti (tabella Procedura, campo `per_fabbisogni`: esclusi MEPA/ODA, RDO, adesione a convenzione/AQ, che restano sul contratto); la modalità di fatturazione prevista non ammette `Una tantum` (ridondante con la periodicità `Intera durata`); le scelte già registrate restano valide. Vale anche per il connettore MCP. **Contratto** (§4): il tipo d'acquisto `Servizio` si chiama `Lavori/Servizi` (nessun cambio di valore né di regola: propone MAP).
 
 ## 1. Obiettivo
 
@@ -105,13 +106,13 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
 - referente: testo libero, più un collegamento facoltativo all'utente dell'applicazione;
 - decisione di continuità: `Rinnovare` / `Da valutare` / `Sostituire` / `Dismettere`;
 - stima del prossimo importo e note;
-- **previsto manuale** (solo per un fabbisogno nuovo, senza contratti): data di avvio prevista, durata, procedura presunta, modalità e periodicità di fatturazione previste, natura, conto e WBS previsti. Sono dati decisi e si salvano; il contratto previsto che ne deriva si calcola (§5.3). Avvio e durata vanno indicati insieme; CAPEX ⇔ WBS come sulla voce.
+- **previsto manuale** (solo per un fabbisogno nuovo, senza contratti): data di avvio prevista, durata, procedura presunta (Rev24: solo procedure del codice degli appalti, cioè con «proponibile per un fabbisogno» attivo nella tabella; non MEPA/ODA, RDO, adesione a convenzione/AQ), modalità (Rev24: senza `Una tantum`, un acquisto unico è la periodicità `Intera durata`) e periodicità di fatturazione previste, natura, conto e WBS previsti. Le scelte già registrate su un fabbisogno restano valide. Sono dati decisi e si salvano; il contratto previsto che ne deriva si calcola (§5.3). Avvio e durata vanno indicati insieme; CAPEX ⇔ WBS come sulla voce.
 
 **Contratto** (istanza):
 - chiave: fabbisogno, contratto predecessore (dello stesso fabbisogno);
 - **più predecessori, un solo successore** (TC-12): un contratto nuovo può sostituire più contratti (es. SIM voce e SIM M2M in un contratto unico). Il rinnovo principale è il predecessore; gli altri contratti sostituiti **confluiscono** nel nuovo. Ogni contratto ha al massimo un successore: o è il predecessore di uno, o confluisce in uno. Si confluisce solo in un contratto dello stesso fabbisogno che inizia dopo il contratto confluito; un contratto di un altro fabbisogno va prima accorpato;
 - riferimenti: fornitore, numero di contratto SAP, data di emissione del contratto, **RDA d'origine** (Rev11: collegamento alla richiesta d'acquisto, al posto del n. RDA come testo), CIG, CUP (facoltativo), RUP (testo libero). In azienda il riferimento SAP è il numero di contratto, non l'OdA. I codici si conservano come arrivano; le anomalie di formato vanno nel report d'import (§7);
-- procedura (affidamento diretto, MEPA/ODA, RDO, negoziata, aperta, adesione a convenzione/AQ), con override del lead time sul singolo contratto;
+- procedura (affidamento diretto, MEPA/ODA, RDO, negoziata, aperta, adesione a convenzione/AQ), con override del lead time sul singolo contratto; sul contratto restano tutte, la procedura presunta del fabbisogno ne ammette solo alcune (Rev24, §4);
 - date: data stipula, data inizio, durata in mesi (la data di fine si calcola, con override ammesso). La data di inizio può mancare solo nei dati importati: il contratto resta escluso dai calcoli e segnalato (TC-08);
 - opzioni di rinnovo/proroga previste e non ancora esercitate: zero o più, ciascuna con tipo (rinnovo o proroga), mesi e importo;
 - proroghe esercitate: zero o più (vedi **Proroga**);
@@ -119,7 +120,7 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
 - classificazione: natura e WBS stanno sulle voci. La natura del contratto si ricava dalle voci (OPEX, CAPEX o mista); il contratto è **finanziato** se ha almeno una voce su una WBS a progetto;
 - documenti: link al protocollo o a SharePoint, oppure percorso sul server aziendale (`X:\…`, `\\nas…`, Rev11), senza caricare file;
 - **una tantum** (sì/no, Rev11): acquisto che non si rinnova, tipicamente una fornitura (§5.1, §5.3). Non ha predecessore né successore, non entra nella catena, non va in alert e non genera previsti; entra nel budget come ogni contratto. Default: fatturazione `Una tantum`, inizio alla data di emissione, durata 1 mese (da confermare, §9). Sta su un fabbisogno come gli altri contratti, anche insieme a una catena (es. licenze aggiuntive acquistate una volta) o su un fabbisogno di sole forniture;
-- **tipo d'acquisto** (Rev14): `Servizio` (default) o `Fornitura`; propone MAP (servizio) o MIGO (fornitura) nella lavorazione delle fatture (§5.9);
+- **tipo d'acquisto** (Rev14, etichetta Rev24): `Lavori/Servizi` (default) o `Fornitura`; propone MAP (servizio) o MIGO (fornitura) nella lavorazione delle fatture (§5.9);
 - **chiusura** (Rev11): data e utente della chiusura amministrativa (prestazione attestata, fatture registrate). È un atto deciso, si salva; si può annullare. La registrano l'addetto amministrativo o il referente (Rev13: ogni Editor del cluster, §8.1). Su un contratto chiuso non si registrano documenti di esecuzione né fatture: prima si annulla la chiusura;
 - **senza contratto** (sì/no): acquisto senza documento contrattuale, per esempio con fattura diretta (§5.6). Numero di contratto, data di emissione e tacito rinnovo non servono; tutto il resto vale come per un contratto.
 
@@ -159,7 +160,7 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
 - piano di fatturazione.
 
 **Piano di fatturazione** (per voce):
-- modalità: `Anticipata` / `Posticipata` / `Una tantum` / `A SAL` / `A consumo` / `Da verificare` (solo per la migrazione, §7.6);
+- modalità: `Anticipata` / `Posticipata` / `Una tantum` / `A SAL` / `A consumo` / `Da verificare` (solo per la migrazione, §7.6); la modalità prevista del fabbisogno non ammette `Una tantum` (Rev24, §4);
 - periodicità: mensile, bimestrale, trimestrale, semestrale, annuale, intera durata (obbligatoria per anticipata e posticipata);
 - data della prima fattura (default: inizio se anticipata, fine del primo periodo se posticipata);
 - giorni di pagamento (default parametrico: 60 gg d.f.f.m.). La data di pagamento stimata è la **fine del mese di (data fattura + giorni di pagamento)**. È solo informativa: il budget non la usa (§5.2);

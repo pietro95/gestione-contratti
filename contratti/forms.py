@@ -276,7 +276,19 @@ class FabbisognoForm(ModelFormBootstrap):
                 f"Registrato come testo: «{self.instance.referente}». "
                 "Sceglilo tra gli utenti per collegarlo."
             )
-        _solo_attivi(self, "previsto_procedura", m.Procedura.objects.filter(attiva=True))
+        # Procedura presunta: solo quelle del codice degli appalti; quella già scelta resta.
+        procedure = Q(attiva=True, per_fabbisogni=True)
+        if self.instance.previsto_procedura_id:
+            procedure |= Q(pk=self.instance.previsto_procedura_id)
+        _solo_attivi(self, "previsto_procedura", m.Procedura.objects.filter(procedure))
+        # «Una tantum» è ridondante: l'acquisto unico è la periodicità «Intera durata».
+        if "previsto_modalita" in self.fields:
+            attuale = self.instance.previsto_modalita
+            self.fields["previsto_modalita"].choices = [
+                (valore, etichetta)
+                for valore, etichetta in self.fields["previsto_modalita"].choices
+                if valore != m.ModalitaFatturazione.UNA_TANTUM or valore == attuale
+            ]
         _solo_attivi(self, "wbs_previsti", m.WBS.objects.filter(archiviato=False))
 
     def clean(self):
@@ -374,7 +386,7 @@ class ContrattoForm(ModelFormBootstrap):
             self.fields["tipo_acquisto"].required = False
             self.fields[
                 "tipo_acquisto"
-            ].help_text = "Servizi / lavori (propone MAP) o forniture (propone MIGO)."
+            ].help_text = "Lavori/Servizi (propone MAP) o forniture (propone MIGO)."
 
     def clean_tipo_acquisto(self):
         valore = self.cleaned_data.get("tipo_acquisto")

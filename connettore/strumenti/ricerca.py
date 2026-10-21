@@ -81,7 +81,12 @@ def riferimenti(ctx: Contesto, argomenti: dict) -> dict:
             for s in m.Sottocluster.objects.filter(archiviato=False).select_related("cluster")
         ],
         "procedure": [
-            {"codice": p.codice, "nome": p.nome, "lead_time_mesi": p.lead_time_mesi}
+            {
+                "codice": p.codice,
+                "nome": p.nome,
+                "lead_time_mesi": p.lead_time_mesi,
+                "per_fabbisogni": p.per_fabbisogni,
+            }
             for p in m.Procedura.objects.filter(attiva=True)
         ],
         # F12.1 (SPEC_MCP §11.2): tabelle del processo d'acquisto.

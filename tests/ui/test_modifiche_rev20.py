@@ -151,7 +151,7 @@ def test_tipo_acquisto_servizi_lavori_o_forniture():
     assert form.is_valid(), form.errors
     contratto = form.save()
     assert contratto.get_tipo_acquisto_display() == "Forniture"
-    assert m.Contratto.TipoAcquisto.SERVIZIO.label == "Servizi / lavori"
+    assert m.Contratto.TipoAcquisto.SERVIZIO.label == "Lavori/Servizi"
     assert fatture.documento_proposto(m.Fattura(contratto=contratto)) == "MIGO"
 
 
@@ -406,3 +406,20 @@ def test_reader_403_sulle_viste_nuove(reader, con_documento, contratto_con_voce)
         assert reader.post(url).status_code == 403, url
     doc.refresh_from_db()
     assert not doc.archiviato
+
+
+def test_fabbisogno_procedura_presunta_solo_codice_appalti_e_senza_una_tantum():
+    form = web_forms.FabbisognoForm()
+    codici = set(form.fields["previsto_procedura"].queryset.values_list("codice", flat=True))
+    assert codici and not codici & {"mepa_oda", "rdo", "adesione_convenzione"}
+    assert "affidamento_diretto" in codici
+    valori = [v for v, _ in form.fields["previsto_modalita"].choices]
+    assert "una_tantum" not in valori and "anticipata" in valori
+
+
+def test_fabbisogno_esistente_conserva_procedura_e_modalita_non_piu_proponibili():
+    rdo = m.Procedura.objects.get(codice="rdo")
+    fab = f.fabbisogno("Vecchio", previsto_procedura=rdo, previsto_modalita="una_tantum")
+    form = web_forms.FabbisognoForm(instance=fab)
+    assert rdo in form.fields["previsto_procedura"].queryset
+    assert "una_tantum" in [v for v, _ in form.fields["previsto_modalita"].choices]

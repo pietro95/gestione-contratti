@@ -59,7 +59,15 @@ class InlineSenzaCancellazione(admin.TabularInline):
 
 @admin.register(m.Procedura)
 class ProceduraAdmin(BaseAdmin):
-    list_display = ("nome", "codice", "lead_time_mesi", "attiva", "provvisorio", "ordine")
+    list_display = (
+        "nome",
+        "codice",
+        "lead_time_mesi",
+        "attiva",
+        "per_fabbisogni",
+        "provvisorio",
+        "ordine",
+    )
     list_editable = ("lead_time_mesi", "ordine")
     list_filter = ("attiva", "provvisorio")
     search_fields = ("nome", "codice")
