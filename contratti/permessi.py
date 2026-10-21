@@ -126,10 +126,22 @@ def puo_modificare_fabbisogno(user, fabbisogno) -> bool:
     return puo_modificare_in(user, fabbisogno.cluster_id, fabbisogno.sottocluster_id)
 
 
+def ambito_del(oggetto) -> tuple[int, int | None]:
+    """(cluster, sottocluster) di un oggetto con permessi per sottocluster: anche una RDA."""
+    if isinstance(oggetto, m.RichiestaAcquisto):
+        return oggetto.cluster_id, oggetto.sottocluster_id
+    f = fabbisogno_del(oggetto)
+    return f.cluster_id, f.sottocluster_id
+
+
+def puo_modificare_oggetto(user, oggetto) -> bool:
+    return puo_modificare_in(user, *ambito_del(oggetto))
+
+
 def verifica_oggetto(user, oggetto) -> None:
-    """403 se l'utente non può modificare il fabbisogno dell'oggetto (cluster e sottocluster)."""
-    if not puo_modificare_fabbisogno(user, fabbisogno_del(oggetto)):
-        raise PermissionDenied("Fabbisogno di un cluster o sottocluster che non ti è assegnato.")
+    """403 se l'utente non può modificare l'oggetto (cluster e sottocluster)."""
+    if not puo_modificare_oggetto(user, oggetto):
+        raise PermissionDenied("Appartiene a un cluster o sottocluster che non ti è assegnato.")
 
 
 def fabbisogni_modificabili(user, qs=None):

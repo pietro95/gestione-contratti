@@ -2,7 +2,7 @@
 
 > Documento normativo per requisiti e regole di dominio. Per la vista tecnica consultare [ARCHITECTURE](ARCHITECTURE.md) e [DATA_MODEL](DATA_MODEL.md); per le procedure operative consultare [RUNBOOK](RUNBOOK.md) e [OPERATIONS](OPERATIONS.md).
 
-Rev24 — 21/10/2026 — responsabile: IT Manager ICTDINN, Siciliacque S.p.A.
+Rev25 — 21/10/2026 — responsabile: IT Manager ICTDINN, Siciliacque S.p.A.
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
@@ -30,12 +30,13 @@ Storico revisioni:
 - Rev22 (15/10/2026): decisioni del responsabile del progetto sulle questioni aperte di Rev21, **approvata** dal responsabile del progetto il 16/10/2026. **Competenza di default** delle fatture importate o registrate a mano: il **mese prima della data fattura** (§4, §7). **Periodo salvato sulla rata** alla generazione dello scadenzario, dalla data di avvio del contratto e dalla periodicità (§4, §5.2); per le rate salvate prima si ricava rigenerando. **Stanziamento proposto** dalle rate scadute senza fattura, con giorni di tolleranza parametrici (§4, §5.2, §8.1). **Connettore MCP** esteso a lettura e scrittura degli stanziamenti (`SPEC_MCP` Rev09). TC-20 esteso (g)–(i).
 - Rev23 (16/10/2026): decisioni del responsabile del progetto, **bozza da approvare**. **Budget assegnato al sottocluster** (§4): importo per sottocluster, anno e natura (OPEX/CAPEX), inserito dall'amministrazione. Il budget (§5.2) ha il filtro per sottocluster e, con il filtro attivo, un box con l'assegnato e il **residuo rispetto alla vista di riferimento «Fatturato e stanziato (competenza)»** (Rev21).
 - Rev24 (21/10/2026): richieste dei colleghi, **approvata** dal responsabile del progetto il 21/10/2026. **Fabbisogno** (§4): la procedura presunta ammette solo le procedure del codice degli appalti (tabella Procedura, campo `per_fabbisogni`: esclusi MEPA/ODA, RDO, adesione a convenzione/AQ, che restano sul contratto); la modalità di fatturazione prevista non ammette `Una tantum` (ridondante con la periodicità `Intera durata`); le scelte già registrate restano valide. Vale anche per il connettore MCP. **Contratto** (§4): il tipo d'acquisto `Servizio` si chiama `Lavori/Servizi` (nessun cambio di valore né di regola: propone MAP).
+- Rev25 (21/10/2026): decisioni del responsabile del progetto, **approvata** dal responsabile del progetto il 21/10/2026. **Cluster e sottocluster** (§1, §4, §7, §8.1): l'ufficio ha quattro cluster (ICT, Digitalizzazione, Innovazione, Consulenze) e dieci sottocluster (Telecomunicazioni, IT, Sicurezza fisica, Sicurezza integrata, Sicurezza (Holding), Impianti elettrici e strumentazione, OT, Investimenti digitalizzazione, Innovazione, Consulenze); i vecchi cluster IT, TLC, OT, SICFIS, SICINT, SICHOL, IMPEL diventano sottocluster. Il **sottocluster** ha un *owner* (testo, informativo). Un **conto COGE** appartiene a uno o più cluster (conti generici condivisi). L'**assegnazione dei responsabili** può essere limitata a un sottocluster: l'Editor modifica solo i fabbisogni, i contratti e le **RDA** del proprio ambito. La **RDA** ha il sottocluster (di norma quello del fabbisogno della pratica). Nuovo import «Struttura dal budget ICTDINN» e migrazione dei dati dai vecchi cluster ai sottocluster (§7).
 
 ## 1. Obiettivo
 
 Sostituire i due file Excel (`Contratti_IT.xlsx`, `Contratti_TLC.xlsx`) con un unico registro che:
 
-1. tenga traccia di tutti i contratti dell'ufficio ICTDINN (cluster IT, TLC, OT, Sicurezza fisica, Innovazione) e della loro catena di rinnovi;
+1. tenga traccia di tutti i contratti dell'ufficio ICTDINN (cluster ICT, Digitalizzazione, Innovazione, Consulenze, con i sottocluster) e della loro catena di rinnovi;
 2. produca un budget annuale affidabile, distinguendo **impegno**, **cassa** e **competenza**;
 3. produca per il Procurement la **previsione annuale degli ordini/procedure da avviare**, con data limite di avvio e importo stimato;
 4. segnali in anticipo le scadenze, in funzione della procedura di affidamento e non di un preavviso fisso;
@@ -143,7 +144,7 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
 
 **Impianto** (tabella): nome e note.
 
-**Sottocluster** (tabella, Rev18): sottocategoria di un cluster; cluster, nome (unico nel cluster) e note; si archivia, non si cancella. Raggruppa i fabbisogni nel piano ordini (§5.4).
+**Sottocluster** (tabella, Rev18, Rev25): sottocategoria di un cluster; cluster, nome (unico nel cluster), *owner* (testo libero, informativo: è il responsabile del budget indicato nel file della struttura, non dà permessi) e note; si archivia, non si cancella. Raggruppa i fabbisogni nel piano ordini (§5.4).
 
 **Budget del sottocluster** (tabella, Rev23): budget assegnato a un sottocluster per un **anno** e una **natura** (OPEX o CAPEX); importo imponibile, maggiore o uguale a zero, note. Uno solo per sottocluster, anno e natura; si archivia, non si cancella; storia delle modifiche. È un dato deciso, non calcolato. Lo inserisce l'amministrazione (Admin). OPEX e CAPEX restano distinti, mai sommati.
 
@@ -232,7 +233,7 @@ Lo stesso numero di fattura dello stesso fornitore non si registra due volte. La
 **Tabelle di configurazione**:
 - lead time per procedura, in mesi;
 - soglie per l'importo, con validità temporale;
-- piano dei conti con validità temporale, mappatura vecchio→nuovo (sostituisce la colonna "Nuovo codice conto da 01/01/26") e **cluster** del conto (ogni conto appartiene a un solo cluster). Si carica dall'interfaccia (import del piano dei conti o della struttura, §7) o dall'amministrazione; i conti reali non entrano nel repository;
+- piano dei conti con validità temporale, mappatura vecchio→nuovo (sostituisce la colonna "Nuovo codice conto da 01/01/26") e **cluster** del conto (Rev25: ogni conto appartiene a uno o più cluster; i conti generici, come quelli per forniture, lavori e servizi di Digitalizzazione e Innovazione, sono di più cluster). Si carica dall'interfaccia (import del piano dei conti o della struttura, §7) o dall'amministrazione; i conti reali non entrano nel repository;
 - cluster, WBS e **assegnazioni dei cluster agli utenti** (§8.1), caricati con l'import della struttura;
 - parametri con validità temporale: giorni di pagamento, pagamento a fine mese, adeguamento dei rinnovi previsti, finestra dell'alert giallo, orizzonte della previsione; (Rev11) giorni oltre i quali una RDA è «ferma» in una fase (§5.7); (Rev13) giorni oltre i quali una fattura è «ferma» da lavorare (§5.7);
 - categorie dei fabbisogni;
@@ -522,9 +523,10 @@ Regole di dettaglio per la release 2.0 (Rev11):
 - **Dati esistenti**: il n. RDA già registrato sui contratti diventa una RDA collegata come RDA d'origine (data migration), senza date, con il cluster del fabbisogno del contratto e senza referente (Rev13); il testo originale resta nelle note se non è un numero valido.
 
 Import dall'interfaccia (Gestione → Import), con lo stesso codice dei comandi da riga di comando:
-- tipi: Excel dei contratti, date di emissione (estrazione SAP), piano dei conti, struttura dell'ufficio (cluster, responsabili, conti, WBS, dal modello `GestioneContratti_ModelloImport_Struttura`), quadratura con l'Excel;
+- tipi: Excel dei contratti, date di emissione (estrazione SAP), piano dei conti, struttura dell'ufficio (cluster, responsabili, conti, WBS, dal modello `GestioneContratti_ModelloImport_Struttura`), **struttura dal budget ICTDINN** (Rev25: cluster, sottocluster, owner, conti e WBS dal riepilogo «Clusterizzazione budget», letto così com'è), quadratura con l'Excel;
 - carica → anteprima senza scritture (conteggi, anomalie, report) → conferma entro 24 ore, una sola volta, da chi ha caricato il file o da un Admin; registro degli import con file, hash, utente ed esito;
 - permessi: contratti, date e quadratura per Admin ed Editor, che importano solo nei propri cluster; piano dei conti e struttura solo Admin;
+- (Rev25) import della struttura dal budget: i cluster si riconoscono per nome; il sottocluster per nome nel cluster; un conto è dei cluster in cui compare nel file (i conti già registrati cambiano solo cluster; i nuovi valgono dal 1° gennaio dell'anno del budget); la WBS è quella del secondo livello (del terzo se il secondo «non è utile»), nuova come WBS di cluster, mentre le WBS a progetto già registrate non cambiano; gli *owner* non danno permessi e sono segnalati per l'assegnazione. **Migrazione** (comando `migra_cluster`, con anteprima, idempotente, con storia): ogni vecchio cluster passa al sottocluster con lo stesso nome o sigla, con fabbisogni, RDA, WBS di cluster, autorizzazioni extra budget, conti e assegnazioni; il vecchio cluster vuoto si archivia; i fabbisogni che hanno già un sottocluster del vecchio cluster si sistemano a mano (anche dal connettore MCP);
 - import della struttura: tutto o niente, idempotente, nessuna cancellazione di conti e WBS (si dismettono con fine validità o "non attiva"); il foglio Responsabili, se compilato, è l'elenco completo delle assegnazioni.
 
 ## 8. Decisioni prese e requisiti non funzionali
@@ -552,6 +554,7 @@ Import dall'interfaccia (Gestione → Import), con lo stesso codice dei comandi 
   - L'amministratore ha accesso completo all'amministrazione dell'applicazione; Editor e Reader lavorano dall'interfaccia operativa. Editor aggiunge e modifica i dati di dominio dei propri cluster, Reader solo legge; le tabelle di configurazione le modifica solo l'amministratore; nessuno cancella.
 - **Permessi e visibilità per cluster** (F9.2):
   - i cluster si assegnano agli utenti nell'applicazione (amministrazione o import della struttura), per nome utente di dominio, anche prima del primo accesso; non con gruppi AD. Un'assegnazione `TUTTI` abilita tutti i cluster (es. addetto amministrativo). Un'assegnazione tolta si archivia;
+  - (Rev25) un'assegnazione può essere **limitata a un sottocluster**: senza sottocluster vale per tutto il cluster; con il sottocluster, solo per i fabbisogni, i contratti e le RDA di quel sottocluster (le RDA hanno il sottocluster, di norma quello del fabbisogno della pratica). La visibilità resta per cluster;
   - l'Editor modifica solo i fabbisogni e i contratti dei cluster assegnati; spostare o accorpare tra cluster diversi richiede il permesso su entrambi. I fornitori sono in comune;
   - ogni utente vede di default i propri cluster (cruscotto, elenchi, budget, piano ordini, Spese per WBS); gli altri a richiesta, in lettura. Chi non ha cluster assegnati vede tutto;
   - **funzione «Amministrazione acquisti»** (Rev13): si assegna per nome utente di dominio, come i cluster (amministrazione o import della struttura); un'assegnazione tolta si archivia. Non è un ruolo e non dà permessi: chi la ha è di norma Editor con cluster `TUTTI`. Decide il cruscotto e le viste di default (RDA da processare, fatture da lavorare). I campi da SAP della RDA, le fatture e i documenti di esecuzione li può scrivere ogni Editor del cluster, quindi anche il referente;

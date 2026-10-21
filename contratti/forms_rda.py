@@ -108,7 +108,17 @@ class RdaManualeForm(ModelFormBootstrap):
     """RDA già inserita in SAP, registrata a mano (migrazione): anche senza legami."""
 
     sezioni = [
-        ("RDA", ["cluster", "descrizione", "fornitore_proposto", "referente_utente", "referente"]),
+        (
+            "RDA",
+            [
+                "cluster",
+                "sottocluster",
+                "descrizione",
+                "fornitore_proposto",
+                "referente_utente",
+                "referente",
+            ],
+        ),  # fmt: skip
         ("Dati SAP", ["numero_rda", "data_inserimento", "data_rilascio"]),
         ("Riferimenti", ["percorso_file_server", "rup", "cup", "note"]),
     ]
@@ -117,6 +127,7 @@ class RdaManualeForm(ModelFormBootstrap):
         model = m.RichiestaAcquisto
         fields = [
             "cluster",
+            "sottocluster",
             "descrizione",
             "fornitore_proposto",
             "referente_utente",
@@ -137,6 +148,11 @@ class RdaManualeForm(ModelFormBootstrap):
         if utente is not None and (ammessi := permessi.cluster_modificabili(utente)) is not None:
             cluster = cluster.filter(pk__in=ammessi)
         _solo_attivi(self, "cluster", cluster)
+        sottocluster = m.Sottocluster.objects.filter(archiviato=False).select_related("cluster")
+        if utente is not None:
+            sottocluster = permessi.sottocluster_modificabili(utente, sottocluster)
+        _solo_attivi(self, "sottocluster", sottocluster)
+        self.fields["sottocluster"].empty_label = "— nessuno —"
         _solo_attivi(self, "fornitore_proposto", m.Fornitore.objects.filter(archiviato=False))
         self.fields["numero_rda"].required = True
 

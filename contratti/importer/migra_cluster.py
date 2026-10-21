@@ -26,9 +26,16 @@ from contratti.importer.struttura_budget import chiave
 FOGLIO = "Migrazione cluster"
 MOTIVO = "Migrazione cluster/sottocluster"
 CONTEGGI = (
-    "fabbisogni_spostati", "fabbisogni_classificati", "richieste_spostate", "wbs_spostate",
-    "autorizzazioni_spostate", "conti_aggiornati", "assegnazioni_convertite", "cluster_archiviati",
-)  # fmt: skip
+    "fabbisogni_spostati",
+    "fabbisogni_classificati",
+    "richieste_spostate",
+    "richieste_classificate",
+    "wbs_spostate",
+    "autorizzazioni_spostate",
+    "conti_aggiornati",
+    "assegnazioni_convertite",
+    "cluster_archiviati",
+)
 
 
 class _Rollback(Exception):
@@ -118,10 +125,22 @@ def _esegui(report: Report, mappa):
             _sposta(report, vecchio, sotto)
 
 
+def _sottocluster_della_pratica(rda: m.RichiestaAcquisto) -> m.Sottocluster | None:
+    """Il sottocluster del fabbisogno della pratica (già spostato), se c'è: ha la precedenza."""
+    fab = rda.fabbisogno_della_pratica()
+    if fab is None or not fab.sottocluster_id:
+        return None
+    fab.refresh_from_db()
+    return fab.sottocluster
+
+
 def _classifica(report: Report, cluster: m.Cluster, sotto: m.Sottocluster):
     for fab in m.Fabbisogno.objects.filter(cluster=cluster, sottocluster__isnull=True):
         _salva(fab, sottocluster=sotto)
         report.conteggi["fabbisogni_classificati"] += 1
+    for rda in m.RichiestaAcquisto.objects.filter(cluster=cluster, sottocluster__isnull=True):
+        _salva(rda, sottocluster=_sottocluster_della_pratica(rda) or sotto)
+        report.conteggi["richieste_classificate"] += 1
 
 
 def _sposta(report: Report, vecchio: m.Cluster, sotto: m.Sottocluster):
@@ -141,7 +160,10 @@ def _sposta(report: Report, vecchio: m.Cluster, sotto: m.Sottocluster):
         _salva(fab, cluster=nuovo, sottocluster=fab.sottocluster or sotto)
         report.conteggi["fabbisogni_spostati"] += 1
     for rda in m.RichiestaAcquisto.objects.filter(cluster=vecchio):
-        _salva(rda, cluster=nuovo)
+        pratica = rda.fabbisogno_della_pratica()
+        if pratica is not None and pratica.cluster_id == vecchio.pk:  # fabbisogno non spostato
+            continue
+        _salva(rda, cluster=nuovo, sottocluster=_sottocluster_della_pratica(rda) or sotto)
         report.conteggi["richieste_spostate"] += 1
     for wbs in m.WBS.objects.filter(cluster=vecchio):
         _salva(wbs, cluster=nuovo)

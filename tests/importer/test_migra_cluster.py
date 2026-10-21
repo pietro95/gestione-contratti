@@ -58,7 +58,7 @@ def test_sposta_i_dati_e_archivia_il_vecchio_cluster(dopo_import):
         assert (fab.cluster, fab.sottocluster) == (sotto.cluster, sotto)
     wbs.refresh_from_db()
     rda.refresh_from_db()
-    assert wbs.cluster == c["ict"] and rda.cluster == c["ict"]
+    assert wbs.cluster == c["ict"] and rda.cluster == c["ict"] and rda.sottocluster == c["sc_tlc"]
     assert {x.codice for x in conto.clusters.all()} == {"ICT"}
     ass.refresh_from_db()
     assert (ass.cluster, ass.sottocluster) == (c["ict"], c["sc_it"])
@@ -67,10 +67,16 @@ def test_sposta_i_dati_e_archivia_il_vecchio_cluster(dopo_import):
     c["inn"].refresh_from_db()
     assert c["it"].archiviato and c["tlc"].archiviato and not c["inn"].archiviato
     assert dict(r.conteggi) == {
-        "fabbisogni_spostati": 2, "fabbisogni_classificati": 1, "richieste_spostate": 1,
-        "wbs_spostate": 1, "autorizzazioni_spostate": 0, "conti_aggiornati": 2,
-        "assegnazioni_convertite": 1, "cluster_archiviati": 2,
-    }  # fmt: skip
+        "fabbisogni_spostati": 2,
+        "fabbisogni_classificati": 1,
+        "richieste_spostate": 1,
+        "richieste_classificate": 0,
+        "wbs_spostate": 1,
+        "autorizzazioni_spostate": 0,
+        "conti_aggiornati": 2,
+        "assegnazioni_convertite": 1,
+        "cluster_archiviati": 2,
+    }
     # storia delle modifiche
     assert fab_it.history.first().history_change_reason == "Migrazione cluster/sottocluster"
 

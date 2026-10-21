@@ -1470,6 +1470,14 @@ class RichiestaAcquisto(Archiviabile):
     cluster = models.ForeignKey(
         Cluster, on_delete=models.PROTECT, related_name="richieste_acquisto"
     )
+    sottocluster = models.ForeignKey(
+        Sottocluster,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="richieste_acquisto",
+        help_text="Di norma quello del fabbisogno della pratica; ne decide i permessi (Rev25).",
+    )
     # La pratica: il contratto in scadenza (rinnovo) oppure il fabbisogno. Mai entrambi.
     fabbisogno = models.ForeignKey(
         Fabbisogno,
@@ -1580,6 +1588,16 @@ class RichiestaAcquisto(Archiviabile):
     def __str__(self):
         return f"RDA {self.numero_rda}" if self.numero_rda else f"Richiesta di RDA #{self.pk}"
 
+    def save(self, *args, **kwargs):
+        pratica = None if self.sottocluster_id else self.fabbisogno_della_pratica()
+        if (
+            pratica is not None
+            and pratica.sottocluster_id
+            and pratica.cluster_id == self.cluster_id
+        ):
+            self.sottocluster_id = pratica.sottocluster_id
+        super().save(*args, **kwargs)
+
     @property
     def nome_referente(self) -> str:
         if self.referente_utente_id:
@@ -1600,6 +1618,8 @@ class RichiestaAcquisto(Archiviabile):
         fabbisogno = self.fabbisogno_della_pratica()
         if fabbisogno is not None and self.cluster_id and fabbisogno.cluster_id != self.cluster_id:
             raise ValidationError({"cluster": "Il cluster è quello del fabbisogno."})
+        if self.sottocluster_id and self.sottocluster.cluster_id != self.cluster_id:
+            raise ValidationError({"sottocluster": "Il sottocluster deve essere del cluster."})
         if (
             self.data_rilascio
             and self.data_inserimento

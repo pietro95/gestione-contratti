@@ -114,3 +114,62 @@ def test_assegnazione_unica_anche_con_sottocluster_vuoto(ambiente):
     m.AssegnazioneCluster.objects.create(username="t", cluster=None)
     with pytest.raises(IntegrityError), transaction.atomic():
         m.AssegnazioneCluster.objects.create(username="t", cluster=None)
+
+
+def _rda(cluster, sottocluster=None, **kw):
+    return m.RichiestaAcquisto.objects.create(
+        cluster=cluster,
+        sottocluster=sottocluster,
+        descrizione="r",
+        origine=m.RichiestaAcquisto.Origine.MANUALE,
+        **kw,
+    )
+
+
+def test_rda_eredita_il_sottocluster_dalla_pratica(ambiente):
+    rda = _rda(ambiente["ict"], fabbisogno=ambiente["fab"]["tlc"])
+    assert rda.sottocluster == ambiente["tlc"]
+    senza = _rda(ambiente["ict"], fabbisogno=ambiente["fab"]["senza"])
+    assert senza.sottocluster is None
+    esplicita = _rda(ambiente["ict"], ambiente["it"], fabbisogno=ambiente["fab"]["tlc"])
+    assert esplicita.sottocluster == ambiente["it"]  # la scelta esplicita non si sovrascrive
+
+
+def test_rda_sottocluster_di_un_altro_cluster_non_valida(ambiente):
+    rda = m.RichiestaAcquisto(cluster=f.cluster("OT"), sottocluster=ambiente["it"], descrizione="r")
+    with pytest.raises(ValidationError) as exc:
+        rda.clean()
+    assert "sottocluster" in exc.value.message_dict
+
+
+def test_editor_di_sottocluster_modifica_solo_le_rda_del_proprio(ambiente):
+    editor = ambiente["client"]("e.it", ambiente["ict"], ambiente["it"])
+    mia = _rda(ambiente["ict"], ambiente["it"])
+    altra = _rda(ambiente["ict"], ambiente["tlc"])
+    cluster_intero = _rda(ambiente["ict"])  # senza sottocluster: serve il cluster intero
+    for rda, atteso in ((mia, 200), (altra, 403), (cluster_intero, 403)):
+        url = reverse("contratti:rda_modifica", args=[rda.pk])
+        assert editor.get(url).status_code == atteso, rda
+    dettaglio = editor.get(reverse("contratti:rda", args=[altra.pk]))
+    assert dettaglio.status_code == 200 and not dettaglio.context["puo_modificare"]
+
+
+def test_registra_rda_a_mano_rispetta_il_sottocluster(ambiente):
+    editor = ambiente["client"]("e.it", ambiente["ict"], ambiente["it"])
+    url = reverse("contratti:rda_registra")
+    dati = {
+        "cluster": ambiente["ict"].pk,
+        "descrizione": "RDA a mano",
+        "numero_rda": "1000000001",
+        "sottocluster": ambiente["tlc"].pk,
+    }
+    assert editor.post(url, dati).status_code == 200  # il sottocluster non è tra le scelte
+    assert not m.RichiestaAcquisto.objects.exists()
+    risposta = editor.post(url, {**dati, "sottocluster": ambiente["it"].pk})
+    assert risposta.status_code == 302
+    assert m.RichiestaAcquisto.objects.get().sottocluster == ambiente["it"]
+    # senza sottocluster: serve il cluster intero
+    assert (
+        editor.post(url, {**dati, "numero_rda": "1000000002", "sottocluster": ""}).status_code
+        == 403
+    )
