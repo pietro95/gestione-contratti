@@ -73,7 +73,7 @@ def registro(make_user):
         fornitore=s,
         fabbisogno=f.fabbisogno("Consulenza S", referente_utente=utenti["bianchi"]),
     )
-    conto = m.ContoCoge.objects.create(
+    conto = f.conto(
         codice="600010", descrizione="Conto di prova", valido_dal=D(2020, 1, 1), cluster=it
     )
     wbs = m.WBS.objects.create(codice_wbs="WBS-TEST-01", descrizione="WBS di prova", cluster=it)

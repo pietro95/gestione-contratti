@@ -42,9 +42,9 @@ NON_AUTORIZZATO = "Non autorizzato: l'oggetto appartiene a un cluster che non pu
 
 def _verifica_cluster(ctx: Contesto, oggetto) -> None:
     try:
-        if isinstance(oggetto, m.RichiestaAcquisto):
-            permessi.verifica(ctx.utente, oggetto.cluster_id)
-        elif isinstance(oggetto, m.Fabbisogno | m.Contratto | m.Rata | m.Stanziamento):
+        if isinstance(
+            oggetto, m.RichiestaAcquisto | m.Fabbisogno | m.Contratto | m.Rata | m.Stanziamento
+        ):
             permessi.verifica_oggetto(ctx.utente, oggetto)
     except PermissionDenied:
         raise ErroreTool(NON_AUTORIZZATO) from None
@@ -353,6 +353,7 @@ def _crea_rda(ctx: Contesto, argomenti: dict) -> dict:
         origine=m.RichiestaAcquisto.Origine.PORTALE,
         scopo=proposta.scopo,
         cluster=f.cluster,
+        sottocluster=f.sottocluster,
         fabbisogno=None if proposta.contratto_in_scadenza else f,
         contratto_in_scadenza=proposta.contratto_in_scadenza,
         referente_utente=ctx.utente,
@@ -424,7 +425,12 @@ def _registra_rda(ctx: Contesto, argomenti: dict) -> dict:
     dati["referente_utente"] = ""
     form = fr.RdaManualeForm(dati, instance=istanza, utente=ctx.utente)
     valida(form)
-    _verifica_cluster(ctx, m.RichiestaAcquisto(cluster=form.cleaned_data["cluster"]))
+    _verifica_cluster(
+        ctx,
+        m.RichiestaAcquisto(
+            cluster=form.cleaned_data["cluster"], sottocluster=form.cleaned_data["sottocluster"]
+        ),
+    )
     return {"oggetti": [_rif(form.save(), nuovo=True)]}
 
 
@@ -1044,6 +1050,10 @@ STRUMENTI = [
         _schema(
             {
                 "cluster": {"type": "string", "maxLength": 10, "description": "Codice."},
+                "sottocluster": {
+                    **SCHEMA_ID,
+                    "description": "id del sottocluster, del cluster indicato («riferimenti»).",
+                },
                 "descrizione": {"type": "string", "minLength": 1, "maxLength": 250},
                 "fornitore_proposto": {**SCHEMA_ID, "description": "id del fornitore."},
                 "referente": {

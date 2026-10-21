@@ -89,7 +89,9 @@ def test_import_completo_e_idempotente(tmp_path):
     assert (r.conteggi["conti_creati"], r.conteggi["wbs_create"]) == (3, 3)
     assert r.conteggi["assegnazioni_create"] == 3
     vecchio = m.ContoCoge.objects.get(codice="60000001")
-    assert vecchio.cluster.codice == "IT" and vecchio.valido_al == D(2025, 12, 31)
+    assert [c.codice for c in vecchio.clusters.all()] == ["IT"] and vecchio.valido_al == D(
+        2025, 12, 31
+    )
     assert vecchio.sostituito_da.codice == "60000002"
     assert m.WBS.objects.get(codice_wbs="X.0001.00.000").tipo == m.WBS.Tipo.CLUSTER
     assert m.WBS.objects.get(codice_wbs="X.0003.00.000").archiviato
@@ -182,7 +184,7 @@ def test_solo_admin_dall_interfaccia(tmp_path, make_user):
     imp = m.Importazione.objects.get()
     assert risposta.status_code == 302 and imp.stato == m.Importazione.Stato.ANTEPRIMA
     admin.post(reverse("contratti:importazione_conferma", args=[imp.pk]))
-    assert m.ContoCoge.objects.filter(cluster__codice="IT").count() == 2
+    assert m.ContoCoge.objects.filter(clusters__codice="IT").count() == 2
 
 
 def test_editor_importa_contratti_e_date_solo_nei_propri_cluster(tmp_path, make_user):

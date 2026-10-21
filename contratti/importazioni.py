@@ -36,6 +36,7 @@ from contratti.importer.pregresso import importa_pregresso
 from contratti.importer.report import Report
 from contratti.importer.riepilogo import importa_riepilogo
 from contratti.importer.struttura import importa_struttura
+from contratti.importer.struttura_budget import importa_struttura_budget
 from contratti.importer.tabelle import FileNonValido
 from contratti.importer.tabelle_sap import importa_tabelle_sap
 
@@ -109,6 +110,10 @@ def _conti(percorso, dry_run, opzioni):
 
 def _struttura(percorso, dry_run, opzioni):
     return serializza(importa_struttura(percorso, dry_run=dry_run)), None
+
+
+def _struttura_budget(percorso, dry_run, opzioni):
+    return serializza(importa_struttura_budget(percorso, dry_run=dry_run)), None
 
 
 def _tabelle_sap(percorso, dry_run, opzioni):
@@ -222,8 +227,9 @@ def modello_conti() -> Workbook:
             "Piano dei conti",
             "La coppia codice + valido_dal identifica il conto; una riga già presente aggiorna "
             "descrizione, fine validità e cluster. Nessuna cancellazione.",
-            "cluster: codice del cluster del conto (es. IT); vuoto = invariato. Ogni conto "
-            "appartiene a un cluster: per caricare tutto insieme usa l'import della struttura.",
+            "cluster: codice del cluster del conto (es. IT); più cluster separati da virgola; "
+            "vuoto = invariato. Ogni conto appartiene a un cluster: per caricare tutto insieme "
+            "usa l'import della struttura.",
             "Date gg/mm/aaaa. Un errore su una riga annulla tutto il file.",
             "Esempio (fittizio): 60000000 | Canoni software | 01/01/2026 | | IT",
         ],
@@ -422,6 +428,30 @@ TIPI: dict[str, Tipo] = {
             note=[
                 "Il foglio Responsabili, se compilato, è l'elenco completo: chi non c'è perde "
                 "le assegnazioni. Conti e WBS non si cancellano mai.",
+            ],
+        ),
+        Tipo(
+            "struttura_budget",
+            "Struttura dal budget ICTDINN",
+            "Cluster, sottocluster, conti e WBS dal riepilogo del budget (file «Clusterizzazione "
+            "budget ICTDINN»), così com'è. Configurazione: solo Admin.",
+            (".xlsx",),
+            _struttura_budget,
+            {
+                "cluster_creati": "Cluster creati",
+                "sottocluster_creati": "Sottocluster creati",
+                "sottocluster_aggiornati": "Sottocluster aggiornati",
+                "conti_creati": "Conti creati",
+                "conti_aggiornati": "Conti: cluster aggiornati",
+                "wbs_create": "WBS create",
+                "wbs_aggiornate": "WBS: cluster aggiornato",
+            },
+            solo_admin=True,
+            note=[
+                "Un conto è dei cluster in cui compare; i conti già registrati cambiano solo "
+                "cluster. Le WBS a progetto non cambiano. Nessuna cancellazione.",
+                "Gli owner non diventano permessi: assegna i sottocluster in amministrazione. "
+                "Poi sposta i fabbisogni esistenti con il comando «migra_cluster».",
             ],
         ),
         Tipo(

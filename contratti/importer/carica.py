@@ -96,10 +96,10 @@ class _Caricamento:
             raise ValueError(f"Cluster inesistente: {area}.") from exc
         self.oggi = oggi
         self.procedura = m.Procedura.objects.get(codice="da_verificare")
-        conti = m.ContoCoge.objects.select_related("cluster").order_by("valido_dal")
+        conti = m.ContoCoge.objects.prefetch_related("clusters").order_by("valido_dal")
         self.conti = {c.codice: c for c in conti}
         # Struttura caricata: un conto senza cluster va completato (SPEC §4).
-        self.conti_con_cluster = any(c.cluster_id for c in self.conti.values())
+        self.conti_con_cluster = any(c.clusters.all() for c in self.conti.values())
         self.fornitori = {chiave_nome(f.ragione_sociale): f for f in m.Fornitore.objects.all()}
         self.creati_ora: set[str] = set()
         self._wbs: m.WBS | None = None  # WBS del contratto in corso di creazione
@@ -268,13 +268,14 @@ class _Caricamento:
 
     def _voce(self, contratto: m.Contratto, r: Riga, chiave: str):
         conto = self.conti.get(r.conto) if r.conto else None
-        if conto is not None and conto.cluster_id and conto.cluster_id != self.cluster.pk:
+        cluster_conto = list(conto.clusters.all()) if conto is not None else []
+        if cluster_conto and self.cluster not in cluster_conto:
             self.report.anomalia(
                 r.foglio, r.numero, "CONTO_ALTRO_CLUSTER", "conto", r.conto,
-                f"Il conto è del cluster {conto.cluster.codice}, non di {self.cluster.codice}: "
-                "verifica il cluster del contratto o il conto.",
+                f"Il conto è del cluster {', '.join(c.codice for c in cluster_conto)}, "
+                f"non di {self.cluster.codice}: verifica il cluster del contratto o il conto.",
             )  # fmt: skip
-        elif conto is not None and conto.cluster_id is None and self.conti_con_cluster:
+        elif conto is not None and not cluster_conto and self.conti_con_cluster:
             self.report.anomalia(
                 r.foglio, r.numero, "CONTO_SENZA_CLUSTER", "conto", r.conto,
                 "Il conto non ha un cluster: completalo con l'import della struttura.",

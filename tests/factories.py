@@ -56,3 +56,18 @@ def rata(piano_=None, **kw):
     kw.setdefault("data_pagamento_stimata", datetime.date(2026, 3, 1))
     kw.setdefault("importo", Decimal("1000.00"))
     return m.Rata.objects.create(piano=piano_ or piano(), **kw)
+
+
+def conto(codice, descrizione="Conto di prova", valido_dal=None, cluster=None, **kw):
+    """Conto COGE di prova; ``cluster`` (uno o più) va sulla relazione ``clusters`` (Rev25)."""
+    import datetime
+
+    c = m.ContoCoge.objects.create(
+        codice=codice,
+        descrizione=descrizione,
+        valido_dal=valido_dal or datetime.date(2020, 1, 1),
+        **kw,
+    )
+    if cluster is not None:
+        c.clusters.add(*(cluster if isinstance(cluster, list | tuple) else [cluster]))
+    return c

@@ -21,7 +21,7 @@ D = datetime.date
 @pytest.fixture
 def dati():
     it = f.cluster("IT")
-    conto = m.ContoCoge.objects.create(
+    conto = f.conto(
         codice="61000001", descrizione="Conto di prova", valido_dal=D(2020, 1, 1), cluster=it
     )
     w = m.WBS.objects.create(

@@ -36,9 +36,7 @@ def _file(tmp_path, fogli, nome="esecuzione.xlsx"):
 def contratto(make_user):
     make_user("rossi", role=EDITOR)
     it = f.cluster("IT")
-    m.ContoCoge.objects.create(
-        codice="600010", descrizione="Conto di prova", valido_dal=D(2020, 1, 1), cluster=it
-    )
+    f.conto(codice="600010", descrizione="Conto di prova", valido_dal=D(2020, 1, 1), cluster=it)
     c = f.contratto(
         fornitore=f.fornitore("Fornitore Prova A S.r.l."), numero_contratto="5800000016",
         cig="A000000001", data_inizio=D(2026, 3, 2), durata_mesi=1, una_tantum=True,

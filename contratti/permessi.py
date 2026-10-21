@@ -2,6 +2,9 @@
 
 - Admin: modifica tutto. Editor: modifica solo i fabbisogni (e i loro contratti) dei cluster
   assegnati, o di tutti con l'assegnazione TUTTI. Reader: legge tutto, non modifica.
+- Rev25: un'assegnazione può essere limitata a un sottocluster: l'Editor modifica solo i
+  fabbisogni di quel sottocluster. Un'assegnazione senza sottocluster vale per tutto il
+  cluster. La visibilità resta per cluster.
 - Transizione: finché non è mai stata registrata un'assegnazione (struttura non ancora
   caricata), gli Editor modificano tutto, come prima della F9.2. Dalla prima assegnazione
   valgono le regole per cluster, anche se poi le assegnazioni si archiviano (SPEC §8.1).
@@ -10,6 +13,7 @@
 """
 
 from django.core.exceptions import PermissionDenied
+from django.db.models import Q
 
 from accounts.roles import ADMIN, WRITE_ROLES, role_of
 from contratti import models as m
@@ -40,6 +44,17 @@ def cluster_assegnati(user) -> frozenset[int] | None:
     return frozenset(a.cluster_id for a in assegnazioni)
 
 
+def sottocluster_assegnati(user) -> frozenset[int]:
+    """Pk dei sottocluster assegnati singolarmente (assegnazioni limitate a un sottocluster)."""
+    return frozenset(a.sottocluster_id for a in _assegnazioni(user) if a.sottocluster_id)
+
+
+def _cluster_interi(user) -> frozenset[int]:
+    return frozenset(
+        a.cluster_id for a in _assegnazioni(user) if a.cluster_id and not a.sottocluster_id
+    )
+
+
 def struttura_caricata() -> bool:
     """È mai stata registrata un'assegnazione di cluster? (anche archiviata)"""
     return m.AssegnazioneCluster.objects.exists()
@@ -47,17 +62,35 @@ def struttura_caricata() -> bool:
 
 def conti_per_cluster() -> bool:
     """Il piano dei conti ha i cluster (struttura caricata): da qui il cluster è obbligatorio."""
-    return m.ContoCoge.objects.filter(cluster__isnull=False).exists()
+    return m.ContoCoge.objects.filter(clusters__isnull=False).exists()
 
 
 def cluster_modificabili(user) -> frozenset[int] | None:
-    """Cluster in cui l'utente può modificare; ``None`` = tutti, vuoto = nessuno."""
+    """Cluster in cui l'utente può modificare qualcosa; ``None`` = tutti, vuoto = nessuno.
+
+    Comprende i cluster di cui ha solo dei sottocluster: il dettaglio per fabbisogno è in
+    ``puo_modificare_fabbisogno``.
+    """
     ruolo = role_of(user)
     if ruolo not in WRITE_ROLES:
         return frozenset()
     if ruolo == ADMIN or not struttura_caricata():
         return None
     return cluster_assegnati(user)
+
+
+def puo_modificare_in(user, cluster_id, sottocluster_id=None) -> bool:
+    """L'utente può modificare i fabbisogni di questo cluster e sottocluster?"""
+    ruolo = role_of(user)
+    if ruolo not in WRITE_ROLES:
+        return False
+    if ruolo == ADMIN or not struttura_caricata():
+        return True
+    if cluster_assegnati(user) is None:  # TUTTI
+        return True
+    if cluster_id in _cluster_interi(user):
+        return True
+    return sottocluster_id is not None and sottocluster_id in sottocluster_assegnati(user)
 
 
 def puo_modificare(user, *cluster_ids) -> bool:
@@ -69,35 +102,68 @@ def puo_modificare(user, *cluster_ids) -> bool:
 
 
 def verifica(user, *cluster_ids) -> None:
-    """403 se l'utente non può modificare in uno dei cluster dati."""
+    """403 se l'utente non può modificare in uno dei cluster dati (anche solo in parte)."""
     if not puo_modificare(user, *cluster_ids):
         raise PermissionDenied("Fabbisogno di un cluster che non ti è assegnato.")
 
 
-def cluster_del(oggetto) -> int:
-    """Cluster di un fabbisogno, contratto, voce, rata, stanziamento o proroga."""
+def fabbisogno_del(oggetto) -> m.Fabbisogno:
+    """Fabbisogno di un fabbisogno, contratto, voce, rata, stanziamento o proroga."""
     if isinstance(oggetto, m.Fabbisogno):
-        return oggetto.cluster_id
+        return oggetto
     if isinstance(oggetto, m.Contratto):
-        return oggetto.fabbisogno.cluster_id
+        return oggetto.fabbisogno
     if isinstance(oggetto, m.VoceContratto | m.Proroga | m.OpzioneContratto):
-        return oggetto.contratto.fabbisogno.cluster_id
+        return oggetto.contratto.fabbisogno
     if isinstance(oggetto, m.Rata):
-        return oggetto.piano.voce.contratto.fabbisogno.cluster_id
+        return oggetto.piano.voce.contratto.fabbisogno
     if isinstance(oggetto, m.Stanziamento):
-        return oggetto.voce.contratto.fabbisogno.cluster_id
-    raise TypeError(f"Oggetto senza cluster: {type(oggetto).__name__}")
+        return oggetto.voce.contratto.fabbisogno
+    raise TypeError(f"Oggetto senza fabbisogno: {type(oggetto).__name__}")
+
+
+def puo_modificare_fabbisogno(user, fabbisogno) -> bool:
+    return puo_modificare_in(user, fabbisogno.cluster_id, fabbisogno.sottocluster_id)
+
+
+def ambito_del(oggetto) -> tuple[int, int | None]:
+    """(cluster, sottocluster) di un oggetto con permessi per sottocluster: anche una RDA."""
+    if isinstance(oggetto, m.RichiestaAcquisto):
+        return oggetto.cluster_id, oggetto.sottocluster_id
+    f = fabbisogno_del(oggetto)
+    return f.cluster_id, f.sottocluster_id
+
+
+def puo_modificare_oggetto(user, oggetto) -> bool:
+    return puo_modificare_in(user, *ambito_del(oggetto))
 
 
 def verifica_oggetto(user, oggetto) -> None:
-    verifica(user, cluster_del(oggetto))
+    """403 se l'utente non può modificare l'oggetto (cluster e sottocluster)."""
+    if not puo_modificare_oggetto(user, oggetto):
+        raise PermissionDenied("Appartiene a un cluster o sottocluster che non ti è assegnato.")
 
 
 def fabbisogni_modificabili(user, qs=None):
     """I fabbisogni in cui l'utente può modificare (tendine dei form)."""
     qs = m.Fabbisogno.objects.all() if qs is None else qs
     ammessi = cluster_modificabili(user)
-    return qs if ammessi is None else qs.filter(cluster_id__in=ammessi)
+    if ammessi is None:
+        return qs
+    return qs.filter(
+        Q(cluster_id__in=_cluster_interi(user))
+        | Q(sottocluster_id__in=sottocluster_assegnati(user))
+    )
+
+
+def sottocluster_modificabili(user, qs=None):
+    """I sottocluster in cui l'utente può modificare (tendina del fabbisogno)."""
+    qs = m.Sottocluster.objects.all() if qs is None else qs
+    if cluster_modificabili(user) is None:
+        return qs
+    return qs.filter(
+        Q(cluster_id__in=_cluster_interi(user)) | Q(pk__in=sottocluster_assegnati(user))
+    )
 
 
 def cluster_propri(user) -> list[m.Cluster]:

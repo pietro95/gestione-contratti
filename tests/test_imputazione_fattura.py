@@ -25,7 +25,7 @@ D = datetime.date
 @pytest.fixture
 def dati():
     it = f.cluster("IT")
-    conti = {c: m.ContoCoge.objects.create(codice=c, descrizione=c, valido_dal=D(2020, 1, 1),
+    conti = {c: f.conto(codice=c, descrizione=c, valido_dal=D(2020, 1, 1),
                                            cluster=it) for c in ("600010", "600020")}  # fmt: skip
     wbs = m.WBS.objects.create(codice_wbs="WBS-TEST-02", descrizione="WBS di prova", cluster=it)
     fornitore = f.fornitore("Negozio Prova S.r.l.")

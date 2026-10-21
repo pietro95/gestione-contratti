@@ -249,7 +249,11 @@ class FabbisognoForm(ModelFormBootstrap):
         if utente is not None and (ammessi := permessi.cluster_modificabili(utente)) is not None:
             cluster = cluster.filter(pk__in=ammessi)  # solo i propri cluster (F9.2)
         _solo_attivi(self, "cluster", cluster)
-        _solo_attivi(self, "sottocluster", m.Sottocluster.objects.filter(archiviato=False))
+        self.utente = utente
+        sottocluster = m.Sottocluster.objects.filter(archiviato=False)
+        if utente is not None:  # solo i propri sottocluster (Rev25)
+            sottocluster = permessi.sottocluster_modificabili(utente, sottocluster)
+        _solo_attivi(self, "sottocluster", sottocluster)
         _solo_attivi(self, "fonte_finanziamento", m.FonteFinanziamento.objects.filter(attiva=True))
         # Nuovo: obbligatorio; un fabbisogno già classificato non perde il sottocluster; quelli
         # importati senza si completano quando conviene, senza bloccare altre modifiche.
@@ -293,6 +297,15 @@ class FabbisognoForm(ModelFormBootstrap):
 
     def clean(self):
         dati = super().clean()
+        cluster, sottocluster = dati.get("cluster"), dati.get("sottocluster")
+        if (
+            self.utente is not None
+            and cluster is not None
+            and not permessi.puo_modificare_in(
+                self.utente, cluster.pk, sottocluster.pk if sottocluster else None
+            )
+        ):
+            self.add_error("sottocluster", "Non hai il permesso su questo sottocluster.")
         avvio, durata = dati.get("previsto_data_avvio"), dati.get("previsto_durata_mesi")
         if bool(avvio) != bool(durata):
             raise forms.ValidationError(
@@ -692,11 +705,19 @@ class VoceForm(ModelFormBootstrap):
             conto = dati.get(campo)
             if conto is None:
                 continue
-            if conto.cluster_id and self.cluster and conto.cluster_id != self.cluster.pk:
+            cluster_conto = list(conto.clusters.all())
+            if cluster_conto and self.cluster and self.cluster not in cluster_conto:
+                elenco = ", ".join(c.codice for c in cluster_conto)
                 self.add_error(
-                    campo, f"Il conto {conto.codice} è del cluster {conto.cluster.codice}."
+                    campo,
+                    f"Il conto {conto.codice} è "
+                    + (
+                        f"del cluster {elenco}."
+                        if len(cluster_conto) == 1
+                        else f"dei cluster {elenco}."
+                    ),
                 )
-            elif conto.cluster_id is None and con_cluster:
+            elif not cluster_conto and con_cluster:
                 self.add_error(
                     campo,
                     f"Il conto {conto.codice} non ha un cluster: completalo con l'import "

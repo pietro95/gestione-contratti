@@ -326,11 +326,10 @@ class ContoCoge(models.Model):
         related_name="sostituisce",
         help_text="Conto che lo sostituisce dalla fine della validità.",
     )
-    # F9.2: ogni conto appartiene a un solo cluster. Vuoto finché non si carica la struttura
-    # (import «Struttura ICTDINN»): i conti senza cluster sono segnalati.
-    cluster = models.ForeignKey(
-        "Cluster", on_delete=models.PROTECT, null=True, blank=True, related_name="conti"
-    )
+    # F9.2: il conto appartiene a un cluster; dalla Rev25 può essere di più cluster (conti
+    # generici condivisi). Vuoto finché non si carica la struttura (import «Struttura
+    # ICTDINN»): i conti senza cluster sono segnalati.
+    clusters = models.ManyToManyField("Cluster", blank=True, related_name="conti")
     history = HistoricalRecords()
 
     class Meta:
@@ -391,6 +390,12 @@ class Sottocluster(Archiviabile):
 
     cluster = models.ForeignKey(Cluster, on_delete=models.PROTECT, related_name="sottocluster")
     nome = models.CharField(max_length=100)
+    owner = models.CharField(
+        max_length=150,
+        blank=True,
+        help_text="Responsabile del budget del sottocluster, come nel file della struttura "
+        "(testo libero). I permessi si danno con le assegnazioni.",
+    )
     note = models.TextField(blank=True)
     history = HistoricalRecords()
 
@@ -409,11 +414,13 @@ class Sottocluster(Archiviabile):
 
 
 class AssegnazioneCluster(Archiviabile):
-    """Cluster di cui un utente è responsabile (F9.2): l'Editor modifica solo questi.
+    """Cluster (o sottocluster) di cui un utente è responsabile (F9.2, Rev25).
 
-    Per nome utente di dominio, anche prima del primo accesso. Cluster vuoto = TUTTI (es.
-    addetto amministrativo). Il ruolo (Admin, Editor, Reader) resta quello dei gruppi AD.
-    Un'assegnazione tolta si archivia (non vale più) e torna attiva se riassegnata.
+    L'Editor modifica solo i fabbisogni dell'ambito assegnato. Per nome utente di dominio,
+    anche prima del primo accesso. Cluster vuoto = TUTTI (es. addetto amministrativo).
+    Cluster senza sottocluster = tutto il cluster; con il sottocluster = solo quel
+    sottocluster. Il ruolo (Admin, Editor, Reader) resta quello dei gruppi AD. Un'assegnazione
+    tolta si archivia (non vale più) e torna attiva se riassegnata.
     """
 
     username = models.CharField("utente", max_length=150, db_index=True)
@@ -425,30 +432,47 @@ class AssegnazioneCluster(Archiviabile):
         related_name="assegnazioni",
         help_text="Vuoto: tutti i cluster.",
     )
+    sottocluster = models.ForeignKey(
+        "Sottocluster",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="assegnazioni",
+        help_text="Vuoto: tutto il cluster. Deve essere del cluster indicato.",
+    )
     note = models.CharField(max_length=200, blank=True)
     history = HistoricalRecords()
 
     class Meta:
         verbose_name = "assegnazione di cluster"
         verbose_name_plural = "assegnazioni di cluster"
-        ordering = ["username", "cluster__codice"]
+        ordering = ["username", "cluster__codice", "sottocluster__nome"]
         constraints = [
             models.UniqueConstraint(
-                fields=["username", "cluster"], name="contratti_assegnazione_unica"
+                fields=["username", "cluster", "sottocluster"],
+                nulls_distinct=False,
+                name="contratti_assegnazione_ambito_unica",
             ),
-            models.UniqueConstraint(
-                fields=["username"],
-                condition=Q(cluster__isnull=True),
-                name="contratti_assegnazione_tutti_unica",
+            models.CheckConstraint(
+                condition=Q(sottocluster__isnull=True) | Q(cluster__isnull=False),
+                name="contratti_assegnazione_sottocluster_con_cluster",
             ),
         ]
 
     def __str__(self):
-        return f"{self.username} → {self.cluster.codice if self.cluster else 'TUTTI'}"
+        ambito = self.cluster.codice if self.cluster else "TUTTI"
+        if self.sottocluster_id:
+            ambito += f" · {self.sottocluster.nome}"
+        return f"{self.username} → {ambito}"
 
     def save(self, *args, **kwargs):
         self.username = self.username.strip().lower()
         super().save(*args, **kwargs)
+
+    def clean(self):
+        super().clean()
+        if self.sottocluster_id and self.sottocluster.cluster_id != self.cluster_id:
+            raise ValidationError({"sottocluster": "Il sottocluster non è del cluster indicato."})
 
 
 class FunzioneUtente(Archiviabile):
@@ -1446,6 +1470,14 @@ class RichiestaAcquisto(Archiviabile):
     cluster = models.ForeignKey(
         Cluster, on_delete=models.PROTECT, related_name="richieste_acquisto"
     )
+    sottocluster = models.ForeignKey(
+        Sottocluster,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="richieste_acquisto",
+        help_text="Di norma quello del fabbisogno della pratica; ne decide i permessi (Rev25).",
+    )
     # La pratica: il contratto in scadenza (rinnovo) oppure il fabbisogno. Mai entrambi.
     fabbisogno = models.ForeignKey(
         Fabbisogno,
@@ -1556,6 +1588,16 @@ class RichiestaAcquisto(Archiviabile):
     def __str__(self):
         return f"RDA {self.numero_rda}" if self.numero_rda else f"Richiesta di RDA #{self.pk}"
 
+    def save(self, *args, **kwargs):
+        pratica = None if self.sottocluster_id else self.fabbisogno_della_pratica()
+        if (
+            pratica is not None
+            and pratica.sottocluster_id
+            and pratica.cluster_id == self.cluster_id
+        ):
+            self.sottocluster_id = pratica.sottocluster_id
+        super().save(*args, **kwargs)
+
     @property
     def nome_referente(self) -> str:
         if self.referente_utente_id:
@@ -1576,6 +1618,8 @@ class RichiestaAcquisto(Archiviabile):
         fabbisogno = self.fabbisogno_della_pratica()
         if fabbisogno is not None and self.cluster_id and fabbisogno.cluster_id != self.cluster_id:
             raise ValidationError({"cluster": "Il cluster è quello del fabbisogno."})
+        if self.sottocluster_id and self.sottocluster.cluster_id != self.cluster_id:
+            raise ValidationError({"sottocluster": "Il sottocluster deve essere del cluster."})
         if (
             self.data_rilascio
             and self.data_inserimento

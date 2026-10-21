@@ -138,7 +138,7 @@ def test_budget_e_piano_ordini_di_default_sui_propri_cluster(struttura, utente):
 
 
 def test_voce_con_conto_di_un_altro_cluster_bloccata(struttura, utente):
-    conto_ot = m.ContoCoge.objects.create(
+    conto_ot = f.conto(
         codice="60000001",
         descrizione="Conto di prova",
         valido_dal=D(2020, 1, 1),
@@ -213,7 +213,7 @@ def test_conto_senza_cluster_bloccato_dopo_la_struttura(struttura, utente):
     )
     # Struttura non ancora caricata (nessun conto con cluster): ammesso.
     assert editor.post(url, _voce(senza)).status_code == 302
-    m.ContoCoge.objects.create(
+    f.conto(
         codice="60000003", descrizione="Con cluster", valido_dal=D(2020, 1, 1),
         cluster=struttura["cluster"]["IT"],
     )  # fmt: skip

@@ -6,7 +6,7 @@ Lettura per tutti i ruoli; ogni modifica è di Admin ed Editor dei cluster della
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
@@ -54,7 +54,7 @@ def _rda(pk) -> m.RichiestaAcquisto:
 
 
 def _modificabile(request, rda) -> None:
-    permessi.verifica(request.user, rda.cluster_id)
+    permessi.verifica_oggetto(request.user, rda)
 
 
 def riga(rda: m.RichiestaAcquisto, oggi) -> dict:
@@ -148,6 +148,7 @@ def rda_nuova(request, fabbisogno_pk):
         origine=m.RichiestaAcquisto.Origine.PORTALE,
         scopo=proposta.scopo,
         cluster=f.cluster,
+        sottocluster=f.sottocluster,
         fabbisogno=None if proposta.contratto_in_scadenza else f,
         contratto_in_scadenza=proposta.contratto_in_scadenza,
         referente_utente=request.user,
@@ -249,6 +250,11 @@ def rda_registra(request):
     )
     if request.method == "POST" and form.is_valid():
         permessi.verifica(request.user, form.cleaned_data["cluster"].pk)
+        sotto = form.cleaned_data["sottocluster"]
+        if not permessi.puo_modificare_in(
+            request.user, form.cleaned_data["cluster"].pk, sotto.pk if sotto else None
+        ):
+            raise PermissionDenied("Non hai il permesso su questo sottocluster.")
         rda = form.save()
         messages.success(request, "RDA registrata. Collegala alla pratica e ai contratti.")
         return redirect("contratti:rda", pk=rda.pk)
@@ -284,7 +290,7 @@ def rda_dettaglio(request, pk):
             "stato_pratica": _stato_pratica(pratica, rda, oggi),
             "generati": [(c, acquisti.differenza_da_rda(c)) for c in generati],
             "proposti": acquisti.contratti_proposti(rda),
-            "puo_modificare": permessi.puo_modificare(request.user, rda.cluster_id),
+            "puo_modificare": permessi.puo_modificare_oggetto(request.user, rda),
             "puo_inviare": r["fase"] in acquisti.FASI_MODIFICABILI_DAL_REFERENTE,
             "puo_rimandare": r["fase"] == Fase.INVIATA,
             "chiusa": r["fase"] in (Fase.ANNULLATA, Fase.CHIUSA),

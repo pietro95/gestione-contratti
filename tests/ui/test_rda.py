@@ -36,9 +36,7 @@ def sap():
     it.save()
     fornitore = f.fornitore("Software Prova S.r.l.", nome_breve="SWPROVA")
     conti = {
-        c: m.ContoCoge.objects.create(
-            codice=c, descrizione="Conto di prova", valido_dal=D(2020, 1, 1), cluster=it
-        )
+        c: f.conto(codice=c, descrizione="Conto di prova", valido_dal=D(2020, 1, 1), cluster=it)
         for c in ("600001", "600002")
     }
     return fornitore, conti
