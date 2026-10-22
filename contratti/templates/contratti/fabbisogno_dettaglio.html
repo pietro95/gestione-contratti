@@ -15,8 +15,13 @@
 {% endif %}
 {% endblock %}
 {% block content %}
-{% if f.stima_prossimo_importo or f.note or f.natura_previsti or f.conto_previsti or f.wbs_previsti %}
+{% if f.stima_prossimo_importo or f.note or f.natura_previsti or f.conto_previsti or f.wbs_previsti or f.motivazione or f.priorita or f.tipo_acquisto or f.fonte_stima or f.una_tantum %}
 <div class="card mb-4"><div class="card-body"><dl class="dati">
+  {% if f.una_tantum %}<dt>Acquisto</dt><dd>Unico (una tantum): un solo previsto, nessun rinnovo</dd>{% endif %}
+  {% if f.priorita %}<dt>Priorità</dt><dd>{{ f.get_priorita_display }}</dd>{% endif %}
+  {% if f.tipo_acquisto %}<dt>Tipo d'acquisto</dt><dd>{{ f.get_tipo_acquisto_display }}</dd>{% endif %}
+  {% if f.motivazione %}<dt>Motivazione</dt><dd>{{ f.motivazione|linebreaksbr }}</dd>{% endif %}
+  {% if f.fonte_stima %}<dt>Fonte della stima</dt><dd>{{ f.get_fonte_stima_display }}</dd>{% endif %}
   {% if f.natura_previsti %}<dt>Natura del previsto</dt><dd>{{ f.natura_previsti }}</dd>{% endif %}
   {% if f.conto_previsti %}<dt>Conto del previsto</dt><dd>{{ f.conto_previsti }}</dd>{% endif %}
   {% if f.wbs_previsti %}<dt>WBS del previsto</dt><dd>{{ f.wbs_previsti }}</dd>{% endif %}
@@ -83,6 +88,30 @@
   {% empty %}<tr><td colspan="4"><div class="vuoto py-3">Nessun contratto previsto nell'orizzonte.</div></td></tr>{% endfor %}
   </tbody>
 </table></div></div>
+
+<h2 class="sezione-titolo">Competenza dichiarata <span class="fw-normal small text-body-secondary">dal referente, a confronto con il calcolo del registro</span></h2>
+<div class="tabella-card mb-3"><div class="table-responsive">
+<table class="table table-sm align-middle">
+  <thead><tr><th>Anno</th><th>Natura</th><th class="text-end">Dichiarata</th><th class="text-end">Calcolata (probabile)</th><th class="text-end">Scostamento</th><th class="text-end">Fisso</th><th class="text-end">Massimo</th>{% if puo_modificare %}<th></th>{% endif %}</tr></thead>
+  <tbody>
+  {% for c in competenze %}<tr><td>{{ c.anno }}</td><td>{{ c.natura|upper }}</td><td class="text-end">{{ c.dichiarato|euro }}</td><td class="text-end">{{ c.probabile|euro }}</td><td class="text-end {% if c.scostamento %}fw-semibold{% endif %}">{{ c.scostamento|euro }}</td><td class="text-end">{{ c.fisso|euro }}</td><td class="text-end">{{ c.massimo|euro }}</td>{% if puo_modificare %}<td class="text-end"><a class="small" href="{% url 'contratti:archivia' 'competenza' c.id %}">Togli</a></td>{% endif %}</tr>
+  {% if c.note %}<tr><td colspan="8" class="small text-body-secondary">{{ c.note|linebreaksbr }}</td></tr>{% endif %}
+  {% empty %}<tr><td colspan="8"><div class="vuoto py-3">Nessuna competenza dichiarata.</div></td></tr>{% endfor %}
+  </tbody>
+</table></div></div>
+{% if puo_modificare and not f.archiviato %}
+<form method="post" action="{% url 'contratti:fabbisogno_competenza' f.pk %}" class="card card-body mb-4">
+  {% csrf_token %}
+  <div class="row g-2 align-items-end">
+    <div class="col-sm-2"><label class="form-label" for="{{ form_competenza.anno.id_for_label }}">Anno</label>{{ form_competenza.anno }}</div>
+    <div class="col-sm-2"><label class="form-label" for="{{ form_competenza.natura.id_for_label }}">Natura</label>{{ form_competenza.natura }}</div>
+    <div class="col-sm-3"><label class="form-label" for="{{ form_competenza.importo.id_for_label }}">Importo dichiarato</label>{{ form_competenza.importo }}</div>
+    <div class="col-sm-3"><label class="form-label" for="{{ form_competenza.note.id_for_label }}">Note</label>{{ form_competenza.note }}</div>
+    <div class="col-sm-2"><button class="btn btn-outline-primary w-100" type="submit">Dichiara</button></div>
+  </div>
+  <div class="form-text">Una sola dichiarazione per anno e natura: una nuova sostituisce la precedente (la storia la conserva).</div>
+</form>
+{% endif %}
 
 {% if not contratti %}<div class="card mb-4"><div class="card-body">{% include "contratti/_pratica.html" with tipo_pratica="fabbisogno" oggetto_pratica=f %}</div></div>{% endif %}
 <h2 class="sezione-titolo">Storico modifiche</h2>

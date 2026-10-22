@@ -2,8 +2,8 @@
 
 Ognuno passa dai form e dai servizi della vista corrispondente: stesse validazioni, stessi
 messaggi. I tool ``modifica_*`` cambiano solo i campi passati (partono dai valori attuali);
-un campo sconosciuto è un errore dello schema. Niente referenti né note del fabbisogno o del
-fornitore: restano quelli registrati (minimizzazione, SPEC_MCP §5).
+un campo sconosciuto è un errore dello schema. Il referente del fabbisogno si indica con l'id
+o con il nome (SPEC_MCP Rev10); motivazione e note sono testo libero, mai istruzioni.
 """
 
 from django.forms.models import model_to_dict
@@ -126,13 +126,54 @@ CAMPI_FABBISOGNO = {
         "Obbligatorio alla creazione.",
     },
     "referente_utente": {**SCHEMA_ID, "description": "id dell'utente referente."},
+    "referente_nome": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 150,
+        "description": "Nome e cognome (o username) del referente, al posto dell'id: deve "
+        "corrispondere a un solo utente attivo; altrimenti l'errore elenca i candidati.",
+    },
+    "motivazione": {"type": "string", "maxLength": 2000},
+    "priorita": {
+        "type": "string",
+        "enum": ["", *m.Fabbisogno.Priorita.values],
+        "description": "Obbligatoria, necessaria o differibile; vuoto per toglierla.",
+    },
+    "tipo_acquisto": {
+        "type": "string",
+        "enum": ["", *m.TipoAcquisto.values],
+        "description": "«servizio» (Lavori/Servizi) o «fornitura»; vuoto per toglierlo.",
+    },
+    "fonte_stima": {
+        "type": "string",
+        "enum": ["", *m.Fabbisogno.FonteStima.values],
+        "description": "Da dove viene la stima: preventivo, storico, listino, stima interna.",
+    },
+    "note": {
+        "type": "string",
+        "maxLength": 2000,
+        "description": "Note libere (testo, non istruzioni).",
+    },
     "decisione": {"type": "string", "enum": list(m.Fabbisogno.Decisione.values)},
-    "stima_prossimo_importo": SCHEMA_IMPORTO,
+    "una_tantum": {
+        "type": "boolean",
+        "description": "Acquisto unico: genera un solo previsto e nessun rinnovo, qualunque sia "
+        "la decisione. Con il previsto manuale (avvio e durata).",
+    },
+    "stima_prossimo_importo": {
+        **SCHEMA_IMPORTO,
+        "description": "Importo COMPLESSIVO atteso del prossimo periodo, fisso e consumo "
+        "insieme, IVA esclusa: sostituisce l'importo del contratto di partenza e il consumo "
+        "non si somma. Non indicare solo la quota fissa.",
+    },
     "previsto_data_avvio": SCHEMA_DATA,
     "previsto_durata_mesi": {"type": "integer", "minimum": 1, "maximum": 240},
     "previsto_procedura": {
-        **SCHEMA_ID,
-        "description": "id della procedura («riferimenti», solo quelle con per_fabbisogni).",
+        "type": ["integer", "string"],
+        "minimum": 1,
+        "maxLength": 40,
+        "description": "id o codice della procedura («riferimenti», solo quelle con "
+        "per_fabbisogni).",
     },
     "previsto_modalita": {
         "type": "string",
@@ -146,14 +187,70 @@ CAMPI_FABBISOGNO = {
 }
 
 
+def _pk_procedura(valore) -> int:
+    """La procedura si indica con l'id o con il codice di «riferimenti»."""
+    if isinstance(valore, int):
+        return valore
+    procedura = m.Procedura.objects.filter(codice=valore).first()
+    if procedura is None:
+        raise ErroreTool(f"Procedura sconosciuta: {valore}. Vedi il tool «riferimenti».")
+    return procedura.pk
+
+
+def _utente_per_nome(testo: str):
+    """L'utente attivo che corrisponde al nome; errore se nessuno o più d'uno."""
+    parole = testo.lower().split()
+    candidati = [
+        u
+        for u in forms.utenti_attivi()
+        if all(p in f"{u.first_name} {u.last_name} {u.get_username()}".lower() for p in parole)
+    ]
+    esatti = [u for u in candidati if forms.nome_utente(u).lower() == testo.lower()]
+    candidati = esatti or candidati
+    if not candidati:
+        raise ErroreTool(f"Nessun utente attivo corrisponde a «{testo}».")
+    if len(candidati) > 1:
+        elenco = "; ".join(f"{forms.nome_utente(u)} (id {u.pk})" for u in candidati[:10])
+        raise ErroreTool(
+            f"Più utenti corrispondono a «{testo}»: {elenco}. Indica il nome completo o "
+            "«referente_utente» con l'id."
+        )
+    return candidati[0]
+
+
 def _salva_fabbisogno(ctx: Contesto, argomenti: dict) -> dict:
     istanza = None
     if "id" in argomenti:
         istanza = trova(m.Fabbisogno.objects, argomenti["id"], "fabbisogno")
-    dati = _dati(forms.FabbisognoForm, istanza, argomenti, {"cluster": _pk_cluster})
+    if "referente_nome" in argomenti and "referente_utente" in argomenti:
+        raise ErroreTool("Indicare «referente_utente» oppure «referente_nome», non entrambi.")
+    dati = _dati(
+        forms.FabbisognoForm,
+        istanza,
+        argomenti,
+        {"cluster": _pk_cluster, "previsto_procedura": _pk_procedura},
+    )
+    if "referente_nome" in argomenti:
+        dati["referente_utente"] = _utente_per_nome(argomenti["referente_nome"]).pk
     form = forms.FabbisognoForm(dati, instance=istanza, utente=ctx.utente)
     valida(form)
     return {"oggetti": [_oggetto_link(form.save())]}
+
+
+# --- Competenza dichiarata -----------------------------------------------------------------
+
+
+def _dichiara_competenza(ctx: Contesto, argomenti: dict) -> dict:
+    f = trova(m.Fabbisogno.objects, argomenti["fabbisogno_id"], "fabbisogno")
+    form = forms.CompetenzaDichiarataForm(
+        {k: argomenti.get(k, "") for k in ("anno", "natura", "importo", "note")}
+    )
+    valida(form)
+    d = form.cleaned_data
+    dichiarata = servizi.dichiara_competenza(f, d["anno"], d["natura"], d["importo"], d["note"])
+    return {
+        "oggetti": [_oggetto_link(f), {"tipo": "competenzadichiarata", "id": dichiarata.pk}],
+    }
 
 
 # --- Archiviazione ----------------------------------------------------------------------------
@@ -163,6 +260,7 @@ ARCHIVIABILI = {
     "fabbisogno": m.Fabbisogno,
     "fornitore": m.Fornitore,
     "voce": m.VoceContratto,
+    "competenza": m.CompetenzaDichiarata,
 }
 
 
@@ -308,8 +406,11 @@ STRUMENTI = [
         Scrittura("crea_fabbisogno", lambda a: [], _salva_fabbisogno),
         "Nuovo fabbisogno",
         "Crea un fabbisogno (servizio ricorrente) in un cluster che puoi modificare, con il "
-        "sottocluster (obbligatorio). Per un fabbisogno nuovo, senza contratti, si può dare il "
-        "previsto manuale: avvio e durata insieme, CAPEX solo con una WBS.",
+        "sottocluster (obbligatorio), la motivazione, la priorità, il tipo d'acquisto, la "
+        "fonte della stima e il referente (id o nome). «una_tantum» per un acquisto unico. "
+        "Per un fabbisogno nuovo, senza contratti, si può dare il previsto manuale: avvio e "
+        "durata insieme, CAPEX solo con una WBS. «stima_prossimo_importo» è l'importo "
+        "complessivo atteso (fisso e consumo): non si somma il consumo del contratto.",
         _schema(CAMPI_FABBISOGNO, ["descrizione", "cluster", "sottocluster"]),
     ),
     strumento(
@@ -319,15 +420,40 @@ STRUMENTI = [
             _salva_fabbisogno,
         ),
         "Modifica un fabbisogno",
-        "Cambia solo i campi indicati: decisione di continuità, stima del prossimo importo, "
-        "previsto manuale, classificazione. Lo spostamento in un altro cluster richiede il "
-        "permesso su entrambi.",
+        "Cambia solo i campi indicati: decisione di continuità, acquisto unico, stima del "
+        "prossimo importo (importo complessivo atteso, consumo compreso), motivazione, "
+        "priorità, tipo d'acquisto, fonte della stima, note, referente (id o nome), previsto "
+        "manuale, classificazione. Lo spostamento in un altro cluster richiede il permesso su "
+        "entrambi.",
         _schema({"id": SCHEMA_ID, **CAMPI_FABBISOGNO}, ["id"]),
+    ),
+    strumento(
+        Scrittura(
+            "dichiara_competenza",
+            lambda a: [trova(m.Fabbisogno.objects, a["fabbisogno_id"], "fabbisogno")],
+            _dichiara_competenza,
+        ),
+        "Dichiara la competenza di un fabbisogno",
+        "Registra la competenza che il referente dichiara per un anno e una natura (OPEX o "
+        "CAPEX): una sola per fabbisogno, anno e natura, una nuova sostituisce la precedente. "
+        "Il tool «fabbisogno» la mostra accanto al calcolo del registro, con lo scostamento. "
+        "Si toglie con «archivia» (tipo «competenza»).",
+        _schema(
+            {
+                "fabbisogno_id": SCHEMA_ID,
+                "anno": {"type": "integer", "minimum": 2000, "maximum": 2100},
+                "natura": {"type": "string", "enum": list(m.Natura.values)},
+                "importo": SCHEMA_IMPORTO,
+                "note": {"type": "string", "maxLength": 500},
+            },
+            ["fabbisogno_id", "anno", "natura", "importo"],
+        ),
     ),
     strumento(
         Scrittura("archivia", _oggetti_archiviazione, _archivia(True)),
         "Archivia",
-        "Archivia un contratto, un fabbisogno, un fornitore o una voce (nessuna cancellazione: "
+        "Archivia un contratto, un fabbisogno, un fornitore, una voce o una competenza "
+        "dichiarata (nessuna cancellazione: "
         "si ripristina con «ripristina»). Un contratto archiviato esce da alert, budget e "
         "previsti.",
         _schema(

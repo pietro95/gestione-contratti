@@ -82,6 +82,7 @@ def riferimenti(ctx: Contesto, argomenti: dict) -> dict:
         ],
         "procedure": [
             {
+                "id": p.pk,
                 "codice": p.codice,
                 "nome": p.nome,
                 "lead_time_mesi": p.lead_time_mesi,
@@ -117,6 +118,9 @@ def riferimenti(ctx: Contesto, argomenti: dict) -> dict:
             for c in m.CentroCosto.objects.filter(attivo=True)
         ],
         "tipi_acquisto": [{"codice": v, "nome": n} for v, n in m.Contratto.TipoAcquisto.choices],
+        # Campi del fabbisogno (SPEC Rev27).
+        "priorita_fabbisogno": [{"codice": v, "nome": n} for v, n in m.Fabbisogno.Priorita.choices],
+        "fonti_stima": [{"codice": v, "nome": n} for v, n in m.Fabbisogno.FonteStima.choices],
         "scopi_rda": [{"codice": v, "nome": n} for v, n in m.RichiestaAcquisto.Scopo.choices],
         "soglie": [
             {
@@ -289,7 +293,8 @@ STRUMENTI = [
         titolo="Tabelle di riferimento",
         descrizione=(
             "Cluster (con quelli dell'utente), sottocluster dei fabbisogni, procedure di "
-            "affidamento con il lead time in mesi, soglie d'importo valide oggi; per le RDA "
+            "affidamento con id, codice e lead time in mesi, priorità e fonti della stima dei "
+            "fabbisogni, soglie d'importo valide oggi; per le RDA "
             "richiedenti SAP, gruppi acquisti e gruppi merci (con il predefinito), tipi "
             "d'acquisto e scopi. Con "
             "«includi» anche i conti COGE validi oggi e le WBS (di default dei cluster "

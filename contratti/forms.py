@@ -206,7 +206,14 @@ class FabbisognoForm(ModelFormBootstrap):
                 "referente_utente",
             ],
         ),
-        ("Decisione sul rinnovo", ["decisione", "stima_prossimo_importo", "note"]),
+        (
+            "Motivazione e priorità",
+            ["motivazione", "priorita", "tipo_acquisto", "fonte_stima"],
+        ),
+        (
+            "Decisione sul rinnovo",
+            ["decisione", "una_tantum", "stima_prossimo_importo", "note"],
+        ),
         (
             "Previsto manuale (solo per fabbisogni nuovi, senza contratti)",
             [
@@ -230,7 +237,12 @@ class FabbisognoForm(ModelFormBootstrap):
             "sottocluster",
             "fonte_finanziamento",
             "referente_utente",
+            "motivazione",
+            "priorita",
+            "tipo_acquisto",
+            "fonte_stima",
             "decisione",
+            "una_tantum",
             "stima_prossimo_importo",
             "note",
             "previsto_data_avvio",
@@ -327,6 +339,17 @@ class FabbisognoForm(ModelFormBootstrap):
             fabbisogno.save()
             self.save_m2m()
         return fabbisogno
+
+
+class CompetenzaDichiarataForm(FormBase):
+    """Competenza che il referente si aspetta per un anno e una natura (SPEC §4, Rev27)."""
+
+    anno = forms.IntegerField(min_value=2000, max_value=2100)
+    natura = forms.ChoiceField(choices=m.Natura.choices, initial=m.Natura.OPEX)
+    importo = ImportoField(
+        label="Importo dichiarato (imponibile)", max_digits=14, decimal_places=2, min_value=0
+    )
+    note = forms.CharField(widget=forms.Textarea(attrs={"rows": 2}), required=False)
 
 
 CAMPI_CONTRATTO = [
@@ -790,6 +813,10 @@ class PianoForm(ModelFormBootstrap):
             self.add_error(
                 "periodicita", "Obbligatoria per la fatturazione anticipata o posticipata."
             )
+        if dati.get("modalita") == "consumo":
+            # A consumo non c'è un calendario di rate: periodicità e prima fattura non servono.
+            dati["periodicita"] = ""
+            dati["data_prima_fattura"] = None
         return dati
 
 

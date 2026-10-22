@@ -108,9 +108,11 @@ def verifica(user, *cluster_ids) -> None:
 
 
 def fabbisogno_del(oggetto) -> m.Fabbisogno:
-    """Fabbisogno di un fabbisogno, contratto, voce, rata, stanziamento o proroga."""
+    """Fabbisogno di un fabbisogno, contratto, voce, rata, stanziamento, proroga o competenza."""
     if isinstance(oggetto, m.Fabbisogno):
         return oggetto
+    if isinstance(oggetto, m.CompetenzaDichiarata):
+        return oggetto.fabbisogno
     if isinstance(oggetto, m.Contratto):
         return oggetto.fabbisogno
     if isinstance(oggetto, m.VoceContratto | m.Proroga | m.OpzioneContratto):

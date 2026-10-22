@@ -212,6 +212,8 @@ def _fabbisogno_di(record) -> int | None:
     try:
         if modello is m.Fabbisogno:
             return record.id
+        if modello is m.CompetenzaDichiarata:
+            return record.fabbisogno_id
         if modello is m.Contratto:
             return record.fabbisogno_id
         if modello in (m.VoceContratto, m.Proroga, m.OpzioneContratto):

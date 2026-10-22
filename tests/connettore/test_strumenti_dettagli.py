@@ -65,7 +65,9 @@ def test_fabbisogno(archivio, utente_reader):
     assert [c["id"] for c in dati["contratti"]] == [archivio.pk]
     attesi = adapters.previsti_fabbisogno(f, adapters.orizzonte_default(OGGI))
     assert [p["inizio"] for p in dati["previsti"]] == [p.inizio.isoformat() for p in attesi]
-    assert "referente" not in dati and "note" not in dati
+    # Del referente solo il nome; il testo libero sta in un campo proprio (SPEC_MCP Rev10).
+    assert "note" not in dati and set(dati["testo_libero"]) == {"motivazione", "note"}
+    assert "email" not in str(dati["referente"]).lower()
     nuovo = m.Fabbisogno.objects.get(descrizione="Nuovo servizio previsto a mano")
     manuale = esegui(utente_reader, "fabbisogno", {"id": nuovo.pk})
     assert manuale["previsto_manuale"]["data_avvio"] == "2027-03-01"

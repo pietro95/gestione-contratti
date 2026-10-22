@@ -48,6 +48,11 @@ urlpatterns = [
     path("fabbisogni/nuovo/", views.fabbisogno_modifica, name="fabbisogno_nuovo"),
     path("fabbisogni/<int:pk>/", views.fabbisogno_dettaglio, name="fabbisogno"),
     path("fabbisogni/<int:pk>/modifica/", views.fabbisogno_modifica, name="fabbisogno_modifica"),
+    path(
+        "fabbisogni/<int:pk>/competenza/",
+        views.fabbisogno_competenza,
+        name="fabbisogno_competenza",
+    ),
     path("fabbisogni/<int:pk>/accorpa/", views.fabbisogno_accorpa, name="fabbisogno_accorpa"),
     path("fabbisogni/<int:pk>/doppioni/", views.fabbisogno_doppioni, name="fabbisogno_doppioni"),
     path("fabbisogni/<int:pk>/collega/", views.fabbisogno_collega, name="fabbisogno_collega"),

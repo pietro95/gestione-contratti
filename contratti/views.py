@@ -330,10 +330,12 @@ def contratti_elenco(request):
                 "stato": lambda v: "Stato: " + dict(STATI_TEMPORALI).get(v, v),
                 "alert": lambda v: "Alert: " + v,
                 "anno": "Attivi nell'anno",
-                "fornitore": lambda v: (_nome(m.Fornitore, v) or v),
-                "finanziamento": lambda v: m.Contratto.Finanziamento(v).label
-                if v in m.Contratto.Finanziamento.values
-                else v,
+                "fornitore": lambda v: _nome(m.Fornitore, v) or v,
+                "finanziamento": lambda v: (
+                    m.Contratto.Finanziamento(v).label
+                    if v in m.Contratto.Finanziamento.values
+                    else v
+                ),
                 "archiviati": lambda v: "Con gli archiviati",
             },
         ),
@@ -946,6 +948,7 @@ ARCHIVIABILI = {
     "fabbisogno": (m.Fabbisogno, "contratti:fabbisogno"),
     "fornitore": (m.Fornitore, "contratti:fornitore"),
     "voce": (m.VoceContratto, None),
+    "competenza": (m.CompetenzaDichiarata, None),
 }
 
 
@@ -957,11 +960,12 @@ def archivia(request, tipo, pk):
     oggetto = get_object_or_404(modello, pk=pk)
     if tipo != "fornitore":  # i fornitori sono in comune
         permessi.verifica_oggetto(request.user, oggetto)
-    ritorno = (
-        reverse(url_dettaglio, args=[pk])
-        if url_dettaglio
-        else reverse("contratti:contratto", args=[oggetto.contratto_id])
-    )
+    if tipo == "competenza":
+        ritorno = reverse("contratti:fabbisogno", args=[oggetto.fabbisogno_id])
+    elif url_dettaglio:
+        ritorno = reverse(url_dettaglio, args=[pk])
+    else:
+        ritorno = reverse("contratti:contratto", args=[oggetto.contratto_id])
     if request.method == "POST":
         ripristina = request.POST.get("ripristina") == "1"
         servizi.archivia(oggetto, not ripristina)
@@ -1014,8 +1018,9 @@ def fabbisogni_elenco(request):
                 {
                     "q": "Testo",
                     "area": _etichetta_cluster,
-                    "decisione": lambda v: "Decisione: "
-                    + dict(m.Fabbisogno.Decisione.choices).get(v, v),
+                    "decisione": lambda v: (
+                        "Decisione: " + dict(m.Fabbisogno.Decisione.choices).get(v, v)
+                    ),
                     "sottocluster": lambda v: _nome(m.Sottocluster, v),
                     "archiviati": lambda v: "Con gli archiviati",
                 },
@@ -1029,6 +1034,7 @@ def fabbisogni_elenco(request):
 @login_required
 def fabbisogno_dettaglio(request, pk):
     from contratti import views_rda
+    from reports.competenza import confronto
 
     oggi = oggi_richiesta(request)
     f = get_object_or_404(m.Fabbisogno.objects.select_related("sottocluster", "cluster"), pk=pk)
@@ -1053,10 +1059,29 @@ def fabbisogno_dettaglio(request, pk):
             "form_pratica": forms.PassaggioPraticaForm(initial={"data": oggi}),
             **views_rda.contesto_pratica(f, oggi),
             "richieste": views_rda.richieste_del_fabbisogno(f, oggi),
+            "competenze": confronto(f, oggi),
+            "form_competenza": forms.CompetenzaDichiarataForm(initial={"anno": oggi.year + 1}),
             "storico": storico(f),
             "puo_modificare": permessi.puo_modificare_fabbisogno(request.user, f),
         },
     )
+
+
+@editor_required
+@require_POST
+def fabbisogno_competenza(request, pk):
+    """Registra la competenza dichiarata dal referente (SPEC §4, Rev27)."""
+    f = get_object_or_404(m.Fabbisogno, pk=pk)
+    permessi.verifica_oggetto(request.user, f)
+    form = forms.CompetenzaDichiarataForm(request.POST)
+    if form.is_valid():
+        d = form.cleaned_data
+        servizi.dichiara_competenza(f, d["anno"], d["natura"], d["importo"], d["note"])
+        messages.success(request, "Competenza dichiarata salvata.")
+    else:
+        for errori in form.errors.values():
+            messages.error(request, " ".join(errori))
+    return redirect("contratti:fabbisogno", pk=f.pk)
 
 
 @editor_required

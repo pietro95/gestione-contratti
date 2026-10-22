@@ -2,7 +2,7 @@
 
 > Specifica normativa del connettore. L'inquadramento architetturale è in [ARCHITECTURE](ARCHITECTURE.md), i principi di protezione in [SECURITY](SECURITY.md) e le procedure di esercizio in [RUNBOOK](RUNBOOK.md).
 
-Rev09 — 21/10/2026 — decisioni del responsabile del progetto, da approvare. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
+Rev10 — 22/10/2026 — decisioni del responsabile del progetto, **bozza da approvare**. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
 
 Storico revisioni:
 - Rev00 (05/10/2026): prima bozza, raccomandata l'opzione «solo rete interna con ponte locale».
@@ -15,6 +15,7 @@ Storico revisioni:
 - Rev07 (07/10/2026): D8 chiusa con esito positivo: nella prova in produzione Claude ha accettato l'autorizzazione sull'host interno (§2.1); il piano B non serve. Nessuna decisione aperta.
 - Rev08 (07/10/2026): decisioni del responsabile del progetto, **bozza da approvare**. Il connettore copre il processo d'acquisto della release 2.0 (§11, fase F12): lettura di RDA, fatture, esecuzione e viste; scrittura di tutto il processo tranne gli import (D14); presa in carico, fuori registro e assegnazione ai proposti anche su più fatture (D15); nome dei referenti esposto (D16); testi per SAP e PAC restituiti (D17). Gruppo E di §8.2 definito in §11.3.
 - Rev09 (21/10/2026): decisione del responsabile del progetto, **approvata** il 21/10/2026 (SPEC Rev26). Gli strumenti di lettura che filtrano per `cluster` accettano anche `sottocluster` (id da `riferimenti`; id inesistente → errore): `budget`, `spese_wbs`, `piani_da_verificare`, `elenco_rda`, `cruscotto_acquisti`, `contratti_da_chiudere`, `stanziamenti`, `anomalie_esecuzione` (`scadenze` e `piano_ordini` lo avevano già).
+- Rev10 (22/10/2026): decisioni del responsabile del progetto, **bozza da approvare** (SPEC Rev27). Il connettore segue la GUI sui **fabbisogni** (§5, §8.2): flag `una_tantum`, `motivazione`, `priorita`, `tipo_acquisto`, `fonte_stima` e `note`; `stima_prossimo_importo` è l'importo complessivo atteso. Il **referente** si indica con l'id o con il nome (`referente_nome`) e `fabbisogno` ne restituisce il nome (D18); la **procedura presunta** si indica con l'id o con il codice e `riferimenti` restituisce anche gli id; `link_documenti` ammette `smb://` e `file://` (stessa regola della GUI). Nuovo tool di scrittura `dichiara_competenza` (e `archivia` per la competenza dichiarata); `fabbisogno` la restituisce a confronto con il calcolo (D19). Elenco dei divari residui tra GUI e connettore in §8.2.
 
 ## 1. Obiettivo
 
@@ -137,16 +138,16 @@ Convenzioni comuni:
 | `cerca` | `testo` (≥ 2 caratteri), `tipo` (contratti/fabbisogni/fornitori, facoltativo) | id, descrizione, fornitore, numero contratto, CIG, stato temporale, cluster | `views.cerca` (logica da spostare in `selettori`) |
 | `scadenze` | `cluster`, `alert` (🔴 🟠 🟡), `entro` (data) | contratti e previsti in alert con data di fine, data limite, procedura, lead time, stato pratica | `selettori.cruscotto` |
 | `contratto` | `id` | anagrafica, catena (predecessori, successore, confluiti), proroghe, opzioni, voci con classificazione e piano, data di fine e data limite calcolate, alert, storico pratica | adapters + `servizi.contratto_e_predecessori` / `contratto_e_successivi` |
-| `fabbisogno` | `id` | descrizione, cluster, categoria, decisione di continuità, catena dei contratti, previsti calcolati con importi e date, rinnovo mancante | `adapters.previsti_fabbisogno` |
+| `fabbisogno` | `id` | descrizione, cluster, sottocluster, referente (nome), priorità, tipo d'acquisto, fonte della stima, `una_tantum`, decisione di continuità, stima del prossimo importo (complessiva), previsto manuale, catena dei contratti, previsti calcolati con importi e date, rinnovo mancante, `competenza_dichiarata` a confronto con il calcolo (dichiarata, calcolata ai tre livelli, scostamento sul probabile), `testo_libero` | `adapters.previsti_fabbisogno`, `reports.competenza.confronto` |
 | `scadenzario` | `contratto_id` o `voce_id` | rate: numero, data fattura, pagamento stimato, importo, consuntivo, modificata a mano | modelli `Rata` |
 | `budget` | `anno`, `cluster`, `sottocluster`, `natura`, `conto`, `fornitore`, `wbs`, `progetti`, `previsionali`, `raggruppa_per` (cluster, conto, fornitore, wbs, fabbisogno) | per gruppo: fatturato, ordinato, competenza × fisso, probabile, massimo; OPEX e CAPEX **separati e mai sommati**; rinnovi mancanti | `reports.budget.calcola_budget`, `raggruppa` |
 | `piano_ordini` | `anno`, `cluster`, `categoria`, `natura` | righe del piano (SPEC §5.4), avvisi di frazionamento | `reports.piano_ordini.calcola_piano` |
 | `spese_wbs` | `wbs_id`, `vista`, `livello`; senza WBS (elenco): `cluster`, `sottocluster`, `tipo` | contratti e importi anno per anno sulla WBS | `reports.wbs` |
 | `piani_da_verificare` | `cluster`, `sottocluster` | voci con piano `Da verificare` | `selettori.voci_piano_da_verificare` |
 | `fornitore` | `id` | anagrafica, contratti attivi e storici, totali per anno | viste fornitore |
-| `riferimenti` | — | cluster visibili e propri, categorie, procedure con lead time e se sono proponibili per un fabbisogno (`per_fabbisogni`, Rev24), soglie valide | tabelle di configurazione |
+| `riferimenti` | — | cluster visibili e propri, categorie, procedure con id, codice, lead time e se sono proponibili per un fabbisogno (`per_fabbisogni`, Rev24), priorità e fonti della stima (Rev10), soglie valide | tabelle di configurazione |
 
-Non esposti (minimizzazione, non serve all'uso previsto): referente (dato personale), note libere di contratti e fabbisogni (possono contenere dati imprevisti), utenti e assegnazioni, registro degli import.
+Non esposti (minimizzazione, non serve all'uso previsto): note libere dei contratti (possono contenere dati imprevisti), utenti e assegnazioni, registro degli import. Rev10: del fabbisogno si espongono il **nome** del referente (D16, D18) e il testo libero (`motivazione`, `note`) in un campo proprio `testo_libero`, come per RDA e fatture (§6, §11.1).
 
 Vincolo verificabile: **per gli stessi filtri e la stessa data, `budget` e `piano_ordini` restituiscono gli stessi totali al centesimo della vista web e dell'export XLSX.** Una differenza è un difetto.
 
@@ -204,13 +205,14 @@ Un oggetto principale per operazione (un contratto si crea con le sue voci e i l
 | | `modifica_rata` (importo, data fattura, consuntivo, numero fattura): resta marcata «modificata a mano» | `RataForm`, `servizi.salva_rata_manuale` |
 | | `genera_scadenzario` (voce): rifiutato con il motivo se ci sono rate modificate a mano o consuntivate | `servizi.genera_scadenzario` |
 | **B. Anagrafiche** | `crea_fornitore`, `modifica_fornitore` | `FornitoreForm` |
-| | `crea_fabbisogno`, `modifica_fabbisogno` (decisione di continuità, stima, previsto manuale) | `FabbisognoForm` |
+| | `crea_fabbisogno`, `modifica_fabbisogno` (decisione di continuità, una tantum, stima complessiva, motivazione, priorità, tipo d'acquisto, fonte della stima, note, referente per id o nome, previsto manuale con procedura per id o codice) | `FabbisognoForm` |
+| | `dichiara_competenza` (fabbisogno, anno, natura, importo, note; Rev10): una sola per fabbisogno, anno e natura, una nuova sostituisce la precedente; si toglie con `archivia` (tipo `competenza`) | `CompetenzaDichiarataForm`, `servizi.dichiara_competenza` |
 | **C. Contratti** | `crea_contratto` (anche «senza contratto»), con voci, piani e quote per periodo | `ContrattoForm`, `VoceForm`, `PianoForm` |
 | | `modifica_contratto` | `ContrattoModificaForm` |
 | | `registra_rinnovo` (anche senza contratto; contratti sostituiti che confluiscono) | `RinnovoForm` / `RinnovoSenzaContrattoForm`, `VoceRinnovoForm`, `servizi.registra_rinnovo` |
 | | `registra_proroga` (con l'eventuale voce dell'importo) | `ProrogaForm`, `servizi.registra_proroga` |
 | | `crea_voce`, `modifica_voce` (con piano e quote) | `VoceForm`, `PianoForm` |
-| | `archivia`, `ripristina` (fornitore, fabbisogno, contratto, voce) | `servizi.archivia` |
+| | `archivia`, `ripristina` (fornitore, fabbisogno, contratto, voce, competenza dichiarata) | `servizi.archivia` |
 | **D. Catena** | `collega_rinnovo`, `scollega_predecessore`, `confluisci`, `togli_confluenza` | `servizi.collega_rinnovo`, `scollega_predecessore`, `confluisci`, `togli_confluenza` |
 | **E. Processo d'acquisto** (F12, Rev08) | RDA, fatture, documenti di esecuzione, chiusura: elenco in §11.3 | form e servizi di F11 |
 | | `conferma_operazione` (id) | — |
@@ -220,6 +222,14 @@ Limiti del gruppo C (Rev06):
 - `crea_contratto` e `modifica_contratto` non gestiscono il campo `note`;
 - `registra_rinnovo` non genera le rate, come l'interfaccia: lo scadenzario delle nuove voci si genera dopo con `genera_scadenzario`;
 - la procedura si indica con il codice restituito da `riferimenti`.
+
+Divari noti tra GUI e connettore (audit Rev10, da chiudere in una fase successiva; per ciascuno la GUI offre il campo e il tool no, salvo dove indicato):
+- **fabbisogno**: `fonte_finanziamento`; spostamento, accorpamento e unione dei doppioni (esclusi per D11);
+- **fornitore**: `note`;
+- **contratto** (`crea_contratto`, `modifica_contratto`, `registra_rinnovo`): `note` (limite Rev06), `tipo_acquisto`, `sottocluster` alla creazione, creazione del fornitore nello stesso passo, `una_tantum`, CUP, RUP e `percorso_documenti` (questi nella GUI solo dalla RDA); spostamento del contratto in un altro fabbisogno (D11);
+- **proroga**, **fattura**, **documento di esecuzione**, **stanziamento**, **RDA registrata a mano**: `note`;
+- **voce**: quote per periodo esistenti in modifica (limite Rev06);
+- **fatturato pregresso** (GUI: pagina dedicata): nessun tool, come gli altri import.
 
 **Solo dall'interfaccia**, mai via MCP:
 - `sposta_contratto`, `accorpa_fabbisogni`, `unisci_doppioni`: ristrutturano più fabbisogni e catene in un colpo; la loro anteprima è già una pagina dedicata e un errore è costoso da ricostruire (D11);
@@ -266,6 +276,9 @@ Prese:
 - D15 (Rev08): `prendi_in_carico`, `segna_fuori_registro` e `assegna_ai_referenti_proposti` anche su più fatture, al massimo 50, con anteprima per fattura (§11.3).
 - D16 (Rev08): del referente si espone solo il nome; filtri «mie» e «proposte a me» sull'utente del token (§11.1).
 - D17 (Rev08): testo della richiesta, scheda SAP, indicazioni per la validazione e commento per PAC restituiti in campi propri (§11.1).
+
+- D18 (Rev10): il referente di un fabbisogno si indica con l'id o con il nome (`referente_nome`: un solo utente attivo corrisponde, altrimenti l'errore elenca i candidati con nome e id) e si legge come nome; nessuna ricerca libera tra gli utenti.
+- D19 (Rev10): la competenza dichiarata dal referente si scrive e si legge dal connettore come dalla GUI (SPEC Rev27, §5.2).
 
 Aperte: nessuna.
 

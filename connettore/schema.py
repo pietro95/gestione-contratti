@@ -3,7 +3,8 @@
 Tipi ``object`` (con ``properties``, ``required``, ``additionalProperties: false``),
 ``string`` (``enum``, ``minLength``, ``maxLength``, ``format: date``), ``integer``
 (``minimum``, ``maximum``), ``boolean`` e ``array`` (``items``, ``minItems``, ``maxItems``);
-``["string", "null"]`` per un valore da togliere. Gli errori sono in italiano, perché il
+``["string", "null"]`` per un valore da togliere, ``["integer", "string"]`` per un valore
+che si può dare in due forme (es. id oppure codice). Gli errori sono in italiano, perché il
 modello li legge e corregge la chiamata.
 """
 
@@ -33,7 +34,11 @@ def _valida(valore, schema: dict, nome: str) -> None:
     if isinstance(tipo, list):  # es. ["string", "null"]: null ammesso
         if valore is None and "null" in tipo:
             return
-        tipo = next(t for t in tipo if t != "null")
+        possibili = [t for t in tipo if t != "null"]
+        # Con più tipi vale il primo che corrisponde al valore; senza, l'errore li elenca.
+        tipo = next((t for t in possibili if _tipo(valore, t)), possibili[0])
+        if not _tipo(valore, tipo):
+            raise ArgomentiNonValidi(f"«{nome}»: atteso {' oppure '.join(possibili)}.")
     if not _tipo(valore, tipo):
         raise ArgomentiNonValidi(f"«{nome}»: atteso {tipo}.")
     if "enum" in schema and valore not in schema["enum"]:

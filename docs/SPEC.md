@@ -2,7 +2,7 @@
 
 > Documento normativo per requisiti e regole di dominio. Per la vista tecnica consultare [ARCHITECTURE](ARCHITECTURE.md) e [DATA_MODEL](DATA_MODEL.md); per le procedure operative consultare [RUNBOOK](RUNBOOK.md) e [OPERATIONS](OPERATIONS.md).
 
-Rev26 — 21/10/2026 — responsabile: IT Manager ICTDINN, Siciliacque S.p.A.
+Rev27 — 22/10/2026 — responsabile: IT Manager ICTDINN, Siciliacque S.p.A.
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
@@ -32,6 +32,7 @@ Storico revisioni:
 - Rev24 (21/10/2026): richieste dei colleghi, **approvata** dal responsabile del progetto il 21/10/2026. **Fabbisogno** (§4): la procedura presunta ammette solo le procedure del codice degli appalti (tabella Procedura, campo `per_fabbisogni`: esclusi MEPA/ODA, RDO, adesione a convenzione/AQ, che restano sul contratto); la modalità di fatturazione prevista non ammette `Una tantum` (ridondante con la periodicità `Intera durata`); le scelte già registrate restano valide. Vale anche per il connettore MCP. **Contratto** (§4): il tipo d'acquisto `Servizio` si chiama `Lavori/Servizi` (nessun cambio di valore né di regola: propone MAP).
 - Rev25 (21/10/2026): decisioni del responsabile del progetto, **approvata** dal responsabile del progetto il 21/10/2026. **Cluster e sottocluster** (§1, §4, §7, §8.1): l'ufficio ha quattro cluster (ICT, Digitalizzazione, Innovazione, Consulenze) e dieci sottocluster (Telecomunicazioni, IT, Sicurezza fisica, Sicurezza integrata, Sicurezza (Holding), Impianti elettrici e strumentazione, OT, Investimenti digitalizzazione, Innovazione, Consulenze); i vecchi cluster IT, TLC, OT, SICFIS, SICINT, SICHOL, IMPEL diventano sottocluster. Il **sottocluster** ha un *owner* (testo, informativo). Un **conto COGE** appartiene a uno o più cluster (conti generici condivisi). L'**assegnazione dei responsabili** può essere limitata a un sottocluster: l'Editor modifica solo i fabbisogni, i contratti e le **RDA** del proprio ambito. La **RDA** ha il sottocluster (di norma quello del fabbisogno della pratica). Nuovo import «Struttura dal budget ICTDINN» e migrazione dei dati dai vecchi cluster ai sottocluster (§7).
 - Rev26 (21/10/2026): decisione del responsabile del progetto, **approvata** dal responsabile del progetto il 21/10/2026. **Filtro per sottocluster** (§5.4, §8.1): dove si filtra per cluster (contratti, piani da verificare, RDA e «Stato delle RDA», contratti da chiudere, anomalie dell'esecuzione, stanziamenti, cruscotto acquisti, WBS, extra budget) si può filtrare anche per sottocluster, come già il cruscotto, i fabbisogni, il budget e il piano ordini (Rev23). Una RDA appartiene al sottocluster scelto se lo ha, o se lo ha il fabbisogno della pratica. L'elenco delle WBS e quello degli extra budget mostrano le WBS e le autorizzazioni con almeno una voce di un fabbisogno del sottocluster, e contano solo quelle voci. Vale anche per il connettore MCP (`SPEC_MCP` Rev09). Nessun cambio di permessi: il filtro restringe solo ciò che si vede.
+- Rev27 (22/10/2026): richieste dei referenti dopo le prime prove, **bozza da approvare**. **Fabbisogno** (§4, §5.3): flag **una tantum** (acquisto unico: un solo previsto, nessun rinnovo, qualunque sia la decisione); la **stima del prossimo importo** è l'**importo complessivo atteso** (fisso e consumo insieme) e il consumo del contratto di partenza non si somma; nuovi campi **motivazione**, **priorità**, **tipo d'acquisto** e **fonte della stima**. **Competenza dichiarata** dal referente per fabbisogno, anno e natura, a confronto con il calcolo (§4, §5.2). **A consumo**: nessuna rata programmata, la spesa si distribuisce a giorni sul periodo (§4, §5.2). **Link ai documenti**: ammessi anche `smb://` e `file://` (§4). Connettore MCP allineato (`SPEC_MCP` Rev10). Nuovi TC-21 e TC-22.
 
 ## 1. Obiettivo
 
@@ -107,7 +108,9 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
 - fonte di finanziamento (facoltativa, da tabella, Rev18);
 - referente: testo libero, più un collegamento facoltativo all'utente dell'applicazione;
 - decisione di continuità: `Rinnovare` / `Da valutare` / `Sostituire` / `Dismettere`;
-- stima del prossimo importo e note;
+- **stima del prossimo importo**: importo **complessivo** atteso del prossimo periodo, fisso e consumo insieme, IVA esclusa (Rev27). Se indicato sostituisce l'importo del contratto di partenza e il consumo non si somma (§5.3);
+- **una tantum** (Rev27): acquisto unico. Un fabbisogno una tantum genera un solo previsto e nessun rinnovo, qualunque sia la decisione di continuità (anche `Dismettere`); se ha un contratto registrato non ha previsti (§5.3). Il previsto manuale ne è la fonte;
+- **motivazione** (testo), **priorità** (`Obbligatoria`, `Necessaria`, `Differibile`), **tipo d'acquisto** (`Lavori/Servizi` o `Fornitura`, come sul contratto) e **fonte della stima** (`Preventivo`, `Storico`, `Listino`, `Stima interna`), tutti facoltativi (Rev27); note libere;
 - **previsto manuale** (solo per un fabbisogno nuovo, senza contratti): data di avvio prevista, durata, procedura presunta (Rev24: solo procedure del codice degli appalti, cioè con «proponibile per un fabbisogno» attivo nella tabella; non MEPA/ODA, RDO, adesione a convenzione/AQ), modalità (Rev24: senza `Una tantum`, un acquisto unico è la periodicità `Intera durata`) e periodicità di fatturazione previste, natura, conto e WBS previsti. Le scelte già registrate su un fabbisogno restano valide. Sono dati decisi e si salvano; il contratto previsto che ne deriva si calcola (§5.3). Avvio e durata vanno indicati insieme; CAPEX ⇔ WBS come sulla voce.
 
 **Contratto** (istanza):
@@ -120,7 +123,7 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
 - proroghe esercitate: zero o più (vedi **Proroga**);
 - tacito rinnovo con termine di disdetta in giorni (obbligatorio se c'è tacito rinnovo);
 - classificazione: natura e WBS stanno sulle voci. La natura del contratto si ricava dalle voci (OPEX, CAPEX o mista); il contratto è **finanziato** se ha almeno una voce su una WBS a progetto;
-- documenti: link al protocollo o a SharePoint, oppure percorso sul server aziendale (`X:\…`, `\\nas…`, Rev11), senza caricare file;
+- documenti: link al protocollo o a SharePoint (`http`, `https`), a una cartella del NAS aziendale (`smb://…`, `file://…`, Rev27), oppure percorso sul server aziendale (`X:\…`, `\\nas…`, Rev11), senza caricare file;
 - **una tantum** (sì/no, Rev11): acquisto che non si rinnova, tipicamente una fornitura (§5.1, §5.3). Non ha predecessore né successore, non entra nella catena, non va in alert e non genera previsti; entra nel budget come ogni contratto. Default: fatturazione `Una tantum`, inizio alla data di emissione, durata 1 mese (da confermare, §9). Sta su un fabbisogno come gli altri contratti, anche insieme a una catena (es. licenze aggiuntive acquistate una volta) o su un fabbisogno di sole forniture;
 - **tipo d'acquisto** (Rev14, etichetta Rev24): `Lavori/Servizi` (default) o `Fornitura`; propone MAP (servizio) o MIGO (fornitura) nella lavorazione delle fatture (§5.9);
 - **chiusura** (Rev11): data e utente della chiusura amministrativa (prestazione attestata, fatture registrate). È un atto deciso, si salva; si può annullare. La registrano l'addetto amministrativo o il referente (Rev13: ogni Editor del cluster, §8.1). Su un contratto chiuso non si registrano documenti di esecuzione né fatture: prima si annulla la chiusura;
@@ -148,6 +151,8 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
 **Sottocluster** (tabella, Rev18, Rev25): sottocategoria di un cluster; cluster, nome (unico nel cluster), *owner* (testo libero, informativo: è il responsabile del budget indicato nel file della struttura, non dà permessi) e note; si archivia, non si cancella. Raggruppa i fabbisogni nel piano ordini (§5.4).
 
 **Budget del sottocluster** (tabella, Rev23): budget assegnato a un sottocluster per un **anno** e una **natura** (OPEX o CAPEX); importo imponibile, maggiore o uguale a zero, note. Uno solo per sottocluster, anno e natura; si archivia, non si cancella; storia delle modifiche. È un dato deciso, non calcolato. Lo inserisce l'amministrazione (Admin). OPEX e CAPEX restano distinti, mai sommati.
+
+**Competenza dichiarata** (tabella, Rev27): competenza che il **referente** si aspetta per un **fabbisogno**, un **anno** e una **natura** (OPEX o CAPEX): importo imponibile maggiore o uguale a zero, note. Una sola per fabbisogno, anno e natura: una nuova dichiarazione sostituisce la precedente (la storia delle modifiche conserva il valore di prima); si archivia, non si cancella. È un dato deciso, non calcolato, e non entra in nessun budget: serve a confrontarlo con il calcolo (§5.2). La registrano Admin ed Editor del cluster del fabbisogno.
 
 **Fonte di finanziamento** (tabella di configurazione, Rev18): nome unico, attiva, note; nessun valore iniziale. Si assegna al fabbisogno e alla WBS. Per una riga del piano ordini vale la fonte del fabbisogno; se manca, quella della WBS delle voci; se manca, «Ordinaria».
 
@@ -177,7 +182,7 @@ Regole di generazione:
 - rate uguali per periodo, con il residuo dell'arrotondamento sull'ultima;
 - se la durata non è un multiplo della periodicità, l'ultimo periodo è più corto e la sua rata è proporzionale ai giorni; le altre rate restano uguali tra loro;
 - `A SAL`: nessuna rata generata, le rate si inseriscono a mano;
-- `A consumo`: rate mensili posticipate;
+- `A consumo` (Rev27): **nessuna rata programmata**: non c'è un calendario di fatturazione. Periodicità e data della prima fattura non si registrano; il piano accetta il massimale e la stima di consumo della voce, e la spesa si distribuisce a giorni sul periodo di servizio (cassa a pro-rata, senza avviso). Le rate di un piano a consumo già generate e non modificate a mano o consuntivate, di importo zero, si tolgono con la migrazione;
 - `Da verificare`: nessuna rata; la cassa usa il pro-rata a giorni e lo segnala;
 - con quote per periodo, ogni quota si fattura come una voce a sé con lo stesso piano (la prima fattura esplicita vale solo per la prima quota); la numerazione delle rate prosegue. La `Una tantum` resta una sola rata dell'intero fisso.
 
@@ -293,7 +298,7 @@ Ogni vista ha tre livelli:
 - **probabile**: fisso + variabile × stima di consumo;
 - **massimo**: fisso + intero massimale.
 
-In cassa la quota variabile (stimata o massima) si distribuisce sulle date delle rate in proporzione agli importi fissi delle rate; se il fisso è zero, in proporzione ai giorni dei periodi. Per la modalità `A consumo` le rate mensili si calcolano sul livello richiesto.
+In cassa la quota variabile (stimata o massima) si distribuisce sulle date delle rate in proporzione agli importi fissi delle rate; se il fisso è zero, in proporzione ai giorni dei periodi. Per la modalità `A consumo` (Rev27) non ci sono rate: la spesa del livello richiesto si distribuisce a giorni sul periodo di servizio.
 
 **OPEX e CAPEX** sono budget distinti e non si sommano mai: ogni voce entra nella sezione della sua natura (un contratto misto contribuisce a entrambe). Il default è l'OPEX; "OPEX e CAPEX, separati" mostra due sezioni con totali propri, anche nell'export.
 - OPEX per cluster e conto; CAPEX per cluster e WBS di cluster, con il dettaglio per conto sotto ogni WBS (come lo legge il Controllo di gestione).
@@ -303,23 +308,26 @@ In cassa la quota variabile (stimata o massima) si distribuisce sulle date delle
 - (Rev23) **Filtro per sottocluster**: limita il budget ai fabbisogni del sottocluster scelto, contratti reali e previsti; i budget dei sottocluster sommano al budget del cluster più i fabbisogni senza sottocluster.
 - (Rev23) **Budget assegnato**: con il filtro per sottocluster attivo, ogni sezione di natura mostra un box con il budget assegnato al sottocluster per l'anno e quella natura (§4), il totale della vista **«Fatturato e stanziato (competenza)»** (il riferimento del budget, Rev21) al livello scelto e il **residuo** (assegnato meno totale; negativo = sforamento, segnalato). Se per anno e natura non c'è nulla, il box dice «Non assegnato» e non calcola il residuo. Il confronto usa il totale mostrato, quindi comprende WBS a progetto ed extra budget solo se il rispettivo filtro li include. Il box non compare se il sottocluster è di un cluster fuori dal filtro cluster dell'utente (§8.1). Compare anche nel PDF.
 
+**Competenza dichiarata a confronto (Rev27).** Per ogni competenza dichiarata, la pagina del fabbisogno riporta la competenza calcolata dal registro, nella vista di riferimento «Fatturato e stanziato (competenza)» (Rev21), ai tre livelli (fisso, probabile, massimo), e lo **scostamento** = dichiarata − calcolata al livello probabile (negativo: il calcolo supera la dichiarazione); riporta inoltre, per informazione, la «Competenza del contratto». Il calcolo comprende contratti reali e previsti del fabbisogno, anche su WBS a progetto e extra budget, per la sola natura dichiarata (TC-22). Vale anche per il connettore MCP.
+
 ### 5.3 Previsione rinnovi (scenario)
 
 Per ogni fabbisogno con decisione `Rinnovare` o `Da valutare`, il cui contratto attivo scade entro l'orizzonte (default 3 anni), il sistema genera un **contratto previsto**:
 - inizio = giorno dopo la scadenza (data di fine effettiva, proroghe comprese);
 - stessa durata **originale** del contratto precedente (senza proroghe) e stesso piano di fatturazione;
 - importo: ogni voce del contratto precedente, escluse le voci delle proroghe, si replica con fisso e massimale × (1 + adeguamento parametrico valido alla data di inizio del previsto). Le quote per periodo non si replicano: il previsto riparte dal fisso totale della voce;
-- se il fabbisogno ha una stima manuale, la stima sostituisce il fisso totale ed è ripartita tra le voci in proporzione al loro fisso; l'adeguamento dei previsti successivi parte dalla stima (TC-07).
+- se il fabbisogno ha una stima manuale, la stima sostituisce il fisso totale ed è ripartita tra le voci in proporzione al loro fisso; l'adeguamento dei previsti successivi parte dalla stima (TC-07). (Rev27) La stima è l'**importo complessivo atteso**, consumo compreso: massimale e stima di consumo del previsto si azzerano e il consumo del contratto di partenza non si somma (TC-21). Senza stima, fisso, massimale e stima di consumo si replicano come prima.
 
 La generazione è ricorsiva: un annuale che scade nel 2027 genera un previsto 2027 e poi un previsto 2028.
 
 - Un fabbisogno non ha contratti paralleli. I previsti partono dal contratto senza successore che scade per ultimo; un contratto confluito in un altro ha un successore e non genera previsti (TC-12). Se restano più contratti senza successore (per esempio un contratto vecchio non collegato alla catena), il fabbisogno segnala la catena interrotta, con la proposta di collegamento (§7).
+- (Rev27) Un fabbisogno **una tantum** non ha rinnovi: il solo previsto è quello manuale, finché non è registrato un contratto sul fabbisogno; la decisione di continuità non conta (anche `Dismettere`), e il suo avvio resta in alert come ogni previsto manuale (TC-21).
 - I contratti una tantum (Rev11) non contano: non generano previsti, non interrompono la catena e non sono proposti come predecessori o successori. Un fabbisogno con soli contratti una tantum ha previsti solo dal previsto manuale.
 - La classificazione del previsto (natura, conto, WBS) è quella decisa per i rinnovi sulla voce d'origine, se c'è, altrimenti quella della voce; per il previsto manuale, quella del fabbisogno. Un previsto è finanziato solo se resta su una WBS a progetto.
 - Un contratto scaduto da tempo, senza successore e con decisione `Rinnovare` o `Da valutare`, genera previsti anche per periodi già trascorsi. Nei report di budget dell'anno X entrano solo i previsti che finiscono dal 01/01/X in poi; gli altri non entrano, e il fabbisogno è segnalato come **rinnovo mancante**.
 
 - I contratti previsti entrano in tutte e tre le viste di budget, marcati come "previsionali" e filtrabili.
-- Nuovi fabbisogni (senza contratto predecessore) si inseriscono a mano come previsti, con i dati del **previsto manuale** sul fabbisogno (§4).
+- Nuovi fabbisogni (senza contratto predecessore) si inseriscono a mano come previsti, con i dati del **previsto manuale** sul fabbisogno (§4). Un acquisto unico si segna **una tantum**.
 
 ### 5.4 Output per il Procurement
 
