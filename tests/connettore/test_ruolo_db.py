@@ -41,7 +41,8 @@ def test_privilegi(capsys):
         assert not privilegio(tabella, "DELETE") and not privilegio(tabella, "TRUNCATE")
     # Processo d'acquisto (F12.2): come il resto del dominio.
     for tabella in ("contratti_richiestaacquisto", "contratti_posizionerda", "contratti_eventorda",
-                    "contratti_fattura", "contratti_documentoesecuzione"):  # fmt: skip
+                    "contratti_fattura", "contratti_documentoesecuzione",
+                    "contratti_stanziamento", "contratti_competenzadichiarata"):  # fmt: skip
         assert privilegio(tabella, "INSERT") and privilegio(tabella, "UPDATE")
         assert not privilegio(tabella, "DELETE") and not privilegio(tabella, "TRUNCATE")
     # ...tranne le rate generate, che lo scadenzario sostituisce.

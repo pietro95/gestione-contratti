@@ -3,6 +3,7 @@
 import datetime
 import json
 import logging
+import sys
 import time
 from urllib.parse import urlparse
 
@@ -124,9 +125,19 @@ def endpoint(request):
         risposta, esito = protocollo.gestisci(messaggio, ctx)
     except Exception:
         logger.exception("errore interno del connettore MCP")
-        _registra(request, inizio, RegistroChiamata.Esito.ERRORE_PROTOCOLLO, **comuni)
+        # Nel registro delle chiamate (solo Admin) tipo e testo dell'eccezione; al client solo
+        # il tipo: il testo può contenere dettagli del database.
+        errore = sys.exc_info()[1]
+        _registra(
+            request,
+            inizio,
+            RegistroChiamata.Esito.ERRORE_PROTOCOLLO,
+            messaggio=f"{type(errore).__name__}: {errore}"[:300],
+            **comuni,
+        )
         id_ = messaggio.get("id") if isinstance(messaggio, dict) else None
-        return JsonResponse(protocollo._errore(id_, protocollo.INTERNAL_ERROR, "Errore interno."))
+        dettaglio = f"Errore interno ({type(errore).__name__}). Dettagli nel registro del server."
+        return JsonResponse(protocollo._errore(id_, protocollo.INTERNAL_ERROR, dettaglio))
     _registra(
         request,
         inizio,

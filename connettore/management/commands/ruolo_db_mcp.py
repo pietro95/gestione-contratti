@@ -43,6 +43,9 @@ DOMINIO = {
     "EventoRDA": "INSERT, UPDATE",
     "Fattura": "INSERT, UPDATE",
     "DocumentoEsecuzione": "INSERT, UPDATE",
+    # Stanziamenti (SPEC_MCP Rev09) e competenza dichiarata (Rev10).
+    "Stanziamento": "INSERT, UPDATE",
+    "CompetenzaDichiarata": "INSERT, UPDATE",
 }
 
 
