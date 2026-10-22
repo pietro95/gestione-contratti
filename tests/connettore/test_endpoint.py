@@ -177,8 +177,12 @@ def test_errore_interno_non_espone_dettagli(mcp_post, utente_reader, crea_token,
     )
     r = mcp_post(chiama("riferimenti"), token=crea_token(utente_reader))
     assert r.status_code == 200
-    assert r.json()["error"] == {"code": -32603, "message": "Errore interno."}
-    assert "dettaglio" not in r.content.decode()
+    errore = r.json()["error"]
+    # Al client solo il tipo dell'eccezione, mai il testo (può contenere dettagli del database).
+    assert errore["code"] == -32603 and errore["message"].startswith(
+        "Errore interno (RuntimeError)"
+    )
+    assert "dettaglio interno" not in r.content.decode()
 
 
 def test_tool_con_link_dal_container_pubblico(mcp_post, utente_reader, crea_token, archivio):
@@ -232,3 +236,18 @@ def test_scrittura_via_http_solo_con_lo_scope(mcp_post, make_user, crea_token):
         ("crea_fornitore", "ok"),
         ("conferma_operazione", "ok"),
     ]
+
+
+def test_errore_interno_indica_il_tipo_e_registra_il_testo(
+    mcp_post, utente_reader, crea_token, monkeypatch
+):
+    from connettore import protocollo
+
+    def guasto(*args, **kwargs):
+        raise ValueError("segreto del database")
+
+    monkeypatch.setattr(protocollo, "gestisci", guasto)
+    r = mcp_post(INIT, token=crea_token(utente_reader))
+    testo = r.json()["error"]["message"]
+    assert "ValueError" in testo and "segreto" not in testo  # al client solo il tipo
+    assert "segreto del database" in RegistroChiamata.objects.latest("pk").messaggio
