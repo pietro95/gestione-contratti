@@ -10,13 +10,15 @@ Regole:
   passa da django-simple-history.
 """
 
+import re
+
 from django import forms as django_forms
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.validators import URLValidator
 from django.db import models
 from django.db.models import F, Q
 from django.utils import timezone
+from django.utils.deconstruct import deconstructible
 from simple_history.models import HistoricalRecords
 
 from contratti.engine.acquisti import importo_posizione
@@ -26,39 +28,69 @@ def importo(verbose_name, **kwargs):
     return models.DecimalField(verbose_name, max_digits=14, decimal_places=2, **kwargs)
 
 
-class LinkDocumentiValidator(URLValidator):
-    """http(s) e i percorsi del NAS aziendale (``smb://``, ``file://``, anche senza host)."""
+# Link ai documenti: http(s) e i percorsi di rete del NAS aziendale. Lista chiusa di schemi:
+# niente javascript:, data: e simili. Gli host possono essere corti (nas01), con dominio, IPv4
+# o IPv6 tra parentesi: ``URLValidator`` di Django pretende un dominio completo e rifiuterebbe
+# ``smb://nas01/share``.
+_ETICHETTA = r"[A-Za-z0-9_](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?"
+_HOST = rf"(?:{_ETICHETTA}(?:\.{_ETICHETTA})*\.?|\[[0-9A-Fa-f:.]+\])"
+_PORTA = r"(?::\d{1,5})?"
+_PERCORSO_WEB = r"(?:[/?#][^\s\x00-\x1f<>\"\\]*)?"
+# Sul NAS i nomi delle cartelle hanno spesso spazi.
+_PERCORSO_NAS = r"/[^\x00-\x1f<>\"\\]*"
+_LINK = re.compile(
+    rf"^(?:https?://(?:[^\s/@]+@)?{_HOST}{_PORTA}{_PERCORSO_WEB}"
+    rf"|smb://{_HOST}{_PORTA}(?:{_PERCORSO_NAS})?"
+    rf"|file://(?:{_HOST}(?:{_PERCORSO_NAS})?|{_PERCORSO_NAS}))$",
+    re.IGNORECASE,
+)
+MESSAGGIO_LINK = (
+    "Inserisci un link valido: http://, https://, smb:// o file:// "
+    "(es. smb://nas01/share/cartella)."
+)
 
-    schemes = ["http", "https", "smb", "file"]
+
+@deconstructible
+class LinkDocumentiValidator:
+    """http(s), ``smb://`` e ``file://`` (anche ``file:///X:/cartella``); nient'altro."""
 
     def __call__(self, value):
-        # ``file:///X:/cartella`` non ha host: Django lo rifiuterebbe.
-        if str(value).lower().startswith("file:///") and " " not in str(value):
-            return
-        super().__call__(value)
+        if not _LINK.match(str(value)):
+            raise ValidationError(MESSAGGIO_LINK, code="invalid")
+
+    def __eq__(self, other):
+        return isinstance(other, LinkDocumentiValidator)
 
 
-class LinkDocumentiFormField(django_forms.URLField):
+def unc_in_file(valore: str) -> str:
+    """Percorso UNC di Windows (due barre inverse, server, share) → ``file://server/share``."""
+    if valore.startswith("\\\\") and not valore.startswith("\\\\\\"):
+        return "file://" + valore[2:].replace("\\", "/")
+    return valore
+
+
+class LinkDocumentiFormField(django_forms.CharField):
+    """Campo del form: percorsi UNC di Windows normalizzati in ``file://``, poi la whitelist."""
+
     default_validators = [LinkDocumentiValidator()]
 
     def to_python(self, value):
-        valore = (value or "").strip()
-        if valore.lower().startswith(("smb://", "file://")):
-            return valore  # percorsi del NAS: niente normalizzazione da URL web
-        return super().to_python(value)
+        valore = super().to_python(value)
+        if not valore:
+            return valore
+        # Senza schema (es. «sharepoint.example/doc») vale https, come prima.
+        if "://" not in valore and not valore.startswith("\\\\"):
+            valore = "https://" + valore
+        return unc_in_file(valore)
 
 
 class HttpsURLField(models.URLField):
-    """Link senza schema interpretati come https (default di Django 6.0).
-
-    Ammette anche ``smb://`` e ``file://``: i documenti stanno sul NAS interno.
-    """
+    """Link ai documenti: http(s) e percorsi di rete (``smb://``, ``file://``, UNC)."""
 
     default_validators = [LinkDocumentiValidator()]
 
     def formfield(self, **kwargs):
         kwargs.setdefault("form_class", LinkDocumentiFormField)
-        kwargs.setdefault("assume_scheme", "https")
         return super().formfield(**kwargs)
 
 
