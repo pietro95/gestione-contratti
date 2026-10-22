@@ -278,3 +278,26 @@ def test_maschera_e_scheda_della_rda(scenario, rda_inserita, client):
     assert client.login(username="rossi", password=PASSWORD)
     m.RichiestaAcquisto.objects.filter(pk=rda_inserita.pk).update(data_rilascio=None)
     assert 'name="rda"' not in client.get(reverse("contratti:rilasci")).content.decode()
+
+
+def test_migration_marca_rilasciati_i_documenti_gia_registrati(scenario):
+    import importlib
+
+    from django.apps import apps
+
+    migrazione = importlib.import_module("contratti.migrations.0047_documenti_gia_rilasciati")
+    fa, contratto = scenario["fattura"], scenario["fattura"].contratto
+    rdc = m.DocumentoEsecuzione.objects.create(
+        contratto=contratto, fattura=fa, tipo=Tipo.ODA, numero="1", data=D(2026, 10, 2)
+    )
+    ddt = m.DocumentoEsecuzione.objects.create(
+        contratto=contratto, tipo=Tipo.DDT, numero="2", data=D(2026, 10, 3)
+    )
+    senza_fattura = m.DocumentoEsecuzione.objects.create(
+        contratto=contratto, tipo=Tipo.MAP, numero="3", data=D(2026, 10, 4)
+    )
+    migrazione.marca_rilasciati(apps, None)
+    for d in (rdc, ddt, senza_fattura):
+        d.refresh_from_db()
+    assert rdc.data_rilascio == D(2026, 10, 2) and rdc.rilasciato_da is None
+    assert ddt.data_rilascio is None and senza_fattura.data_rilascio is None
