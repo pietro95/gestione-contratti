@@ -80,6 +80,7 @@ class Filtri:
     natura: str = ""  # vuoto: entrambe, da presentare separate
     wbs: int | None = None
     sottocluster: int | None = None  # pk del sottocluster del fabbisogno
+    fabbisogno: int | None = None  # un solo fabbisogno (confronto con la competenza dichiarata)
 
     def ammette(self, cl: adapters.Classificazione) -> bool:
         """La voce, con la sua classificazione, entra in questo budget?"""
@@ -283,6 +284,8 @@ def _contratti(filtri: Filtri):
         qs = qs.filter(fornitore_id=filtri.fornitore)
     if filtri.sottocluster:
         qs = qs.filter(fabbisogno__sottocluster_id=filtri.sottocluster)
+    if filtri.fabbisogno:
+        qs = qs.filter(fabbisogno_id=filtri.fabbisogno)
     return qs.select_related("fabbisogno__cluster", "fornitore", "procedura").prefetch_related(
         *adapters.PREFETCH_CALCOLO
     )
@@ -347,6 +350,8 @@ def _voci_previste(filtri: Filtri, oggi: datetime.date):
         fabbisogni = fabbisogni.filter(cluster__codice__in=codici)
     if filtri.sottocluster:
         fabbisogni = fabbisogni.filter(sottocluster_id=filtri.sottocluster)
+    if filtri.fabbisogno:
+        fabbisogni = fabbisogni.filter(pk=filtri.fabbisogno)
     voci: list[VoceBudget] = []
     mancanti: list[RinnovoMancante] = []
     for f in fabbisogni.order_by("pk"):

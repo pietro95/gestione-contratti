@@ -279,6 +279,24 @@ def archivia(oggetto, archiviato: bool = True) -> None:
     oggetto.save(update_fields=["archiviato"])
 
 
+def dichiara_competenza(
+    fabbisogno: m.Fabbisogno, anno: int, natura: str, importo, note: str = ""
+) -> m.CompetenzaDichiarata:
+    """Competenza dichiarata dal referente per fabbisogno, anno e natura (SPEC §4, Rev27).
+
+    Una sola per fabbisogno, anno e natura: una nuova dichiarazione sostituisce la
+    precedente (la storia delle modifiche conserva i valori di prima) e riattiva
+    un'eventuale dichiarazione archiviata.
+    """
+    dichiarata = m.CompetenzaDichiarata.objects.filter(
+        fabbisogno=fabbisogno, anno=anno, natura=natura
+    ).first() or m.CompetenzaDichiarata(fabbisogno=fabbisogno, anno=anno, natura=natura)
+    dichiarata.importo, dichiarata.note, dichiarata.archiviato = importo, note, False
+    dichiarata.full_clean()
+    dichiarata.save()
+    return dichiarata
+
+
 def salva_rata_manuale(rata: m.Rata) -> m.Rata:
     """Rata cambiata a mano dall'interfaccia: resta marcata come tale (CLAUDE.md, regola 6)."""
     rata.modificata_manualmente = True

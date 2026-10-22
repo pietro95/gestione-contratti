@@ -674,3 +674,21 @@ viste della release 2.0, con le regole di F10 (lettura) e F10.1 (anteprima e con
 **Accettazione:** SPEC_MCP §8.4 e §11.5; per ogni tool Reader 403 ed equivalenza con
 l'interfaccia; TC-18 ricostruito via MCP (presa in carico multipla, rifiuto «già in carico»,
 convalida bloccata, commento per PAC).
+
+## F13 — Correzioni dopo le prime prove dei referenti (Rev27)
+
+Bozza da approvare (SPEC Rev27, SPEC_MCP Rev10). Nasce dalle prove sui fabbisogni caricati dai
+referenti: previsti sovrastimati, doppio conteggio del consumo, rate fittizie a consumo, campi
+mancanti. GUI e connettore si allineano insieme.
+
+- **Una tantum e stima**: flag sul fabbisogno (un solo previsto, nessun rinnovo); la stima è
+  l'importo complessivo atteso e il consumo non si somma (TC-21 a, b).
+- **A consumo**: nessuna rata programmata; migrazione che toglie le rate generate da zero
+  (TC-21 c).
+- **Campi del fabbisogno**: motivazione, priorità, tipo d'acquisto, fonte della stima, note.
+- **Competenza dichiarata** dal referente, a confronto con il calcolo (TC-22).
+- **Connettore**: referente per nome, procedura per codice, `link_documenti` anche `smb://` e
+  `file://`, `dichiara_competenza`; elenco dei divari residui con la GUI (SPEC_MCP §8.2).
+
+**Accettazione:** TC-21 e TC-22 con test automatici; Reader 403 sulle nuove viste e sui nuovi
+tool; anteprima MCP senza scritture; `ruff`, `pytest`, `makemigrations --check` puliti.

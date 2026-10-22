@@ -1,5 +1,6 @@
 """Regole di generazione dello scadenzario e della cassa (SPEC Rev02 §4, §5.2)."""
 
+from dataclasses import replace
 from decimal import Decimal
 
 from contratti.engine.budget import calcola
@@ -35,7 +36,7 @@ def test_intera_durata_una_rata():
     assert [(r.data_fattura, r.importo) for r in rate] == [(D(2028, 12, 31), euro("900.00"))]
 
 
-def test_consumo_rate_mensili_posticipate():
+def test_consumo_nessuna_rata_programmata():
     v = voce(
         "0.00",
         D(2026, 1, 1),
@@ -44,15 +45,32 @@ def test_consumo_rate_mensili_posticipate():
         massimale_variabile=euro("1200.00"),
         stima_consumo_pct=euro("50"),
     )
-    rate = genera_rate(v)
-    assert len(rate) == 12
-    assert rate[0].data_fattura == D(2026, 1, 31)
-    assert rate[-1].data_fattura == D(2026, 12, 31)
-    viste, _ = calcola([v])
-    # Fisso zero: il variabile si distribuisce sui giorni dei periodi.
+    assert genera_rate(v) == []
+    viste, esiti = calcola([v])
+    # La spesa si distribuisce sul periodo (pro-rata a giorni), senza avvisi: non c'è un
+    # calendario di fatturazione.
     assert viste["cassa"].totale(Livello.PROBABILE) == euro("600.00")
     assert viste["cassa"].totale(Livello.MASSIMO) == euro("1200.00")
     assert viste["cassa"].totale(Livello.FISSO) == euro("0.00")
+    assert esiti == []
+
+
+def test_consumo_ignora_la_data_della_prima_fattura():
+    # Sicuritalia: fisso 0, massimale 20.000, «prima fattura» il 28/02/2026: niente rate da 0.
+    v = voce(
+        "0.00",
+        D(2026, 3, 1),
+        D(2028, 2, 29),
+        piano=replace(piano("consumo"), data_prima_fattura=D(2026, 2, 28)),
+        massimale_variabile=euro("20000.00"),
+    )
+    assert genera_rate(v) == []
+    viste, _ = calcola([v])
+    for anno in (2026, 2027, 2028):
+        assert viste["cassa"].importo(anno, Livello.MASSIMO) == viste["competenza"].importo(
+            anno, Livello.MASSIMO
+        )
+    assert viste["cassa"].totale(Livello.MASSIMO) == euro("20000.00")
 
 
 def test_sal_senza_rate_cassa_a_pro_rata_segnalata():

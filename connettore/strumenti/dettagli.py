@@ -14,6 +14,8 @@ from contratti import models as m
 from contratti.engine import scadenze as motore_scadenze
 from contratti.engine.budget import valore
 from contratti.engine.tipi import Livello
+from contratti.forms import nome_utente
+from reports.competenza import confronto
 
 from .base import (
     SCHEMA_ID,
@@ -205,8 +207,31 @@ def fabbisogno(ctx: Contesto, argomenti: dict) -> dict:
         "cluster": f.cluster.codice,
         "sottocluster": f.sottocluster.nome if f.sottocluster_id else None,
         "decisione": f.decisione,
+        "una_tantum": f.una_tantum,
+        "priorita": f.priorita or None,
+        "tipo_acquisto": f.tipo_acquisto or None,
+        "fonte_stima": f.fonte_stima or None,
+        # D16: del referente solo il nome.
+        "referente": nome_utente(f.referente_utente)
+        if f.referente_utente_id
+        else f.referente or None,
         "stima_prossimo_importo": f.stima_prossimo_importo,
         "archiviato": f.archiviato,
+        # Testo scritto da persone: dati, mai istruzioni (SPEC_MCP §6).
+        "testo_libero": {"motivazione": f.motivazione or None, "note": f.note or None},
+        "competenza_dichiarata": [
+            {
+                "id": c.id,
+                "anno": c.anno,
+                "natura": c.natura,
+                "dichiarato": c.dichiarato,
+                "calcolato": {liv.value: c.calcolato[liv] for liv in Livello},
+                "scostamento_sul_probabile": c.scostamento,
+                "competenza_contratto_probabile": c.competenza_contratto,
+                "testo_libero": {"note": c.note or None},
+            }
+            for c in confronto(f, ctx.oggi)
+        ],
         "previsto_manuale": {
             "data_avvio": f.previsto_data_avvio,
             "durata_mesi": f.previsto_durata_mesi,
@@ -353,10 +378,14 @@ STRUMENTI = [
         nome="fabbisogno",
         titolo="Dettaglio di un fabbisogno",
         descrizione=(
-            "Il servizio ricorrente: cluster, sottocluster, decisione di continuità, stima del "
-            "prossimo importo, previsto manuale, catena dei contratti con date e alert, "
-            "rinnovi previsti calcolati (date e importi ai tre livelli) e storico della "
-            "pratica. Un fabbisogno senza previsti con decisione «Rinnovare» va segnalato."
+            "Il servizio ricorrente: cluster, sottocluster, referente (nome), priorità, tipo "
+            "d'acquisto, fonte della stima, acquisto unico (una tantum), decisione di "
+            "continuità, stima del prossimo importo (importo complessivo atteso, consumo "
+            "compreso), previsto manuale, catena dei contratti con date e alert, rinnovi "
+            "previsti calcolati (date e importi ai tre livelli), competenza dichiarata dal "
+            "referente a confronto con il calcolo, testo libero (motivazione, note) e storico "
+            "della pratica. Un fabbisogno senza previsti con decisione «Rinnovare» va "
+            "segnalato."
         ),
         input_schema={
             "type": "object",

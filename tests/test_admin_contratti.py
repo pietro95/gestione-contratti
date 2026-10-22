@@ -58,6 +58,9 @@ def dati():
         sottocluster=sottocluster, anno=2026, natura="OPEX", importo=Decimal("1000.00")
     )
     m.FonteFinanziamento.objects.create(nome="Fonte di prova")
+    m.CompetenzaDichiarata.objects.create(
+        fabbisogno=c.fabbisogno, anno=2027, natura="OPEX", importo=Decimal("1000.00")
+    )
     m.AssegnazioneCluster.objects.create(username="responsabile.prova", cluster=it)
     successore = f.contratto(fabbisogno=c.fabbisogno, numero_contratto="5800000002")
     m.PropostaPredecessore.objects.create(

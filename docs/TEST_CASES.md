@@ -602,3 +602,42 @@ Fatture e stanziamenti (abbinati alla rata, valore base):
   solo marzo; annullato, torna proposta. Contratto chiuso: nessuna proposta. Conferma di marzo:
   stanziamento di 1.000,00 € con competenza 01/03/2026–31/03/2026; una seconda conferma, o la
   conferma di aprile, è rifiutata.
+
+## TC-21 — Acquisto unico, stima complessiva, consumo senza rate
+
+SPEC §4, §5.2, §5.3 (Rev27), **bozza da approvare**. Orizzonte di default (3 anni), adeguamento
+dei rinnovi ininfluente (il caso non ne usa).
+
+- **(a) Acquisto unico.** Fabbisogno nuovo, una tantum, senza contratti: avvio previsto
+  01/03/2027, durata 1 mese, `Posticipata` intera durata, stima 3.000,00 €. Atteso: **un solo
+  previsto** (01/03/2027–31/03/2027, 3.000,00 €), con decisione `Da valutare`, `Rinnovare` o
+  `Dismettere`; competenza 2027 = 3.000,00 €, 2026, 2028 e 2029 = 0,00 €. Con durata 12 mesi lo
+  stesso: un solo previsto (01/03/2027–29/02/2028). Senza il flag lo stesso fabbisogno genera un
+  previsto a ogni scadenza fino all'orizzonte. Registrato un contratto sul fabbisogno: nessun
+  previsto. Un fabbisogno una tantum con decisione `Dismettere` resta in alert, come previsto
+  manuale con avvio da attuare; senza il flag `Dismettere` toglie l'alert.
+- **(b) Stima complessiva.** Contratto in scadenza: fisso 5.000,00 €, massimale 5.000,00 €, stima
+  di consumo 3.600,00 € (probabile 8.600,00 €). Rinnovo con stima del fabbisogno di 8.600,00 €:
+  previsto fisso 8.600,00 €, massimale 0,00 €, **probabile 8.600,00 € e massimo 8.600,00 €** (non
+  13.600,00 €); i previsti successivi partono dalla stima senza consumo. Contratto a consumo con
+  fisso 0,00 € e massimale 20.000,00 €, stima 20.000,00 €: previsto 20.000,00 € (non 40.000,00 €).
+  Senza stima: il consumo si replica (probabile 8.600,00 €, massimo 10.000,00 €).
+- **(c) A consumo senza rate.** Voce con fisso 0,00 €, massimale 20.000,00 €, dal 01/03/2026 al
+  29/02/2028, piano `A consumo` con «prima fattura» 28/02/2026. Atteso: **nessuna rata** (non 24
+  rate da 0,00 €); fatturazione e competenza a livello massimo coincidono anno per anno, totale
+  20.000,00 €, nessun avviso `CASSA_PRO_RATA`.
+
+## TC-22 — Competenza dichiarata a confronto con il calcolo
+
+SPEC §4, §5.2 (Rev27), **bozza da approvare**.
+
+Input: fabbisogno con un contratto dal 01/01/2027, 12 mesi, 11.393,00 € fissi, `Anticipata`
+annuale (una rata da 11.393,00 € il 01/01/2027). Il referente dichiara per il 2027, OPEX,
+10.000,00 €.
+- Atteso: calcolato (probabile) 11.393,00 €; **scostamento −1.393,00 €**. Dichiarazione CAPEX
+  per lo stesso anno: indipendente (OPEX e CAPEX mai sommati).
+- Dichiarare di nuovo lo stesso anno e la stessa natura sostituisce l'importo; la storia conserva
+  il valore di prima. Importo negativo: errore di validazione. Archiviata, la dichiarazione esce
+  dal confronto.
+- Il Reader non dichiara né archivia (403); un Editor di un altro cluster neppure.
+

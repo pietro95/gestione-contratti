@@ -121,6 +121,14 @@ class BudgetSottoclusterAdmin(ArchiviabileAdmin):
     autocomplete_fields = ("sottocluster",)
 
 
+@admin.register(m.CompetenzaDichiarata)
+class CompetenzaDichiarataAdmin(ArchiviabileAdmin):
+    list_display = ("fabbisogno", "anno", "natura", "importo", "archiviato")
+    list_filter = ("anno", "natura", "fabbisogno__cluster", "archiviato")
+    search_fields = ("fabbisogno__descrizione", "note")
+    autocomplete_fields = ("fabbisogno",)
+
+
 @admin.register(m.WBS)
 class WBSAdmin(ArchiviabileAdmin):
     list_display = (
@@ -278,7 +286,11 @@ class FabbisognoAdmin(ArchiviabileAdmin):
             },
         ),
         ("Responsabilità", {"fields": ("referente", "referente_utente")}),
-        ("Continuità", {"fields": ("decisione", "stima_prossimo_importo", "note")}),
+        ("Motivazione", {"fields": ("motivazione", "priorita", "tipo_acquisto", "fonte_stima")}),
+        (
+            "Continuità",
+            {"fields": ("decisione", "una_tantum", "stima_prossimo_importo", "note")},
+        ),
         (
             "Previsto manuale (fabbisogno senza contratti)",
             {

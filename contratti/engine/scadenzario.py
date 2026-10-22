@@ -36,8 +36,6 @@ def data_pagamento(data_fattura: datetime.date, piano: Piano) -> datetime.date:
 
 
 def mesi_periodo(piano: Piano, inizio: datetime.date, fine: datetime.date) -> int | None:
-    if piano.modalita == Modalita.CONSUMO:
-        return 1
     if piano.periodicita == INTERA_DURATA or not piano.periodicita:
         return None
     return MESI_PERIODICITA[piano.periodicita]
@@ -89,8 +87,9 @@ def quote_valide(voce: Voce) -> tuple[Quota, ...] | None:
 def genera_rate(voce: Voce, importo: Decimal | None = None) -> list[Rata]:
     """Rate della quota fissa (o di ``importo``) secondo il piano della voce.
 
-    SAL e Da verificare non generano rate: le prime si inseriscono a mano, per le
-    seconde la cassa usa il pro-rata (SPEC §4). Con quote per periodo coerenti, ogni
+    SAL, Da verificare e A consumo non generano rate: le prime si inseriscono a mano, per le
+    altre la cassa usa il pro-rata a giorni (SPEC §4; per il consumo senza avviso, perché
+    non c'è un calendario di fatturazione da rispettare). Con quote per periodo coerenti, ogni
     quota si fattura come una voce a sé, con lo stesso piano; la numerazione prosegue.
     """
     piano = voce.piano
@@ -111,7 +110,11 @@ def genera_rate(voce: Voce, importo: Decimal | None = None) -> list[Rata]:
         return rate
 
     totale = voce.importo_fisso if importo is None else importo
-    if piano is None or piano.modalita in (Modalita.SAL, Modalita.DA_VERIFICARE):
+    if piano is None or piano.modalita in (
+        Modalita.SAL,
+        Modalita.DA_VERIFICARE,
+        Modalita.CONSUMO,
+    ):
         return []
 
     if piano.modalita == Modalita.UNA_TANTUM:
@@ -124,7 +127,7 @@ def genera_rate(voce: Voce, importo: Decimal | None = None) -> list[Rata]:
     elenco = periodi(voce.inizio, voce.fine, mesi)
     importi = ripartisci(totale, [p.peso for p in elenco])
 
-    posticipata = piano.modalita in (Modalita.POSTICIPATA, Modalita.CONSUMO)
+    posticipata = piano.modalita == Modalita.POSTICIPATA
     rate = []
     for k, (p, quota) in enumerate(zip(elenco, importi, strict=True)):
         if piano.data_prima_fattura and mesi is not None:

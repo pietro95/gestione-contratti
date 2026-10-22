@@ -413,6 +413,11 @@ def previsti_fabbisogno(
     """Contratti previsti del fabbisogno fino all'orizzonte (SPEC §5.3)."""
     if fabbisogno.archiviato:
         return []
+    if fabbisogno.una_tantum:
+        # Acquisto unico: un solo previsto, finché non è registrato un contratto; mai rinnovi.
+        if any(not c.archiviato for c in fabbisogno.contratti.all()):
+            return []
+        return _previsti_manuali(fabbisogno, orizzonte)
     contratto = contratto_base_previsti(fabbisogno)
     if contratto is None:
         # Con soli contratti una tantum valgono i dati del previsto manuale (Rev11).
@@ -442,7 +447,8 @@ def contratto_base(contratto: m.Contratto) -> ContrattoBase:
 def _previsti_manuali(fabbisogno: m.Fabbisogno, orizzonte: datetime.date):
     if (
         fabbisogno.previsto_data_avvio is None
-        or fabbisogno.decisione == m.Fabbisogno.Decisione.DISMETTERE
+        # La decisione di continuità non riguarda un acquisto unico.
+        or (fabbisogno.decisione == m.Fabbisogno.Decisione.DISMETTERE and not fabbisogno.una_tantum)
         or fabbisogno.previsto_data_avvio > orizzonte
     ):
         return []
@@ -465,6 +471,8 @@ def _previsti_manuali(fabbisogno: m.Fabbisogno, orizzonte: datetime.date):
         importo=fabbisogno.stima_prossimo_importo or Decimal(0),
         piano=piano,
     )
+    if fabbisogno.una_tantum:
+        return [primo]
     base = ContrattoBase(primo.fine, fabbisogno.previsto_durata_mesi, primo.voci)
     seguenti = previsioni.previsti(
         base,
