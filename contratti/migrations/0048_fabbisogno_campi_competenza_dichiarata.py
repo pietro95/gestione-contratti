@@ -8,7 +8,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("contratti", "0044_rda_sottocluster"),
+        ("contratti", "0047_documenti_gia_rilasciati"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

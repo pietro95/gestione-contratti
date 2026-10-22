@@ -19,6 +19,6 @@ def togli_rate_fittizie(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-    dependencies = [("contratti", "0045_fabbisogno_campi_competenza_dichiarata")]
+    dependencies = [("contratti", "0048_fabbisogno_campi_competenza_dichiarata")]
 
     operations = [migrations.RunPython(togli_rate_fittizie, migrations.RunPython.noop)]
