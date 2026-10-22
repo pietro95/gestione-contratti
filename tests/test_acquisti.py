@@ -587,10 +587,12 @@ def test_lavorazione_della_fattura_rev14(referente):
     assert fatture.documento_proposto(fa) == "MAP"
     assert fatture.passo_fattura(fa, D(2026, 3, 2)) == PassoFattura.RDC
     m.DocumentoEsecuzione.objects.create(
-        contratto=c, tipo="ODA_RDC", data=D(2026, 3, 5), fattura=fa
+        contratto=c, tipo="ODA_RDC", data=D(2026, 3, 5), fattura=fa, data_rilascio=D(2026, 3, 5)
     )
     assert fatture.passo_fattura(fa, D(2026, 3, 6)) == PassoFattura.MAP_MIGO
-    m.DocumentoEsecuzione.objects.create(contratto=c, tipo="MAP", data=D(2026, 3, 18), fattura=fa)
+    m.DocumentoEsecuzione.objects.create(
+        contratto=c, tipo="MAP", data=D(2026, 3, 18), fattura=fa, data_rilascio=D(2026, 3, 18)
+    )
     assert fatture.passo_fattura(fa, D(2026, 3, 19)) == PassoFattura.TRASFERIMENTO
     fatture.trasferisci(fa, referente, D(2026, 3, 20))
     assert fatture.passo_fattura(fa, D(2026, 3, 21)) is None

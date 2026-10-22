@@ -236,14 +236,17 @@ def rda_ferma(d: DatiRDA, oggi: datetime.date, giorni: int) -> bool:
 
 
 # Lavorazione della fattura (Rev14, Rev15): presa in carico → assegnazione al contratto →
-# convalida del referente → RdC → MAP o MIGO → trasferimento per il pagamento.
+# convalida del referente → RdC → rilascio della RdC → MAP o MIGO → rilascio del MAP o MIGO →
+# trasferimento per il pagamento.
 class PassoFattura(StrEnum):
     PRESA_IN_CARICO = "presa_in_carico"
     ASSEGNAZIONE = "assegnazione"
     CONVALIDA = "convalida"
     BLOCCATA = "bloccata"
     RDC = "rdc"
+    RDC_RILASCIO = "rdc_rilascio"
     MAP_MIGO = "map_migo"
+    MAP_MIGO_RILASCIO = "map_migo_rilascio"
     TRASFERIMENTO = "trasferimento"
 
 
@@ -253,7 +256,9 @@ ETICHETTE_PASSO = {
     PassoFattura.CONVALIDA: "Da convalidare",
     PassoFattura.BLOCCATA: "Bloccata",
     PassoFattura.RDC: "RdC da fare",
+    PassoFattura.RDC_RILASCIO: "RdC da rilasciare",
     PassoFattura.MAP_MIGO: "MAP/MIGO da fare",
+    PassoFattura.MAP_MIGO_RILASCIO: "MAP/MIGO da rilasciare",
     PassoFattura.TRASFERIMENTO: "Da trasferire",
 }
 TIPI_ACCETTAZIONE = frozenset({"MAP", "MIGO"})
@@ -293,8 +298,17 @@ def bloccata(lav: LavorazioneFattura, oggi: datetime.date) -> bool:
     return lav.bloccata_fino_al is not None and lav.bloccata_fino_al >= oggi
 
 
+# Un documento è (tipo, data) oppure (tipo, data, rilasciato): senza il terzo elemento vale
+# già rilasciato, così i casi di prova precedenti al rilascio restano validi.
+Documento = tuple[str, datetime.date] | tuple[str, datetime.date, bool]
+
+
+def _rilasciato(d: Documento) -> bool:
+    return d[2] if len(d) > 2 else True
+
+
 def passo_fattura(
-    documenti: Iterable[tuple[str, datetime.date]],
+    documenti: Iterable[Documento],
     oggi: datetime.date,
     trasferita: datetime.date | None = None,
     lavorazione: LavorazioneFattura = GIA_CONVALIDATA,
@@ -311,16 +325,22 @@ def passo_fattura(
         return PassoFattura.BLOCCATA
     if not convalidata(lavorazione, oggi):
         return PassoFattura.CONVALIDA
-    tipi = {tipo for tipo, data in documenti if data <= oggi}
-    if "ODA_RDC" not in tipi:
+    presenti = [d for d in documenti if d[1] <= oggi]
+    rdc = [d for d in presenti if d[0] == "ODA_RDC"]
+    if not rdc:
         return PassoFattura.RDC
-    if not tipi & TIPI_ACCETTAZIONE:
+    if not any(_rilasciato(d) for d in rdc):
+        return PassoFattura.RDC_RILASCIO
+    accettazione = [d for d in presenti if d[0] in TIPI_ACCETTAZIONE]
+    if not accettazione:
         return PassoFattura.MAP_MIGO
+    if not any(_rilasciato(d) for d in accettazione):
+        return PassoFattura.MAP_MIGO_RILASCIO
     return PassoFattura.TRASFERIMENTO
 
 
 def fattura_da_lavorare(
-    documenti: Iterable[tuple[str, datetime.date]],
+    documenti: Iterable[Documento],
     oggi: datetime.date,
     trasferita: datetime.date | None = None,
     lavorazione: LavorazioneFattura = GIA_CONVALIDATA,
@@ -333,7 +353,7 @@ def fattura_da_lavorare(
 
 def fattura_ferma(
     registrata: datetime.date,
-    documenti: Iterable[tuple[str, datetime.date]],
+    documenti: Iterable[Documento],
     oggi: datetime.date,
     giorni: int,
     trasferita: datetime.date | None = None,

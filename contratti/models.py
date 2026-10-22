@@ -484,6 +484,8 @@ class FunzioneUtente(Archiviabile):
 
     class Funzione(models.TextChoices):
         AMMINISTRAZIONE_ACQUISTI = "amministrazione_acquisti", "Amministrazione acquisti"
+        # Rilascia su SAP RdC, MAP e MIGO delle fatture (SPEC §4, §5.7).
+        RILASCIO_SAP = "rilascio_sap", "Addetto al rilascio"
 
     username = models.CharField("utente", max_length=150, db_index=True)
     funzione = models.CharField(max_length=40, choices=Funzione.choices)
@@ -2028,6 +2030,11 @@ class DocumentoEsecuzione(Archiviabile):
     )
     fattura = models.ForeignKey(
         Fattura, on_delete=models.PROTECT, null=True, blank=True, related_name="documenti"
+    )
+    # Rilascio su SAP di RdC, MAP e MIGO della fattura: data e utente dell'addetto al rilascio.
+    data_rilascio = models.DateField("rilasciato su SAP il", null=True, blank=True)
+    rilasciato_da = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
     )
     note = models.TextField(blank=True)
     chiave_import = models.CharField(  # noqa: DJ001

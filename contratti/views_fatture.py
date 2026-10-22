@@ -174,6 +174,72 @@ def fatture_azione(request):
     return redirect(f"{_url_elenco()}?vista={ritorno}")
 
 
+@login_required
+def rilasci(request):
+    """Maschera dell'addetto al rilascio: RdC, MAP e MIGO registrati e da rilasciare su SAP.
+    La vedono tutti; rilasciano solo Admin e addetti al rilascio."""
+    oggi = oggi_richiesta(request)
+    tipo = request.GET.get("tipo", "")
+    documenti = fatture.documenti_da_rilasciare(tipo)
+    return render(
+        request,
+        "contratti/rilasci.html",
+        {
+            "righe": [{"d": d, "giorni": (oggi - d.data).days} for d in documenti],
+            "tipo": tipo,
+            "tipi": [(t.value, t.label) for t in fatture.TIPI_DA_RILASCIARE],
+            "puo_rilasciare": fatture.puo_rilasciare(request.user),
+            "oggi": oggi,
+        },
+    )
+
+
+@editor_required
+@require_POST
+def rilasci_azione(request):
+    """Rilascia i documenti selezionati; ``ritorno`` riporta alla fattura o alla maschera."""
+    if not fatture.puo_rilasciare(request.user):
+        raise PermissionDenied("Non sei addetto al rilascio.")
+    pks = [int(v) for v in request.POST.getlist("documento") if v.isdigit()]
+    fattura = request.POST.get("fattura", "")
+    destinazione = (
+        redirect("contratti:fattura", pk=int(fattura))
+        if fattura.isdigit()
+        else redirect("contratti:rilasci")
+    )
+    if not pks:
+        messages.warning(request, "Nessun documento selezionato.")
+        return destinazione
+    esito = fatture.rilascia_documenti(pks, request.user)
+    if esito.fatte:
+        n = len(esito.fatte)
+        messages.success(
+            request, "1 documento rilasciato." if n == 1 else f"{n} documenti rilasciati."
+        )
+    for d, motivo in esito.rifiutate:
+        messages.warning(request, f"{d.get_tipo_display()} {d.numero}: {motivo}.")
+    return destinazione
+
+
+@editor_required
+@require_POST
+def rilascio_annulla(request, pk):
+    if not fatture.puo_rilasciare(request.user):
+        raise PermissionDenied("Non sei addetto al rilascio.")
+    doc = get_object_or_404(
+        m.DocumentoEsecuzione.objects.select_related("fattura"), pk=pk, archiviato=False
+    )
+    try:
+        fatture.annulla_rilascio(doc, request.user)
+    except acquisti.OperazioneNonAmmessa as exc:
+        _errore(request, exc)
+    else:
+        messages.success(request, "Rilascio annullato.")
+    if doc.fattura_id:
+        return redirect("contratti:fattura", pk=doc.fattura_id)
+    return redirect("contratti:rilasci")
+
+
 def _url_elenco():
     from django.urls import reverse
 
@@ -263,6 +329,7 @@ def fattura_dettaglio(request, pk):
             "puo_convalidare": fatture.puo_convalidare(request.user, f),
             "scrive": fatture.scrive(request.user),
             "gestisce": fatture.gestisce(request.user),
+            "puo_rilasciare": fatture.puo_rilasciare(request.user),
             "documento_proposto": fatture.documento_proposto(f),
             "indicazioni": fatture.indicazioni_validazione(f),
             "commento_pac": fatture.commento_pac(f),

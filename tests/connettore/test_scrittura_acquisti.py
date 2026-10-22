@@ -589,9 +589,12 @@ def test_tc18_via_mcp(make_user, editor, registro_fatture):
         PAC_ATTESO
     )
     assert anteprima["effetti"]["processo_acquisto"]["dopo"]["fatture"][0]["passo"] == (
-        "trasferimento"
+        "rdc_rilascio"
     )
     conferma(editor, anteprima)
+    # Il rilascio su SAP si fa dalla maschera dell'addetto, non dal connettore.
+    m.DocumentoEsecuzione.objects.filter(fattura=f13).update(data_rilascio=datetime.date.today())
+    assert ok(editor, "fattura", {"id": f13.pk})["passo"] == "trasferimento"
     assert ok(editor, "fattura", {"id": f13.pk})["commento_pac"] == PAC_ATTESO
 
 

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Prefetch
 from django.utils import timezone
@@ -47,8 +48,12 @@ QS_FATTURE = m.Fattura.objects.select_related(
 # --- Da modello a motore -------------------------------------------------------------------
 
 
-def documenti_fattura(fattura: m.Fattura) -> list[tuple[str, datetime.date]]:
-    return [(d.tipo, d.data) for d in fattura.documenti.all() if not d.archiviato]
+def documenti_fattura(fattura: m.Fattura) -> list[motore.Documento]:
+    return [
+        (d.tipo, d.data, d.data_rilascio is not None)
+        for d in fattura.documenti.all()
+        if not d.archiviato
+    ]
 
 
 def lavorazione(fattura: m.Fattura) -> motore.LavorazioneFattura:
@@ -261,6 +266,12 @@ def puo_lavorare(utente, fattura: m.Fattura) -> bool:
     if fattura.contratto_id:
         return permessi.puo_modificare_fabbisogno(utente, fattura.contratto.fabbisogno)
     return fattura.referente_id == utente.pk or gestisce(utente)
+
+
+def puo_rilasciare(utente) -> bool:
+    """Rilascia RdC, MAP e MIGO su SAP: l'Admin e chi ha la funzione «Addetto al rilascio» e
+    può scrivere (il Reader mai)."""
+    return scrive(utente) and (role_of(utente) == ADMIN or permessi.e_addetto_rilascio(utente))
 
 
 def puo_convalidare(utente, fattura: m.Fattura) -> bool:
@@ -620,6 +631,10 @@ def registra_documento(
 def _documento_modificabile(fattura: m.Fattura, doc: m.DocumentoEsecuzione) -> None:
     if doc.fattura_id != fattura.pk or doc.archiviato:
         raise OperazioneNonAmmessa("Il documento non è di questa fattura.")
+    if doc.data_rilascio is not None:
+        raise OperazioneNonAmmessa(
+            "Il documento è rilasciato su SAP: prima si annulla il rilascio."
+        )
     if doc.tipo not in (Tipo.ODA, Tipo.MAP, Tipo.MIGO):
         raise OperazioneNonAmmessa("Documento non previsto per la fattura.")
     if fattura.contratto_id and fattura.contratto.data_chiusura is not None:
@@ -655,6 +670,83 @@ def rimuovi_documento(fattura: m.Fattura, doc: m.DocumentoEsecuzione) -> None:
     doc.archiviato = True
     doc._change_reason = f"Rimosso dalla fattura {fattura.numero}"[:100]
     doc.save(update_fields=["archiviato"])
+
+
+# --- Rilascio su SAP di RdC, MAP e MIGO ------------------------------------------------------
+
+TIPI_DA_RILASCIARE = (Tipo.ODA, Tipo.MAP, Tipo.MIGO)
+
+
+def documenti_da_rilasciare(tipo: str = "") -> list[m.DocumentoEsecuzione]:
+    """RdC, MAP e MIGO registrati e non ancora rilasciati, di fatture da lavorare (non
+    trasferite, non fuori registro): la coda dell'addetto al rilascio."""
+    qs = m.DocumentoEsecuzione.objects.filter(
+        archiviato=False,
+        data_rilascio__isnull=True,
+        tipo__in=[tipo] if tipo in TIPI_DA_RILASCIARE else TIPI_DA_RILASCIARE,
+        fattura__isnull=False,
+        fattura__archiviato=False,
+        fattura__fuori_registro=False,
+        fattura__data_trasferimento__isnull=True,
+    ).select_related("fattura__fornitore", "contratto__fornitore", "contratto__fabbisogno__cluster")
+    return list(qs.order_by("data", "pk"))
+
+
+def rilascia_documenti(pks: Iterable[int], utente, data: datetime.date | None = None):
+    """Rilascia su SAP i documenti indicati (data e utente). I documenti non rilasciabili
+    sono rifiutati con il motivo, gli altri vanno avanti."""
+    if not puo_rilasciare(utente):
+        raise PermissionDenied("Non sei addetto al rilascio.")
+    data = data or timezone.localdate()
+    fatte, rifiutate = [], []
+    with transaction.atomic():
+        documenti = (
+            m.DocumentoEsecuzione.objects.select_for_update(of=("self",))
+            .select_related("fattura", "contratto")
+            .filter(pk__in=list(pks))
+            .order_by("pk")
+        )
+        for d in documenti:
+            motivo = _non_rilasciabile(d)
+            if motivo:
+                rifiutate.append((d, motivo))
+                continue
+            d.data_rilascio, d.rilasciato_da = data, utente
+            d._change_reason = f"Rilasciato su SAP ({d.fattura.numero})"[:100]
+            d.save(update_fields=["data_rilascio", "rilasciato_da"])
+            fatte.append(d)
+    return EsitoDocumenti(fatte, rifiutate)
+
+
+def _non_rilasciabile(d: m.DocumentoEsecuzione) -> str:
+    if d.archiviato or d.tipo not in TIPI_DA_RILASCIARE or d.fattura_id is None:
+        return "non è un documento da rilasciare"
+    if d.data_rilascio is not None:
+        return "è già rilasciato"
+    if d.fattura.data_trasferimento is not None:
+        return "la fattura è già trasferita"
+    if d.contratto.data_chiusura is not None:
+        return "il contratto è chiuso"
+    return ""
+
+
+def annulla_rilascio(doc: m.DocumentoEsecuzione, utente) -> None:
+    if not puo_rilasciare(utente):
+        raise PermissionDenied("Non sei addetto al rilascio.")
+    if doc.data_rilascio is None:
+        raise OperazioneNonAmmessa("Il documento non è rilasciato.")
+    if doc.fattura_id and doc.fattura.data_trasferimento is not None:
+        raise OperazioneNonAmmessa("La fattura è trasferita: prima si annulla il trasferimento.")
+    doc.data_rilascio = None
+    doc.rilasciato_da = None
+    doc._change_reason = "Rilascio annullato"
+    doc.save(update_fields=["data_rilascio", "rilasciato_da"])
+
+
+@dataclass
+class EsitoDocumenti:
+    fatte: list[m.DocumentoEsecuzione]
+    rifiutate: list[tuple[m.DocumentoEsecuzione, str]]
 
 
 def trasferisci(fattura: m.Fattura, utente=None, data=None) -> None:

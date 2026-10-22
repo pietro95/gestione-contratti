@@ -180,6 +180,7 @@ def test_fatture_tc18(registro, tmp_path, lettore):  # noqa: F811
     )
     for tipo, numero in (("ODA_RDC", "RDC-0001"), ("MAP", "MAP-0001")):
         fatture.registra_documento(fatture.QS_FATTURE.get(pk=f13.pk), tipo, numero, OGGI)
+    m.DocumentoEsecuzione.objects.filter(fattura=f13).update(data_rilascio=OGGI)
     dati = esegui(lettore, "fattura", {"id": f13.pk})
     assert dati["commento_pac"] == PAC_ATTESO
     assert dati["indicazioni_validazione"] == (
