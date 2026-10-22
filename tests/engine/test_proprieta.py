@@ -55,6 +55,9 @@ def test_competenza_quadra_con_il_valore_della_voce(v):
 @given(voci())
 def test_rate_quadrano_e_non_sono_negative(v):
     rate = genera_rate(v)
+    if v.piano.modalita == Modalita.CONSUMO:
+        assert rate == []  # a consumo non ci sono rate programmate (SPEC §4)
+        return
     assert sum((r.importo for r in rate), Decimal("0")) == valore(v, Livello.FISSO)
     assert all(r.importo >= 0 for r in rate)
     assert all(v.inizio <= (r.periodo_inizio or v.inizio) for r in rate)
@@ -106,4 +109,8 @@ def test_con_quote_tutto_quadra(v):
     for livello in Livello:
         assert viste["competenza"].totale(livello) == valore(v, livello)
         assert viste["cassa"].totale(livello) == valore(v, livello)
-    assert sum((r.importo for r in genera_rate(v)), Decimal("0")) == valore(v, Livello.FISSO)
+    rate = genera_rate(v)
+    if v.piano.modalita == Modalita.CONSUMO:
+        assert rate == []
+    else:
+        assert sum((r.importo for r in rate), Decimal("0")) == valore(v, Livello.FISSO)

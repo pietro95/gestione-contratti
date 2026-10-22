@@ -16,7 +16,7 @@ from decimal import Decimal
 from contratti.engine.date import giorni, periodi_per_anno
 from contratti.engine.importi import ZERO, arrotonda, ripartisci
 from contratti.engine.scadenzario import genera_rate, quote_valide
-from contratti.engine.tipi import Consuntivo, Esito, Livello, Rata, Totali, Voce
+from contratti.engine.tipi import Consuntivo, Esito, Livello, Modalita, Rata, Totali, Voce
 
 
 def quota_variabile(voce: Voce, livello: Livello) -> Decimal:
@@ -74,7 +74,7 @@ def cassa_per_anno(voce: Voce, livello: Livello, esiti: list[Esito]) -> dict[int
 
     Il variabile segue gli importi fissi delle rate; se il fisso è zero, i giorni dei
     periodi. Senza rate (SAL senza rate inserite, Da verificare) vale il pro-rata a
-    giorni, segnalato.
+    giorni, segnalato; a consumo vale lo stesso pro-rata, senza avviso.
     """
     rate = rate_della_voce(voce)
     variabile = quota_variabile(voce, livello)
@@ -82,12 +82,14 @@ def cassa_per_anno(voce: Voce, livello: Livello, esiti: list[Esito]) -> dict[int
 
     if not rate:
         modalita = voce.piano.modalita if voce.piano else None
-        esiti.append(
-            Esito(
-                "CASSA_PRO_RATA",
-                f"Cassa stimata a pro-rata: nessuna rata ({modalita or 'piano assente'}).",
+        # A consumo non ha un calendario di fatturazione: il pro-rata è la regola, non un avviso.
+        if modalita != Modalita.CONSUMO:
+            esiti.append(
+                Esito(
+                    "CASSA_PRO_RATA",
+                    f"Cassa stimata a pro-rata: nessuna rata ({modalita or 'piano assente'}).",
+                )
             )
-        )
         return competenza_per_anno(voce, valore(voce, livello))
 
     for rata in rate:

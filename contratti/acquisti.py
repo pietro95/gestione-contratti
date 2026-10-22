@@ -710,7 +710,7 @@ def iniziali_contratto(rda: m.RichiestaAcquisto, oggi: datetime.date | None = No
     return iniziali
 
 
-MODALITA_CON_RATE = frozenset({"anticipata", "posticipata", "una_tantum", "consumo"})
+MODALITA_CON_RATE = frozenset({"anticipata", "posticipata", "una_tantum"})
 
 
 @transaction.atomic
