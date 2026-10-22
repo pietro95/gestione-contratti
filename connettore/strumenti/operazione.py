@@ -380,7 +380,11 @@ def anteprima(ctx: Contesto, scrittura: Scrittura, argomenti: dict) -> dict:
             "effetti": effetti,
             "oggetti_esistenti": esistenti,
             # Operazioni su più fatture (D15): quelle che passano e quelle rifiutate.
-            **{k: risultato[k] for k in ("esito_per_fattura", "avvisi") if risultato.get(k)},
+            **{
+                k: risultato[k]
+                for k in ("esito_per_fattura", "esito_rilasci", "avvisi")
+                if risultato.get(k)
+            },
         }
     )
     op = OperazioneMCP.objects.create(

@@ -10,7 +10,7 @@ from django.urls import reverse
 from accounts.roles import ADMIN, EDITOR, READER
 from contratti import acquisti, fatture
 from contratti import models as m
-from contratti.engine.acquisti import PassoFattura
+from contratti.engine.acquisti import Fase, PassoFattura
 
 from . import factories as f
 
@@ -152,14 +152,16 @@ def test_403_senza_la_funzione(scenario, client, make_user, utente, ruolo):
     assert nuovo.data_rilascio is None
 
 
-def test_admin_rilascia(scenario, client, make_user):
+def test_nemmeno_l_admin_senza_la_funzione_rilascia(scenario, client, make_user):
     rdc = fatture.registra_documento(scenario["fattura"], Tipo.ODA, "4600000001", D(2026, 10, 2))
     make_user("capo", role=ADMIN, is_superuser=True, is_staff=True)
     _login(client, "capo")
-    client.post(
-        reverse("contratti:rilasci_azione"),
-        {"documento": [rdc.pk], "fattura": scenario["fattura"].pk},
+    azione = reverse("contratti:rilasci_azione")
+    assert client.post(azione, {"documento": [rdc.pk]}).status_code == 403
+    m.FunzioneUtente.objects.create(
+        username="capo", funzione=m.FunzioneUtente.Funzione.RILASCIO_SAP
     )
+    client.post(azione, {"documento": [rdc.pk], "fattura": scenario["fattura"].pk})
     rdc.refresh_from_db()
     assert rdc.data_rilascio is not None
 
@@ -171,3 +173,108 @@ def test_scheda_fattura_mostra_il_rilascio(scenario, client):
     assert pagina.status_code == 200
     html = pagina.content.decode()
     assert "Rilascia" in html
+
+
+# --- RDA -----------------------------------------------------------------------------------
+
+
+@pytest.fixture
+def rda_inserita():
+    return m.RichiestaAcquisto.objects.create(
+        cluster=f.cluster("IT"),
+        origine="manuale",
+        descrizione="RDA di prova",
+        numero_rda="5100000001",
+        data_inserimento=D(2026, 10, 1),
+    )
+
+
+def test_rda_inserita_si_rilascia_solo_con_la_funzione(scenario, rda_inserita):
+    assert acquisti.rda_da_rilasciare() == [rda_inserita]
+    with pytest.raises(PermissionDenied):
+        acquisti.rilascia_rda([rda_inserita], scenario["rossi"])
+    esito = acquisti.rilascia_rda([rda_inserita], scenario["addetto"], D(2026, 10, 5))
+    assert esito.fatte == [rda_inserita] and not esito.rifiutate
+    rda_inserita.refresh_from_db()
+    assert rda_inserita.data_rilascio == D(2026, 10, 5)
+    assert rda_inserita.rilasciata_da == scenario["addetto"]
+    assert acquisti.fase(rda_inserita, D(2026, 10, 6)) == Fase.RILASCIATA
+    assert acquisti.rda_da_rilasciare() == []
+
+
+def test_rda_non_rilasciabile_se_non_inserita_o_gia_rilasciata(scenario, rda_inserita):
+    bozza = m.RichiestaAcquisto.objects.create(
+        cluster=f.cluster("IT"), origine="manuale", descrizione="Bozza"
+    )
+    esito = acquisti.rilascia_rda([bozza], scenario["addetto"])
+    assert not esito.fatte and "non è ancora inserita" in esito.rifiutate[0][1]
+    acquisti.rilascia_rda([rda_inserita], scenario["addetto"])
+    esito = acquisti.rilascia_rda([rda_inserita], scenario["addetto"])
+    assert not esito.fatte and "già rilasciata" in esito.rifiutate[0][1]
+
+
+def test_annulla_rilascio_rda(scenario, rda_inserita):
+    acquisti.rilascia_rda([rda_inserita], scenario["addetto"])
+    rda_inserita.refresh_from_db()
+    with pytest.raises(PermissionDenied):
+        acquisti.annulla_rilascio_rda(rda_inserita, scenario["rossi"])
+    acquisti.annulla_rilascio_rda(rda_inserita, scenario["addetto"])
+    rda_inserita.refresh_from_db()
+    assert rda_inserita.data_rilascio is None and rda_inserita.rilasciata_da is None
+    with pytest.raises(acquisti.OperazioneNonAmmessa):
+        acquisti.annulla_rilascio_rda(rda_inserita, scenario["addetto"])
+
+
+def test_il_form_dei_dati_sap_non_scrive_il_rilascio(scenario, rda_inserita, client):
+    """Numero e inserimento li riporta l'Editor; la data di rilascio resta dell'addetto."""
+    _login(client, "rossi")
+    client.post(
+        reverse("contratti:rda_dati_sap", args=[rda_inserita.pk]),
+        {
+            "numero_rda": "5100000001",
+            "data_inserimento": "01/10/2026",
+            "data_rilascio": "05/10/2026",
+        },
+    )
+    rda_inserita.refresh_from_db()
+    assert rda_inserita.data_rilascio is None
+
+
+@pytest.mark.parametrize("utente, ruolo", [("neri", READER), ("bianchi", EDITOR)])
+def test_403_sul_rilascio_della_rda(scenario, rda_inserita, client, make_user, utente, ruolo):
+    make_user(utente, role=ruolo)
+    _login(client, utente)
+    assert (
+        client.post(reverse("contratti:rilasci_azione"), {"rda": [rda_inserita.pk]}).status_code
+        == 403
+    )
+    acquisti.rilascia_rda([rda_inserita], scenario["addetto"])
+    assert (
+        client.post(reverse("contratti:rilascio_rda_annulla", args=[rda_inserita.pk])).status_code
+        == 403
+    )
+    rda_inserita.refresh_from_db()
+    assert rda_inserita.data_rilascio is not None
+
+
+def test_maschera_e_scheda_della_rda(scenario, rda_inserita, client):
+    _login(client, "addetto")
+    pagina = client.get(reverse("contratti:rilasci")).content.decode()
+    assert "5100000001" in pagina and 'name="rda"' in pagina
+    assert (
+        "Rilascia la RDA"
+        in client.get(reverse("contratti:rda", args=[rda_inserita.pk])).content.decode()
+    )
+    client.post(
+        reverse("contratti:rilasci_azione"),
+        {"rda": [rda_inserita.pk], "ritorno_rda": rda_inserita.pk},
+    )
+    rda_inserita.refresh_from_db()
+    assert rda_inserita.rilasciata_da.username == "addetto"
+    scheda = client.get(reverse("contratti:rda", args=[rda_inserita.pk])).content.decode()
+    assert "Annulla il rilascio" in scheda and "Rilascia la RDA" not in scheda
+    # Sola lettura per chi non rilascia: vede la coda, senza selezione.
+    client.logout()
+    assert client.login(username="rossi", password=PASSWORD)
+    m.RichiestaAcquisto.objects.filter(pk=rda_inserita.pk).update(data_rilascio=None)
+    assert 'name="rda"' not in client.get(reverse("contratti:rilasci")).content.decode()

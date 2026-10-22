@@ -409,7 +409,7 @@ def _dati_sap(ctx: Contesto, argomenti: dict) -> dict:
     form = fr.DatiSapForm(_dati(fr.DatiSapForm, rda, argomenti), instance=rda)
     valida(form)
     d = form.cleaned_data
-    acquisti.aggiorna_dati_sap(rda, d["numero_rda"], d["data_inserimento"], d["data_rilascio"])
+    acquisti.aggiorna_dati_sap(rda, d["numero_rda"], d["data_inserimento"])
     risultato = {"oggetti": [_rif(rda)], "pratiche": _pratiche(rda)}
     if proposti := acquisti.contratti_proposti(rda):
         risultato["avvisi"] = [
@@ -660,6 +660,95 @@ def _multipla(esegui):
         }
 
     return applica
+
+
+# --- Rilascio su SAP (RDA, RdC, MAP, MIGO): solo l'addetto al rilascio ----------------------------
+
+
+def _permesso_rilascio(ctx: Contesto, oggetti: list) -> None:
+    if not permessi.puo_rilasciare(ctx.utente):
+        raise ErroreTool("Non autorizzato: serve la funzione «Addetto al rilascio».")
+
+
+def _scrittura_rilascio(nome_tool, oggetti, applica) -> Scrittura:
+    return Scrittura(nome_tool, oggetti, applica, permesso=_permesso_rilascio, stato=stato_processo)
+
+
+def _id_rilasci(argomenti: dict) -> tuple[list[int], list[int]]:
+    documenti = list(dict.fromkeys(argomenti.get("documenti_ids", [])))
+    rda = list(dict.fromkeys(argomenti.get("rda_ids", [])))
+    if not documenti and not rda:
+        raise ErroreTool("Indicare «documenti_ids» e/o «rda_ids».")
+    if len(documenti) + len(rda) > MASSIMO_FATTURE:
+        raise ErroreTool(f"Al massimo {MASSIMO_FATTURE} elementi per operazione.")
+    return documenti, rda
+
+
+def _oggetti_rilascio(argomenti: dict) -> list:
+    pks_documenti, pks_rda = _id_rilasci(argomenti)
+    documenti = {d.pk: d for d in m.DocumentoEsecuzione.objects.filter(pk__in=pks_documenti)}
+    rda = {r.pk: r for r in m.RichiestaAcquisto.objects.filter(pk__in=pks_rda)}
+    if mancanti := [pk for pk in pks_documenti if pk not in documenti]:
+        raise ErroreTool(f"Documenti inesistenti: {mancanti}. Vedi «rilasci_da_fare».")
+    if mancanti := [pk for pk in pks_rda if pk not in rda]:
+        raise ErroreTool(f"RDA inesistenti: {mancanti}. Vedi «rilasci_da_fare».")
+    return [*(documenti[pk] for pk in pks_documenti), *(rda[pk] for pk in pks_rda)]
+
+
+def _riga_rilascio(tipo: str, pk: int, descrizione: str, motivo: str = "") -> dict:
+    riga = {"tipo": tipo, "id": pk, "descrizione": descrizione}
+    return riga | ({"esito": "rifiutata", "motivo": motivo} if motivo else {"esito": "applicata"})
+
+
+def _rilascia(ctx: Contesto, argomenti: dict) -> dict:
+    """RDA e documenti, elemento per elemento: la conferma applica solo quelli che passano."""
+    pks_documenti, pks_rda = _id_rilasci(argomenti)
+    righe, oggetti, rda_fatte = [], [], []
+    if pks_documenti:
+        esito = fatture.rilascia_documenti(pks_documenti, ctx.utente)
+        for d in esito.fatte:
+            righe.append(_riga_rilascio("documento", d.pk, str(d)))
+            oggetti.append({"tipo": "fattura", "id": d.fattura_id})
+        for d, motivo in esito.rifiutate:
+            righe.append(_riga_rilascio("documento", d.pk, str(d), motivo))
+    if pks_rda:
+        richieste = list(m.RichiestaAcquisto.objects.filter(pk__in=pks_rda))
+        esito_rda = acquisti.rilascia_rda(richieste, ctx.utente)
+        for r in esito_rda.fatte:
+            righe.append(_riga_rilascio("rda", r.pk, f"RDA {r.numero_rda}"))
+            oggetti.append(_rif(r))
+            rda_fatte.append(r)
+        for r, motivo in esito_rda.rifiutate:
+            righe.append(_riga_rilascio("rda", r.pk, f"RDA {r.numero_rda or r.pk}", motivo))
+    if not any(r["esito"] == "applicata" for r in righe):
+        motivi = "; ".join(f"{r['descrizione']}: {r['motivo']}" for r in righe)
+        raise ErroreTool(f"Niente da rilasciare (nessuna modifica). {motivi}")
+    return {
+        "oggetti": list({(o["tipo"], o["id"]): o for o in oggetti}.values()),
+        "pratiche": _pratiche(*rda_fatte),
+        "esito_rilasci": righe,
+    }
+
+
+def _oggetto_annulla_rilascio(argomenti: dict):
+    if argomenti["tipo"] == "rda":
+        return _rda({"id": argomenti["id"]})
+    return trova(
+        m.DocumentoEsecuzione.objects.select_related("fattura"), argomenti["id"], "documento"
+    )
+
+
+def _annulla_rilascio(ctx: Contesto, argomenti: dict) -> dict:
+    oggetto = _oggetto_annulla_rilascio(argomenti)
+    if isinstance(oggetto, m.RichiestaAcquisto):
+        acquisti.annulla_rilascio_rda(oggetto, ctx.utente)
+        return {"oggetti": [_rif(oggetto)], "pratiche": _pratiche(oggetto)}
+    fatture.annulla_rilascio(oggetto, ctx.utente)
+    return (
+        {"oggetti": [{"tipo": "fattura", "id": oggetto.fattura_id}]}
+        if oggetto.fattura_id
+        else {"oggetti": []}
+    )
 
 
 def _azione_fattura(esegui):
@@ -1029,15 +1118,15 @@ STRUMENTI = [
     strumento(
         _scrittura("dati_sap_rda", _oggetti_rda, _dati_sap),
         "Dati SAP della RDA",
-        "Registra numero della RDA (10 cifre), data di inserimento (vuota: oggi, se c'è il "
-        "numero) e data dell'ultimo rilascio. Cambia solo i campi indicati. L'anteprima "
+        "Registra numero della RDA (10 cifre) e data di inserimento (vuota: oggi, se c'è il "
+        "numero). Il rilascio su SAP non si scrive qui: lo fa l'addetto al rilascio (tool "
+        "«rilascia»). Cambia solo i campi indicati. L'anteprima "
         "riporta fase, stato della pratica e i contratti con lo stesso n. RDA da collegare.",
         _schema(
             {
                 "id": SCHEMA_ID,
                 "numero_rda": {"type": "string", "maxLength": 20},
                 "data_inserimento": SCHEMA_DATA,
-                "data_rilascio": SCHEMA_DATA,
             },
             ["id"],
         ),
@@ -1063,7 +1152,6 @@ STRUMENTI = [
                 },
                 "numero_rda": {"type": "string", "minLength": 1, "maxLength": 20},
                 "data_inserimento": SCHEMA_DATA,
-                "data_rilascio": SCHEMA_DATA,
                 "percorso_file_server": {"type": "string", "maxLength": 500},
                 "rup": {"type": "string", "maxLength": 150},
                 "cup": {"type": "string", "maxLength": 20},
@@ -1124,6 +1212,44 @@ STRUMENTI = [
                 "importo_documento": SCHEMA_IMPORTO,
             },
             ["numero", "data", "importo_documento"],
+        ),
+    ),
+    strumento(
+        _scrittura_rilascio("rilascia", _oggetti_rilascio, _rilascia),
+        "Rilascia su SAP RDA, RdC, MAP e MIGO",
+        "Registra il rilascio su SAP (data di oggi e utente) di RDA inserite in SAP e di RdC, "
+        "MAP e MIGO delle fatture da lavorare; la coda è in «rilasci_da_fare». Solo gli "
+        "utenti con la funzione «Addetto al rilascio» (nemmeno l'Admin senza). Dopo il rilascio "
+        "la fattura passa al passo successivo. Al massimo 50 elementi: l'anteprima elenca per "
+        "ognuno se passa o è rifiutato e perché; la conferma applica solo quelli che passano. "
+        "Se un elemento cambia dopo l'anteprima, la conferma è rifiutata per intero.",
+        _schema(
+            {
+                "documenti_ids": {
+                    "type": "array",
+                    "items": SCHEMA_ID,
+                    "maxItems": MASSIMO_FATTURE,
+                    "description": "id dei documenti di esecuzione (RdC, MAP, MIGO).",
+                },
+                "rda_ids": {
+                    "type": "array",
+                    "items": SCHEMA_ID,
+                    "maxItems": MASSIMO_FATTURE,
+                    "description": "id delle RDA.",
+                },
+            }
+        ),  # fmt: skip
+    ),
+    strumento(
+        _scrittura_rilascio(
+            "annulla_rilascio", lambda a: [_oggetto_annulla_rilascio(a)], _annulla_rilascio
+        ),
+        "Annulla un rilascio su SAP",
+        "Toglie il rilascio a una RDA (solo se non ha ancora un contratto) o a un documento "
+        "(RdC, MAP, MIGO) di una fattura non trasferita. Solo gli addetti al rilascio.",
+        _schema(
+            {"tipo": {"type": "string", "enum": ["rda", "documento"]}, "id": SCHEMA_ID},
+            ["tipo", "id"],
         ),
     ),
     strumento(

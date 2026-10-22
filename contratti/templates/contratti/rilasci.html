@@ -2,7 +2,7 @@
 {% load registro %}
 {% block title %}Rilasci SAP{% endblock %}
 {% block titolo_pagina %}Rilasci SAP{% endblock %}
-{% block sottotitolo %}<div class="sottotitolo">RdC, MAP e MIGO registrati sulle fatture da lavorare e ancora da rilasciare su SAP. Dopo il rilascio la fattura passa al passo successivo.</div>{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">RDA inserite in SAP e RdC, MAP e MIGO delle fatture da lavorare, ancora da rilasciare su SAP. Dopo il rilascio la fattura passa al passo successivo.</div>{% endblock %}
 {% block content %}
 <form method="get" class="filtri">
   <div class="row g-3 align-items-end">
@@ -11,9 +11,23 @@
   </div>
 </form>
 
-{% if righe %}
+{% if righe or rda_righe %}
 <form method="post" action="{% url 'contratti:rilasci_azione' %}">
   {% csrf_token %}
+  {% if rda_righe %}
+  <h2 class="h6 text-uppercase text-body-secondary">RDA inserite in SAP</h2>
+  <div class="tabella-card mb-3"><div class="table-responsive"><table class="table table-sm align-middle">
+    <thead><tr>{% if puo_rilasciare %}<th><span class="visually-hidden">Selezione</span></th>{% endif %}<th>N. RDA</th><th>Inserita il</th><th>Descrizione</th><th>Cluster</th><th>Referente</th><th class="text-end">Giorni</th></tr></thead>
+    <tbody>{% for r in rda_righe %}{% with rda=r.r %}<tr>
+      {% if puo_rilasciare %}<td><input class="form-check-input" type="checkbox" name="rda" value="{{ rda.pk }}" aria-label="Seleziona la RDA {{ rda.numero_rda }}"></td>{% endif %}
+      <td><a href="{% url 'contratti:rda' rda.pk %}">{{ rda.numero_rda }}</a></td><td>{{ rda.data_inserimento|date:"d/m/Y" }}</td>
+      <td>{{ rda.descrizione }}</td><td>{{ rda.cluster }}</td><td>{{ rda.referente_utente|default:rda.referente|default:"—" }}</td>
+      <td class="text-end">{{ r.giorni }}</td>
+    </tr>{% endwith %}{% endfor %}</tbody>
+  </table></div></div>
+  {% endif %}
+  {% if righe %}
+  <h2 class="h6 text-uppercase text-body-secondary">RdC, MAP e MIGO delle fatture</h2>
   <div class="tabella-card mb-3"><div class="table-responsive"><table class="table table-sm align-middle">
     <thead><tr>{% if puo_rilasciare %}<th><span class="visually-hidden">Selezione</span></th>{% endif %}<th>Documento</th><th>Numero</th><th>Data</th><th>Fattura</th><th>Fornitore</th><th>Contratto</th><th class="text-end">Giorni</th></tr></thead>
     <tbody>{% for r in righe %}{% with d=r.d %}<tr>
@@ -25,8 +39,9 @@
       <td class="text-end">{{ r.giorni }}</td>
     </tr>{% endwith %}{% endfor %}</tbody>
   </table></div></div>
+  {% endif %}
   {% if puo_rilasciare %}<button class="btn btn-primary" type="submit"><i class="bi bi-patch-check" aria-hidden="true"></i> Rilascia i selezionati</button>
   {% else %}<p class="small text-body-secondary">Rilasciano gli utenti con la funzione «Addetto al rilascio».</p>{% endif %}
 </form>
-{% else %}<div class="vuoto py-4">Nessun documento da rilasciare.</div>{% endif %}
+{% else %}<div class="vuoto py-4">Niente da rilasciare.</div>{% endif %}
 {% endblock %}

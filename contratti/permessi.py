@@ -259,3 +259,9 @@ def e_addetto(user) -> bool:
 def e_addetto_rilascio(user) -> bool:
     """Ha la funzione «Addetto al rilascio» (RdC, MAP e MIGO su SAP)? Non dà permessi da sola."""
     return _ha_funzione(user, m.FunzioneUtente.Funzione.RILASCIO_SAP, "_e_addetto_rilascio")
+
+
+def puo_rilasciare(user) -> bool:
+    """Rilascia su SAP RDA, RdC, MAP e MIGO: solo chi ha la funzione «Addetto al rilascio» e
+    può scrivere (nemmeno l'Admin senza la funzione; il Reader mai)."""
+    return role_of(user) in WRITE_ROLES and e_addetto_rilascio(user)

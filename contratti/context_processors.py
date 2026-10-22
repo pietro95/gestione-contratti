@@ -1,7 +1,7 @@
 from django.conf import settings
 
 from accounts.roles import can_write
-from contratti import fatture, permessi, selettori
+from contratti import acquisti, fatture, permessi, selettori
 from contratti import models as m
 
 
@@ -22,7 +22,9 @@ def navigazione(request):
             referente__isnull=True, fuori_registro=False, archiviato=False
         ).count(),
         "documenti_da_rilasciare": (
-            len(fatture.documenti_da_rilasciare()) if fatture.puo_rilasciare(user) else 0
+            len(fatture.documenti_da_rilasciare()) + len(acquisti.rda_da_rilasciare())
+            if fatture.puo_rilasciare(user)
+            else 0
         ),
         "piani_da_verificare": selettori.voci_piano_da_verificare(
             permessi.codici_filtro(user, [])

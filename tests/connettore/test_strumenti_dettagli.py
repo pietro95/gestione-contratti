@@ -88,4 +88,4 @@ def test_tools_list_per_ruolo(utente_reader, make_user):
 
     editor = make_user("redattore", role=EDITOR)
     assert nomi(editor) - nomi(utente_reader) == {"fornitore", "piani_da_verificare"}
-    assert len(nomi(editor)) == 20  # 11 di F10 + 8 di F12.1 + stanziamenti (Rev22)
+    assert len(nomi(editor)) == 21  # 11 di F10 + 8 di F12.1 + stanziamenti (Rev22) + rilasci

@@ -1547,6 +1547,10 @@ class RichiestaAcquisto(Archiviabile):
     )
     data_inserimento = models.DateField("data di inserimento in SAP", null=True, blank=True)
     data_rilascio = models.DateField("data dell'ultimo rilascio", null=True, blank=True)
+    # Chi ha rilasciato la RDA dalla maschera dell'addetto al rilascio (vuoto per i dati storici).
+    rilasciata_da = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
 
     chiave_import = models.CharField(  # noqa: DJ001
         max_length=64, unique=True, null=True, blank=True, editable=False

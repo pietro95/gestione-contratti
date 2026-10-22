@@ -269,9 +269,8 @@ def puo_lavorare(utente, fattura: m.Fattura) -> bool:
 
 
 def puo_rilasciare(utente) -> bool:
-    """Rilascia RdC, MAP e MIGO su SAP: l'Admin e chi ha la funzione «Addetto al rilascio» e
-    può scrivere (il Reader mai)."""
-    return scrive(utente) and (role_of(utente) == ADMIN or permessi.e_addetto_rilascio(utente))
+    """Rilascia su SAP RDA, RdC, MAP e MIGO (``permessi.puo_rilasciare``)."""
+    return permessi.puo_rilasciare(utente)
 
 
 def puo_convalidare(utente, fattura: m.Fattura) -> bool:

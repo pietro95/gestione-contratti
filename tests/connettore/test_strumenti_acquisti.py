@@ -113,7 +113,7 @@ def test_rda_fasi_tc15(rda_tc17, lettore, make_user):
     assert dati["storico"][0]["testo_libero"] == "Manca il preventivo"
     assert dati["storico"][0]["utente"] == "addetto_mcp"
     acquisti.invia(rda_tc17, rda_tc17.referente_utente, D(2026, 6, 4))
-    acquisti.aggiorna_dati_sap(rda_tc17, "5100000001", D(2026, 6, 15), None)
+    acquisti.aggiorna_dati_sap(rda_tc17, "5100000001", D(2026, 6, 15))
     # TC-15 (e): ferma al 16/07/2026, non al 15/07/2026.
     assert not esegui(lettore, "rda", {"id": rda_tc17.pk}, D(2026, 7, 15))["ferma"]
     dati = esegui(lettore, "rda", {"id": rda_tc17.pk}, D(2026, 7, 16))
@@ -121,7 +121,7 @@ def test_rda_fasi_tc15(rda_tc17, lettore, make_user):
 
 
 def test_elenco_rda_come_la_vista_e_l_export(rda_tc17, lettore, make_user):
-    acquisti.aggiorna_dati_sap(rda_tc17, "5100000001", D(2026, 6, 15), None)
+    acquisti.aggiorna_dati_sap(rda_tc17, "5100000001", D(2026, 6, 15))
     altra = m.RichiestaAcquisto.objects.create(
         cluster=f.cluster("TLC"), origine="manuale", descrizione="Altra", numero_rda="5100000002",
         data_inserimento=D(2025, 12, 1),
