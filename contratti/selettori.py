@@ -137,7 +137,8 @@ def righe_previsti_manuali(oggi: datetime.date, filtri: dict) -> list[RigaContra
             f.previsto_data_avvio,
             lead,
             oggi,
-            decisione=f.decisione,
+            # Un acquisto unico va avviato comunque: la decisione di continuità non conta.
+            decisione=m.Fabbisogno.Decisione.DA_VALUTARE if f.una_tantum else f.decisione,
             stato_pratica=stato,
             finestra_mesi=finestra,
         )
@@ -186,7 +187,7 @@ def cruscotto(oggi: datetime.date, filtri: dict) -> dict[Alert, list[RigaContrat
         if riga.alert in gruppi:
             gruppi[riga.alert].append(riga)
     for righe in gruppi.values():
-        righe.sort(key=lambda r: (r.data_limite or datetime.date.max))
+        righe.sort(key=lambda r: r.data_limite or datetime.date.max)
     return gruppi
 
 

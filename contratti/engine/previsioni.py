@@ -6,7 +6,7 @@ from dataclasses import replace
 from decimal import Decimal
 
 from contratti.engine.date import UN_GIORNO, aggiungi_mesi
-from contratti.engine.importi import arrotonda, ripartisci
+from contratti.engine.importi import ZERO, arrotonda, ripartisci
 from contratti.engine.tipi import ContrattoBase, ContrattoPrevisto, Piano, Voce
 
 DECISIONI_CON_RINNOVO = frozenset({"rinnovare", "da_valutare"})
@@ -19,7 +19,9 @@ def _applica(importo: Decimal, pct: Decimal) -> Decimal:
     return arrotonda(importo * (Decimal(1) + pct / Decimal(100)))
 
 
-def _sposta(voce: Voce, inizio: datetime.date, fine: datetime.date, fisso, massimale) -> Voce:
+def _sposta(
+    voce: Voce, inizio: datetime.date, fine: datetime.date, fisso, massimale, *, con_consumo=True
+) -> Voce:
     piano = voce.piano
     if piano is not None and piano.data_prima_fattura is not None:
         # La data della prima fattura del contratto originale non vale per il previsto.
@@ -31,9 +33,11 @@ def _sposta(voce: Voce, inizio: datetime.date, fine: datetime.date, fisso, massi
         anno_impegno=inizio.year,
         importo_fisso=fisso,
         massimale_variabile=massimale,
+        # Con la stima complessiva il consumo è già dentro la stima: non si somma.
+        stima_consumo_pct=voce.stima_consumo_pct if con_consumo else None,
         stima_consumo_importo=(
             None
-            if voce.stima_consumo_importo is None
+            if voce.stima_consumo_importo is None or not con_consumo
             else min(voce.stima_consumo_importo, massimale)
         ),
         piano=piano,
@@ -51,8 +55,10 @@ def prossimo(
 ) -> ContrattoPrevisto:
     """Un rinnovo: inizio il giorno dopo la fine, stessa durata originale e stesso piano.
 
-    Fisso e massimale di ogni voce × (1 + adeguamento). Con la stima manuale, la stima
-    sostituisce il fisso totale ed è ripartita tra le voci in proporzione al loro fisso.
+    Fisso e massimale di ogni voce × (1 + adeguamento). Con la stima manuale, la stima è
+    l'importo complessivo atteso (fisso e consumo): sostituisce il fisso totale, ripartita
+    tra le voci in proporzione al loro fisso, e il consumo del contratto di partenza non si
+    somma (massimale e stima di consumo a zero, SPEC §5.3).
     """
     inizio = base.fine_effettiva + UN_GIORNO
     fine = aggiungi_mesi(inizio, base.durata_mesi) - UN_GIORNO
@@ -60,8 +66,16 @@ def prossimo(
         fissi = ripartisci(stima_manuale, [v.importo_fisso for v in base.voci])
     else:
         fissi = [_applica(v.importo_fisso, adeguamento_pct) for v in base.voci]
+    con_stima = stima_manuale is not None
     voci = tuple(
-        _sposta(v, inizio, fine, fisso, _applica(v.massimale_variabile, adeguamento_pct))
+        _sposta(
+            v,
+            inizio,
+            fine,
+            fisso,
+            ZERO if con_stima else _applica(v.massimale_variabile, adeguamento_pct),
+            con_consumo=not con_stima,
+        )
         for v, fisso in zip(base.voci, fissi, strict=True)
     )
     return ContrattoPrevisto(inizio=inizio, fine=fine, voci=voci, numero=numero)

@@ -10,8 +10,10 @@ Regole:
   passa da django-simple-history.
 """
 
+from django import forms as django_forms
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 from django.db import models
 from django.db.models import F, Q
 from django.utils import timezone
@@ -24,10 +26,38 @@ def importo(verbose_name, **kwargs):
     return models.DecimalField(verbose_name, max_digits=14, decimal_places=2, **kwargs)
 
 
+class LinkDocumentiValidator(URLValidator):
+    """http(s) e i percorsi del NAS aziendale (``smb://``, ``file://``, anche senza host)."""
+
+    schemes = ["http", "https", "smb", "file"]
+
+    def __call__(self, value):
+        # ``file:///X:/cartella`` non ha host: Django lo rifiuterebbe.
+        if str(value).lower().startswith("file:///") and " " not in str(value):
+            return
+        super().__call__(value)
+
+
+class LinkDocumentiFormField(django_forms.URLField):
+    default_validators = [LinkDocumentiValidator()]
+
+    def to_python(self, value):
+        valore = (value or "").strip()
+        if valore.lower().startswith(("smb://", "file://")):
+            return valore  # percorsi del NAS: niente normalizzazione da URL web
+        return super().to_python(value)
+
+
 class HttpsURLField(models.URLField):
-    """Link senza schema interpretati come https (default di Django 6.0)."""
+    """Link senza schema interpretati come https (default di Django 6.0).
+
+    Ammette anche ``smb://`` e ``file://``: i documenti stanno sul NAS interno.
+    """
+
+    default_validators = [LinkDocumentiValidator()]
 
     def formfield(self, **kwargs):
+        kwargs.setdefault("form_class", LinkDocumentiFormField)
         kwargs.setdefault("assume_scheme", "https")
         return super().formfield(**kwargs)
 
@@ -709,6 +739,11 @@ class Periodicita(models.TextChoices):
     INTERA_DURATA = "intera_durata", "Intera durata"
 
 
+class TipoAcquisto(models.TextChoices):
+    SERVIZIO = "servizio", "Lavori/Servizi"
+    FORNITURA = "fornitura", "Forniture"
+
+
 class Fabbisogno(Archiviabile):
     """Servizio ricorrente che vive per anni; i contratti ne sono le istanze."""
 
@@ -752,8 +787,44 @@ class Fabbisogno(Archiviabile):
         choices=Decisione.choices,
         default=Decisione.DA_VALUTARE,
     )
-    stima_prossimo_importo = importo("stima del prossimo importo", null=True, blank=True)
+    stima_prossimo_importo = importo(
+        "stima del prossimo importo",
+        null=True,
+        blank=True,
+        help_text="Importo complessivo atteso del prossimo periodo (fisso e consumo insieme): "
+        "se indicato sostituisce l'importo del contratto di partenza e il consumo non si somma.",
+    )
+    una_tantum = models.BooleanField(
+        "acquisto unico (una tantum)",
+        default=False,
+        help_text="Acquisto che non si ripete: genera un solo previsto e nessun rinnovo, "
+        "qualunque sia la decisione.",
+    )
     note = models.TextField(blank=True)
+
+    class Priorita(models.TextChoices):
+        OBBLIGATORIA = "obbligatoria", "Obbligatoria"
+        NECESSARIA = "necessaria", "Necessaria"
+        DIFFERIBILE = "differibile", "Differibile"
+
+    class FonteStima(models.TextChoices):
+        PREVENTIVO = "preventivo", "Preventivo"
+        STORICO = "storico", "Storico"
+        LISTINO = "listino", "Listino"
+        STIMA_INTERNA = "stima_interna", "Stima interna"
+
+    motivazione = models.TextField(blank=True)
+    priorita = models.CharField("priorità", max_length=15, choices=Priorita.choices, blank=True)
+    tipo_acquisto = models.CharField(
+        "tipo d'acquisto",
+        max_length=10,
+        choices=TipoAcquisto.choices,
+        blank=True,
+        help_text="Lavori/Servizi o fornitura.",
+    )
+    fonte_stima = models.CharField(
+        "fonte della stima", max_length=15, choices=FonteStima.choices, blank=True
+    )
 
     # Dati decisi per un fabbisogno nuovo, senza contratto: il motore ne ricava il previsto.
     previsto_data_avvio = models.DateField("avvio previsto", null=True, blank=True)
@@ -855,6 +926,40 @@ class Fabbisogno(Archiviabile):
             )
 
 
+class CompetenzaDichiarata(Archiviabile):
+    """Competenza che il referente dichiara per un fabbisogno, un anno e una natura.
+
+    È un dato deciso, non calcolato: il registro lo confronta con la competenza che ricava
+    dalle rate e dai previsti (SPEC §4, §5.2). OPEX e CAPEX restano distinti.
+    """
+
+    fabbisogno = models.ForeignKey(
+        Fabbisogno, on_delete=models.PROTECT, related_name="competenze_dichiarate"
+    )
+    anno = models.PositiveSmallIntegerField()
+    natura = models.CharField(max_length=5, choices=Natura.choices, default=Natura.OPEX)
+    importo = importo("importo dichiarato (imponibile)")
+    note = models.TextField(blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "competenza dichiarata"
+        verbose_name_plural = "competenze dichiarate"
+        ordering = ["fabbisogno", "-anno", "natura"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["fabbisogno", "anno", "natura"],
+                name="contratti_competenza_dichiarata_unica",
+            ),
+            models.CheckConstraint(
+                condition=Q(importo__gte=0), name="contratti_competenza_dichiarata_non_negativa"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.fabbisogno_id} {self.anno} {self.natura}: {self.importo}"
+
+
 class Contratto(Archiviabile):
     """Singola istanza contrattuale; un rinnovo è un nuovo contratto sullo stesso fabbisogno."""
 
@@ -954,9 +1059,7 @@ class Contratto(Archiviabile):
         help_text=r"Es. X:\… oppure \\nas\Share\…",
     )
 
-    class TipoAcquisto(models.TextChoices):
-        SERVIZIO = "servizio", "Lavori/Servizi"
-        FORNITURA = "fornitura", "Forniture"
+    TipoAcquisto = TipoAcquisto
 
     # Propone MAP (servizio) o MIGO (fornitura) nella lavorazione delle fatture (Rev14).
     tipo_acquisto = models.CharField(
