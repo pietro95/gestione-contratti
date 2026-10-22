@@ -182,6 +182,9 @@ def test_lavorazione_completa(scenario):
             {"tipo": tipo, "numero": numero, "data": OGGI.strftime("%d/%m/%Y")},
         )
     fa = fatture.QS_FATTURE.get(pk=fa.pk)
+    assert fatture.passo_fattura(fa) == PassoFattura.RDC_RILASCIO
+    m.DocumentoEsecuzione.objects.filter(fattura=fa).update(data_rilascio=OGGI)
+    fa = fatture.QS_FATTURE.get(pk=fa.pk)
     assert fatture.passo_fattura(fa) == PassoFattura.TRASFERIMENTO
     pagina = html.unescape(client.get(url).content.decode())
     assert PAC_ATTESO in pagina

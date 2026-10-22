@@ -58,12 +58,18 @@
           {% csrf_token %}
           <div class="col-sm-12"><label class="form-label" for="{{ form_sap.numero_rda.id_for_label }}">Numero RDA</label>{{ form_sap.numero_rda }}<div class="form-text">{{ form_sap.numero_rda.help_text }}</div></div>
           <div class="col-sm-6"><label class="form-label" for="{{ form_sap.data_inserimento.id_for_label }}">Data di inserimento</label>{{ form_sap.data_inserimento }}</div>
-          <div class="col-sm-6"><label class="form-label" for="{{ form_sap.data_rilascio.id_for_label }}">Data dell'ultimo rilascio</label>{{ form_sap.data_rilascio }}</div>
           <div class="col-12"><button class="btn btn-primary" type="submit">Salva i dati SAP</button></div>
         </form>
         {% else %}
         <dl class="dati"><dt>Numero RDA</dt><dd>{{ rda.numero_rda|default:"—" }}</dd><dt>Inserita il</dt><dd>{{ rda.data_inserimento|date:"d/m/Y"|default:"—" }}</dd><dt>Rilasciata il</dt><dd>{{ rda.data_rilascio|date:"d/m/Y"|default:"—" }}</dd></dl>
         {% endif %}
+        <h2 class="h6 text-uppercase text-body-secondary mt-3">Rilascio su SAP</h2>
+        {% if rda.data_rilascio %}
+        <p class="mb-2"><span class="stato stato-verde">rilasciata il {{ rda.data_rilascio|date:"d/m/Y" }}</span>{% if rda.rilasciata_da %} <span class="small text-body-secondary">({{ rda.rilasciata_da }})</span>{% endif %}</p>
+        {% if puo_rilasciare and rilascio_annullabile %}<form method="post" action="{% url 'contratti:rilascio_rda_annulla' rda.pk %}" class="d-inline">{% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-secondary">Annulla il rilascio</button></form>{% endif %}
+        {% elif puo_rilasciare and rilasciabile %}
+        <form method="post" action="{% url 'contratti:rilasci_azione' %}">{% csrf_token %}<input type="hidden" name="rda" value="{{ rda.pk }}"><input type="hidden" name="ritorno_rda" value="{{ rda.pk }}"><button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-patch-check" aria-hidden="true"></i> Rilascia la RDA</button></form>
+        {% else %}<p class="small text-body-secondary mb-0">Da rilasciare dopo l'inserimento in SAP, a cura degli addetti al rilascio.</p>{% endif %}
       </div>
       {% if puo_modificare and puo_rimandare %}
       <div class="col-lg-6">

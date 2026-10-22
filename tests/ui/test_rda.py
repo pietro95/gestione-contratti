@@ -188,21 +188,21 @@ def test_flusso_completo(editor, rinnovo):
 
     editor.post(
         reverse("contratti:rda_dati_sap", args=[rda.pk]),
-        {"numero_rda": "5100000001", "data_inserimento": "15/06/2026", "data_rilascio": ""},
+        {"numero_rda": "5100000001", "data_inserimento": "15/06/2026"},
     )
     rda.refresh_from_db()
     assert acquisti.fase(rda) == Fase.INSERITA
     assert acquisti.stato_pratica(c1) == "rda_predisposta"
-    editor.post(
-        reverse("contratti:rda_dati_sap", args=[rda.pk]),
-        {
-            "numero_rda": "5100000001",
-            "data_inserimento": "15/06/2026",
-            "data_rilascio": "01/07/2026",
-        },
+    # Il rilascio lo fa solo l'addetto al rilascio.
+    risposta = editor.post(reverse("contratti:rilasci_azione"), {"rda": [rda.pk]})
+    assert risposta.status_code == 403
+    m.FunzioneUtente.objects.create(
+        username="u_editor", funzione=m.FunzioneUtente.Funzione.RILASCIO_SAP
     )
+    editor.post(reverse("contratti:rilasci_azione"), {"rda": [rda.pk]})
     rda.refresh_from_db()
     assert acquisti.fase(rda) == Fase.RILASCIATA
+    assert rda.rilasciata_da.username == "u_editor"
 
     # Contratto dalla RDA: rinnovo di C1, voci dalle posizioni, piano del predecessore.
     url_c = reverse("contratti:rda_contratto", args=[rda.pk])

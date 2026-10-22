@@ -265,6 +265,9 @@ def test_lavorazione_13_2026_e_pac(registro, tmp_path):
         fatture.registra_documento(f13, "ODA_RDC", "RDC-0002", OGGI)  # una RdC per fattura
     fatture.registra_documento(f13, "MAP", "MAP-0001", OGGI)
     f13 = _fattura("13/2026")
+    assert fatture.passo_fattura(f13, OGGI) == Passo.RDC_RILASCIO  # i documenti vanno rilasciati
+    m.DocumentoEsecuzione.objects.filter(fattura=f13).update(data_rilascio=OGGI)
+    f13 = _fattura("13/2026")
     assert fatture.passo_fattura(f13, OGGI) == Passo.TRASFERIMENTO
     assert fatture.commento_pac(f13) == PAC_ATTESO
     # Fatturato di CS: i valori base (1.000,00 della 12/2026 + 1.504,17), non 1.679,83.

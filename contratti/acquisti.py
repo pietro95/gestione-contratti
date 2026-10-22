@@ -9,11 +9,12 @@ import datetime
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Min, Prefetch, Q
 from django.utils import timezone
 
-from contratti import adapters
+from contratti import adapters, permessi
 from contratti import models as m
 from contratti.engine import acquisti as motore
 from contratti.engine import previsioni, scadenze
@@ -578,19 +579,92 @@ def salva_richiesta(rda: m.RichiestaAcquisto, posizioni: list[dict]) -> m.Richie
 
 
 @transaction.atomic
-def aggiorna_dati_sap(rda, numero_rda, data_inserimento, data_rilascio) -> None:
-    """Dati che SAP restituisce: li riporta l'addetto (o il referente)."""
+def aggiorna_dati_sap(rda, numero_rda, data_inserimento) -> None:
+    """Numero e data di inserimento che SAP restituisce: li riporta l'addetto (o il referente).
+    Il rilascio non si scrive qui: lo registra solo l'addetto al rilascio (``rilascia_rda``)."""
     if fase(rda) == motore.Fase.ANNULLATA:
         raise OperazioneNonAmmessa("La RDA è annullata.")
     rda.numero_rda = (numero_rda or "").strip() or None
     rda.data_inserimento = data_inserimento
-    rda.data_rilascio = data_rilascio
     if rda.numero_rda and rda.data_inserimento is None:
         rda.data_inserimento = timezone.localdate()
     if rda.data_rilascio and not rda.numero_rda:
-        raise OperazioneNonAmmessa("Prima del rilascio serve il numero della RDA.")
+        raise OperazioneNonAmmessa("La RDA è rilasciata: prima si annulla il rilascio.")
     rda.full_clean()
     _salva(rda, "Dati da SAP")
+
+
+def rda_da_rilasciare() -> list[m.RichiestaAcquisto]:
+    """RDA inserite in SAP (numero e data di inserimento) e non ancora rilasciate: la coda
+    dell'addetto al rilascio."""
+    oggi = timezone.localdate()
+    candidate = QS_RDA.filter(numero_rda__isnull=False, data_rilascio__isnull=True).select_related(
+        "cluster", "referente_utente", "fornitore_proposto"
+    )
+    return [
+        r
+        for r in candidate.order_by("data_inserimento", "pk")
+        if fase(r, oggi) == motore.Fase.INSERITA
+    ]
+
+
+def _non_rilasciabile_rda(rda: m.RichiestaAcquisto) -> str:
+    f = fase(rda)
+    if f == motore.Fase.INSERITA:
+        return ""
+    if f == motore.Fase.RILASCIATA:
+        return "è già rilasciata"
+    if f == motore.Fase.ANNULLATA:
+        return "la RDA è annullata"
+    if f in (motore.Fase.CONTRATTO_EMESSO, motore.Fase.IN_ESECUZIONE, motore.Fase.CHIUSA):
+        return "la RDA ha già un contratto"
+    return "la RDA non è ancora inserita in SAP"
+
+
+def rilascia_rda(rdas, utente, data: datetime.date | None = None):
+    """Rilascia su SAP le RDA indicate (data e utente); rifiuta con il motivo quelle che non
+    sono inserite. Solo l'addetto al rilascio."""
+    if not permessi.puo_rilasciare(utente):
+        raise PermissionDenied("Non sei addetto al rilascio.")
+    data = data or timezone.localdate()
+    fatte, rifiutate = [], []
+    with transaction.atomic():
+        bloccate = (
+            m.RichiestaAcquisto.objects.select_for_update(of=("self",))
+            .filter(pk__in=[r.pk for r in rdas])
+            .order_by("pk")
+        )
+        for rda in bloccate:
+            if motivo := _non_rilasciabile_rda(rda):
+                rifiutate.append((rda, motivo))
+                continue
+            rda.data_rilascio, rda.rilasciata_da = data, utente
+            try:
+                rda.full_clean()
+            except ValidationError as exc:
+                rifiutate.append((rda, "; ".join(exc.messages)))
+                continue
+            _salva(rda, "Rilasciata su SAP")
+            fatte.append(rda)
+    return EsitoRilascioRDA(fatte, rifiutate)
+
+
+def annulla_rilascio_rda(rda: m.RichiestaAcquisto, utente) -> None:
+    if not permessi.puo_rilasciare(utente):
+        raise PermissionDenied("Non sei addetto al rilascio.")
+    if fase(rda) != motore.Fase.RILASCIATA:
+        raise OperazioneNonAmmessa(
+            "Il rilascio si annulla solo per una RDA rilasciata, senza contratto."
+        )
+    rda.data_rilascio = None
+    rda.rilasciata_da = None
+    _salva(rda, "Rilascio annullato")
+
+
+@dataclass
+class EsitoRilascioRDA:
+    fatte: list[m.RichiestaAcquisto]
+    rifiutate: list[tuple[m.RichiestaAcquisto, str]]
 
 
 @transaction.atomic

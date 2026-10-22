@@ -119,7 +119,7 @@ class RdaManualeForm(ModelFormBootstrap):
                 "referente",
             ],
         ),  # fmt: skip
-        ("Dati SAP", ["numero_rda", "data_inserimento", "data_rilascio"]),
+        ("Dati SAP", ["numero_rda", "data_inserimento"]),
         ("Riferimenti", ["percorso_file_server", "rup", "cup", "note"]),
     ]
 
@@ -134,7 +134,6 @@ class RdaManualeForm(ModelFormBootstrap):
             "referente",
             "numero_rda",
             "data_inserimento",
-            "data_rilascio",
             "percorso_file_server",
             "rup",
             "cup",
@@ -293,7 +292,7 @@ def iniziali_posizioni(posizioni) -> list[dict]:
 class DatiSapForm(ModelFormBootstrap):
     class Meta:
         model = m.RichiestaAcquisto
-        fields = ["numero_rda", "data_inserimento", "data_rilascio"]
+        fields = ["numero_rda", "data_inserimento"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

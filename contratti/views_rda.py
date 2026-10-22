@@ -299,6 +299,9 @@ def rda_dettaglio(request, pk):
             "puo_rimandare": r["fase"] == Fase.INVIATA,
             "chiusa": r["fase"] in (Fase.ANNULLATA, Fase.CHIUSA),
             "form_sap": forms.DatiSapForm(instance=rda),
+            "puo_rilasciare": permessi.puo_rilasciare(request.user),
+            "rilasciabile": r["fase"] == Fase.INSERITA,
+            "rilascio_annullabile": r["fase"] == Fase.RILASCIATA,
             "form_nota": forms.NotaForm(),
             "form_pratica": forms.CollegaPraticaForm(
                 rda=rda,
@@ -380,9 +383,7 @@ def rda_dati_sap(request, pk):
     return _azione(
         request,
         pk,
-        lambda r: acquisti.aggiorna_dati_sap(
-            r, d["numero_rda"], d["data_inserimento"], d["data_rilascio"]
-        ),
+        lambda r: acquisti.aggiorna_dati_sap(r, d["numero_rda"], d["data_inserimento"]),
         "Dati SAP registrati.",
     )
 
