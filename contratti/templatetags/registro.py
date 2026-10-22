@@ -25,6 +25,26 @@ STATO = {
 
 
 @register.filter
+def link_web(valore):
+    """Il link è http(s): il browser lo apre. Gli altri (smb://, file://) si copiano."""
+    return str(valore).lower().startswith(("http://", "https://"))
+
+
+@register.filter
+def percorso_windows(valore):
+    """Percorso di Windows (UNC o disco) di un link smb:// o file://; vuoto se non c'è."""
+    testo = str(valore)
+    if testo.lower().startswith("file:///"):
+        resto = testo[8:]
+        # Disco con lettera (file:///X:/cartella); altrimenti è un percorso Unix.
+        return resto.replace("/", "\\") if len(resto) > 1 and resto[1] == ":" else ""
+    for schema in ("smb://", "file://"):
+        if testo.lower().startswith(schema):
+            return "\\\\" + testo[len(schema) :].replace("/", "\\")
+    return ""
+
+
+@register.filter
 def euro(valore):
     """1234.5 → "1.234,50 €"."""
     if valore is None or valore == "":

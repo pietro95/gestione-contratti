@@ -72,7 +72,10 @@
           <dt>Natura</dt><dd>{{ c.natura }}{% if c.finanziamento == "finanziato" %} · finanziato (WBS a progetto){% elif c.finanziamento == "extra_budget" %} · <span class="stato stato-giallo">extra budget</span>{% endif %}</dd>
           {% for a in autorizzazioni_extra %}<dt>Extra budget</dt><dd><a href="{{ a.get_absolute_url }}">{{ a.codice }}</a> · autorizzazione AD prot. {{ a.protocollo }} del {{ a.data_autorizzazione|date:"d/m/Y" }}</dd>{% endfor %}
           {% if c.percorso_documenti %}<dt>Cartella</dt><dd class="text-break"><code>{{ c.percorso_documenti }}</code> <button type="button" class="btn btn-sm btn-outline-secondary" data-copia-testo="{{ c.percorso_documenti }}" aria-label="Copia il percorso"><i class="bi bi-clipboard" aria-hidden="true"></i> Copia</button></dd>{% endif %}
-          {% if c.link_documenti %}<dt>Documenti</dt><dd><a href="{{ c.link_documenti }}" rel="noopener" target="_blank">Apri la cartella <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></dd>{% endif %}
+          {% if c.link_documenti %}{% if c.link_documenti|link_web %}<dt>Documenti</dt><dd><a href="{{ c.link_documenti }}" rel="noopener" target="_blank">Apri la cartella <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></dd>
+          {% else %}<dt>Documenti</dt><dd class="text-break"><code>{{ c.link_documenti }}</code> <button type="button" class="btn btn-sm btn-outline-secondary" data-copia-testo="{{ c.link_documenti }}" aria-label="Copia il link ai documenti"><i class="bi bi-clipboard" aria-hidden="true"></i> Copia</button> <a class="small" href="{{ c.link_documenti }}" rel="noopener">Prova ad aprire</a>
+            {% with win=c.link_documenti|percorso_windows %}{% if win %}<div class="small mt-1">Windows: <code>{{ win }}</code> <button type="button" class="btn btn-sm btn-outline-secondary" data-copia-testo="{{ win }}" aria-label="Copia il percorso di Windows"><i class="bi bi-clipboard" aria-hidden="true"></i> Copia</button></div>{% endif %}{% endwith %}
+            <div class="form-text">I browser spesso non aprono i percorsi di rete: copia il link e incollalo in Esplora risorse.</div></dd>{% endif %}{% endif %}
         </dl>
       </div>
       <div class="col-lg-6">

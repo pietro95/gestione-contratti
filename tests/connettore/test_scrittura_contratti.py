@@ -124,6 +124,50 @@ def test_modifica_contratto(client, editor, contratto):
     )
 
 
+def test_modifica_contratto_link_ai_documenti_di_rete(client, editor, contratto):
+    """Stesso validatore dell'interfaccia: smb:// con host corto, anteprima compresa."""
+    c = contratto
+    base = {
+        "fornitore": c.fornitore_id,
+        "descrizione": "Canone di prova",
+        "numero_contratto": "4600000001",
+        "procedura": c.procedura_id,
+        "data_inizio": "01/06/2025",
+        "durata_mesi": "12",
+    }
+    link = "smb://server/share/cartella"
+    equivalente(
+        client,
+        editor,
+        lambda cl: cl.post(f"/contratti/{c.pk}/modifica/", {**base, "link_documenti": link}),
+        "modifica_contratto",
+        {"id": c.pk, "link_documenti": link},
+    )
+    c.refresh_from_db()
+    assert c.link_documenti == link
+
+
+@pytest.mark.parametrize(
+    "link", ["smb://nas01/share/x", "smb://10.0.0.5/share", "file:///X:/ICTDINN", "https://nas01/x"]
+)
+def test_anteprima_modifica_contratto_accetta_i_link_di_rete(editor, contratto, link):
+    from tests.connettore.test_scrittura import ctx, ok
+
+    anteprima = ok(ctx(editor), "modifica_contratto", {"id": contratto.pk, "link_documenti": link})
+    assert anteprima["id_operazione"]  # il tool passa dal form: nessuna validazione separata
+    (modifica,) = [x for x in anteprima["modifiche"] if x["oggetto"] == "contratto"]
+    assert modifica["campi"]["link_documenti"]["dopo"] == link
+
+
+@pytest.mark.parametrize("link", ["javascript:alert(1)", "ftp://nas01/x", "x" * 501])
+def test_modifica_contratto_link_non_ammesso(editor, contratto, link):
+    from tests.connettore.test_scrittura import ctx, errore
+
+    testo = errore(ctx(editor), "modifica_contratto", {"id": contratto.pk, "link_documenti": link})
+    assert "link_documenti" in testo
+    assert not OperazioneMCP.objects.exists()
+
+
 def test_registra_rinnovo(client, editor, contratto):
     c = contratto
     voce = c.voci.get()

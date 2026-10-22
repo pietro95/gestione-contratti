@@ -68,39 +68,121 @@ def test_fabbisogno_i_nuovi_campi_sono_facoltativi():
 
 # --- Link ai documenti: anche il NAS ------------------------------------------------------
 
+LINK_AMMESSI = [
+    "https://sharepoint.example/documenti/1",
+    "https://sharepoint/documenti/1",  # host interno senza dominio
+    "http://10.0.0.5:8080/doc",
+    "smb://nas01/share/x",
+    "smb://server/share/cartella",
+    "smb://10.0.0.5/share",
+    "smb://nas.esempio.test/Share/ICTDINN/00_IT/Contratti/2026",
+    "smb://nas01/Share/Contratti 2026/Fornitore Esempio",  # spazi nei nomi delle cartelle
+    "smb://nas01:445/share",
+    "file://nas01/share/x",
+    "file:///X:/ICTDINN/Contratti",
+]
+LINK_RIFIUTATI = [
+    "javascript:alert(1)",
+    "data:text/html,<script>alert(1)</script>",
+    "vbscript:msgbox(1)",
+    "ftp://nas01/x",
+    "smb:/",
+    "smb://",
+    "smb:///share",  # senza host
+    "file://",
+    "smb://nas01/share/<x>",
+    "smb://nas01/sh\\are",  # barre inverse nel percorso
+    "https://nas 01/x",
+]
 
-@pytest.mark.parametrize(
-    "link",
-    [
-        "https://sharepoint.example/documenti/1",
-        "smb://nas.esempio.test/Share/ICTDINN/00_IT/Contratti/2026",
-        "file://nas.esempio.test/Share/ICTDINN",
-        "file:///X:/ICTDINN/Contratti",
-    ],
-)
-def test_link_documenti_ammette_http_smb_e_file(link):
-    form = web_forms.ContrattoForm(
+
+def _form_contratto(**kw):
+    return web_forms.ContrattoForm(
         {
             "fabbisogno": f.fabbisogno().pk,
             "fornitore": f.fornitore().pk,
             "procedura": f.procedura().pk,
             "data_inizio": "01/01/2026",
             "durata_mesi": 12,
-            "link_documenti": link,
+            **kw,
         }
     )
+
+
+@pytest.mark.parametrize("link", LINK_AMMESSI)
+def test_link_documenti_ammessi(link):
+    form = _form_contratto(link_documenti=link)
     assert form.is_valid(), form.errors
     assert form.cleaned_data["link_documenti"] == link
     contratto = f.contratto(link_documenti=link)
     contratto.full_clean()  # lo stesso validatore sul modello
 
 
-@pytest.mark.parametrize("link", ["ftp://nas.esempio.test/x", "javascript:alert(1)", "smb:/"])
-def test_link_documenti_rifiuta_gli_altri_schemi(link):
+@pytest.mark.parametrize("link", LINK_RIFIUTATI)
+def test_link_documenti_rifiutati(link):
+    form = _form_contratto(link_documenti=link)
+    assert not form.is_valid() and "link_documenti" in form.errors
     contratto = f.contratto()
     contratto.link_documenti = link
     with pytest.raises(ValidationError):
         contratto.full_clean()
+
+
+def test_link_documenti_vuoto_e_facoltativo():
+    form = _form_contratto(link_documenti="")
+    assert form.is_valid(), form.errors
+    f.contratto(link_documenti="").full_clean()
+
+
+def test_link_documenti_oltre_500_caratteri_rifiutato():
+    lungo = "smb://nas01/share/" + "a" * 483  # 501 caratteri
+    assert len(lungo) == 501
+    assert "link_documenti" in _form_contratto(link_documenti=lungo).errors
+    esatto = lungo[:-1]
+    assert _form_contratto(link_documenti=esatto).is_valid()
+
+
+def test_link_documenti_senza_schema_resta_https():
+    form = _form_contratto(link_documenti="sharepoint.example/doc")
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["link_documenti"] == "https://sharepoint.example/doc"
+
+
+@pytest.mark.parametrize(
+    ("unc", "atteso"),
+    [
+        (r"\\nas01\share\Contratti\2026", "file://nas01/share/Contratti/2026"),
+        (r"\\10.0.0.5\share", "file://10.0.0.5/share"),
+    ],
+)
+def test_percorso_unc_normalizzato_in_file(unc, atteso):
+    form = _form_contratto(link_documenti=unc)
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["link_documenti"] == atteso
+
+
+def test_unc_malformato_rifiutato():
+    assert "link_documenti" in _form_contratto(link_documenti=r"\\\nas01\share").errors
+
+
+def test_link_esistenti_non_vengono_modificati(editor):
+    """Il validatore non tocca i dati: un link già salvato resta com'è."""
+    c = f.contratto(link_documenti="https://vecchio.example/doc")
+    m.Contratto.objects.filter(pk=c.pk).update(link_documenti="smb://nas01/share/x")
+    c.refresh_from_db()
+    assert c.link_documenti == "smb://nas01/share/x"
+
+
+def test_pagina_contratto_http_si_apre_smb_si_copia(editor):
+    http = f.contratto(link_documenti="https://sharepoint/documenti/1")
+    smb = f.contratto(link_documenti="smb://nas01/Share/Contratti")
+    html_http = editor.get(reverse("contratti:contratto", args=[http.pk])).content.decode()
+    assert 'href="https://sharepoint/documenti/1"' in html_http
+    assert "Copia il link ai documenti" not in html_http
+    html_smb = editor.get(reverse("contratti:contratto", args=[smb.pk])).content.decode()
+    assert 'href="smb://nas01/Share/Contratti"' in html_smb  # resta un link
+    assert 'data-copia-testo="smb://nas01/Share/Contratti"' in html_smb  # e testo copiabile
+    assert "\\\\nas01\\Share\\Contratti" in html_smb  # percorso di Windows
 
 
 # --- A consumo: nessuna rata programmata -----------------------------------------------------
@@ -205,3 +287,18 @@ def test_reader_non_dichiara_ne_toglie(reader, fab_con_contratto):
     d = servizi.dichiara_competenza(fab_con_contratto, 2027, "OPEX", Decimal("1"))
     assert reader.post(reverse("contratti:archivia", args=["competenza", d.pk])).status_code == 403
     assert not m.CompetenzaDichiarata.objects.get().archiviato
+
+
+def test_tutti_i_form_del_contratto_usano_lo_stesso_campo_link():
+    """Interfaccia e connettore (crea, modifica, rinnovo) passano da questi form."""
+    from contratti.models import LinkDocumentiFormField
+
+    for classe in (
+        web_forms.ContrattoForm,
+        web_forms.ContrattoNuovoForm,
+        web_forms.RinnovoForm,
+        web_forms.RinnovoSenzaContrattoForm,
+    ):
+        campo = classe().fields.get("link_documenti")
+        assert isinstance(campo, LinkDocumentiFormField), classe.__name__
+        assert campo.max_length == 500
