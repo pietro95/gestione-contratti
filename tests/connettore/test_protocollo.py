@@ -66,6 +66,7 @@ def test_tools_list_sola_lettura(ctx):
         "contratti_da_chiudere",
         "stanziamenti",  # Rev22
         "anomalie_esecuzione",
+        "rilasci_da_fare",  # pagina «Rilasci SAP»
     ]
     for t in tools:
         assert t["annotations"]["readOnlyHint"] is True

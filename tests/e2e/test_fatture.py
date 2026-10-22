@@ -1,5 +1,5 @@
 """F11.3 nel browser: import settimanale → presa in carico multipla → contratto → convalida →
-RdC → MAP → commento per PAC → trasferimento → chiusura del contratto.
+RdC → MAP → rilasci su SAP → commento per PAC → trasferimento → chiusura del contratto.
 
 Ogni pagina senza violazioni gravi di accessibilità (axe-core). Nomi e codici di fantasia.
 """
@@ -87,7 +87,10 @@ def test_flusso_della_fattura(pagina, tmp_path):
     ) == {"e2e_editor"}
     assert m.Fattura.objects.get(numero="99").referente is None
 
-    # La fattura 13/2026: contratto proposto, convalida, importi, RdC e MAP.
+    # La fattura 13/2026: contratto proposto, convalida, importi, RdC e MAP, con i rilasci.
+    m.FunzioneUtente.objects.create(
+        username="e2e_editor", funzione=m.FunzioneUtente.Funzione.RILASCIO_SAP
+    )
     fa = m.Fattura.objects.get(numero="13/2026")
     pagina.goto(f"{pagina.base}/fatture/{fa.pk}/")
     assert violazioni_axe(pagina) == []
@@ -108,6 +111,10 @@ def test_flusso_della_fattura(pagina, tmp_path):
         pagina.fill("#id_numero", numero)
         pagina.keyboard.press("Escape")
         pagina.click("button:has-text('Registra il documento')")
+    expect(pagina.locator(".sottotitolo .stato").first).to_have_text("RdC da rilasciare")
+    pagina.locator("button:has-text('Rilascia')").first.click()
+    expect(pagina.locator(".sottotitolo .stato").first).to_have_text("MAP/MIGO da rilasciare")
+    pagina.locator("button:has-text('Rilascia')").first.click()
     expect(pagina.locator(".sottotitolo .stato").first).to_have_text("Da trasferire")
     assert violazioni_axe(pagina) == []
 

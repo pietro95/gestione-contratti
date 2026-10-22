@@ -58,7 +58,14 @@ def cruscotto_acquisti(request):
             "bloccate": fatture[Passo.BLOCCATA],
             "fatture_per_passo": [
                 (p, motore.ETICHETTE_PASSO[p], fatture[p])
-                for p in (Passo.ASSEGNAZIONE, Passo.RDC, Passo.MAP_MIGO, Passo.TRASFERIMENTO)
+                for p in (
+                    Passo.ASSEGNAZIONE,
+                    Passo.RDC,
+                    Passo.RDC_RILASCIO,
+                    Passo.MAP_MIGO,
+                    Passo.MAP_MIGO_RILASCIO,
+                    Passo.TRASFERIMENTO,
+                )
             ],
             "fatture_ferme": sum(1 for g in fatture.values() for r in g if r.ferma),
             "da_chiudere": da_chiudere,

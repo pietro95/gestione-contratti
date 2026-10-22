@@ -97,7 +97,9 @@ PASSO_FATTURA = {
     "convalida": ("giallo", "Da convalidare"),
     "bloccata": ("grigio", "Bloccata"),
     "rdc": ("blu", "RdC da fare"),
+    "rdc_rilascio": ("blu", "RdC da rilasciare"),
     "map_migo": ("blu", "MAP/MIGO da fare"),
+    "map_migo_rilascio": ("blu", "MAP/MIGO da rilasciare"),
     "trasferimento": ("blu", "Da trasferire"),
     "None": ("verde", "Trasferita"),
 }

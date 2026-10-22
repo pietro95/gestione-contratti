@@ -56,12 +56,16 @@ def test_flusso_della_richiesta_di_rda(pagina, dati):
     pagina.click("button[name=invia]")
     expect(pagina.locator(".sottotitolo .stato").first).to_have_text("Inviata")
 
-    # Dati da SAP: inserimento e rilascio.
+    # Dati da SAP: inserimento; poi il rilascio, dell'addetto al rilascio.
+    m.FunzioneUtente.objects.create(
+        username="e2e_editor", funzione=m.FunzioneUtente.Funzione.RILASCIO_SAP
+    )
     pagina.fill("#id_numero_rda", "5100000001")
     pagina.fill("#id_data_inserimento", "15/06/2026")
-    pagina.fill("#id_data_rilascio", "01/07/2026")
     pagina.keyboard.press("Escape")
     pagina.click("text=Salva i dati SAP")
+    expect(pagina.locator(".sottotitolo .stato").first).to_have_text("Inserita in SAP")
+    pagina.click("button:has-text('Rilascia la RDA')")
     expect(pagina.locator(".sottotitolo .stato").first).to_have_text("Rilasciata")
 
     # Il contratto emesso, precompilato dalla RDA.

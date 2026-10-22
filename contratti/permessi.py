@@ -240,15 +240,28 @@ def scelte_filtro(user) -> list[tuple[str, str]]:
     return scelte + m.scelte_cluster()
 
 
-def e_addetto(user) -> bool:
-    """Ha la funzione «Amministrazione acquisti» (SPEC §8.1, Rev13)? Non dà permessi da sola."""
-    cache = getattr(user, "_e_addetto", None)
+def _ha_funzione(user, funzione: str, cache_attr: str) -> bool:
+    cache = getattr(user, cache_attr, None)
     if cache is None:
         nome = (getattr(user, "username", "") or "").strip().lower()
         cache = m.FunzioneUtente.objects.filter(
-            username__iexact=nome,
-            funzione=m.FunzioneUtente.Funzione.AMMINISTRAZIONE_ACQUISTI,
-            archiviato=False,
+            username__iexact=nome, funzione=funzione, archiviato=False
         ).exists()
-        user._e_addetto = cache
+        setattr(user, cache_attr, cache)
     return cache
+
+
+def e_addetto(user) -> bool:
+    """Ha la funzione «Amministrazione acquisti» (SPEC §8.1, Rev13)? Non dà permessi da sola."""
+    return _ha_funzione(user, m.FunzioneUtente.Funzione.AMMINISTRAZIONE_ACQUISTI, "_e_addetto")
+
+
+def e_addetto_rilascio(user) -> bool:
+    """Ha la funzione «Addetto al rilascio» (RdC, MAP e MIGO su SAP)? Non dà permessi da sola."""
+    return _ha_funzione(user, m.FunzioneUtente.Funzione.RILASCIO_SAP, "_e_addetto_rilascio")
+
+
+def puo_rilasciare(user) -> bool:
+    """Rilascia su SAP RDA, RdC, MAP e MIGO: solo chi ha la funzione «Addetto al rilascio» e
+    può scrivere (nemmeno l'Admin senza la funzione; il Reader mai)."""
+    return role_of(user) in WRITE_ROLES and e_addetto_rilascio(user)

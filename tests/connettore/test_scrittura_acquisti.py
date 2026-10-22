@@ -235,7 +235,7 @@ def test_invia_rimanda_annulla(client, editor, rda_bozza):
 def test_dati_sap_e_contratti_proposti(client, editor, rda_bozza, licenze_cad):  # noqa: F811
     acquisti.invia(rda_bozza, editor)
     altro = f.contratto(fabbisogno=licenze_cad[0], numero_rda="5100000099")
-    dati = {"numero_rda": "5100000099", "data_inserimento": "01/10/2026", "data_rilascio": ""}
+    dati = {"numero_rda": "5100000099", "data_inserimento": "01/10/2026"}
     uguale(
         client, editor, lambda cl: cl.post(f"/rda/{rda_bozza.pk}/dati-sap/", dati),
         "dati_sap_rda",
@@ -243,10 +243,10 @@ def test_dati_sap_e_contratti_proposti(client, editor, rda_bozza, licenze_cad): 
     )  # fmt: skip
     rda_bozza.refresh_from_db()
     assert acquisti.fase(rda_bozza) == "inserita"
-    anteprima = ok(editor, "dati_sap_rda", {"id": rda_bozza.pk, "data_rilascio": "2026-10-02"})
+    anteprima = ok(editor, "dati_sap_rda", {"id": rda_bozza.pk, "data_inserimento": "2026-10-02"})
     assert f"id {altro.pk}" in anteprima["avvisi"][0]
     dopo = anteprima["effetti"]["processo_acquisto"]["dopo"]["rda"][0]
-    assert dopo["fase"] == "rilasciata"
+    assert dopo["fase"] == "inserita"
 
 
 def test_registra_rda(client, editor, tabelle_sap):  # noqa: F811
@@ -589,9 +589,12 @@ def test_tc18_via_mcp(make_user, editor, registro_fatture):
         PAC_ATTESO
     )
     assert anteprima["effetti"]["processo_acquisto"]["dopo"]["fatture"][0]["passo"] == (
-        "trasferimento"
+        "rdc_rilascio"
     )
     conferma(editor, anteprima)
+    # Il rilascio su SAP si fa dalla maschera dell'addetto, non dal connettore.
+    m.DocumentoEsecuzione.objects.filter(fattura=f13).update(data_rilascio=datetime.date.today())
+    assert ok(editor, "fattura", {"id": f13.pk})["passo"] == "trasferimento"
     assert ok(editor, "fattura", {"id": f13.pk})["commento_pac"] == PAC_ATTESO
 
 
@@ -654,16 +657,24 @@ def test_documento_esecuzione_e_chiusura(client, editor, una_tantum):
 
 
 def test_tc15_fasi_via_mcp(editor, rda_bozza):
-    """TC-15: bozza → inviata → da correggere → inviata → inserita → rilasciata."""
+    """TC-15: bozza → inviata → da correggere → inviata → inserita → rilasciata (dall'addetto
+    al rilascio)."""
+    m.FunzioneUtente.objects.create(
+        username=editor.username, funzione=m.FunzioneUtente.Funzione.RILASCIO_SAP
+    )
     fasi = []
     for nome, argomenti in (
         ("invia_rda", {}),
         ("rimanda_rda", {"nota": "Manca il preventivo"}),
         ("invia_rda", {}),
         ("dati_sap_rda", {"numero_rda": "5100000001"}),
-        ("dati_sap_rda", {"data_rilascio": oggi().isoformat()}),
+        ("rilascia", {}),
     ):
-        conferma(editor, ok(editor, nome, {"id": rda_bozza.pk, **argomenti}))
+        if nome == "rilascia":
+            argomenti = {"rda_ids": [rda_bozza.pk]}
+        else:
+            argomenti = {"id": rda_bozza.pk, **argomenti}
+        conferma(editor, ok(editor, nome, argomenti))
         fasi.append(ok(editor, "rda", {"id": rda_bozza.pk})["fase"])
     assert fasi == ["inviata", "da_correggere", "inviata", "inserita", "rilasciata"]
     assert ok(editor, "rda", {"id": rda_bozza.pk})["pratica"]["stato"]["stato"] == ("RDA approvata")
@@ -844,3 +855,73 @@ def test_centro_di_costo_predefinito_e_tendina(editor, licenze_cad):  # noqa: F8
         "fabbisogno_id": fab.pk, "posizioni": [{**nuova, "centro_costo": "XX99"}],
     })  # fmt: skip
     assert "posizioni[0].centro_costo" in testo
+
+
+# --- Rilascio su SAP (RDA, RdC, MAP, MIGO) ------------------------------------------------------
+
+
+@pytest.fixture
+def addetto_rilascio(editor):
+    m.FunzioneUtente.objects.create(
+        username=editor.username, funzione=m.FunzioneUtente.Funzione.RILASCIO_SAP
+    )
+    return editor
+
+
+def _documento_da_rilasciare(registro_fatture) -> m.DocumentoEsecuzione:
+    c, fa = registro_fatture["c"], registro_fatture["fatture"][0]
+    return m.DocumentoEsecuzione.objects.create(
+        contratto=c, fattura=fa, tipo="ODA_RDC", numero="RDC-1", data=D(2026, 10, 1)
+    )
+
+
+def test_rilascia_solo_per_l_addetto(editor, rda_bozza, registro_fatture):
+    doc = _documento_da_rilasciare(registro_fatture)
+    assert "Addetto al rilascio" in errore(editor, "rilascia", {"documenti_ids": [doc.pk]})
+    assert "Addetto al rilascio" in errore(
+        editor, "annulla_rilascio", {"tipo": "documento", "id": doc.pk}
+    )
+
+
+def test_rilascia_documenti_e_rda(addetto_rilascio, client, rda_bozza, registro_fatture):
+    editor = addetto_rilascio
+    doc = _documento_da_rilasciare(registro_fatture)
+    acquisti.invia(rda_bozza, editor)
+    acquisti.aggiorna_dati_sap(rda_bozza, "5100000001", D(2026, 10, 1))
+    coda = ok(editor, "rilasci_da_fare", {})
+    assert [r["id"] for r in coda["rda"]] == [rda_bozza.pk]
+    assert [d["id"] for d in coda["documenti"]] == [doc.pk] and coda["puo_rilasciare"] is True
+    anteprima = ok(editor, "rilascia", {"documenti_ids": [doc.pk], "rda_ids": [rda_bozza.pk]})
+    assert {r["esito"] for r in anteprima["esito_rilasci"]} == {"applicata"}
+    doc.refresh_from_db()
+    assert doc.data_rilascio is None  # l'anteprima non scrive niente
+    conferma(editor, anteprima)
+    doc.refresh_from_db()
+    rda_bozza.refresh_from_db()
+    assert doc.data_rilascio is not None and doc.rilasciato_da == editor
+    assert rda_bozza.rilasciata_da == editor
+    assert ok(editor, "rda", {"id": rda_bozza.pk})["fase"] == "rilasciata"
+    assert ok(editor, "rilasci_da_fare", {})["documenti"] == []
+
+
+def test_rilascia_rifiuta_gli_elementi_non_rilasciabili(
+    addetto_rilascio, rda_bozza, registro_fatture
+):
+    editor = addetto_rilascio
+    doc = _documento_da_rilasciare(registro_fatture)
+    anteprima = ok(editor, "rilascia", {"documenti_ids": [doc.pk], "rda_ids": [rda_bozza.pk]})
+    esiti = {(r["tipo"], r["id"]): r for r in anteprima["esito_rilasci"]}
+    assert esiti[("documento", doc.pk)]["esito"] == "applicata"
+    assert "non è ancora inserita" in esiti[("rda", rda_bozza.pk)]["motivo"]
+    assert "Niente da rilasciare" in errore(editor, "rilascia", {"rda_ids": [rda_bozza.pk]})
+    assert "Indicare" in errore(editor, "rilascia", {})
+    assert "al massimo 50" in errore(editor, "rilascia", {"documenti_ids": list(range(1, 52))})
+
+
+def test_annulla_rilascio_via_mcp(addetto_rilascio, registro_fatture):
+    editor = addetto_rilascio
+    doc = _documento_da_rilasciare(registro_fatture)
+    conferma(editor, ok(editor, "rilascia", {"documenti_ids": [doc.pk]}))
+    conferma(editor, ok(editor, "annulla_rilascio", {"tipo": "documento", "id": doc.pk}))
+    doc.refresh_from_db()
+    assert doc.data_rilascio is None

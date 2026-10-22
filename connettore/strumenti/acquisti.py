@@ -414,6 +414,44 @@ def cruscotto_acquisti(ctx: Contesto, argomenti: dict) -> dict:
     }
 
 
+def rilasci_da_fare(ctx: Contesto, argomenti: dict) -> dict:
+    """La coda dell'addetto al rilascio: RDA inserite in SAP, RdC, MAP e MIGO da rilasciare."""
+    documenti = fatture.documenti_da_rilasciare(argomenti.get("tipo", ""))
+    rda = acquisti.rda_da_rilasciare() if argomenti.get("tipo", "") in ("", "RDA") else []
+    if argomenti.get("tipo") == "RDA":
+        documenti = []
+    return {
+        "alla_data": ctx.oggi,
+        "puo_rilasciare": fatture.puo_rilasciare(ctx.utente),
+        "rda": [
+            {
+                "id": r.pk,
+                "numero_rda": r.numero_rda,
+                "descrizione": r.descrizione,
+                "cluster": r.cluster.codice,
+                "inserita_il": r.data_inserimento,
+                "giorni": (ctx.oggi - r.data_inserimento).days if r.data_inserimento else None,
+                "link": link("contratti:rda", r.pk),
+            }
+            for r in rda
+        ],
+        "documenti": [
+            {
+                "id": d.pk,
+                "tipo": d.get_tipo_display(),
+                "numero": d.numero or None,
+                "data": d.data,
+                "fattura_id": d.fattura_id,
+                "numero_fattura": d.fattura.numero,
+                "fornitore": d.fattura.fornitore.ragione_sociale,
+                "link": link("contratti:fattura", d.fattura_id),
+            }
+            for d in documenti
+        ],
+        "link": link("contratti:rilasci"),
+    }
+
+
 def contratti_da_chiudere(ctx: Contesto, argomenti: dict) -> dict:
     codici = cluster_filtro(ctx.utente, argomenti.get("cluster"))
     sottocluster = sottocluster_filtro(argomenti.get("sottocluster"))
@@ -679,5 +717,18 @@ STRUMENTI = [
             {"cluster": SCHEMA_CLUSTER, "sottocluster": SCHEMA_SOTTOCLUSTER, **SCHEMA_PAGINA}
         ),
         esegui=anomalie_esecuzione,
+    ),
+    Strumento(
+        nome="rilasci_da_fare",
+        titolo="Rilasci SAP da fare",
+        descrizione=(
+            "La coda della pagina «Rilasci SAP»: RDA inserite in SAP e RdC, MAP e MIGO delle "
+            "fatture da lavorare ancora da rilasciare. Visibile a tutti; rilascia solo "
+            "l'addetto al rilascio (tool «rilascia»)."
+        ),
+        input_schema=_schema(
+            {"tipo": {"type": "string", "enum": ["RDA", "ODA_RDC", "MAP", "MIGO"]}}
+        ),
+        esegui=rilasci_da_fare,
     ),
 ]
