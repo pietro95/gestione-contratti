@@ -1,5 +1,7 @@
 """Form dell'interfaccia operativa. Importi localizzati (1.234,56), date in formato ISO."""
 
+from decimal import Decimal
+
 from django import forms
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -8,6 +10,7 @@ from django.forms import inlineformset_factory
 
 from contratti import models as m
 from contratti import permessi
+from contratti.engine import sal
 
 # Date scritte gg/mm/aaaa (calendario flatpickr nel browser); si accetta anche aaaa-mm-gg.
 FORMATI_DATA = ["%d/%m/%Y", "%Y-%m-%d", "%d/%m/%y"]
@@ -820,14 +823,73 @@ class PianoForm(ModelFormBootstrap):
         return dati
 
 
+class QuoteBase(forms.BaseInlineFormSet):
+    """Quote per periodo di una voce.
+
+    ``regole`` = (modalità del piano, importo fisso) le imposta chi valida voce e piano insieme
+    (``valida_voce``), prima di validare le quote. Per una voce a SAL (Rev28) si rifiutano solo
+    le quote sovrapposte e la somma oltre il fisso; per le altre modalità la coerenza con il
+    periodo di servizio non blocca il salvataggio: l'avviso lo dà ``servizi.avvisi_quote``.
+    """
+
+    regole: tuple[str, Decimal] | None = None
+
+    def clean(self):
+        super().clean()
+        if self.regole is None or any(self.errors):
+            return
+        modalita, fisso = self.regole
+        if modalita != m.ModalitaFatturazione.SAL:
+            return
+        righe = [
+            (i, f.cleaned_data)
+            for i, f in enumerate(self.forms)
+            if f.cleaned_data and not f.cleaned_data.get("DELETE") and f.cleaned_data.get("dal")
+        ]
+        errori = sal.errori_quote(fisso, [(d["dal"], d["al"], d["importo"]) for _, d in righe])
+        for indice, messaggio in errori:
+            if indice is None:
+                raise forms.ValidationError(messaggio)
+            self.forms[righe[indice][0]].add_error("dal", messaggio.capitalize())
+
+    def add_fields(self, form, index):
+        super().add_fields(form, index)
+        if "DELETE" in form.fields:
+            form.fields["DELETE"].label = "Elimina"
+            form.fields["DELETE"].widget.attrs["class"] = "form-check-input"
+
+    def save_new(self, form, commit=True):
+        form.instance._change_reason = "Quota aggiunta dalla voce"
+        return super().save_new(form, commit)
+
+    def save_existing(self, form, obj, commit=True):
+        if form.has_changed():
+            obj._change_reason = "Quota modificata dalla voce"
+        return super().save_existing(form, obj, commit)
+
+    def delete_existing(self, obj, commit=True):
+        obj._change_reason = "Quota eliminata dalla voce"
+        super().delete_existing(obj, commit)
+
+
 QuoteFormSet = inlineformset_factory(
     m.VoceContratto,
     m.QuotaPeriodo,
+    formset=QuoteBase,
     fields=["dal", "al", "importo"],
     extra=1,
-    can_delete=False,
+    can_delete=True,
     form=ModelFormBootstrap,
 )
+
+
+def valida_voce(form, piano_form, quote) -> bool:
+    """Valida voce, piano e quote insieme: le regole sulle quote dipendono da modalità e fisso."""
+    valide = [form.is_valid(), piano_form.is_valid()]
+    if all(valide):
+        quote.regole = (piano_form.cleaned_data["modalita"], form.cleaned_data["importo_fisso"])
+    valide.append(quote.is_valid())
+    return all(valide)
 
 
 class RataForm(ModelFormBootstrap):

@@ -11,13 +11,18 @@
     <div class="col-xl-8">
       {% include "contratti/_campi.html" with form=form %}
       {% include "contratti/_campi.html" with form=piano_form %}
-      <div class="card form-sezione">
+      <div class="card form-sezione" id="quote-sezione">
         <div class="card-header">Quote per periodo <span class="fw-normal small text-body-secondary">facoltative: importi diversi anno per anno</span></div>
         {{ quote.management_form }}
-        {% if quote.non_form_errors %}<div class="alert alert-danger m-3">{{ quote.non_form_errors }}</div>{% endif %}
-        <div class="table-responsive"><table class="table align-middle"><thead><tr><th>Dal</th><th>Al</th><th>Importo</th></tr></thead><tbody>
-        {% for q in quote %}<tr><td>{{ q.id }}<label class="visually-hidden" for="{{ q.dal.id_for_label }}">Dal</label>{{ q.dal }}</td><td><label class="visually-hidden" for="{{ q.al.id_for_label }}">Al</label>{{ q.al }}</td><td><label class="visually-hidden" for="{{ q.importo.id_for_label }}">Importo</label>{{ q.importo }}{% for e in q.non_field_errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}</td></tr>{% endfor %}
+        {% if quote.non_form_errors %}<div class="alert alert-danger m-3" role="alert">{{ quote.non_form_errors }}</div>{% endif %}
+        {% if quote.total_error_count %}<div class="alert alert-danger m-3" role="alert">Le quote hanno degli errori: controlla le righe evidenziate. Quanto hai digitato è conservato.</div>{% endif %}
+        <p class="small text-body-secondary px-3 pt-3 mb-0">Una riga per periodo, di solito un anno. Aggiungi tutte le righe che servono e salva una volta sola. Per le voci a SAL le quote valgono per il fatturato (anno della data «dal»), non devono sovrapporsi né sommare oltre l'importo fisso; per le altre modalità devono essere contigue, dalla data di inizio alla data di fine del servizio, e sommare al fisso.</p>
+        <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Quota</th><th>Dal</th><th>Al</th><th>Importo</th><th><span class="visually-hidden">Azioni</span></th></tr></thead>
+        <tbody id="quote-forms">
+        {% for q in quote %}{% include "contratti/_quota_riga.html" with q=q numero=forloop.counter %}{% endfor %}
         </tbody></table></div>
+        <template id="quote-vuota">{% include "contratti/_quota_riga.html" with q=quote.empty_form numero="" %}</template>
+        <div class="p-3"><button type="button" class="btn btn-sm btn-outline-primary" data-aggiungi-form="quote"><i class="bi bi-plus-lg" aria-hidden="true"></i> Aggiungi quota</button></div>
       </div>
     </div>
     <div class="col-xl-4">

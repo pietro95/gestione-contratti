@@ -20,8 +20,9 @@ from accounts.permissions import editor_required
 from accounts.roles import ADMIN, role_of
 from contratti import acquisti, adapters, forms, forms_rda, permessi, selettori, servizi
 from contratti import models as m
+from contratti.engine import sal
 from contratti.engine.budget import valore
-from contratti.engine.scadenzario import genera_rate
+from contratti.engine.scadenzario import genera_rate, quote_valide
 from contratti.engine.tipi import Alert, Livello, Quota
 from contratti.importer import proposte as proposte_import
 
@@ -836,8 +837,11 @@ def voce_modifica(request, contratto_pk, pk=None):
     voce = get_object_or_404(m.VoceContratto, pk=pk, contratto=contratto) if pk else None
     form, piano_form, quote = _voce_form(request, contratto, voce)
     guidata = request.GET.get("guidata") == "1"
-    if request.method == "POST" and form.is_valid() and piano_form.is_valid() and quote.is_valid():
-        _messaggio_rate(request, servizi.salva_voce(contratto, form, piano_form, quote))
+    if request.method == "POST" and forms.valida_voce(form, piano_form, quote):
+        salvata = servizi.salva_voce(contratto, form, piano_form, quote)
+        _messaggio_rate(request, salvata)
+        for avviso in servizi.avvisi_quote(salvata.voce):
+            messages.warning(request, avviso)
         if guidata:
             return redirect("contratti:contratto_guidata", pk=contratto.pk)
         if request.GET.get("ritorno") == "piani":
@@ -857,7 +861,7 @@ def voce_anteprima(request, contratto_pk, pk=None):
     voce = get_object_or_404(m.VoceContratto, pk=pk, contratto=contratto) if pk else None
     form, piano_form, quote = _voce_form(request, contratto, voce)
     contesto = {"rate": None, "errore": None}
-    if not (form.is_valid() and piano_form.is_valid() and quote.is_valid()):
+    if not forms.valida_voce(form, piano_form, quote):
         contesto["errore"] = "Completa i campi obbligatori per vedere l'anteprima."
     elif contratto.data_inizio is None:
         contesto["errore"] = "Il contratto non ha la data di inizio."
@@ -877,11 +881,23 @@ def voce_anteprima(request, contratto_pk, pk=None):
             quote=tuple(
                 Quota(q["dal"], q["al"], q["importo"])
                 for q in quote.cleaned_data
-                if q and q.get("dal") and q.get("al") and q.get("importo") is not None
+                if q
+                and not q.get("DELETE")
+                and q.get("dal")
+                and q.get("al")
+                and q.get("importo") is not None
             ),
         )
         contesto["rate"] = genera_rate(voce_engine)
         contesto["totale"] = sum((r.importo for r in contesto["rate"]), Decimal("0.00"))
+        contesto["a_sal"] = sal.e_sal(voce_engine)
+        if sal.e_sal(voce_engine):
+            contesto["avvisi"] = sal.avvisi_quote(voce_engine)
+        elif voce_engine.quote and quote_valide(voce_engine) is None:
+            contesto["avvisi"] = [
+                "Quote per periodo non coerenti con la voce (contigue, dalla data di inizio "
+                "alla data di fine del servizio, somma uguale al fisso): verrebbero ignorate."
+            ]
     return render(request, "contratti/_anteprima_rate.html", contesto)
 
 

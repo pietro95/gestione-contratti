@@ -4,7 +4,8 @@ Legge utente e password da ``MCP_DATABASE_URL`` e li crea (o aggiorna la passwor
 riassegna i privilegi da zero: ``SELECT`` su tutte le tabelle; ``INSERT`` e ``UPDATE`` solo
 sulle tabelle di dominio che la scrittura dal connettore tocca (e sulle loro storie), sui
 token OAuth e sui registri del connettore; ``DELETE`` solo sulle rate (rigenerazione dello
-scadenzario) e sui token. Configurazione, utenti e sessioni restano in sola lettura: la
+scadenzario), sulle quote per periodo (sostituzione completa da ``modifica_voce``: la storia
+conserva i valori tolti) e sui token. Configurazione, utenti e sessioni restano in sola lettura: la
 regola «nessuna cancellazione fisica» è imposta anche dal database.
 Si esegue a ogni deploy, dopo le migration, così le tabelle nuove ricevono i privilegi.
 """
@@ -33,7 +34,7 @@ DOMINIO = {
     "OpzioneContratto": "INSERT, UPDATE",
     "Proroga": "INSERT, UPDATE",
     "VoceContratto": "INSERT, UPDATE",
-    "QuotaPeriodo": "INSERT, UPDATE",
+    "QuotaPeriodo": "INSERT, UPDATE, DELETE",
     "PianoFatturazione": "INSERT, UPDATE",
     "Rata": "INSERT, UPDATE, DELETE",
     "StatoPratica": "INSERT, UPDATE",

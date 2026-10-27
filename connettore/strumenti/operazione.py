@@ -201,8 +201,17 @@ def _modifiche(registrati: list, creati: set) -> list[dict]:
                 for c in cambi
                 if c.field not in CAMPI_ESCLUSI
             }
+        elif modello is m.Rata:
+            voce["tipo"] = "sostituito"  # rate generate (rigenerazione dello scadenzario)
         else:
-            voce["tipo"] = "sostituito"  # solo rate generate (rigenerazione dello scadenzario)
+            # Eliminato (es. quota per periodo sostituita): i valori di prima restano nella
+            # storia della voce, qui si mostrano.
+            voce["tipo"] = "eliminato"
+            voce["campi"] = {
+                f.attname: _valore(f, getattr(r, f.attname), set())
+                for f in modello._meta.fields
+                if f.attname not in CAMPI_ESCLUSI and getattr(r, f.attname) not in (None, "")
+            }
         uscita.append(voce)
     return uscita
 

@@ -9,7 +9,8 @@ from django.db.models import Q
 
 from contratti import adapters
 from contratti import models as m
-from contratti.engine.scadenzario import genera_rate
+from contratti.engine import sal as sal_motore
+from contratti.engine.scadenzario import genera_rate, quote_valide
 
 
 class ScadenzarioBloccato(Exception):
@@ -85,6 +86,38 @@ def salva_voce(contratto: m.Contratto, form, piano_form, quote) -> VoceSalvata:
     except ScadenzarioBloccato as exc:
         return VoceSalvata(voce, None, str(exc))
     return VoceSalvata(voce, rate)
+
+
+def elimina_quote(voce: m.VoceContratto, motivo: str) -> list[dict]:
+    """Toglie tutte le quote per periodo della voce (sostituzione completa, SPEC_MCP Rev07).
+
+    Nessuna perdita di storia: ogni quota tolta resta nella storia con i suoi valori (prima) e
+    il motivo. Restituisce le quote tolte, per riportarle nell'esito."""
+    tolte = []
+    for quota in list(voce.quote.all()):
+        tolte.append({"dal": quota.dal, "al": quota.al, "importo": quota.importo})
+        quota._change_reason = motivo
+        quota.delete()
+    return tolte
+
+
+def avvisi_quote(voce: m.VoceContratto) -> list[str]:
+    """Avvisi (non bloccanti) sulle quote per periodo di una voce già salvata."""
+    if not voce.quote.exists() or voce.contratto.data_inizio is None:
+        return []
+    voci, _ = adapters.voci_contratto(voce.contratto)
+    engine = next((v for v in voci if v.riferimento == voce.pk), None)
+    if engine is None:
+        return []
+    if sal_motore.e_sal(engine):
+        return sal_motore.avvisi_quote(engine)
+    if quote_valide(engine) is None:
+        return [
+            "Quote per periodo non coerenti con la voce: devono essere contigue, dalla data di "
+            "inizio alla data di fine del servizio e sommare all'importo fisso. Finché non "
+            "lo sono vengono ignorate (competenza e rate sull'intera voce)."
+        ]
+    return []
 
 
 def iniziali_rinnovo(predecessore: m.Contratto, senza_contratto: bool = False) -> dict:
