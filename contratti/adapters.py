@@ -196,7 +196,7 @@ def _consuntivo_fattura(f: m.Fattura, senza_voce: bool = False) -> Consuntivo | 
     dal, al = (f.data, f.data) if mancante else (f.competenza_dal, f.competenza_al)
     return Consuntivo(
         TipoConsuntivo.FATTURA, f.valore_base, dal, al, senza_competenza=mancante,
-        senza_voce=senza_voce,
+        senza_voce=senza_voce, data=f.data, riferimento=f.pk,
     )  # fmt: skip
 
 

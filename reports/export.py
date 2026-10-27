@@ -10,6 +10,7 @@ from contratti.selettori import codici_cluster
 from reports import xlsx
 from reports.budget import (
     ETICHETTE_VISTE,
+    FONTI_VISTE,
     LIVELLI,
     PARTI,
     RAGGRUPPAMENTI,
@@ -315,20 +316,32 @@ def quadratura_xlsx(q: Quadratura):
 
 
 def wbs_xlsx(spese, oggi: datetime.date):
-    """Spese per WBS: una riga per voce, una colonna per anno, poi il totale."""
+    """Spese per WBS: una riga per voce, una colonna per anno, poi il totale.
+
+    Per le voci a SAL (Rev29) seguono le righe «di cui fatture» e «di cui previsto» e, se c'è,
+    il residuo non pianificato (fuori dai totali); in fondo anomalie e avvisi.
+    """
     wb = xlsx.nuovo_libro()
     w = spese.wbs
     intestazione = [
         f"Spese per WBS {w.codice_wbs} — {w.descrizione}",
         f"{w.get_tipo_display()}{f', cluster {w.cluster.codice}' if w.cluster else ''}; "
         f"{ETICHETTE_VISTE[spese.vista]}, livello {spese.livello.value}; solo contratti registrati",
+        f"Fonte degli importi: {FONTI_VISTE[spese.vista]}.",
         NOTA_IMPONIBILE,
         _generato(oggi),
     ]
     anni = spese.anni
     colonne = ["Cluster", "Fabbisogno", "Contratto", "Fornitore", "Voce", "Conto",
-               "Inizio servizio", "Fine servizio", *[str(a) for a in anni], "Totale"]  # fmt: skip
+               "Inizio servizio", "Fine servizio", *[str(a) for a in anni], "Totale",
+               "Fonte"]  # fmt: skip
     righe = []
+    vuoto = [""] * 6
+
+    def componente(etichetta, valori):
+        importi = [valori.get(a, ZERO) for a in anni]
+        return [etichetta, *vuoto[:-1], None, None, *importi, sum(importi, ZERO), ""]
+
     for r in spese.righe:
         importi = [r.per_anno.get(a, ZERO) for a in anni]
         righe.append(
@@ -343,10 +356,28 @@ def wbs_xlsx(spese, oggi: datetime.date):
                 r.fine,
                 *importi,
                 sum(importi, ZERO),
+                r.fonte,
             ]
         )
+        if r.a_sal:
+            righe.append(componente("  di cui fatture registrate", r.consuntivo))
+            righe.append(componente("  di cui previsto (rate a mano o quote)", r.previsto))
+            if r.non_pianificato:
+                righe.append(
+                    ["  SAL non pianificato (fuori dai totali)", *vuoto[:-1], None, None,
+                     *[ZERO] * len(anni), r.non_pianificato, ""]
+                )  # fmt: skip
     totali = spese.totali()
     righe.append(["Totale", "", "", "", "", "", None, None, *[totali[a] for a in anni],
-                  spese.totale])  # fmt: skip
+                  spese.totale, ""])  # fmt: skip
+    if spese.con_sal:
+        righe.append(componente("  di cui fatture registrate (voci a SAL)",
+                                spese.totali_consuntivo()))  # fmt: skip
+        righe.append(componente("  di cui previsto (voci a SAL)", spese.totali_previsto()))
+        righe.append(["  SAL non pianificato (fuori dai totali)", *vuoto[:-1], None, None,
+                      *[ZERO] * len(anni), spese.non_pianificato, ""])  # fmt: skip
     xlsx.foglio(wb, "Spese per anno", intestazione, colonne, righe)
+    if spese.anomalie or spese.avvisi:
+        note = [["Anomalia", a] for a in spese.anomalie] + [["Avviso", a] for a in spese.avvisi]
+        xlsx.foglio(wb, "Anomalie e avvisi", intestazione, ["Tipo", "Descrizione"], note)
     return wb

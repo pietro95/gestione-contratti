@@ -73,12 +73,15 @@ def test_consumo_ignora_la_data_della_prima_fattura():
     assert viste["cassa"].totale(Livello.MASSIMO) == euro("20000.00")
 
 
-def test_sal_senza_rate_cassa_a_pro_rata_segnalata():
+def test_sal_senza_rate_ne_quote_ne_fatture_non_e_a_pro_rata():
+    # Rev29: un SAL non pianificato resta fuori dai totali e si segnala; niente giorni.
     v = voce("3650.00", D(2026, 1, 1), D(2026, 12, 31), piano=piano("sal"))
     assert genera_rate(v) == []
     viste, esiti = calcola([v])
-    assert viste["cassa"].totale() == euro("3650.00")
-    assert [e.codice for e in esiti] == ["CASSA_PRO_RATA"]
+    assert viste["cassa"].totale() == euro("0.00")
+    assert viste["consuntivo"].totale() == euro("0.00")
+    assert viste["competenza"].totale() == euro("3650.00")  # la competenza resta a giorni
+    assert [e.codice for e in esiti] == ["SAL_NON_PIANIFICATO"]
 
 
 def test_sal_con_rate_inserite_a_mano():

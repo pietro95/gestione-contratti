@@ -64,6 +64,10 @@
 </section>
 {% endfor %}
 
+{% if budget.sal_non_pianificati %}
+<div class="avvisi"><p><b>SAL non pianificato: {{ budget.sal_non_pianificato|euro }}</b> su {{ budget.sal_non_pianificati|length }} voci, fuori dai totali (voci a SAL senza rate, quote né fatture).</p>
+  <ul>{% for x in budget.sal_non_pianificati %}<li>{{ x.fabbisogno }} — {{ x.voce.descrizione }} ({{ x.natura }}): {{ x.importo|euro }}</li>{% endfor %}</ul></div>
+{% endif %}
 {% if budget.rinnovi_mancanti or budget.avvisi or budget.senza_data %}
 <div class="avvisi">
   <p><b>Avvisi sul calcolo</b></p>

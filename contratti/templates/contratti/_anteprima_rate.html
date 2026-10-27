@@ -5,4 +5,6 @@
 <div class="tabella-card table-responsive small"><table class="table table-sm mb-0"><thead><tr><th>#</th><th>Fattura</th><th>Pagamento</th><th class="text-end">Importo</th></tr></thead><tbody>
 {% for r in rate %}<tr><td>{{ r.numero }}</td><td>{{ r.data_fattura|date:"d/m/Y" }}</td><td>{{ r.data_pagamento|date:"d/m/Y" }}</td><td class="text-end">{{ r.importo|euro }}</td></tr>{% endfor %}
 </tbody></table></div>
-{% else %}<div class="alert alert-info mb-0">Nessuna rata da generare per questa modalità (SAL o da verificare).</div>{% endif %}
+{% elif a_sal %}<div class="alert alert-info mb-0">A SAL non si generano rate: il fatturato viene dalle fatture registrate; per il residuo valgono le rate inserite a mano o, senza rate, le quote per periodo. Il resto è «SAL non pianificato» e resta fuori dai totali.</div>
+{% else %}<div class="alert alert-info mb-0">Nessuna rata da generare per questa modalità (da verificare o a consumo).</div>{% endif %}
+{% for a in avvisi %}<div class="alert alert-warning small mt-2 mb-0">{{ a }}</div>{% endfor %}

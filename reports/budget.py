@@ -13,7 +13,7 @@ from decimal import Decimal
 
 from contratti import adapters
 from contratti import models as m
-from contratti.engine import budget
+from contratti.engine import budget, sal
 from contratti.engine.importi import ZERO
 from contratti.engine.tipi import Esito, Livello, Voce
 from contratti.selettori import codici_cluster
@@ -25,9 +25,20 @@ from contratti.selettori import codici_cluster
 VISTE = ("consuntivo", "cassa", "impegno", "competenza")
 ETICHETTE_VISTE = {
     "consuntivo": "Fatturato e stanziato (competenza)",
-    "cassa": "Fatturato (data fattura)",
+    "cassa": "Fatturato (data fattura) · rate del piano; SAL: fatture registrate",
     "impegno": "Ordinato (contratti emessi)",
     "competenza": "Competenza del contratto (pro-rata a giorni)",
+}
+# Cosa rappresentano gli importi di ogni vista, per modalità di fatturazione (Rev29): le voci a
+# SAL non hanno rate, quindi il «fatturato» è quello delle fatture registrate; il residuo da
+# rate a mano o quote è previsto, mai una ripartizione a giorni.
+FONTI_VISTE = {
+    "consuntivo": "rate previste, sostituite da fatture e stanziamenti per competenza; "
+    "SAL: fatture e stanziamenti, residuo da rate a mano o quote",
+    "cassa": "rate del piano per data fattura; SAL: fatture registrate per data documento, "
+    "residuo da rate a mano o quote (previsto)",
+    "impegno": "valore contrattuale nell'anno di emissione",
+    "competenza": "pro-rata a giorni sul periodo di servizio",
 }
 # Vista con cui si confronta il budget assegnato al sottocluster: il riferimento del budget
 # (SPEC Rev23, §5.2).
@@ -35,7 +46,7 @@ VISTA_ASSEGNATO = "consuntivo"
 # Nomi brevi per le intestazioni delle colonne dell'export.
 SIGLE_VISTE = {
     "consuntivo": "fatt+stanz competenza",
-    "cassa": "fatturato data fattura",
+    "cassa": "fatturato data fattura (SAL: fatture)",
     "impegno": "ordinato",
     "competenza": "competenza contratto",
 }
@@ -178,6 +189,22 @@ class RinnovoMancante:
 
 
 @dataclass
+class SalNonPianificato:
+    """Residuo di una voce a SAL senza rate, quote né fatture (SPEC Rev29): fuori dai totali,
+    ma visibile. Non dipende dall'anno: si segnala per le voci il cui servizio tocca l'anno."""
+
+    fabbisogno: m.Fabbisogno
+    contratto: m.Contratto
+    voce: m.VoceContratto
+    importo: Decimal
+    classe: adapters.Classificazione
+
+    @property
+    def natura(self) -> str:
+        return self.classe.natura
+
+
+@dataclass
 class Budget:
     filtri: Filtri
     oggi: datetime.date
@@ -185,6 +212,11 @@ class Budget:
     rinnovi_mancanti: list[RinnovoMancante]
     avvisi: dict[str, list[str]]  # messaggio → voci interessate
     senza_data: int  # contratti esclusi perché senza data di inizio
+    sal_non_pianificati: list[SalNonPianificato] = field(default_factory=list)
+
+    @property
+    def sal_non_pianificato(self) -> Decimal:
+        return sum((x.importo for x in self.sal_non_pianificati), ZERO)
 
     def totali(self) -> dict[str, Somme]:
         return _totali(self.voci)
@@ -207,6 +239,7 @@ class Budget:
             rinnovi_mancanti=[r for r in self.rinnovi_mancanti if natura in r.nature],
             avvisi=dict(avvisi),
             senza_data=self.senza_data,
+            sal_non_pianificati=[x for x in self.sal_non_pianificati if x.natura == natura],
         )
 
     def gruppi(self, criterio: str) -> list["Gruppo"]:
@@ -267,6 +300,14 @@ def importi_anno(voce: Voce, anno: int) -> tuple[Somme, list[Esito]]:
     return importi, esiti
 
 
+def _sal_non_pianificato(voce: Voce) -> Decimal:
+    """Parte dell'importo fisso di una voce a SAL senza rate, quote né fatture (Rev29)."""
+    if not sal.da_fonti_reali(voce):
+        return ZERO
+    ripartizione, _ = budget.ripartizione_sal(voce, Livello.FISSO, sal.VISTA_CASSA)
+    return ripartizione.non_pianificato
+
+
 def _non_nulla(importi: Somme) -> bool:
     return any(importi[v][liv] for v in VISTE for liv in LIVELLI)
 
@@ -298,6 +339,7 @@ def calcola_budget(filtri: Filtri, oggi: datetime.date) -> Budget:
 
 def _calcola_budget(filtri: Filtri, oggi: datetime.date) -> Budget:
     voci: list[VoceBudget] = []
+    sal_non_pianificati: list[SalNonPianificato] = []
     avvisi: dict[str, list[str]] = defaultdict(list)
     contratti = _contratti(filtri)
     senza_data = contratti.filter(data_inizio__isnull=True).count()
@@ -310,6 +352,8 @@ def _calcola_budget(filtri: Filtri, oggi: datetime.date) -> Budget:
             classe = adapters.classificazione(voce)
             if not filtri.ammette(classe):
                 continue
+            if (np := _sal_non_pianificato(ve)) and ve.inizio.year <= filtri.anno <= ve.fine.year:
+                sal_non_pianificati.append(SalNonPianificato(c.fabbisogno, c, voce, np, classe))
             importi, esiti = importi_anno(ve, filtri.anno)
             if not _non_nulla(importi):
                 continue
@@ -335,7 +379,9 @@ def _calcola_budget(filtri: Filtri, oggi: datetime.date) -> Budget:
     for vb in voci:
         for e in vb.esiti:
             avvisi[e.messaggio].append(f"{vb.fabbisogno} — {vb.descrizione}")
-    return Budget(filtri, oggi, voci, rinnovi_mancanti, dict(avvisi), senza_data)
+    return Budget(
+        filtri, oggi, voci, rinnovi_mancanti, dict(avvisi), senza_data, sal_non_pianificati
+    )
 
 
 def _voci_previste(filtri: Filtri, oggi: datetime.date):

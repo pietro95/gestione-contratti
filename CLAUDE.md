@@ -50,6 +50,7 @@ uv run python manage.py import_pregresso <pregresso.xlsx|csv> --dry-run         
 uv run python manage.py import_esecuzione <esecuzione.xlsx> --dry-run       # modello XLSX dell'esecuzione (F11.4)
 uv run python manage.py import_riepilogo <Riepilogo_RDA_Ordini.xlsx> --dry-run  # una tantum (F11.4)
 uv run python manage.py quadratura_excel <file.xlsx> --area IT
+uv run python manage.py impatto_sal --output <impatto_sal.xlsx>   # voci a SAL: fatturato per anno prima e dopo la Rev29 (sola lettura)
 uv run pytest tests/e2e                   # solo i test nel browser (Chromium di Playwright)
 uv run pytest tests/connettore            # connettore MCP (F10)
 uv run python manage.py crea_client_mcp claude|claude-code   # client OAuth del connettore

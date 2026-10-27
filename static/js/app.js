@@ -174,6 +174,10 @@
 
   // Formset: «Aggiungi …» clona il modello <template id="<prefisso>-vuota"> nel contenitore
   // <prefisso>-forms e aggiorna TOTAL_FORMS. Senza JavaScript resta la riga vuota in fondo.
+  // Il modello può essere una riga di tabella (<tr>): si interpreta dentro un <template>.
+  // Gli elementi con data-numero-riga mostrano il numero d'ordine della riga.
+  // «Rimuovi» (data-rimuovi-form) toglie una riga non ancora salvata: la svuota e la nasconde,
+  // così gli indici restano contigui e Django la ignora come riga vuota.
   function formset(radice) {
     radice.querySelectorAll("[data-aggiungi-form]").forEach(function (b) {
       if (b._formset) return;
@@ -186,14 +190,35 @@
         if (!totale || !modello || !contenitore) return;
         var indice = parseInt(totale.value, 10);
         var html = modello.innerHTML.replace(/__prefix__/g, String(indice));
-        var div = document.createElement("div");
-        div.innerHTML = html.replace("Posizione </legend>", "Posizione " + (indice + 1) + "</legend>");
-        var nuovo = div.firstElementChild;
+        var tmp = document.createElement("template");
+        tmp.innerHTML = html.replace("Posizione </legend>", "Posizione " + (indice + 1) + "</legend>");
+        var nuovo = tmp.content.firstElementChild;
+        nuovo.querySelectorAll("[data-numero-riga]").forEach(function (el) {
+          el.textContent = String(indice + 1);
+        });
         contenitore.appendChild(nuovo);
         totale.value = String(indice + 1);
         inizializza(nuovo);
         var primo = nuovo.querySelector("input:not([type=hidden]), select, textarea");
         if (primo) primo.focus();
+      });
+    });
+    radice.querySelectorAll("[data-rimuovi-form]").forEach(function (b) {
+      if (b._rimuovi) return;
+      b._rimuovi = true;
+      b.addEventListener("click", function () {
+        var riga = b.closest("[data-riga-form]");
+        if (!riga) return;
+        riga.querySelectorAll("input, select, textarea").forEach(function (campo) {
+          if (campo.type === "hidden" || campo.type === "checkbox") return;
+          if (campo._flatpickr) campo._flatpickr.clear();
+          campo.value = "";
+          campo.classList.remove("is-invalid");
+        });
+        riga.querySelectorAll(".invalid-feedback").forEach(function (e) { e.remove(); });
+        riga.hidden = true;
+        var successiva = document.querySelector("[data-aggiungi-form]");
+        if (successiva) successiva.focus();
       });
     });
   }

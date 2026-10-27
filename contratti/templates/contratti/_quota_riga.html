@@ -1,0 +1,7 @@
+<tr data-riga-form>
+  <td class="text-nowrap small fw-semibold">Quota <span data-numero-riga>{{ numero }}</span>{{ q.id }}</td>
+  <td><label class="visually-hidden" for="{{ q.dal.id_for_label }}">Dal, quota {{ numero }}</label>{{ q.dal }}{% for e in q.dal.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</td>
+  <td><label class="visually-hidden" for="{{ q.al.id_for_label }}">Al, quota {{ numero }}</label>{{ q.al }}{% for e in q.al.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</td>
+  <td><label class="visually-hidden" for="{{ q.importo.id_for_label }}">Importo, quota {{ numero }}</label>{{ q.importo }}{% for e in q.importo.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}{% for e in q.non_field_errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</td>
+  <td class="text-nowrap">{% if q.instance.pk %}<div class="form-check mb-0">{{ q.DELETE }} <label class="form-check-label small" for="{{ q.DELETE.id_for_label }}">Elimina</label></div>{% else %}<button type="button" class="btn btn-sm btn-outline-secondary" data-rimuovi-form aria-label="Rimuovi la riga della quota"><i class="bi bi-x-lg" aria-hidden="true"></i></button>{% endif %}</td>
+</tr>

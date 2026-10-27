@@ -65,8 +65,7 @@ def _form_voce(contratto: m.Contratto, argomenti: dict, voce: m.VoceContratto | 
 
 
 def _valida_voce(prefisso: str, form, piano_form, quote) -> None:
-    validi = [form.is_valid(), piano_form.is_valid(), quote.is_valid()]
-    if all(validi):
+    if forms.valida_voce(form, piano_form, quote):
         return
     errori = {f"{prefisso}{k}": v for k, v in errori_form(form).items()}
     errori |= {f"{prefisso}piano.{k}": v for k, v in errori_form(piano_form).items()}
@@ -79,6 +78,13 @@ def _valida_voce(prefisso: str, form, piano_form, quote) -> None:
 
 
 def _salva_voce(contratto, argomenti: dict, prefisso: str = "", voce=None) -> dict:
+    """Salva la voce come la vista. Con «quote» in una voce esistente le quote per periodo si
+    sostituiscono tutte (anche con un elenco vuoto): prima si tolgono, poi si validano e si
+    salvano le nuove, nella stessa transazione; senza «quote» restano quelle che ci sono."""
+    sostituisce = voce is not None and "quote" in argomenti
+    tolte = (
+        servizi.elimina_quote(voce, "Quote sostituite da modifica_voce") if sostituisce else None
+    )
     form, piano_form, quote = _form_voce(contratto, argomenti, voce)
     _valida_voce(prefisso, form, piano_form, quote)
     salvata = servizi.salva_voce(contratto, form, piano_form, quote)
@@ -87,7 +93,20 @@ def _salva_voce(contratto, argomenti: dict, prefisso: str = "", voce=None) -> di
         esito["scadenzario"] = f"rate non rigenerate: {salvata.bloccato}"
     else:
         esito["rate_generate"] = len(salvata.rate)
+    if sostituisce:
+        esito["quote"] = {"prima": tolte, "dopo": argomenti["quote"]}
+    if avvisi := servizi.avvisi_quote(salvata.voce):
+        esito["avvisi"] = avvisi
     return esito
+
+
+def _risultato(*oggetti: dict) -> dict:
+    """Gli oggetti toccati; gli avvisi delle voci salgono in cima, dove l'anteprima li mostra."""
+    avvisi = [a for o in oggetti for a in o.get("avvisi", [])]
+    risultato = {"oggetti": list(oggetti)}
+    if avvisi:
+        risultato["avvisi"] = list(dict.fromkeys(avvisi))
+    return risultato
 
 
 # --- crea_contratto, modifica_contratto ---------------------------------------------------------
@@ -103,7 +122,7 @@ def _crea_contratto(ctx: Contesto, argomenti: dict) -> dict:
     voci = [
         _salva_voce(contratto, v, prefisso=f"voci[{i}].") for i, v in enumerate(argomenti["voci"])
     ]
-    return {"oggetti": [_oggetto_link(contratto), *voci]}
+    return _risultato(_oggetto_link(contratto), *voci)
 
 
 def _modifica_contratto(ctx: Contesto, argomenti: dict) -> dict:
@@ -211,17 +230,14 @@ def _registra_proroga(ctx: Contesto, argomenti: dict) -> dict:
 
 def _crea_voce(ctx: Contesto, argomenti: dict) -> dict:
     contratto = trova(m.Contratto.objects, argomenti["contratto_id"], "contratto")
-    return {"oggetti": [_oggetto_link(contratto), _salva_voce(contratto, argomenti)]}
+    return _risultato(_oggetto_link(contratto), _salva_voce(contratto, argomenti))
 
 
 def _modifica_voce(ctx: Contesto, argomenti: dict) -> dict:
     voce = trova(m.VoceContratto.objects.select_related("contratto"), argomenti["id"], "voce")
-    return {
-        "oggetti": [
-            _oggetto_link(voce.contratto),
-            _salva_voce(voce.contratto, argomenti, voce=voce),
-        ]
-    }
+    return _risultato(
+        _oggetto_link(voce.contratto), _salva_voce(voce.contratto, argomenti, voce=voce)
+    )
 
 
 def _oggetti_voce(argomenti: dict) -> list:
@@ -251,7 +267,20 @@ SCHEMA_QUOTE = {
         "required": ["dal", "al", "importo"],
         "additionalProperties": False,
     },
-    "description": "Quote per periodo: contigue, a copertura del servizio, somma = fisso.",
+    "description": (
+        "Quote per periodo, di solito una per anno. Voci a SAL: valgono per il fatturato, non "
+        "devono sovrapporsi né sommare oltre il fisso, non devono coprire tutto il servizio. "
+        "Altre modalità: contigue, dalla data di inizio alla fine del servizio, somma = fisso "
+        "(altrimenti ignorate, con avviso)."
+    ),
+}
+SCHEMA_QUOTE_SOSTITUISCI = {
+    **SCHEMA_QUOTE,
+    "description": (
+        "SOSTITUISCE tutte le quote per periodo della voce con questo elenco; [] le toglie "
+        "tutte; omesso, restano quelle che ci sono. Le quote tolte restano nella storia con i "
+        "loro valori. " + SCHEMA_QUOTE["description"]
+    ),
 }
 CAMPI_VOCE = {
     "descrizione": {"type": "string", "minLength": 1, "maxLength": 250},
@@ -422,8 +451,8 @@ STRUMENTI = [
         Scrittura("modifica_voce", _oggetti_voce, _modifica_voce),
         "Modifica una voce",
         "Cambia solo i campi indicati della voce e del suo piano («piano»); le rate si "
-        "rigenerano, salvo quelle modificate a mano o consuntivate. Le quote per periodo "
-        "esistenti si cambiano dall'interfaccia.",
-        _schema({"id": SCHEMA_ID, **CAMPI_VOCE}, ["id"]),
+        "rigenerano, salvo quelle modificate a mano o consuntivate. Con «quote» sostituisce "
+        "tutte le quote per periodo (l'anteprima mostra quelle tolte e quelle nuove).",
+        _schema({"id": SCHEMA_ID, **CAMPI_VOCE, "quote": SCHEMA_QUOTE_SOSTITUISCI}, ["id"]),
     ),
 ]

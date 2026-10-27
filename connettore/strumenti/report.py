@@ -12,7 +12,15 @@ from accounts.roles import WRITE_ROLES
 from contratti import models as m
 from contratti import selettori
 from contratti.engine.tipi import Livello
-from reports.budget import ETICHETTE_VISTE, LIVELLI, PARTI, VISTE, Filtri, calcola_budget
+from reports.budget import (
+    ETICHETTE_VISTE,
+    FONTI_VISTE,
+    LIVELLI,
+    PARTI,
+    VISTE,
+    Filtri,
+    calcola_budget,
+)
 from reports.piano_ordini import calcola_piano
 from reports.wbs import elenco_wbs, spese_wbs
 
@@ -167,6 +175,27 @@ def budget(ctx: Contesto, argomenti: dict) -> dict:
         ),
         "sezioni": sezioni,
         "contratti_senza_data_inizio": b.senza_data,
+        **(
+            {
+                "sal_non_pianificato": {
+                    "totale": b.sal_non_pianificato,
+                    "nota": "Importo fisso di voci a SAL senza rate, quote né fatture: fuori dai "
+                    "totali, non distribuito a giorni.",
+                    "voci": [
+                        {
+                            "contratto_id": x.contratto.pk,
+                            "voce_id": x.voce.pk,
+                            "descrizione": x.voce.descrizione,
+                            "natura": x.natura,
+                            "importo": x.importo,
+                        }
+                        for x in b.sal_non_pianificati
+                    ],
+                }
+            }
+            if b.sal_non_pianificati
+            else {}
+        ),
         "link": link("reports:budget") + "?" + urlencode(query),
     }
 
@@ -326,7 +355,13 @@ def spese_per_wbs(ctx: Contesto, argomenti: dict) -> dict:
         },
         "vista": NOMI_VISTE[vista],
         "livello": livello.value,
-        "nota": "Solo contratti registrati, niente previsti: spesa sostenuta o impegnata.",
+        "nota": (
+            "Solo contratti registrati, niente previsti: spesa sostenuta o impegnata. Voci a "
+            "SAL (vista fatturato): «consuntivo_per_anno» viene dalle fatture registrate, "
+            "«previsto_per_anno» da rate a mano o quote, «per_anno» è il totale; "
+            "«non_pianificato» è il residuo senza rate né quote, fuori dai totali."
+        ),
+        "fonte_della_vista": FONTI_VISTE[vista],
         "righe": [
             {
                 "contratto": {
@@ -338,11 +373,32 @@ def spese_per_wbs(ctx: Contesto, argomenti: dict) -> dict:
                 "inizio": r.inizio,
                 "fine": r.fine,
                 "per_anno": {str(a): imp for a, imp in r.per_anno.items()},
+                "fonte": r.fonte,
+                **(
+                    {
+                        "consuntivo_per_anno": {str(a): i for a, i in r.consuntivo.items()},
+                        "previsto_per_anno": {str(a): i for a, i in r.previsto.items()},
+                        "non_pianificato": r.non_pianificato,
+                    }
+                    if r.a_sal
+                    else {}
+                ),
+                **({"avvisi": r.avvisi} if r.avvisi else {}),
             }
             for r in s.righe
         ],
         "totali_per_anno": {str(a): imp for a, imp in s.totali().items()},
         "totale": s.totale,
+        **(
+            {
+                "totali_consuntivo_per_anno": {str(a): i for a, i in s.totali_consuntivo().items()},
+                "totali_previsto_per_anno": {str(a): i for a, i in s.totali_previsto().items()},
+                "sal_non_pianificato": s.non_pianificato,
+            }
+            if s.con_sal
+            else {}
+        ),
+        **({"anomalie": s.anomalie} if s.anomalie else {}),
         "contratti_esclusi_senza_data": s.esclusi,
         "link": link("reports:wbs_spese", wbs.pk) + "?" + urlencode({"vista": vista}),
     }
@@ -452,7 +508,9 @@ STRUMENTI = [
             "Senza «wbs_id» né «codice_wbs»: elenco delle WBS (di cluster e a progetto) con il "
             "numero di voci. Con una WBS: i contratti con voci su quella WBS e gli importi anno "
             "per anno nella vista e al livello scelti (default fatturato, probabile). Solo "
-            "contratti registrati."
+            "contratti registrati. Il fatturato segue le rate del piano; per le voci a SAL, "
+            "le fatture registrate, con il residuo da rate a mano o quote come previsto, "
+            "separato (consuntivo_per_anno, previsto_per_anno)."
         ),
         input_schema={
             "type": "object",

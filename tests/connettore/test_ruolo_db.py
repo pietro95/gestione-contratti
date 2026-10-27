@@ -45,8 +45,10 @@ def test_privilegi(capsys):
                     "contratti_stanziamento", "contratti_competenzadichiarata"):  # fmt: skip
         assert privilegio(tabella, "INSERT") and privilegio(tabella, "UPDATE")
         assert not privilegio(tabella, "DELETE") and not privilegio(tabella, "TRUNCATE")
-    # ...tranne le rate generate, che lo scadenzario sostituisce.
+    # ...tranne le rate generate, che lo scadenzario sostituisce, e le quote per periodo, che
+    # modifica_voce sostituisce (la storia ne conserva i valori).
     assert privilegio("contratti_rata", "DELETE")
+    assert privilegio("contratti_quotaperiodo", "DELETE")
     # Storia: solo inserimenti.
     assert privilegio("contratti_historicalcontratto", "INSERT")
     assert not privilegio("contratti_historicalcontratto", "UPDATE")

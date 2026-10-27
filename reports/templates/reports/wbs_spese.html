@@ -12,19 +12,32 @@
   <div class="col-auto"><button class="btn btn-primary" type="submit">Applica</button></div>
 </form>
 <p class="small text-body-secondary">Solo contratti registrati (niente previsti), importi imponibili.{% if s.wbs.tipo == 'progetto' %} Le WBS a progetto sono fuori dai budget dei cluster.{% endif %}</p>
+<p class="small text-body-secondary" id="fonte-vista"><strong>Fonte degli importi:</strong> {{ fonte_vista }}.</p>
+{% for a in s.anomalie %}<div class="alert alert-warning small py-2"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> {{ a }}</div>{% endfor %}
+{% for a in s.avvisi %}<div class="alert alert-info small py-2">{{ a }}</div>{% endfor %}
 {% for e in s.esclusi %}<div class="alert alert-warning small">{{ e }}: senza data di inizio, escluso.</div>{% endfor %}
 <div class="row g-3 mb-4">
   <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Voci sulla WBS</div><div class="kpi-valore">{{ s.righe|length }}</div></div></div></div>
   <div class="col-sm-6 col-xl-3"><div class="card kpi verde"><div class="card-body"><div class="kpi-etichetta">Totale {{ s.livello.value }}</div><div class="kpi-valore">{{ s.totale|euro }}</div><div class="kpi-nota">tutti gli anni</div></div></div></div>
+  {% if s.con_sal %}<div class="col-sm-6 col-xl-3"><div class="card kpi arancio"><div class="card-body"><div class="kpi-etichetta">SAL non pianificato</div><div class="kpi-valore">{{ s.non_pianificato|euro }}</div><div class="kpi-nota">fuori dai totali: senza rate, quote né fatture</div></div></div></div>{% endif %}
 </div>
 <div class="tabella-card"><div class="table-responsive">
 <table class="table table-hover align-middle text-end table-prima-fissa" id="wbs-spese">
   <thead><tr><th class="text-start">Contratto / voce</th><th class="text-start">Conto</th><th class="text-start">Servizio</th>{% for a in anni %}<th>{{ a|stringformat:"d" }}</th>{% endfor %}</tr></thead>
   <tbody>
-  {% for r, celle in righe %}
-    <tr><td class="text-start"><a href="{% url 'contratti:contratto' r.contratto.pk %}">{{ r.contratto.fabbisogno.descrizione }}</a> <span class="small text-body-secondary">{{ r.contratto.numero_contratto|default:r.contratto.fornitore }}</span> — {{ r.voce.descrizione }}</td><td class="text-start">{{ r.voce.conto.codice|default:"—" }}</td><td class="text-start text-nowrap">{{ r.inizio|date:"d/m/Y" }} – {{ r.fine|date:"d/m/Y" }}</td>{% for c in celle %}<td>{% if c %}{{ c|euro }}{% else %}—{% endif %}</td>{% endfor %}</tr>
+  {% for r, celle, cons, prev in righe %}
+    <tr><td class="text-start"><a href="{% url 'contratti:contratto' r.contratto.pk %}">{{ r.contratto.fabbisogno.descrizione }}</a> <span class="small text-body-secondary">{{ r.contratto.numero_contratto|default:r.contratto.fornitore }}</span> — {{ r.voce.descrizione }}<div class="small text-body-secondary">{{ r.fonte }}</div></td><td class="text-start">{{ r.voce.conto.codice|default:"—" }}</td><td class="text-start text-nowrap">{{ r.inizio|date:"d/m/Y" }} – {{ r.fine|date:"d/m/Y" }}</td>{% for c in celle %}<td>{% if c %}{{ c|euro }}{% else %}—{% endif %}</td>{% endfor %}</tr>
+    {% if r.a_sal %}
+    <tr class="small text-body-secondary riga-componente"><td class="text-start ps-4" colspan="3">di cui fatture registrate</td>{% for c in cons %}<td>{% if c %}{{ c|euro }}{% else %}—{% endif %}</td>{% endfor %}</tr>
+    <tr class="small text-body-secondary riga-componente"><td class="text-start ps-4" colspan="3">di cui previsto (rate a mano o quote)</td>{% for c in prev %}<td>{% if c %}{{ c|euro }}{% else %}—{% endif %}</td>{% endfor %}</tr>
+    {% if r.non_pianificato %}<tr class="small riga-componente"><td class="text-start ps-4" colspan="3"><span class="stato stato-arancio">SAL non pianificato</span> fuori dai totali</td><td colspan="{{ anni|length|default:1 }}">{{ r.non_pianificato|euro }}</td></tr>{% endif %}
+    {% endif %}
   {% empty %}<tr><td colspan="3" class="text-start"><div class="vuoto py-4">Nessun contratto su questa WBS.</div></td></tr>{% endfor %}
   </tbody>
-  {% if righe %}<tfoot class="fw-semibold"><tr><td class="text-start" colspan="3">Totale</td>{% for t in totali %}<td>{{ t|euro }}</td>{% endfor %}</tr></tfoot>{% endif %}
+  {% if righe %}<tfoot class="fw-semibold"><tr><td class="text-start" colspan="3">Totale</td>{% for t in totali %}<td>{{ t|euro }}</td>{% endfor %}</tr>
+  {% if s.con_sal %}
+    <tr class="small fw-normal text-body-secondary"><td class="text-start ps-4" colspan="3">di cui fatture registrate (voci a SAL)</td>{% for t in totali_consuntivo %}<td>{{ t|euro }}</td>{% endfor %}</tr>
+    <tr class="small fw-normal text-body-secondary"><td class="text-start ps-4" colspan="3">di cui previsto (voci a SAL)</td>{% for t in totali_previsto %}<td>{{ t|euro }}</td>{% endfor %}</tr>
+  {% endif %}</tfoot>{% endif %}
 </table></div></div>
 {% endblock %}

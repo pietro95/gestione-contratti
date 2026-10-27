@@ -505,7 +505,7 @@ giornaliero (D13).
   rinnovi, proroghe, voci, archiviazione), D (catena) di SPEC_MCP §8.2; gruppo E con F11.
   Regole oggi nelle viste spostate nei form e nei servizi, usate da viste e tool.
 - Interruttore `mcp_scrittura_attiva` in `Parametro`; storia con motivo
-  `MCP …`; privilegi PostgreSQL del container `mcp` senza `DELETE` fuori da rate e token.
+  `MCP …`; privilegi PostgreSQL del container `mcp` senza `DELETE` fuori da rate, quote per periodo (Rev11) e token.
 
 Criteri di accettazione: SPEC_MCP §8.4. In particolare: 403 per Reader e per cluster non
 propri su ogni tool; l'anteprima non scrive niente; equivalenza con la vista web (stesso stato
@@ -692,3 +692,24 @@ mancanti. GUI e connettore si allineano insieme.
 
 **Accettazione:** TC-21 e TC-22 con test automatici; Reader 403 sulle nuove viste e sui nuovi
 tool; anteprima MCP senza scritture; `ruff`, `pytest`, `makemigrations --check` puliti.
+
+## F14 — Voci a SAL: fatturato da fatture, quote e rate (Rev29)
+
+Bozza da approvare (SPEC Rev29, SPEC_MCP Rev11). Nasce dal contratto di lavori a SAL: il report per
+WBS mostrava come fatturato la ripartizione a giorni dell'importo contrattuale e ignorava le quote
+inserite a mano e le fatture registrate.
+
+- **Motore** (`contratti/engine/sal.py`): cassa e consuntivo di una voce a SAL da fatture, poi
+  rate a mano o quote (anni dopo l'ultima fattura); consuntivo e previsto separati; residuo non
+  pianificato fuori dai totali, con avviso; totale per voce mai oltre il fisso (TC-23).
+- **Report per WBS** (pagina, PDF, Excel, tool `spese_wbs`): WBS della fattura se indicata,
+  anomalia se diversa da quella della voce; colonne «di cui fatture», «di cui previsto», «SAL non
+  pianificato»; l'etichetta della vista dichiara la fonte per modalità.
+- **Quote per periodo**: «Aggiungi quota» e rimozione riga nel form (un solo salvataggio, errori
+  per riga), eliminazione con traccia, regole per modalità; `modifica_voce` le sostituisce tutte.
+- **Impatto**: comando `impatto_sal`, report prima/dopo per voce e per anno, da eseguire prima del
+  rilascio.
+
+**Accettazione:** TC-23 con test automatici (motore, report, connettore, GUI, browser); le altre
+modalità invariate; Reader 403; `ruff`, `pytest`, `makemigrations --check` puliti; report di
+impatto esaminato dal responsabile prima del merge.

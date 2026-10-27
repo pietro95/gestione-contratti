@@ -11,6 +11,7 @@ from contratti.views import oggi_richiesta
 from reports import pdf, xlsx
 from reports.budget import (
     ETICHETTE_VISTE,
+    FONTI_VISTE,
     LIVELLI,
     NATURE,
     PARTI,
@@ -244,8 +245,19 @@ def wbs_spese(request, pk):
     contesto = {
         "s": spese,
         "anni": spese.anni,
-        "righe": [(r, [r.per_anno.get(a) for a in spese.anni]) for r in spese.righe],
+        "righe": [
+            (
+                r,
+                [r.per_anno.get(a) for a in spese.anni],
+                [r.consuntivo.get(a) for a in spese.anni],
+                [r.previsto.get(a) for a in spese.anni],
+            )
+            for r in spese.righe
+        ],
         "totali": [spese.totali()[a] for a in spese.anni],
+        "totali_consuntivo": [spese.totali_consuntivo()[a] for a in spese.anni],
+        "totali_previsto": [spese.totali_previsto()[a] for a in spese.anni],
+        "fonte_vista": FONTI_VISTE[vista],
         "viste": [(v, ETICHETTE_VISTE[v]) for v in VISTE],
         "livelli": LIVELLI,
     }
