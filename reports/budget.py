@@ -25,9 +25,20 @@ from contratti.selettori import codici_cluster
 VISTE = ("consuntivo", "cassa", "impegno", "competenza")
 ETICHETTE_VISTE = {
     "consuntivo": "Fatturato e stanziato (competenza)",
-    "cassa": "Fatturato (data fattura)",
+    "cassa": "Fatturato (data fattura) · rate del piano; SAL: fatture registrate",
     "impegno": "Ordinato (contratti emessi)",
     "competenza": "Competenza del contratto (pro-rata a giorni)",
+}
+# Cosa rappresentano gli importi di ogni vista, per modalità di fatturazione (Rev28): le voci a
+# SAL non hanno rate, quindi il «fatturato» è quello delle fatture registrate; il residuo da
+# rate a mano o quote è previsto, mai una ripartizione a giorni.
+FONTI_VISTE = {
+    "consuntivo": "rate previste, sostituite da fatture e stanziamenti per competenza; "
+    "SAL: fatture e stanziamenti, residuo da rate a mano o quote",
+    "cassa": "rate del piano per data fattura; SAL: fatture registrate per data documento, "
+    "residuo da rate a mano o quote (previsto)",
+    "impegno": "valore contrattuale nell'anno di emissione",
+    "competenza": "pro-rata a giorni sul periodo di servizio",
 }
 # Vista con cui si confronta il budget assegnato al sottocluster: il riferimento del budget
 # (SPEC Rev23, §5.2).
@@ -35,7 +46,7 @@ VISTA_ASSEGNATO = "consuntivo"
 # Nomi brevi per le intestazioni delle colonne dell'export.
 SIGLE_VISTE = {
     "consuntivo": "fatt+stanz competenza",
-    "cassa": "fatturato data fattura",
+    "cassa": "fatturato data fattura (SAL: fatture)",
     "impegno": "ordinato",
     "competenza": "competenza contratto",
 }
