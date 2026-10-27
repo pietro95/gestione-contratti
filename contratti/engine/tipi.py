@@ -71,6 +71,10 @@ class Consuntivo:
     fine: datetime.date
     senza_competenza: bool = False
     senza_voce: bool = False
+    # Data del documento (fatture): la cassa delle voci a SAL conta per anno di questa data.
+    data: datetime.date | None = None
+    # Identificativo della fattura, per attribuirne l'importo (es. a una WBS) fuori dal motore.
+    riferimento: object = None
 
 
 @dataclass(frozen=True)
