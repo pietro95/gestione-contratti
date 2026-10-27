@@ -100,6 +100,16 @@ class ContrattoFatturaForm(FormBase):
         return dati
 
 
+class FornitoreFatturaForm(FormBase):
+    fornitore = forms.ModelChoiceField(
+        queryset=m.Fornitore.objects.filter(archiviato=False), label="Fornitore"
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["fornitore"].widget.attrs["class"] += " js-cerca"
+
+
 class ConvalidaForm(ModelFormBootstrap):
     class Meta:
         model = m.Fattura

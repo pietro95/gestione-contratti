@@ -414,6 +414,26 @@ def assegna_contratto(
                                                                          "rata"])  # fmt: skip
 
 
+def cambia_fornitore(fattura: m.Fattura, fornitore: m.Fornitore) -> None:
+    """Corregge il fornitore di una fattura non abbinata (es. creato dall'import con il nome
+    di SAP invece di quello in anagrafica). Con il contratto il fornitore è il suo."""
+    if fattura.contratto_id:
+        raise OperazioneNonAmmessa("La fattura è abbinata a un contratto: ne segue il fornitore.")
+    if fornitore.pk == fattura.fornitore_id:
+        return
+    if fornitore.archiviato:
+        raise OperazioneNonAmmessa("Il fornitore è archiviato.")
+    if (
+        m.Fattura.objects.filter(fornitore=fornitore, numero=fattura.numero, archiviato=False)
+        .exclude(pk=fattura.pk)
+        .exists()
+    ):
+        raise OperazioneNonAmmessa("Fattura già registrata per questo fornitore.")
+    precedente = fattura.fornitore
+    fattura.fornitore = fornitore
+    _salva(fattura, f"Fornitore: {precedente} → {fornitore}", update_fields=["fornitore"])
+
+
 def convalida(
     fattura: m.Fattura,
     esito: str,
