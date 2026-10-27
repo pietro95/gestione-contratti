@@ -88,7 +88,7 @@ def data_documento(valore) -> datetime.date | None:
 def _fornitori() -> dict[str, list[m.Fornitore]]:
     indice: dict[str, list[m.Fornitore]] = {}
     for f in m.Fornitore.objects.filter(archiviato=False):
-        for nome in {f.ragione_sociale, f.nome_breve}:
+        for nome in f.nomi_riconosciuti:
             k = normalizza.chiave_nome(nome)
             if k and f not in indice.setdefault(k, []):
                 indice[k].append(f)

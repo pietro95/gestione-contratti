@@ -308,3 +308,33 @@ def test_assegnazione_rifiutata(registro, tmp_path):
         fatture.assegna_contratto(fa1, registro["ca"])
     # Contratto chiuso: non è più proposto.
     assert fatture.contratto_proposto(fa1) is None
+
+
+def test_import_riconosce_l_alias_sap(tmp_path):
+    giusto = f.fornitore("Telecom Italia S.p.A.", alias_sap="TIM S.p.A.\nTIM SPA")
+    righe = [
+        ["#", "Fornitore", "Numero Documento", "Data", "Importo SAP", "Note"],
+        [1, "TIM S.p.A.", "T-1", "04.09.2026", 100, None],
+        [2, "Telecom Italia SPA", "T-2", "05.09.2026", 200, None],
+    ]
+    report = importa_fatture(file_tc18(tmp_path, righe), oggi=OGGI)
+    assert report.conteggi["create"] == 2 and report.conteggi["fornitori_creati"] == 0
+    assert set(m.Fattura.objects.values_list("fornitore", flat=True)) == {giusto.pk}
+    assert m.Fornitore.objects.count() == 1
+
+
+def test_form_fornitore_alias_in_conflitto(tmp_path):
+    from contratti.forms import FornitoreForm
+
+    f.fornitore("Telecom Italia S.p.A.")
+    altro = f.fornitore("Altro Fornitore S.r.l.")
+    form = FornitoreForm(
+        {"ragione_sociale": altro.ragione_sociale, "alias_sap": "Telecom Italia SPA"},
+        instance=altro,
+    )
+    assert not form.is_valid() and "alias_sap" in form.errors
+    form = FornitoreForm(
+        {"ragione_sociale": altro.ragione_sociale, "alias_sap": " TIM SPA \n\ntim s.p.a. "},
+        instance=altro,
+    )
+    assert form.is_valid() and form.cleaned_data["alias_sap"] == "TIM SPA"

@@ -3,7 +3,7 @@
 {% block title %}{{ f.ragione_sociale }}{% endblock %}
 {% block breadcrumb %}<nav aria-label="Percorso"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'contratti:fornitori' %}">Fornitori</a></li><li class="breadcrumb-item active" aria-current="page">{{ f.ragione_sociale }}</li></ol></nav>{% endblock %}
 {% block titolo_pagina %}{{ f.ragione_sociale }}{% endblock %}
-{% block sottotitolo %}<div class="sottotitolo">{% if f.archiviato %}<span class="stato stato-grigio">archiviato</span> {% endif %}P.IVA {{ f.partita_iva|default:"—" }} · codice SAP {{ f.codice_sap|default:"—" }}</div>{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">{% if f.archiviato %}<span class="stato stato-grigio">archiviato</span> {% endif %}P.IVA {{ f.partita_iva|default:"—" }} · codice SAP {{ f.codice_sap|default:"—" }}{% if f.alias %} · alias SAP: {{ f.alias|join:"; " }}{% endif %}</div>{% endblock %}
 {% block azioni %}
 {% if puo_modificare %}
   <a class="btn btn-outline-primary" href="{% url 'contratti:fornitore_modifica' f.pk %}"><i class="bi bi-pencil" aria-hidden="true"></i> Modifica</a>

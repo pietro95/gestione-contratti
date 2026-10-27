@@ -318,12 +318,7 @@ class Importatore:
                     (
                         f
                         for f in m.Fornitore.objects.filter(archiviato=False)
-                        if nome
-                        and nome
-                        in (
-                            normalizza.chiave_nome(f.ragione_sociale),
-                            normalizza.chiave_nome(f.nome_breve),
-                        )
+                        if nome and nome in {normalizza.chiave_nome(n) for n in f.nomi_riconosciuti}
                     ),
                     None,
                 )

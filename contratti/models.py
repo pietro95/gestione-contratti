@@ -719,6 +719,13 @@ class Fornitore(Archiviabile):
     codice_sap = models.CharField("codice SAP", max_length=20, blank=True, db_index=True)
     # Per l'intestazione della RDA e il nome della cartella (SPEC §5.9, Rev13).
     nome_breve = models.CharField("nome breve", max_length=40, blank=True)
+    # Nomi con cui il fornitore compare nelle estrazioni SAP (es. «TIM S.p.A.» per «Telecom
+    # Italia S.p.A.»): gli import lo riconoscono anche da questi, uno per riga.
+    alias_sap = models.TextField(
+        "alias SAP",
+        blank=True,
+        help_text="Altri nomi con cui il fornitore compare nelle estrazioni SAP, uno per riga.",
+    )
     note = models.TextField(blank=True)
     history = HistoricalRecords()
 
@@ -741,6 +748,15 @@ class Fornitore(Archiviabile):
         from django.urls import reverse
 
         return reverse("contratti:fornitore", args=[self.pk])
+
+    @property
+    def alias(self) -> list[str]:
+        return [riga.strip() for riga in self.alias_sap.splitlines() if riga.strip()]
+
+    @property
+    def nomi_riconosciuti(self) -> list[str]:
+        """Ragione sociale, nome breve e alias SAP: i nomi con cui gli import lo riconoscono."""
+        return [self.ragione_sociale, self.nome_breve, *self.alias]
 
     @property
     def nome_per_rda(self) -> str:
