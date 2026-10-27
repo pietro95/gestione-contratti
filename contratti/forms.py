@@ -191,7 +191,29 @@ def nome_utente(utente) -> str:
 class FornitoreForm(ModelFormBootstrap):
     class Meta:
         model = m.Fornitore
-        fields = ["ragione_sociale", "partita_iva", "codice_sap", "note"]
+        fields = ["ragione_sociale", "partita_iva", "codice_sap", "alias_sap", "note"]
+        widgets = {"alias_sap": forms.Textarea(attrs={"rows": 3})}
+
+    def clean_alias_sap(self):
+        """Un alias non può essere anche un nome di un altro fornitore: l'import non saprebbe
+        a chi assegnare la fattura."""
+        from contratti.importer.normalizza import chiave_nome
+
+        viste, righe = set(), []
+        for alias in (self.cleaned_data.get("alias_sap") or "").splitlines():
+            chiave = chiave_nome(alias)
+            if alias.strip() and chiave and chiave not in viste:
+                viste.add(chiave)
+                righe.append(alias.strip())
+        altri = m.Fornitore.objects.filter(archiviato=False).exclude(pk=self.instance.pk)
+        for altro in altri:
+            for nome in altro.nomi_riconosciuti:
+                if chiave_nome(nome) in viste:
+                    raise forms.ValidationError(
+                        f"«{nome}» è già un nome del fornitore {altro}: "
+                        "togli l'alias o correggi l'altro fornitore."
+                    )
+        return "\n".join(righe)
 
 
 class FabbisognoForm(ModelFormBootstrap):

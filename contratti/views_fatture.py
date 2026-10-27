@@ -373,6 +373,7 @@ def fattura_dettaglio(request, pk):
                     "voce": f.voce_id,
                 },
             ),  # fmt: skip
+            "form_fornitore": forms.FornitoreFatturaForm(initial={"fornitore": f.fornitore_id}),
             "form_convalida": forms.ConvalidaForm(instance=f),
             "form_importi": forms.ImportiForm(fattura=f, initial=iniziali_importi),
             "aliquote_iva": fatture.aliquote_iva(),
@@ -473,6 +474,19 @@ def fattura_contratto(request, pk):
         request, pk, lambda x: fatture.assegna_contratto(x, contratto, voce),
         f"Fattura assegnata al contratto {contratto}.",
     )  # fmt: skip
+
+
+@editor_required
+@require_POST
+def fattura_fornitore(request, pk):
+    form = forms.FornitoreFatturaForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Scegli il fornitore.")
+        return redirect("contratti:fattura", pk=pk)
+    nuovo = form.cleaned_data["fornitore"]
+    return _azione(
+        request, pk, lambda x: fatture.cambia_fornitore(x, nuovo), f"Fornitore cambiato in {nuovo}."
+    )
 
 
 @editor_required

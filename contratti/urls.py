@@ -77,6 +77,7 @@ urlpatterns = [
     path("fatture/<int:pk>/lascia/", views_fatture.fattura_lascia, name="fattura_lascia"),
     path("fatture/<int:pk>/riassegna/", views_fatture.fattura_riassegna, name="fattura_riassegna"),
     path("fatture/<int:pk>/contratto/", views_fatture.fattura_contratto, name="fattura_contratto"),
+    path("fatture/<int:pk>/fornitore/", views_fatture.fattura_fornitore, name="fattura_fornitore"),
     path("fatture/<int:pk>/convalida/", views_fatture.fattura_convalida, name="fattura_convalida"),
     path("fatture/<int:pk>/importi/", views_fatture.fattura_importi, name="fattura_importi"),
     path("fatture/<int:pk>/documento/", views_fatture.fattura_documento, name="fattura_documento"),

@@ -299,7 +299,7 @@ class Importatore:
             self.conti[c.codice] = c  # l'ultimo per validità
         self.fornitori = {}
         for f in m.Fornitore.objects.filter(archiviato=False):
-            for nome in (f.ragione_sociale, f.nome_breve):
+            for nome in f.nomi_riconosciuti:
                 if k := normalizza.chiave_nome(nome):
                     self.fornitori.setdefault(k, f)
         self.wbs = {w.codice_wbs.strip().upper(): w for w in m.WBS.objects.all()}

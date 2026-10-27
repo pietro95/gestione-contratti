@@ -45,6 +45,17 @@
       {% elif not f.referente %}<p class="small text-body-secondary mb-0">Si assegna dopo la presa in carico.</p>{% endif %}
     </div></section>
 
+    {% if puo_lavorare and not f.contratto %}
+    <section class="card mb-4" aria-labelledby="t-fornitore"><div class="card-body">
+      <h2 class="h6 text-uppercase text-body-secondary" id="t-fornitore">Fornitore</h2>
+      <form method="post" action="{% url 'contratti:fattura_fornitore' f.pk %}" class="row g-2">
+        {% csrf_token %}
+        <div class="col-12"><label class="form-label" for="{{ form_fornitore.fornitore.id_for_label }}">Fornitore della fattura</label>{{ form_fornitore.fornitore }}<div class="form-text">Se l'import ha creato un fornitore con il nome di SAP, scegli quello già in anagrafica. Con il contratto abbinato il fornitore è quello del contratto.</div></div>
+        <div class="col-12"><button class="btn btn-outline-primary" type="submit">Cambia fornitore</button></div>
+      </form>
+    </div></section>
+    {% endif %}
+
     <section class="card mb-4" aria-labelledby="t-convalida"><div class="card-body">
       <h2 class="h6 text-uppercase text-body-secondary" id="t-convalida">2 · Convalida del referente</h2>
       <dl class="dati mb-2"><dt>Esito</dt><dd>{{ f.get_esito_convalida_display }}{% if f.data_convalida %} · {{ f.data_convalida|date:"d/m/Y" }}{% endif %}</dd>{% if f.nota_convalida %}<dt>Nota</dt><dd>{{ f.nota_convalida }}</dd>{% endif %}{% if f.bloccata_fino_al %}<dt>Bloccata fino al</dt><dd>{{ f.bloccata_fino_al|date:"d/m/Y" }}</dd>{% endif %}</dl>

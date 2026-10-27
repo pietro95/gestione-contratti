@@ -58,6 +58,7 @@ def _viste_di_modifica(fa, c):
         ("post", reverse("contratti:fattura_lascia", args=[fa.pk])),
         ("post", reverse("contratti:fattura_riassegna", args=[fa.pk])),
         ("post", reverse("contratti:fattura_contratto", args=[fa.pk])),
+        ("post", reverse("contratti:fattura_fornitore", args=[fa.pk])),
         ("post", reverse("contratti:fattura_convalida", args=[fa.pk])),
         ("post", reverse("contratti:fattura_importi", args=[fa.pk])),
         ("post", reverse("contratti:fattura_documento", args=[fa.pk])),
@@ -388,3 +389,33 @@ def test_stanziamento_dal_contratto(editor, scenario, make_user):
     editor.post(azione, {"annulla": "1"})
     s.refresh_from_db()
     assert s.archiviato
+
+
+def test_cambio_fornitore_della_fattura(scenario, come, make_user):
+    """Il fornitore creato dall'import con il nome di SAP si corregge con quello in anagrafica."""
+    fa = scenario["fattura"]
+    giusto = f.fornitore("Telecom Italia S.p.A.")
+    doppio = f.fornitore("TIM S.p.A.")
+    fa.fornitore = doppio
+    fa.save()
+    url = reverse("contratti:fattura_fornitore", args=[fa.pk])
+    admin = come("Admin")
+    assert admin.get(reverse("contratti:fattura", args=[fa.pk])).status_code == 200
+    assert admin.post(url, {"fornitore": giusto.pk}).status_code == 302
+    fa.refresh_from_db()
+    assert fa.fornitore == giusto
+    assert fa.history.first().history_change_reason.startswith("Fornitore: TIM S.p.A.")
+    # Doppione: lo stesso numero è già registrato per il fornitore di destinazione.
+    altra = m.Fattura.objects.create(
+        fornitore=doppio, numero=fa.numero, data=OGGI, importo_documento=Decimal("1.00")
+    )
+    admin.post(reverse("contratti:fattura_fornitore", args=[altra.pk]), {"fornitore": giusto.pk})
+    altra.refresh_from_db()
+    assert altra.fornitore == doppio
+
+
+def test_cambio_fornitore_non_ammesso_con_il_contratto(scenario):
+    fa, c = scenario["fattura"], scenario["contratto"]
+    fatture.assegna_contratto(fa, c)
+    with pytest.raises(fatture.OperazioneNonAmmessa):
+        fatture.cambia_fornitore(fa, f.fornitore("Altro Fornitore"))
