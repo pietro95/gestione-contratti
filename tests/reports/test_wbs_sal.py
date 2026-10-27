@@ -1,4 +1,4 @@
-"""Spese per WBS delle voci a SAL (SPEC §5.2, Rev28): fatture e quote, mai il pro-rata a giorni.
+"""Spese per WBS delle voci a SAL (SPEC §5.2, Rev29): fatture e quote, mai il pro-rata a giorni.
 
 Caso di riferimento (anonimo): lavori a SAL, importo fisso 2.947.639,75, dal 15/10/2024 al
 31/03/2027, quote ad anno solare e sei fatture del 2025 e 2026.

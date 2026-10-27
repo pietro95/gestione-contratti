@@ -1,4 +1,4 @@
-"""Voci a SAL: il fatturato non è mai una ripartizione lineare sul tempo (SPEC §5.2, Rev28).
+"""Voci a SAL: il fatturato non è mai una ripartizione lineare sul tempo (SPEC §5.2, Rev29).
 
 Una voce a SAL non ha un calendario di fatturazione: le rate si inseriscono a mano. Per le viste
 «Fatturato» (cassa) e «Fatturato e stanziato» (consuntivo) gli importi per anno vengono, in
@@ -72,6 +72,12 @@ class RipartoSal:
 
 def e_sal(voce: Voce) -> bool:
     return voce.piano is not None and voce.piano.modalita == Modalita.SAL
+
+
+def da_fonti_reali(voce: Voce) -> bool:
+    """Voce a SAL di un contratto registrato: fatturato da fatture, rate o quote. Una voce di un
+    contratto previsto non ha né fatture né quote né rate: la sua previsione resta a pro-rata."""
+    return e_sal(voce) and not voce.previsto
 
 
 def a_giorni(importo: Decimal, inizio, fine) -> dict[int, Decimal]:

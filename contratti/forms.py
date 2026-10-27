@@ -827,7 +827,7 @@ class QuoteBase(forms.BaseInlineFormSet):
     """Quote per periodo di una voce.
 
     ``regole`` = (modalità del piano, importo fisso) le imposta chi valida voce e piano insieme
-    (``valida_voce``), prima di validare le quote. Per una voce a SAL (Rev28) si rifiutano solo
+    (``valida_voce``), prima di validare le quote. Per una voce a SAL (Rev29) si rifiutano solo
     le quote sovrapposte e la somma oltre il fisso; per le altre modalità la coerenza con il
     periodo di servizio non blocca il salvataggio: l'avviso lo dà ``servizi.avvisi_quote``.
     """

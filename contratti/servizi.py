@@ -89,7 +89,7 @@ def salva_voce(contratto: m.Contratto, form, piano_form, quote) -> VoceSalvata:
 
 
 def elimina_quote(voce: m.VoceContratto, motivo: str) -> list[dict]:
-    """Toglie tutte le quote per periodo della voce (sostituzione completa, SPEC_MCP Rev07).
+    """Toglie tutte le quote per periodo della voce (sostituzione completa, SPEC_MCP Rev11).
 
     Nessuna perdita di storia: ogni quota tolta resta nella storia con i suoi valori (prima) e
     il motivo. Restituisce le quote tolte, per riportarle nell'esito."""

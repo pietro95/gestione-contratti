@@ -2,7 +2,7 @@
 
 > Documento normativo per requisiti e regole di dominio. Per la vista tecnica consultare [ARCHITECTURE](ARCHITECTURE.md) e [DATA_MODEL](DATA_MODEL.md); per le procedure operative consultare [RUNBOOK](RUNBOOK.md) e [OPERATIONS](OPERATIONS.md).
 
-Rev28 — 22/10/2026 — responsabile: IT Manager ICTDINN, Siciliacque S.p.A.
+Rev29 — 27/10/2026 — responsabile: IT Manager ICTDINN, Siciliacque S.p.A.
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
@@ -34,6 +34,7 @@ Storico revisioni:
 - Rev26 (21/10/2026): decisione del responsabile del progetto, **approvata** dal responsabile del progetto il 21/10/2026. **Filtro per sottocluster** (§5.4, §8.1): dove si filtra per cluster (contratti, piani da verificare, RDA e «Stato delle RDA», contratti da chiudere, anomalie dell'esecuzione, stanziamenti, cruscotto acquisti, WBS, extra budget) si può filtrare anche per sottocluster, come già il cruscotto, i fabbisogni, il budget e il piano ordini (Rev23). Una RDA appartiene al sottocluster scelto se lo ha, o se lo ha il fabbisogno della pratica. L'elenco delle WBS e quello degli extra budget mostrano le WBS e le autorizzazioni con almeno una voce di un fabbisogno del sottocluster, e contano solo quelle voci. Vale anche per il connettore MCP (`SPEC_MCP` Rev09). Nessun cambio di permessi: il filtro restringe solo ciò che si vede.
 - Rev27 (22/10/2026): richieste dei referenti dopo le prime prove, **bozza da approvare**. **Fabbisogno** (§4, §5.3): flag **una tantum** (acquisto unico: un solo previsto, nessun rinnovo, qualunque sia la decisione); la **stima del prossimo importo** è l'**importo complessivo atteso** (fisso e consumo insieme) e il consumo del contratto di partenza non si somma; nuovi campi **motivazione**, **priorità**, **tipo d'acquisto** e **fonte della stima**. **Competenza dichiarata** dal referente per fabbisogno, anno e natura, a confronto con il calcolo (§4, §5.2). **A consumo**: nessuna rata programmata, la spesa si distribuisce a giorni sul periodo (§4, §5.2). **Link ai documenti**: ammessi anche `smb://` e `file://` (§4). Connettore MCP allineato (`SPEC_MCP` Rev10). Nuovi TC-21 e TC-22.
 - Rev28 (22/10/2026): correzione, **bozza da approvare**. **Link ai documenti** (§4): lista chiusa di schemi `http`, `https`, `smb`, `file`; ammessi host senza dominio (`smb://nas01/share`), indirizzi IP e spazi nei nomi delle cartelle; i percorsi UNC di Windows (`\\server\share`) si normalizzano in `file://server/share` al salvataggio; i link già registrati non si toccano. Nella scheda del contratto i link non web si mostrano anche come testo da copiare.
+- Rev29 (27/10/2026): decisioni del responsabile del progetto sul caso delle **voci a SAL**, **bozza da approvare**. Una voce a SAL non ha più il pro-rata a giorni come fatturato (§4, §5.2): la vista «Fatturato» legge le **fatture registrate** per anno della data documento (valore base); il residuo (importo fisso meno fatturato) è **previsto**, dalle **rate inserite a mano** o, senza rate, dalle **quote per periodo** solo per gli anni dopo l'ultima fattura; il resto è **SAL non pianificato**, fuori dai totali e segnalato. Per un SAL le **quote** sono ammesse ad anno solare anche oltre il periodo di servizio: si rifiutano solo sovrapposizioni e somma oltre il fisso (§4); le altre modalità restano come prima, con avviso non bloccante. Il totale per voce non supera l'importo fisso. Report per WBS (§5.4): per le voci a SAL vale la **WBS della fattura** se indicata, altrimenti quella della voce; una WBS diversa è un'anomalia; consuntivo e previsto restano separati; l'etichetta della vista dichiara la fonte per modalità. Il consuntivo non somma più pro-rata e fatture. Le altre modalità restano sulle rate del piano; la riconciliazione fatture/rate è la consuntivazione rate della Fase 2. Nuovo caso TC-23.
 
 ## 1. Obiettivo
 
@@ -164,7 +165,7 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
 - **natura, conto e WBS dei rinnovi** (facoltativi): la classificazione dei rinnovi previsti, se diversa da quella della voce (es. nata CAPEX, rinnovata in OPEX);
 - importo fisso (imponibile, IVA esclusa);
 - massimale variabile e stima di consumo del variabile, espressa **o** in percentuale (0–100) **o** in importo (non oltre il massimale), mai in entrambe le forme;
-- **quote per periodo** (facoltative): importi fissi diversi per sotto-periodi del servizio, tipicamente annuali (es. 10.000 il primo anno, 10.500 il secondo). Le quote devono essere contigue, coprire tutto il periodo di servizio della voce e sommare all'importo fisso; se non lo fanno si ignorano e l'anomalia è segnalata;
+- **quote per periodo** (facoltative): importi fissi diversi per sotto-periodi del servizio, tipicamente annuali (es. 10.000 il primo anno, 10.500 il secondo). Le quote devono essere contigue, coprire tutto il periodo di servizio della voce e sommare all'importo fisso; se non lo fanno si ignorano e l'anomalia è segnalata (avviso, il salvataggio non è bloccato). **Voci a SAL** (Rev29): le quote regolano il fatturato (§5.2) e sono ammesse ad anno solare anche se la prima inizia prima della data di inizio o l'ultima finisce dopo la fine del servizio; non devono sovrapporsi né sommare oltre l'importo fisso (il salvataggio si rifiuta); una quota a cavallo di due anni va tutta all'anno della data «dal», con avviso; una somma inferiore al fisso lascia un residuo non pianificato, con avviso. Le quote si possono aggiungere, modificare ed eliminare dal form della voce (la storia conserva i valori di prima);
 - piano di fatturazione.
 
 **Piano di fatturazione** (per voce):
@@ -182,7 +183,7 @@ Regole di generazione:
 - la rata contiene **solo la quota fissa**; la quota variabile non si salva sulle rate e la ripartisce il motore (§5.2, livelli);
 - rate uguali per periodo, con il residuo dell'arrotondamento sull'ultima;
 - se la durata non è un multiplo della periodicità, l'ultimo periodo è più corto e la sua rata è proporzionale ai giorni; le altre rate restano uguali tra loro;
-- `A SAL`: nessuna rata generata, le rate si inseriscono a mano;
+- `A SAL`: nessuna rata generata, le rate si inseriscono a mano; il fatturato non è mai un pro-rata a giorni (Rev29, §5.2);
 - `A consumo` (Rev27): **nessuna rata programmata**: non c'è un calendario di fatturazione. Periodicità e data della prima fattura non si registrano; il piano accetta il massimale e la stima di consumo della voce, e la spesa si distribuisce a giorni sul periodo di servizio (cassa a pro-rata, senza avviso). Le rate di un piano a consumo già generate e non modificate a mano o consuntivate, di importo zero, si tolgono con la migrazione;
 - `Da verificare`: nessuna rata; la cassa usa il pro-rata a giorni e lo segnala;
 - con quote per periodo, ogni quota si fattura come una voce a sé con lo stesso piano (la prima fattura esplicita vale solo per la prima quota); la numerazione delle rate prosegue. La `Una tantum` resta una sola rata dell'intero fisso.
@@ -276,7 +277,7 @@ Nessun dato di dominio si cancella fisicamente: si archivia, e la storia delle m
 | Vista | Domanda a cui risponde | Regola |
 |---|---|---|
 | **Fatturato e stanziato (competenza)** (Rev21) | Quanto costa all'anno X, sulle fatture e sugli stanziamenti? | per ogni rata: la **fattura registrata** (valore base) o lo **stanziamento** che la sostituisce, imputati **a giorni** al loro periodo di competenza; la rata senza fattura né stanziamento resta la **previsione** (sul **periodo della rata**, Rev22; se manca, nell'anno della data fattura). Si sommano le fatture e gli stanziamenti non abbinati a una rata. È **il riferimento del budget**: prima colonna e vista di default |
-| **Cassa / fatturato** | Quanto viene fatturato nell'anno X? | somma delle rate dello scadenzario **per data fattura** (Rev21: solo confronto, non è più il riferimento). La data di pagamento non è usata: il flusso di cassa effettivo è fuori perimetro |
+| **Cassa / fatturato** | Quanto viene fatturato nell'anno X? | somma delle rate dello scadenzario **per data fattura** (Rev21: solo confronto, non è più il riferimento). La data di pagamento non è usata: il flusso di cassa effettivo è fuori perimetro. **Voci a SAL** (Rev29): le fatture registrate per anno della data documento, poi il residuo previsto (vedi sotto) |
 | **Impegno / ordinato** | Quanto devo ordinare nell'anno X? (Procurement) | intero valore contrattuale nell'anno di emissione del contratto (o di previsto avvio) |
 | **Competenza** | Quanto costa all'esercizio X? (conto economico) | pro-rata **a giorni** sul periodo di servizio, indipendente dalla fatturazione |
 
@@ -293,6 +294,14 @@ Regole di dettaglio:
 - La quota variabile (probabile, massimo) segue la competenza a giorni della voce, come nella vista «Competenza».
 - Nei contratti previsti non ci sono fatture né stanziamenti: la vista coincide con le rate.
 - La vista «Competenza» (pro-rata a giorni sul periodo del contratto) resta com'è, come stima indipendente dalla fatturazione.
+
+**Voci a SAL (Rev29).** Una voce `A SAL` non ha rate generate e non ha mai il pro-rata a giorni come fatturato. Nelle viste «Fatturato (data fattura)» e «Fatturato e stanziato»:
+- **consuntivo**: le fatture registrate della voce (valore base; archiviate, fuori registro e senza valore base escluse). Nel Fatturato per anno della **data documento**; nel Fatturato e stanziato, insieme agli stanziamenti, a giorni sul periodo di competenza (Rev21). Una fattura senza voce va all'unica voce o alla principale (`FATTURA_SENZA_VOCE`);
+- **previsto**: il residuo `importo fisso − consuntivo`, dalle **rate inserite a mano** non consuntivate; se la voce non ha rate, dalle **quote per periodo** (anno della data «dal») solo per gli **anni successivi all'ultimo anno con consuntivo**: dove ci sono fatture valgono le fatture. Il previsto non supera il residuo (l'eccedenza si toglie dagli anni più lontani, `SAL_PREVISTO_ECCEDENTE`); le fatture oltre il fisso si contano per intero (`SAL_FATTURATO_SUPERA_FISSO`). La quota variabile dei livelli probabile e massimo segue il previsto;
+- **SAL non pianificato**: la parte di residuo senza rate né quote. Resta **fuori dai totali di cassa**, ma si vede: avviso `SAL_NON_PIANIFICATO` nel budget e riga dedicata nei report per WBS e nel connettore;
+- consuntivo e previsto restano **separati** anno per anno (possono coesistere nello stesso anno); `per_anno` è il totale. Nel budget le colonne seguono i livelli come sempre;
+- la **competenza** e l'**impegno** non cambiano; le quote di un SAL non entrano nella competenza (avviso `SAL_QUOTE_NON_IN_COMPETENZA`). La **WBS** della fattura prevale su quella della voce nei report per WBS (§5.4); il residuo previsionale resta sulla WBS della voce.
+- Le altre modalità restano sulle rate del piano: la riconciliazione fatture/rate è la consuntivazione rate della Fase 2. L'etichetta della vista dichiara la fonte per modalità.
 
 Ogni vista ha tre livelli:
 - **fisso**: somma delle quote fisse;

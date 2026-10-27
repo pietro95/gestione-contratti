@@ -44,6 +44,8 @@ def _sposta(
         rate=None,
         # Il previsto riparte dall'importo totale, senza le quote del contratto precedente.
         quote=(),
+        consuntivi=(),
+        previsto=True,
     )
 
 
@@ -123,5 +125,6 @@ def previsto_manuale(
         fine=fine,
         anno_impegno=inizio.year,
         piano=piano,
+        previsto=True,
     )
     return ContrattoPrevisto(inizio=inizio, fine=fine, voci=(voce,))

@@ -2,7 +2,7 @@
 
 - Impegno: intero valore della voce nel suo anno di impegno.
 - Cassa: rate per data fattura (la data di pagamento non entra nel budget); per le voci a SAL
-  le fatture registrate per data documento e, per il residuo, rate a mano o quote (Rev28).
+  le fatture registrate per data documento e, per il residuo, rate a mano o quote (Rev29).
 - Competenza: pro-rata a giorni sul periodo di servizio, indipendente dalla fatturazione.
 - Consuntivo a competenza (Rev21): fatture registrate e stanziamenti al posto delle rate,
   imputati a giorni al periodo di competenza; le rate senza fattura né stanziamento restano
@@ -48,8 +48,8 @@ def competenza_per_anno(voce: Voce, importo: Decimal) -> dict[int, Decimal]:
 def competenza_fisso(voce: Voce, esiti: list[Esito]) -> dict[int, Decimal]:
     """Competenza del fisso: per quota se ci sono quote coerenti, altrimenti sulla voce."""
     if voce.quote and quote_valide(voce) is None:
-        if sal.e_sal(voce):
-            # Per un SAL le quote regolano il fatturato (Rev28), non la competenza.
+        if sal.da_fonti_reali(voce):
+            # Per un SAL le quote regolano il fatturato (Rev29), non la competenza.
             esito = Esito(
                 "SAL_QUOTE_NON_IN_COMPETENZA",
                 "Quote per periodo di una voce a SAL non usate nella competenza (pro-rata a "
@@ -99,9 +99,9 @@ def cassa_per_anno(voce: Voce, livello: Livello, esiti: list[Esito]) -> dict[int
     Il variabile segue gli importi fissi delle rate; se il fisso è zero, i giorni dei
     periodi. Senza rate (Da verificare) vale il pro-rata a giorni, segnalato; a consumo vale lo
     stesso pro-rata, senza avviso. Le voci a SAL non hanno mai il pro-rata: fatture, poi rate o
-    quote per il residuo (``contratti.engine.sal``, Rev28).
+    quote per il residuo (``contratti.engine.sal``, Rev29).
     """
-    if sal.e_sal(voce):
+    if sal.da_fonti_reali(voce):
         ripartizione, nuovi = ripartizione_sal(voce, livello, sal.VISTA_CASSA)
         esiti.extend(nuovi)
         return ripartizione.per_anno
@@ -180,7 +180,7 @@ def consuntivo_per_anno(voce: Voce, livello: Livello, esiti: list[Esito]) -> dic
     fatture e gli stanziamenti non abbinati a una rata. La quota variabile segue il
     pro-rata a giorni della voce, come la competenza.
     """
-    if sal.e_sal(voce):
+    if sal.da_fonti_reali(voce):
         ripartizione, nuovi = ripartizione_sal(voce, livello, sal.VISTA_CONSUNTIVO)
         esiti.extend(nuovi)
         return ripartizione.per_anno

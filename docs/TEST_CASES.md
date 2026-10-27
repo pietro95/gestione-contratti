@@ -641,3 +641,27 @@ annuale (una rata da 11.393,00 € il 01/01/2027). Il referente dichiara per il 
   dal confronto.
 - Il Reader non dichiara né archivia (403); un Editor di un altro cluster neppure.
 
+## TC-23 — Voci a SAL: fatturato da fatture, quote e rate
+
+SPEC §4, §5.2, §5.4 (Rev29), **bozza da approvare**.
+
+Voce a SAL di lavori: fisso 2.947.639,75 €, dal 15/10/2024 al 31/03/2027, nessun variabile, nessuna
+rata. Quote ad anno solare: 2024 = 0,00; 2025 = 1.486.870,87; 2026 = 1.144.060,62;
+2027 = 316.708,26 (somma = fisso). Sei fatture, valore base: 467.235,71, 294.836,45, 356.049,94 e
+368.748,77 nel 2025; 622.064,41 e 521.996,21 nel 2026 (totale 2.630.931,49).
+
+- **(a) Solo quote.** Vista «Fatturato»: 2024 assente o 0,00; **2025 = 1.486.870,87;
+  2026 = 1.144.060,62; 2027 = 316.708,26**; totale = fisso. Sono previsto, nessun consuntivo. Mai
+  la ripartizione a giorni (256.031,07 / 1.198.094,11 / 1.198.094,11 / 295.420,46). Quote ad anno
+  solare ammesse anche se la prima inizia il 01/01/2024 e l'ultima finisce il 31/12/2027.
+- **(b) Solo fatture.** **2025 = 1.486.870,87; 2026 = 1.144.060,62**; 2024 e 2027 assenti o 0,00.
+  Residuo 316.708,26 € non pianificato: fuori dai totali, con avviso `SAL_NON_PIANIFICATO`.
+- **(c) Fatture e quote.** Consuntivo 2025 e 2026 dalle fatture; la quota 2027 (316.708,26) è
+  previsto; le quote 2025 e 2026 non si contano una seconda volta; totale = fisso.
+- **(d) Né quote né fatture.** Nessun importo nella vista; l'intero fisso è non pianificato.
+- **(e) Rate a mano.** Fonte primaria del previsto; una rata con fattura vale la fattura. Il
+  previsto non supera il residuo (`SAL_PREVISTO_ECCEDENTE`); fatture oltre il fisso: per intero
+  (`SAL_FATTURATO_SUPERA_FISSO`).
+- **(f) WBS.** Fattura con WBS diversa da quella della voce: il costo sta sulla WBS della
+  fattura, il residuo su quella della voce, anomalia su entrambe le pagine.
+- **(g) Regressione.** Voci `Posticipata` annuale e `Una tantum`: risultati invariati.

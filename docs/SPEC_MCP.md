@@ -2,7 +2,7 @@
 
 > Specifica normativa del connettore. L'inquadramento architetturale è in [ARCHITECTURE](ARCHITECTURE.md), i principi di protezione in [SECURITY](SECURITY.md) e le procedure di esercizio in [RUNBOOK](RUNBOOK.md).
 
-Rev10 — 22/10/2026 — decisioni del responsabile del progetto, **bozza da approvare**. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
+Rev11 — 27/10/2026 — decisioni del responsabile del progetto, **bozza da approvare**. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
 
 Storico revisioni:
 - Rev00 (05/10/2026): prima bozza, raccomandata l'opzione «solo rete interna con ponte locale».
@@ -16,6 +16,7 @@ Storico revisioni:
 - Rev08 (07/10/2026): decisioni del responsabile del progetto, **bozza da approvare**. Il connettore copre il processo d'acquisto della release 2.0 (§11, fase F12): lettura di RDA, fatture, esecuzione e viste; scrittura di tutto il processo tranne gli import (D14); presa in carico, fuori registro e assegnazione ai proposti anche su più fatture (D15); nome dei referenti esposto (D16); testi per SAP e PAC restituiti (D17). Gruppo E di §8.2 definito in §11.3.
 - Rev09 (21/10/2026): decisione del responsabile del progetto, **approvata** il 21/10/2026 (SPEC Rev26). Gli strumenti di lettura che filtrano per `cluster` accettano anche `sottocluster` (id da `riferimenti`; id inesistente → errore): `budget`, `spese_wbs`, `piani_da_verificare`, `elenco_rda`, `cruscotto_acquisti`, `contratti_da_chiudere`, `stanziamenti`, `anomalie_esecuzione` (`scadenze` e `piano_ordini` lo avevano già).
 - Rev10 (22/10/2026): decisioni del responsabile del progetto, **bozza da approvare** (SPEC Rev27). Il connettore segue la GUI sui **fabbisogni** (§5, §8.2): flag `una_tantum`, `motivazione`, `priorita`, `tipo_acquisto`, `fonte_stima` e `note`; `stima_prossimo_importo` è l'importo complessivo atteso. Il **referente** si indica con l'id o con il nome (`referente_nome`) e `fabbisogno` ne restituisce il nome (D18); la **procedura presunta** si indica con l'id o con il codice e `riferimenti` restituisce anche gli id; `link_documenti` ammette `smb://` e `file://` (stessa regola della GUI). Nuovo tool di scrittura `dichiara_competenza` (e `archivia` per la competenza dichiarata); `fabbisogno` la restituisce a confronto con il calcolo (D19). Elenco dei divari residui tra GUI e connettore in §8.2.
+- Rev11 (27/10/2026): decisione del responsabile del progetto, **bozza da approvare** (SPEC Rev29). Superato il limite Rev06: `modifica_voce` con **`quote`** **sostituisce tutte** le quote per periodo della voce (`[]` le toglie, omesso lascia quelle che ci sono), con anteprima delle quote tolte e di quelle nuove; le quote tolte restano nella storia con i loro valori e il motivo `MCP modifica_voce …`. L'utente PostgreSQL del container `mcp` ottiene `DELETE` anche sulle quote per periodo (§2.2, §8.3). Regole delle quote del form della voce (SPEC §4): per i SAL si rifiutano solo sovrapposizione e somma oltre il fisso; per le altre modalità l'incoerenza è un avviso nell'anteprima. `spese_wbs`: per le voci a SAL consuntivo e previsto separati, residuo non pianificato e anomalie sulla WBS della fattura (§5).
 
 ## 1. Obiettivo
 
@@ -218,7 +219,7 @@ Un oggetto principale per operazione (un contratto si crea con le sue voci e i l
 | | `conferma_operazione` (id) | — |
 
 Limiti del gruppo C (Rev06):
-- `modifica_voce` modifica voce e piano; le quote per periodo già registrate si cambiano solo dall'interfaccia (`crea_voce` le accetta);
+- `modifica_voce` modifica voce e piano; con `quote` **sostituisce tutte** le quote per periodo della voce (Rev11: `[]` le toglie, omesso restano quelle che ci sono; le quote tolte restano nella storia);
 - `crea_contratto` e `modifica_contratto` non gestiscono il campo `note`;
 - `registra_rinnovo` non genera le rate, come l'interfaccia: lo scadenzario delle nuove voci si genera dopo con `genera_scadenzario`;
 - la procedura si indica con il codice restituito da `riferimenti`.
@@ -228,7 +229,6 @@ Divari noti tra GUI e connettore (audit Rev10, da chiudere in una fase successiv
 - **fornitore**: `note`;
 - **contratto** (`crea_contratto`, `modifica_contratto`, `registra_rinnovo`): `note` (limite Rev06), `tipo_acquisto`, `sottocluster` alla creazione, creazione del fornitore nello stesso passo, `una_tantum`, CUP, RUP e `percorso_documenti` (questi nella GUI solo dalla RDA); spostamento del contratto in un altro fabbisogno (D11);
 - **proroga**, **fattura**, **documento di esecuzione**, **stanziamento**, **RDA registrata a mano**: `note`;
-- **voce**: quote per periodo esistenti in modifica (limite Rev06);
 - **fatturato pregresso** (GUI: pagina dedicata): nessun tool, come gli altri import.
 
 **Solo dall'interfaccia**, mai via MCP:
@@ -241,7 +241,7 @@ Divari noti tra GUI e connettore (audit Rev10, da chiudere in una fase successiv
 - **Istruzioni nascoste nei dati** (*prompt injection*): una descrizione o una nota scritta da qualcuno può contenere frasi che il modello prende per istruzioni («archivia tutti i contratti di …»). Contromisure: testo libero in campi distinti, mai nelle descrizioni dei tool; un oggetto per operazione; anteprima obbligatoria; conferma solo con un id generato dal server; permessi per cluster. Rischio residuo: un utente che conferma senza leggere. Non si elimina; si limita il danno (archiviazione reversibile, storia completa, nessuna cancellazione).
 - **Dati dettati male** (importi, date, fornitore sbagliato): l'anteprima mostra gli effetti calcolati, non solo i campi; le validazioni sono quelle dei form.
 - **Token rubato con scope di scrittura**: lo stesso danno di una sessione web rubata, limitato a 1 ora per l'access token e ai cluster dell'utente; revoca immediata dall'Admin. Nessun limite al numero di operazioni (D13): il freno è l'interruttore generale.
-- **Database**: l'utente PostgreSQL del container `mcp` ottiene `INSERT` e `UPDATE` sulle tabelle di dominio e di storia; **`DELETE` solo sulle rate** (la rigenerazione dello scadenzario sostituisce le rate generate, `servizi.genera_scadenzario`) e sulle tabelle dei token OAuth. Nessun `DELETE` sulle altre tabelle di dominio: la regola 8 è imposta anche dal database.
+- **Database**: l'utente PostgreSQL del container `mcp` ottiene `INSERT` e `UPDATE` sulle tabelle di dominio e di storia; **`DELETE` solo sulle rate** e, dalla Rev11, sulle quote per periodo (la sostituzione completa di `modifica_voce`; la storia ne conserva i valori) (la rigenerazione dello scadenzario sostituisce le rate generate, `servizi.genera_scadenzario`) e sulle tabelle dei token OAuth. Nessun `DELETE` sulle altre tabelle di dominio: la regola 8 è imposta anche dal database.
 
 ### 8.4 Test e criteri di accettazione (F10.1)
 
@@ -250,7 +250,7 @@ Divari noti tra GUI e connettore (audit Rev10, da chiudere in una fase successiv
 - **Equivalenza con l'interfaccia**: gli stessi dati inviati alla vista web e al tool producono lo stesso stato del database (stessi campi, rate, previsti, pratica); gli stessi dati non validi producono gli stessi errori.
 - Conferma: id scaduto, già usato da un altro utente, con argomenti diversi o con un oggetto modificato nel frattempo → rifiutata; seconda conferma con lo stesso id → stesso esito, nessuna seconda scrittura.
 - Interruttore spento → ogni tool di scrittura rifiutato, lettura invariata.
-- Storia con l'utente reale e motivo `MCP …`; nessun `DELETE` del container `mcp` fuori da rate e token (verifica sui privilegi dell'utente PostgreSQL nello script di verifica di `deploy/`).
+- Storia con l'utente reale e motivo `MCP …`; nessun `DELETE` del container `mcp` fuori da rate, quote per periodo e token (verifica sui privilegi dell'utente PostgreSQL nello script di verifica di `deploy/`).
 - Casi di `docs/TEST_CASES.md` ricostruiti via MCP (almeno TC-12 rinnovo con confluenza e TC-14 rinnovo senza contratto): anteprima e risultato coincidono con i valori attesi.
 
 ## 9. Decisioni

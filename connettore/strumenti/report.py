@@ -175,6 +175,27 @@ def budget(ctx: Contesto, argomenti: dict) -> dict:
         ),
         "sezioni": sezioni,
         "contratti_senza_data_inizio": b.senza_data,
+        **(
+            {
+                "sal_non_pianificato": {
+                    "totale": b.sal_non_pianificato,
+                    "nota": "Importo fisso di voci a SAL senza rate, quote né fatture: fuori dai "
+                    "totali, non distribuito a giorni.",
+                    "voci": [
+                        {
+                            "contratto_id": x.contratto.pk,
+                            "voce_id": x.voce.pk,
+                            "descrizione": x.voce.descrizione,
+                            "natura": x.natura,
+                            "importo": x.importo,
+                        }
+                        for x in b.sal_non_pianificati
+                    ],
+                }
+            }
+            if b.sal_non_pianificati
+            else {}
+        ),
         "link": link("reports:budget") + "?" + urlencode(query),
     }
 

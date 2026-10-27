@@ -117,6 +117,9 @@ class Voce:
     quote: tuple[Quota, ...] = ()
     # Fatture e stanziamenti della voce non abbinati a una rata (Rev21).
     consuntivi: tuple[Consuntivo, ...] = ()
+    # Voce di un contratto previsto (rinnovo o previsto manuale): non ha fatture, quote né rate.
+    # Per un SAL la previsione resta a pro-rata a giorni, dichiarata come tale (Rev29).
+    previsto: bool = False
     riferimento: object = None
 
 

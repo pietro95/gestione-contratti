@@ -1,4 +1,4 @@
-"""modifica_voce: «quote» sostituisce tutte le quote per periodo (SPEC_MCP Rev07, SPEC Rev28).
+"""modifica_voce: «quote» sostituisce tutte le quote per periodo (SPEC_MCP Rev11, SPEC Rev29).
 
 Anteprima e conferma come le altre scritture; le quote tolte restano nella storia con i loro
 valori; le regole sono quelle del form della voce (voci a SAL: niente sovrapposizioni, somma

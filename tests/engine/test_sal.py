@@ -1,4 +1,4 @@
-"""Voci a SAL (SPEC §5.2, Rev28): il fatturato non è mai una ripartizione lineare sul tempo.
+"""Voci a SAL (SPEC §5.2, Rev29): il fatturato non è mai una ripartizione lineare sul tempo.
 
 Caso di riferimento: voce a SAL di lavori (importo fisso 2.947.639,75) dal 15/10/2024 al
 31/03/2027, con le quote ad anno solare e le sei fatture del caso reale, in forma anonima.
@@ -9,9 +9,11 @@ from dataclasses import replace
 import pytest
 
 from contratti.engine.budget import calcola, ripartizione_sal
+from contratti.engine.previsioni import previsti
 from contratti.engine.sal import errori_quote
 from contratti.engine.tipi import (
     Consuntivo,
+    ContrattoBase,
     Livello,
     Quota,
     Rata,
@@ -301,6 +303,30 @@ def test_stanziamento_senza_fattura_conta_nel_consuntivo_non_nella_cassa():
     v = replace(sal(consuntivi=(s,)), importo_fisso=euro("1000.00"))
     assert _consuntivo(v)[0] == {2026: euro("500.00")}
     assert cassa(v)[0] == {}
+
+
+# --- Voci di contratti previsti ---------------------------------------------------------------
+
+
+def test_voce_prevista_a_sal_resta_a_pro_rata_e_lo_dichiara():
+    # Un rinnovo previsto non ha fatture, quote né rate: la previsione è a giorni, segnalata.
+    v = replace(sal(), previsto=True)
+    per_anno, esiti = cassa(v)
+    assert sum(per_anno.values()) == euro(FISSO)
+    assert 2024 in per_anno and 2027 in per_anno
+    assert "CASSA_PRO_RATA" in codici(esiti)
+    assert "SAL_NON_PIANIFICATO" not in codici(esiti)
+    assert _consuntivo(v)[0] == per_anno  # anche nella vista Fatturato e stanziato
+
+
+def test_i_previsti_di_una_voce_a_sal_sono_voci_previste():
+    base = ContrattoBase(FINE, 29, (sal(),))
+    (previsto,) = previsti(
+        base, decisione="rinnovare", orizzonte=D(2027, 6, 1), adeguamento=lambda _: euro("0")
+    )
+    (v,) = previsto.voci
+    assert v.previsto and v.quote == () and v.consuntivi == ()
+    assert sum(cassa(v)[0].values()) == euro(FISSO)
 
 
 # --- Regressione: le altre modalità non cambiano ---------------------------------------------

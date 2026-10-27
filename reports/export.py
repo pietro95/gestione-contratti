@@ -318,7 +318,7 @@ def quadratura_xlsx(q: Quadratura):
 def wbs_xlsx(spese, oggi: datetime.date):
     """Spese per WBS: una riga per voce, una colonna per anno, poi il totale.
 
-    Per le voci a SAL (Rev28) seguono le righe «di cui fatture» e «di cui previsto» e, se c'è,
+    Per le voci a SAL (Rev29) seguono le righe «di cui fatture» e «di cui previsto» e, se c'è,
     il residuo non pianificato (fuori dai totali); in fondo anomalie e avvisi.
     """
     wb = xlsx.nuovo_libro()

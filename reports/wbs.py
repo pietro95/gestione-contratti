@@ -2,7 +2,7 @@
 per anno. Solo contratti registrati (niente previsti): è la spesa sostenuta o impegnata sulla
 WBS, anche oltre i budget dei cluster (le WBS a progetto ne sono fuori).
 
-Voci a SAL (Rev28), nelle viste «Fatturato» e «Fatturato e stanziato»: il costo reale sta sulla
+Voci a SAL (Rev29), nelle viste «Fatturato» e «Fatturato e stanziato»: il costo reale sta sulla
 WBS della fattura (se indicata, altrimenti quella della voce) e il residuo previsionale su quella
 della voce. Consuntivo (fatture) e previsto (rate o quote) restano separati; ``per_anno`` è il
 totale. Una fattura con WBS diversa da quella della voce compare come anomalia.
@@ -44,7 +44,7 @@ class RigaWBS:
     inizio: datetime.date
     fine: datetime.date
     per_anno: dict[int, Decimal]
-    # Solo voci a SAL (Rev28): le due componenti di ``per_anno``, il residuo fuori dai totali,
+    # Solo voci a SAL (Rev29): le due componenti di ``per_anno``, il residuo fuori dai totali,
     # la fonte degli importi e gli avvisi del calcolo.
     consuntivo: dict[int, Decimal] = field(default_factory=dict)
     previsto: dict[int, Decimal] = field(default_factory=dict)

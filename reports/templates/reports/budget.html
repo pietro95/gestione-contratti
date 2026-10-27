@@ -28,6 +28,13 @@
 </div>
 {% endif %}
 
+{% if budget.sal_non_pianificati %}
+<div class="alert alert-warning small mb-4" id="sal-non-pianificato" role="status">
+  <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+  <strong>SAL non pianificato: {{ budget.sal_non_pianificato|euro }}</strong> su {{ budget.sal_non_pianificati|length }} voci. Importo fisso di voci a SAL senza rate, quote né fatture: <strong>fuori dai totali</strong>, non distribuito a giorni. Inserisci le rate o le quote della voce per portarlo nei totali.
+  <details class="mt-1"><summary>Elenco delle voci</summary><ul class="mb-0">{% for x in budget.sal_non_pianificati %}<li><a href="{% url 'contratti:contratto' x.contratto.pk %}">{{ x.fabbisogno }}</a> — {{ x.voce.descrizione }} ({{ x.natura }}): {{ x.importo|euro }}</li>{% endfor %}</ul></details>
+</div>
+{% endif %}
 {% if sezioni|length > 1 %}<p class="small text-body-secondary mb-4"><i class="bi bi-info-circle" aria-hidden="true"></i> OPEX e CAPEX sono budget distinti: i totali non si sommano.</p>{% endif %}
 {% for s in sezioni %}
 <section class="mb-5" aria-labelledby="natura-{{ s.natura }}">
