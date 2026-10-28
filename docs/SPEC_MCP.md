@@ -2,7 +2,7 @@
 
 > Specifica normativa del connettore. L'inquadramento architetturale è in [ARCHITECTURE](ARCHITECTURE.md), i principi di protezione in [SECURITY](SECURITY.md) e le procedure di esercizio in [RUNBOOK](RUNBOOK.md).
 
-Rev11 — 27/10/2026 — decisioni del responsabile del progetto, **bozza da approvare**. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
+Rev12 — 28/10/2026 — decisioni del responsabile del progetto, **approvata** il 28/10/2026. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
 
 Storico revisioni:
 - Rev00 (05/10/2026): prima bozza, raccomandata l'opzione «solo rete interna con ponte locale».
@@ -17,6 +17,7 @@ Storico revisioni:
 - Rev09 (21/10/2026): decisione del responsabile del progetto, **approvata** il 21/10/2026 (SPEC Rev26). Gli strumenti di lettura che filtrano per `cluster` accettano anche `sottocluster` (id da `riferimenti`; id inesistente → errore): `budget`, `spese_wbs`, `piani_da_verificare`, `elenco_rda`, `cruscotto_acquisti`, `contratti_da_chiudere`, `stanziamenti`, `anomalie_esecuzione` (`scadenze` e `piano_ordini` lo avevano già).
 - Rev10 (22/10/2026): decisioni del responsabile del progetto, **bozza da approvare** (SPEC Rev27). Il connettore segue la GUI sui **fabbisogni** (§5, §8.2): flag `una_tantum`, `motivazione`, `priorita`, `tipo_acquisto`, `fonte_stima` e `note`; `stima_prossimo_importo` è l'importo complessivo atteso. Il **referente** si indica con l'id o con il nome (`referente_nome`) e `fabbisogno` ne restituisce il nome (D18); la **procedura presunta** si indica con l'id o con il codice e `riferimenti` restituisce anche gli id; `link_documenti` ammette `smb://` e `file://` (stessa regola della GUI). Nuovo tool di scrittura `dichiara_competenza` (e `archivia` per la competenza dichiarata); `fabbisogno` la restituisce a confronto con il calcolo (D19). Elenco dei divari residui tra GUI e connettore in §8.2.
 - Rev11 (27/10/2026): decisione del responsabile del progetto, **bozza da approvare** (SPEC Rev29). Superato il limite Rev06: `modifica_voce` con **`quote`** **sostituisce tutte** le quote per periodo della voce (`[]` le toglie, omesso lascia quelle che ci sono), con anteprima delle quote tolte e di quelle nuove; le quote tolte restano nella storia con i loro valori e il motivo `MCP modifica_voce …`. L'utente PostgreSQL del container `mcp` ottiene `DELETE` anche sulle quote per periodo (§2.2, §8.3). Regole delle quote del form della voce (SPEC §4): per i SAL si rifiutano solo sovrapposizione e somma oltre il fisso; per le altre modalità l'incoerenza è un avviso nell'anteprima. `spese_wbs`: per le voci a SAL consuntivo e previsto separati, residuo non pianificato e anomalie sulla WBS della fattura (§5).
+- Rev12 (28/10/2026): decisione del responsabile del progetto, **approvata** (SPEC Rev31 e Rev32). La competenza esposta dai tool è a **mesi frazionati**; `budget`, `piano_ordini` e `fabbisogno` aggiungono `metodo_competenza` (§5). Nessun nuovo tool, nessuna scrittura.
 
 ## 1. Obiettivo
 
@@ -130,6 +131,7 @@ Convenzioni comuni:
 - **Date** ISO `AAAA-MM-GG`.
 - Ogni risultato riporta `alla_data` (data di calcolo), i filtri applicati (cluster compresi) e un `link` alla pagina dell'app sull'host interno, per la verifica.
 - Elenchi paginati: `limite` (default 25, max 100) e `cursore`; `troncato: true` se ci sono altri elementi. Mai risultati parziali senza dirlo.
+- **Competenza** (Rev12, SPEC Rev31 e Rev32): i tool `budget`, `piano_ordini` e `fabbisogno` restituiscono `metodo_competenza` (`metodo: mesi_frazionati`, `descrizione`, `limite_noto`), la stessa dicitura della pagina; le descrizioni dei tool e le etichette delle viste parlano di «ripartizione a mesi frazionati». Valgono per ogni valore di competenza e «normalizzato» esposto, compresa la competenza dichiarata a confronto.
 - Anomalie ed esiti del motore (ripartizione a mesi frazionati per `Da verificare`, data di inizio mancante, quote ignorate) in `avvisi`, come nell'interfaccia.
 - Ogni tool dichiara `inputSchema`, `outputSchema` e `readOnlyHint: true`.
 - Ogni oggetto restituito ha `id` e `versione` (ultimo record della storia), che servono alla scrittura (§8.1).

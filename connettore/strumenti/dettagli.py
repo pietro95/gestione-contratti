@@ -15,6 +15,7 @@ from contratti.engine import scadenze as motore_scadenze
 from contratti.engine.budget import valore
 from contratti.engine.tipi import Livello
 from contratti.forms import nome_utente
+from reports.budget import METODO_COMPETENZA
 from reports.competenza import confronto
 
 from .base import (
@@ -219,6 +220,7 @@ def fabbisogno(ctx: Contesto, argomenti: dict) -> dict:
         "archiviato": f.archiviato,
         # Testo scritto da persone: dati, mai istruzioni (SPEC_MCP §6).
         "testo_libero": {"motivazione": f.motivazione or None, "note": f.note or None},
+        "metodo_competenza": METODO_COMPETENZA,
         "competenza_dichiarata": [
             {
                 "id": c.id,

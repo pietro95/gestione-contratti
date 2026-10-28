@@ -6,17 +6,16 @@ from decimal import ROUND_HALF_UP, Decimal
 from fractions import Fraction
 
 import pytest
-from hypothesis import given, settings
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from contratti.engine.budget import calcola
 from contratti.engine.date import aggiungi_mesi
-from contratti.engine.mesi_frazionati import competenza_per_anno, pesi_per_anno
+from contratti.engine.mesi_frazionati import UN_GIORNO, competenza_per_anno, pesi_per_anno
 from contratti.engine.tipi import Livello
 
 from .casi import D, euro, piano, voce
 
-UN_GIORNO = datetime.timedelta(days=1)
 CANONE = Decimal("6500.00")
 
 
@@ -189,31 +188,12 @@ def giorni_dell_anno(anno: int):
     )
 
 
-@pytest.mark.parametrize("anno_inizio", [2025, 2026, 2027, 2028])
-def test_catena_di_contratti_annuali_somma_il_canone(anno_inizio):
-    """Per ogni giorno di confine fuori da febbraio, gli anni solari interi valgono il canone."""
-    for inizio in giorni_dell_anno(anno_inizio):
-        if inizio.month == 2:
-            continue
-        catena = _catena(inizio)
-        for anno in _anni_coperti_per_intero(inizio):
-            assert catena[anno] == CANONE, (inizio, anno, catena[anno])
+def test_catena_di_contratti_annuali_somma_il_canone_per_ogni_giorno_di_inizio():
+    """Per ogni giorno d'inizio dal 2024 al 2028, gli anni solari interi valgono il canone.
 
-
-def test_confine_a_febbraio_tra_anno_bisestile_e_non_scarto_documentato():
-    """Caso in cui l'invariante (2) NON vale: il peso del mese iniziale e quello del mese finale
-    di uno stesso contratto sono frazioni di febbraio di lunghezza diversa (28 e 29 giorni), quindi
-    il peso totale non è 12 mesi esatti. Non si corregge con un workaround: si segnala (SPEC §5.2).
+    Unica eccezione, irrisolvibile (vedi il test successivo): l'inizio al 28/02 di un anno
+    bisestile.
     """
-    primo = competenza_per_anno(CANONE, D(2027, 2, 15), D(2028, 2, 14))
-    secondo = competenza_per_anno(CANONE, D(2028, 2, 15), D(2029, 2, 14))
-    assert somma(primo) == somma(secondo) == CANONE  # invariante (1): sempre valida
-    scarto = primo[2028] + secondo[2028] - CANONE
-    assert scarto == euro("-7.01")
-    assert abs(scarto) / CANONE < Decimal("0.0025")  # sempre sotto lo 0,25% del canone
-
-
-def test_gli_unici_confini_che_non_quadrano_sono_a_febbraio():
     fuori = {}
     for anno_inizio in range(2024, 2029):
         for inizio in giorni_dell_anno(anno_inizio):
@@ -221,8 +201,25 @@ def test_gli_unici_confini_che_non_quadrano_sono_a_febbraio():
             for anno in _anni_coperti_per_intero(inizio):
                 if catena[anno] != CANONE:
                     fuori[inizio] = catena[anno] - CANONE
-    assert {d.month for d in fuori} <= {2}
-    assert all(abs(s) < Decimal("16.00") for s in fuori.values())  # 0,25% di 6.500,00
+    assert set(fuori) <= {D(2024, 2, 28), D(2028, 2, 28)}
+
+
+@pytest.mark.parametrize("giorno", [D(2027, 2, 15), D(2027, 2, 28), D(2028, 2, 29), D(2028, 2, 1)])
+def test_confini_a_febbraio_quadrano(giorno):
+    # Prima della correzione dei 29 posti di febbraio: 6.492,99 per l'inizio al 15/02/2027.
+    catena = _catena(giorno)
+    assert all(catena[anno] == CANONE for anno in _anni_coperti_per_intero(giorno))
+
+
+def test_inizio_al_28_febbraio_bisestile_e_irrisolvibile():
+    """Due inizi diversi (28/02 e 29/02 di un anno bisestile) hanno lo stesso anniversario
+    (28/02 dell'anno dopo, SPEC §5.1: la fine mese resta fine mese). Con una posizione unica per
+    quella data, i due contratti da 12 mesi non possono pesare entrambi esattamente 12 mesi, salvo
+    dare peso zero al 28/02 bisestile. Lo scarto resta, ed è piccolo e documentato."""
+    assert aggiungi_mesi(D(2028, 2, 28), 12) == aggiungi_mesi(D(2028, 2, 29), 12) == D(2029, 2, 28)
+    scarto = _catena(D(2028, 2, 28))[2029] - CANONE
+    assert scarto != 0
+    assert abs(scarto) / CANONE < Decimal("0.0025")  # sotto lo 0,25% del canone
 
 
 # --- Invariante 1 + oracolo indipendente (proprietà) -------------------------------------------
@@ -252,6 +249,11 @@ def periodi(draw):
     return inizio, inizio + datetime.timedelta(days=draw(st.integers(0, 12 * 366)))
 
 
+def _estremo_in_febbraio(periodo) -> bool:
+    inizio, fine = periodo
+    return inizio.month == 2 or fine.month == 2  # lì i 29 posti di febbraio differiscono dai giorni
+
+
 @settings(max_examples=300, deadline=None)
 @given(importo=importi, periodo=periodi())
 def test_proprieta_la_somma_per_anno_e_l_importo(importo, periodo):
@@ -266,6 +268,7 @@ def test_proprieta_la_somma_per_anno_e_l_importo(importo, periodo):
 def test_proprieta_ogni_quota_dista_poco_dal_valore_esatto(importo, periodo):
     """Scarto = mezzo centesimo di arrotondamento + residuo; il residuo vale al più mezzo centesimo
     per anno (con il fallback cumulato, meno di un centesimo in tutto)."""
+    assume(not _estremo_in_febbraio(periodo))
     inizio, fine = periodo
     risultato = competenza_per_anno(importo, inizio, fine)
     esatto = oracolo(importo, inizio, fine)
@@ -289,3 +292,20 @@ def test_arrotondamento_half_up_come_decimal():
     risultato = competenza_per_anno(Decimal("0.01"), D(2026, 12, 1), D(2027, 1, 31))
     assert somma(risultato) == euro("0.01")
     assert Decimal("0.005").quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) == euro("0.01")
+
+
+@settings(max_examples=200, deadline=None)
+@given(periodo=periodi(), taglio=st.integers(min_value=0, max_value=12 * 366 - 1))
+def test_proprieta_il_peso_e_additivo(periodo, taglio):
+    """Il peso di un periodo è la somma dei pesi delle sue due metà contigue, in ogni anno."""
+    inizio, fine = periodo
+    meta = inizio + datetime.timedelta(days=taglio % ((fine - inizio).days + 1))
+    intero = pesi_per_anno(inizio, fine)
+    somma_parti: dict[int, Fraction] = {}
+    for parte in (
+        pesi_per_anno(inizio, meta),
+        pesi_per_anno(meta + UN_GIORNO, fine) if meta < fine else {},
+    ):
+        for anno, peso in parte.items():
+            somma_parti[anno] = somma_parti.get(anno, Fraction(0)) + peso
+    assert {a: p for a, p in intero.items() if p} == {a: p for a, p in somma_parti.items() if p}
