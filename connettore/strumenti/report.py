@@ -265,9 +265,10 @@ def piano_ordini(ctx: Contesto, argomenti: dict) -> dict:
             "natura": natura or "OPEX e CAPEX",
         },
         "nota": (
-            "Una riga per ogni contratto previsto la cui procedura tocca l'anno: fase "
-            "da_avviare (data limite nell'anno, entra nei totali) o da_concludere (procedura "
-            "da avviare prima, ordine da emettere entro l'avvio; fuori dai totali). In più, i "
+            "Una riga per ogni contratto previsto che va stipulato nell'anno (servizio in "
+            "partenza nell'anno): fase da_avviare, entra nei totali. Nell'anno in corso anche "
+            "i rinnovi in ritardo, fase da_concludere (servizio già partito o data limite "
+            "passata con pratica non avviata; fuori dai totali). In più, i "
             "contratti già registrati con competenza nell'anno: fase registrato, stato "
             "«In stipula» o «Stipulato», senza data limite, fuori dai totali contrattuali. "
             "Nell'anno in corso in_ritardo segnala data limite passata con pratica non avviata "
@@ -477,8 +478,8 @@ STRUMENTI = [
         titolo="Piano ordini dell'anno",
         descrizione=(
             "Il piano per il Procurement: una riga per ogni contratto da rinnovare o nuovo con "
-            "procedura da avviare nell'anno (nei totali) o avviata prima e da concludere "
-            "nell'anno, più i contratti già registrati (in stipula o stipulati) con competenza "
+            "avvio del servizio nell'anno (nei totali) o in ritardo nell'anno in corso (fuori "
+            "dai totali), più i contratti già registrati (in stipula o stipulati) con competenza "
             "nell'anno, con sottocluster, procedura presunta, lead time, data limite di "
             "avvio della procedura, stato della pratica, natura, fonte di finanziamento, "
             "valore contrattuale sull'intera durata e valore normalizzato sull'anno. "

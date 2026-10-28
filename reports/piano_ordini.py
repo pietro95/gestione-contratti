@@ -1,13 +1,13 @@
 """Piano ordini dell'anno X per il Procurement (SPEC §5.4).
 
-Una riga per ogni contratto previsto (automatico o manuale) la cui procedura, dalla data limite
-di avvio all'avvio del servizio, tocca l'anno X:
-- «da avviare»: data limite nell'anno X; solo queste righe entrano nei totali;
-- «da concludere»: procedura da avviare in un anno precedente, ordine da emettere entro l'avvio
-  del servizio, nell'anno X o dopo. Nel piano dell'anno in corso sono da concludere anche i
-  previsti con servizio già partito (non finito prima dell'anno) e pratica non conclusa.
-Nell'anno in corso una riga è «in ritardo» se la data limite è passata e la pratica non è
-avviata, o se il servizio doveva già partire. Una pratica conclusa toglie le righe da concludere.
+Una riga per ogni contratto previsto (automatico o manuale) che va stipulato nell'anno X, cioè
+il cui servizio parte nell'anno X (Rev20: l'anno è quello dell'avvio, non della data limite):
+- «da avviare»: avvio nell'anno X; entra nei totali. Ogni previsto compare in un solo anno;
+- «da concludere» (solo nel piano dell'anno in corso, sempre «in ritardo», fuori dai totali):
+  previsto con servizio già partito, non finito prima dell'anno e pratica non conclusa, oppure con
+  avvio in un anno successivo ma data limite passata e pratica non avviata.
+Una pratica conclusa toglie le righe in ritardo e le righe la cui data limite è di un anno
+precedente.
 Restano fuori i rinnovi senza contratto (non si ordinano tramite il Procurement, SPEC §5.6).
 Il Procurement ordina sia OPEX sia CAPEX: il piano li contiene in sezioni separate, con i totali
 propri, mai sommati; un contratto misto compare in entrambe con la sola quota della natura.
@@ -494,17 +494,26 @@ def _righe_previste(f, anno, oggi, orizzonte, procedura_default, recupero) -> li
     righe = []
     for p in previsti:
         r = _riga(f, base, p, durata, procedura_default, oggi, anno)
-        if r.data_limite.year > anno:
+        concluso = r.stato_pratica in PRATICA_CONCLUSA
+        non_avviata = r.stato_pratica in (None, m.StatoPratica.Stato.NON_AVVIATA)
+        if r.avvio.year == anno:
+            # Il contratto va stipulato nell'anno X: l'ordine si emette entro l'avvio del servizio.
+            if concluso and r.data_limite.year < anno:
+                continue
+        elif not recupero or concluso:
             continue
-        if r.data_limite.year < anno:
-            # Procedura da avviare prima: resta da emettere l'ordine, entro l'avvio.
-            in_corso = r.avvio >= inizio_anno or (recupero and r.fine >= inizio_anno)
-            if not in_corso or r.stato_pratica in PRATICA_CONCLUSA:
+        elif r.avvio.year < anno:
+            # Servizio già partito, non finito prima dell'anno, pratica non conclusa: in ritardo.
+            if r.fine < inizio_anno:
                 continue
             r.fase = DA_CONCLUDERE
+        elif r.data_limite < oggi and non_avviata:
+            # Avvio in un anno successivo, ma la procedura doveva già partire: in ritardo.
+            r.fase = DA_CONCLUDERE
+        else:
+            continue
         if recupero:
-            non_avviata = r.stato_pratica in (None, m.StatoPratica.Stato.NON_AVVIATA)
-            partito = r.avvio <= oggi and r.stato_pratica not in PRATICA_CONCLUSA
+            partito = r.avvio <= oggi and not concluso
             r.in_ritardo = (r.data_limite < oggi and non_avviata) or partito
         righe.append(r)
     return righe

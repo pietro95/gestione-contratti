@@ -103,13 +103,11 @@ def test_previsto_normalizzato_sull_anno():
         fabbisogno=fab, data_inizio=D(2026, 1, 1), durata_mesi=12, lead_time_mesi_override=2
     )
     f.piano(f.voce(c, importo_fisso=Decimal("1200.00")))
-    # Il previsto parte il 01/01/2027, data limite 31/10/2026: nel 2026 da avviare, ma senza
-    # competenza nell'anno; nel 2027 da concludere, con tutta la competenza.
-    p26 = next(r for r in calcola_piano(2026, OGGI).righe if r.numero_previsto == 1)
-    assert p26.da_avviare and p26.stato == "Previsto"
-    assert p26.importi[FISSO] > 0 and p26.normalizzato[FISSO] == Decimal("0.00")
+    # Il previsto parte il 01/01/2027 (data limite 31/10/2026): è nel piano 2027, non nel 2026
+    # (Rev20), da avviare e con tutta la competenza.
+    assert not [r for r in calcola_piano(2026, OGGI).righe if r.numero_previsto == 1]
     p27 = next(r for r in calcola_piano(2027, OGGI).righe if r.numero_previsto == 1)
-    assert p27.fase == "da_concludere"
+    assert p27.da_avviare and p27.stato == "Previsto"
     assert p27.normalizzato[FISSO] == p27.importi[FISSO]
     # Il registrato dello stesso fabbisogno è un'altra riga, nel piano 2026.
     assert _riga(calcola_piano(2026, OGGI), c).normalizzato[FISSO] == Decimal("1200.00")
@@ -208,7 +206,7 @@ def test_fonte_del_previsto_manuale_dalla_wbs(struttura):
         "Nuovo investimento", cluster=struttura["it"], natura_previsti="CAPEX",
         wbs_previsti=struttura["wbs"], previsto_data_avvio=D(2027, 3, 1), previsto_durata_mesi=12,
     )  # fmt: skip
-    r = next(r for r in calcola_piano(2026, OGGI).righe if r.stato == "Previsto")
+    r = next(r for r in calcola_piano(2027, OGGI).righe if r.stato == "Previsto")
     assert r.fonti == {"CAPEX": "Fonte C (prova)"}
 
 

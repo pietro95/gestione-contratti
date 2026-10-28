@@ -345,7 +345,7 @@ Le due sezioni non si sommano: nessun totale di 16.000,00 compare nel budget.
 
 - budget 2027, previsionale, fatturato: OPEX 6.180,00 (rata 01/01/2027); CAPEX 10.300,00
   (rata 01/01/2027);
-- piano ordini 2026 (data limite di avvio nel 2026, SPEC Rev16): una riga, natura `OPEX e CAPEX`, quote OPEX 6.180,00 e CAPEX 10.300,00;
+- piano ordini 2027 (avvio del servizio nel 2027, SPEC Rev30): una riga, natura `OPEX e CAPEX`, quote OPEX 6.180,00 e CAPEX 10.300,00;
   totali per natura: OPEX 6.180,00, CAPEX 10.300,00; filtro CAPEX: la riga resta (è un unico
   ordine) e il totale è solo CAPEX, 10.300,00.
 
@@ -511,26 +511,30 @@ Il budget non cambia con le fatture: il fatturato del budget 2026 resta 10.000,0
 Controllo: un import con una fattura per F1 datata 15/05/2026 scarta la riga
 (`FATTURA_DOPO_CHIUSURA`); la stessa fattura FA-1 importata di nuovo non si duplica.
 
-## TC-17 — Piano ordini: da avviare, da concludere, ritardi
+## TC-17 — Piano ordini: anno di avvio, ritardi
 
-SPEC §5.4 (Rev16, Rev17), bozza da approvare.
+SPEC §5.4 (Rev30), bozza da approvare.
 
 Parametri: procedura `Affidamento diretto`, lead time 4 mesi.
 
 Input: fabbisogno «Servizio di prova», decisione `Rinnovare`. Contratto C dal 01/03/2026, 12
 mesi (fine 28/02/2027), 1.200,00 € fissi. Previsto P1 dal 01/03/2027 al 29/02/2028 (2028
-bisestile); data limite 28/02/2027 − 4 mesi = 31/10/2026 (fine mese resta fine mese).
+bisestile); data limite 28/02/2027 − 4 mesi = 31/10/2026 (fine mese resta fine mese). Previsto
+P2 dal 01/03/2028, data limite 31/10/2027.
 
-- **Da avviare**: al 12/10/2026, piano ordini 2026: P1 da avviare, non in ritardo; il totale
-  fisso del piano comprende 1.200,00.
-- **Da concludere**: al 12/10/2026, piano ordini 2027: P1 da concludere (avvio 01/03/2027),
-  fuori dai totali (totale fisso 0,00); non in ritardo (anno non in corso).
-- **Ritardo**: al 15/01/2027, pratica di C `Non avviata`. Piano 2027: P1 da concludere e in
-  ritardo (data limite 31/10/2026 passata). Con pratica `Offerta richiesta`: da concludere,
-  non in ritardo.
+- **Anno di avvio**: al 12/10/2026, P1 non è nel piano 2026 (data limite 2026, ma avvio 2027); è
+  nel piano 2027, da avviare, non in ritardo, con 1.200,00 nel totale fisso.
+- **Un contratto annuale per anno**: P2 non è nel piano 2027 (data limite 31/10/2027, avvio
+  2028); è nel piano 2028, dove non c'è P1.
+- **Ritardo**: al 15/01/2027, pratica di C `Non avviata`: piano 2027, P1 da avviare e in ritardo
+  (data limite 31/10/2026 passata). Con pratica `Offerta richiesta`: non in ritardo.
+- **Ritardo con avvio nell'anno successivo**: al 15/11/2026, pratica `Non avviata`: piano 2026, P1
+  da concludere, in ritardo, fuori dai totali; con pratica `Offerta richiesta` non c'è. Il piano 2027
+  ha P1 da avviare.
 - **Pratica conclusa**: al 15/01/2027, pratica di C `Contratto emesso`: P1 non è nel piano 2027.
 - **Servizio già partito**: al 15/04/2027, pratica `Offerta ricevuta`: piano 2027 con P1 da
-  concludere e in ritardo (avvio 01/03/2027 passato). Piano 2028 alla stessa data: P1 non c'è.
+  avviare e in ritardo (avvio 01/03/2027 passato). Piano 2028 alla stessa data: P1 non c'è. Al
+  15/01/2028 (anno in corso) il piano 2028 ha P1 da concludere e in ritardo.
 
 ## TC-19 — Contratto extra budget autorizzato dall'AD
 
