@@ -714,3 +714,32 @@ Altri casi (importo → quote per anno):
    contratti, quadrano tutti **tranne l'inizio al 28/02 di un anno bisestile**: ha lo stesso
    anniversario (28/02 dell'anno dopo, SPEC §5.1) di un inizio al 29/02, e per far pesare 12 mesi
    a entrambi il 28/02 bisestile dovrebbe pesare zero. Scarto sotto lo 0,25% del canone.
+
+---
+
+## TC-25 — Numero di contratto nelle indicazioni per la validazione e nel commento per PAC
+
+SPEC §5.9 (Rev33, approvata il 28/10/2026). Estende TC-18; i test sono `tests/engine/test_tc18_fatture.py` e `tests/test_tc18_fatture.py`.
+
+**Input.** Fattura 13/2026 di Studio Prova, contratto n. 5800000013, valore base 1.504,17, oneri 173,66, bollo 2,00; RdC `RDC-0001`, MAP `MAP-0001`; CDC `C0001`, COGE `600010`, WBS `WBS-TEST-01`.
+
+**Indicazioni per la validazione.**
+```
+Contratto 5800000013. Valore base da prelevare € 1.504,17. COGE: 600010, CDC: C0001, WBS: WBS-TEST-01
+```
+
+**Commento per PAC.**
+```
+Contratto: 5800000013
+ODA : RDC-0001
+MAP: MAP-0001
+CDC: C0001
+COGE: 600010
+WBS: WBS-TEST-01
+
+Valore base prelevato da contratto: € 1.504,17
+Oneri previdenziali: € 173,66
+Bollo: € 2,00
+```
+
+**Senza contratto o senza numero di contratto**: `Contratto --.` nelle indicazioni, `Contratto: --` nella prima riga del commento.

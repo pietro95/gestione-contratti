@@ -2,7 +2,7 @@
 
 > Documento normativo per requisiti e regole di dominio. Per la vista tecnica consultare [ARCHITECTURE](ARCHITECTURE.md) e [DATA_MODEL](DATA_MODEL.md); per le procedure operative consultare [RUNBOOK](RUNBOOK.md) e [OPERATIONS](OPERATIONS.md).
 
-Rev32 — 28/10/2026 — responsabile: IT Manager ICTDINN, Siciliacque S.p.A.
+Rev33 — 28/10/2026 — responsabile: IT Manager ICTDINN, Siciliacque S.p.A.
 
 Storico revisioni:
 - Rev00 (30/09/2026): analisi e requisiti.
@@ -38,6 +38,7 @@ Storico revisioni:
 - Rev30 (28/10/2026): richiesta del responsabile del progetto, **bozza da approvare**. Piano ordini (§5.4): un previsto entra solo nel piano dell'anno di **avvio del servizio**, non più in quello della data limite né in tutti gli anni toccati dalla procedura (supera Rev16 e Rev17); restano, nell'anno in corso, i rinnovi in ritardo. TC-17 riscritto.
 - Rev31 (28/10/2026): richiesta del 28/10/2026, **approvata** dal responsabile del progetto il 28/10/2026. **Competenza** (§5.2): la ripartizione sugli anni non è più un pro-rata a giorni ma a **mesi frazionati**: ogni mese di calendario toccato pesa giorni coperti / giorni del mese, la quota di un anno è importo × peso dell'anno / peso totale (ROUND_HALF_UP al centesimo, residuo all'anno di peso maggiore). Vale ovunque la competenza si ripartisce: vista «Competenza», consuntivo a competenza (fatture, stanziamenti, periodo della rata), cassa delle voci senza rate (`Da verificare`, a consumo), previsioni dei rinnovi, colonna «normalizzato» del piano ordini, competenza dichiarata a confronto. Garantisce che la somma delle quote di un contratto sia il suo importo e che contratti contigui da 12 mesi che coprono un anno solare intero sommino al canone annuo; la correzione per febbraio è in Rev32. Non cambiano valori contrattuali, fatturato per data fattura, ordinato, date, scadenzario. TC-01, TC-02, TC-03, TC-10, TC-11, TC-14 e TC-23 ricalcolati; nuovo TC-24.
 - Rev32 (28/10/2026): decisione del responsabile del progetto, **approvata** il 28/10/2026. **Febbraio** (§5.2): il limite noto della Rev31 (contratti contigui da 12 mesi con confine in febbraio tra anno bisestile e non non sommavano al canone) è superato: per febbraio si usano sempre **29 posizioni** (i giorni 1–28 e, come ultima, l'ultimo giorno del mese), così il giorno di confine pesa uguale in ogni anno; gli altri mesi non cambiano e i casi DPO restano identici. Resta un solo caso irrisolvibile per costruzione, l'inizio al 28/02 di un anno bisestile (stesso anniversario di un inizio al 29/02, §5.1). **Connettore MCP**: i tool `budget`, `piano_ordini` e `fabbisogno` restituiscono `metodo_competenza` (`SPEC_MCP` Rev12). TC-24 esteso.
+- Rev33 (28/10/2026): richiesta del responsabile del progetto, **approvata** il 28/10/2026. **Numero di contratto** nei testi della lavorazione delle fatture (§5.9): le indicazioni per la validazione iniziano con `Contratto <numero>.` e il commento per PAC (messaggio di trasferimento per il pagamento) con la riga `Contratto: <numero>`; senza contratto o senza numero si scrive `--`. Vale anche per il connettore MCP, che usa lo stesso testo. Nuovo caso TC-25.
 
 ## 1. Obiettivo
 
@@ -456,11 +457,12 @@ Regole di proposta (modificabili prima dell'invio):
 - **MAP** o **MIGO** (proposto dal tipo d'acquisto): numero della RdC, importo, periodo o data della prestazione (dalla rata abbinata), testo breve; da riportare numero e data;
 - **trasferimento per il pagamento**: da riportare la data; si allega il **commento per PAC** (Rev15).
 
-**Indicazioni per la validazione** (Rev15, testo con «Copia», per chi fa la RdC): `Valore base da prelevare € <valore base>. COGE: <conto>, CDC: <centro di costo>, WBS: <WBS o -->`.
+**Indicazioni per la validazione** (Rev15, testo con «Copia», per chi fa la RdC): `Contratto <numero di contratto, o -->. Valore base da prelevare € <valore base>. COGE: <conto>, CDC: <centro di costo>, WBS: <WBS o -->` (Rev33).
 
 **Commento per PAC** (Rev15), composto dai dati registrati con «Copia», nello stesso formato usato finora:
 
 ```
+Contratto: <numero di contratto, oppure -->   (Rev33)
 ODA : <numero della RdC>
 MAP: <numero del MAP>            (oppure «MIGO: <numero>» per una fornitura)
 CDC: <centro di costo>
@@ -476,7 +478,7 @@ Conto, centro di costo e WBS sono quelli della voce della fattura, o dell'unica 
 
 I nomi dei campi SAP sono quelli dell'estrazione e del commento per PAC usati oggi; se ne mancano si aggiungono dopo (§9).
 
-I casi di verifica sono in `docs/TEST_CASES.md`, TC-17 e TC-18.
+I casi di verifica sono in `docs/TEST_CASES.md`, TC-17, TC-18 e TC-25.
 
 ## 6. Perimetro funzionale
 

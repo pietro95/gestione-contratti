@@ -745,7 +745,7 @@ def _euro(valore: Decimal | None) -> str:
 
 
 def indicazioni_validazione(d: DatiPAC) -> str:
-    """«Contratto …. Valore base da prelevare € …. COGE: …, CDC: …, WBS: …» (TC-18, Rev32)."""
+    """«Contratto …. Valore base da prelevare € …. COGE: …, CDC: …, WBS: …» (TC-25, Rev33)."""
     return (
         f"Contratto {d.numero_contratto or NESSUNO}. "
         f"Valore base da prelevare {_euro(d.valore_base)}. "
