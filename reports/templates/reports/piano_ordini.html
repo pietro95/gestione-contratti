@@ -2,13 +2,13 @@
 {% load registro %}
 {% block title %}Piano ordini {{ form.anno.value }}{% endblock %}
 {% block titolo_pagina %}Piano ordini {{ form.anno.value }}{% endblock %}
-{% block sottotitolo %}<div class="sottotitolo">Al {{ oggi|date:"d/m/Y" }} · procedure da avviare nell'anno e procedure avviate prima con ordine da emettere · valore contrattuale sull'intera durata (totali solo sulle righe da avviare) e valore normalizzato sull'anno (competenza a giorni) · importi imponibili</div>{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">Al {{ oggi|date:"d/m/Y" }} · contratti da stipulare nell'anno (servizio in partenza nell'anno) e rinnovi in ritardo · valore contrattuale sull'intera durata (totali solo sulle righe da avviare) e valore normalizzato sull'anno (competenza a giorni) · importi imponibili</div>{% endblock %}
 {% block azioni %}{% if semplificata %}<a class="btn btn-outline-secondary" href="?{{ query_completa }}"><i class="bi bi-list-columns" aria-hidden="true"></i> Vista completa</a>{% else %}<a class="btn btn-outline-secondary" href="?{{ query_semplificata }}"><i class="bi bi-list" aria-hidden="true"></i> Vista semplificata</a>{% endif %}{% include "reports/_azioni.html" with con_dettaglio=True etichetta_dettaglio="PDF con gli avvisi di frazionamento" etichetta_raggruppo="PDF con i contratti stipulati raggruppati" %}{% endblock %}
 {% block content %}
 {% include "reports/_filtri.html" with vista=semplificata_param %}
 {% if piano %}
 <div class="row g-3 mb-4">
-  <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Ordini da emettere</div><div class="kpi-valore">{{ piano.da_avviare|length }}</div><div class="kpi-nota">procedure da avviare nell'anno{% if not semplificata %}{% if piano.da_concludere %} · {{ piano.da_concludere|length }} da concludere{% endif %}{% if piano.in_ritardo %} · {{ piano.in_ritardo|length }} in ritardo{% endif %}{% endif %}{% if piano.registrati %} · {{ piano.registrati|length }} già registrati{% endif %}</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Ordini da emettere</div><div class="kpi-valore">{{ piano.da_avviare|length }}</div><div class="kpi-nota">contratti da stipulare nell'anno{% if not semplificata %}{% if piano.da_concludere %} · {{ piano.da_concludere|length }} da concludere{% endif %}{% if piano.in_ritardo %} · {{ piano.in_ritardo|length }} in ritardo{% endif %}{% endif %}{% if piano.registrati %} · {{ piano.registrati|length }} già registrati{% endif %}</div></div></div></div>
   <div class="col-sm-6 col-xl-3"><div class="card kpi {% if piano.avvisi %}arancione{% else %}verde{% endif %}"><div class="card-body"><div class="kpi-etichetta">Possibile frazionamento</div><div class="kpi-valore">{{ piano.avvisi|length }}</div><div class="kpi-nota">{% for s in piano.soglie %}soglia {{ s.importo|euro }}{% if s.provvisorio %} (provvisoria){% endif %}{% endfor %}</div></div></div></div>
 </div>
 
@@ -51,7 +51,7 @@
   </tfoot>
 </table></div></div>
 {% empty %}
-<div class="tabella-card"><div class="vuoto py-4">Nessuna procedura da avviare o da concludere né contratto con competenza nell'anno.</div></div>
+<div class="tabella-card"><div class="vuoto py-4">Nessun contratto da stipulare né contratto con competenza nell'anno.</div></div>
 {% endfor %}
 {% endif %}
 {% endblock %}

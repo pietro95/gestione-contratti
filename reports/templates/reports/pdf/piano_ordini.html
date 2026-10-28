@@ -1,9 +1,9 @@
 {% extends "reports/pdf/base.html" %}
 {% load registro %}
-{% block sottotitolo %}Al {{ oggi|date:"d/m/Y" }} · procedure da avviare nell'anno e procedure avviate prima con ordine da emettere · valore contrattuale sull'intera durata (totali solo sulle righe da avviare) e valore normalizzato sull'anno (competenza a giorni) · importi imponibili{% if raggruppa_stipulati %} · contratti già stipulati raggruppati in una riga per sottocluster{% endif %}{% endblock %}
+{% block sottotitolo %}Al {{ oggi|date:"d/m/Y" }} · contratti da stipulare nell'anno (servizio in partenza nell'anno) e rinnovi in ritardo · valore contrattuale sull'intera durata (totali solo sulle righe da avviare) e valore normalizzato sull'anno (competenza a giorni) · importi imponibili{% if raggruppa_stipulati %} · contratti già stipulati raggruppati in una riga per sottocluster{% endif %}{% endblock %}
 {% block contenuto %}
 <table class="kpi"><tr>
-  <td><div class="etichetta">Ordini da emettere</div><div class="valore">{{ piano.da_avviare|length }}</div><div class="nota">procedure da avviare nell'anno{% if piano.da_concludere %} · {{ piano.da_concludere|length }} da concludere{% endif %}{% if piano.in_ritardo %} · {{ piano.in_ritardo|length }} in ritardo{% endif %}{% if piano.registrati %} · {{ piano.registrati|length }} già registrati{% endif %}</div></td>
+  <td><div class="etichetta">Ordini da emettere</div><div class="valore">{{ piano.da_avviare|length }}</div><div class="nota">contratti da stipulare nell'anno{% if piano.da_concludere %} · {{ piano.da_concludere|length }} da concludere{% endif %}{% if piano.in_ritardo %} · {{ piano.in_ritardo|length }} in ritardo{% endif %}{% if piano.registrati %} · {{ piano.registrati|length }} già registrati{% endif %}</div></td>
   {% if con_avvisi %}<td><div class="etichetta">Possibile frazionamento</div><div class="valore">{{ piano.avvisi|length }}</div><div class="nota">{% for s in piano.soglie %}soglia {{ s.importo|euro }}{% if s.provvisorio %} (provvisoria){% endif %}{% endfor %}</div></td>{% endif %}
 </tr></table>
 
@@ -42,6 +42,6 @@
   </tbody>
 </table>
 {% empty %}
-<p class="vuoto">Nessuna procedura da avviare o da concludere né contratto con competenza nell'anno.</p>
+<p class="vuoto">Nessun contratto da stipulare né contratto con competenza nell'anno.</p>
 {% endfor %}
 {% endblock %}
