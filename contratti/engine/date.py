@@ -35,13 +35,3 @@ def mese_precedente(d: datetime.date) -> tuple[datetime.date, datetime.date]:
 def giorni(inizio: datetime.date, fine: datetime.date) -> int:
     """Giorni tra due date, estremi inclusi."""
     return (fine - inizio).days + 1
-
-
-def periodi_per_anno(inizio: datetime.date, fine: datetime.date) -> dict[int, int]:
-    """Giorni del periodo [inizio, fine] che cadono in ciascun anno solare."""
-    risultato = {}
-    for anno in range(inizio.year, fine.year + 1):
-        da = max(inizio, datetime.date(anno, 1, 1))
-        a = min(fine, datetime.date(anno, 12, 31))
-        risultato[anno] = giorni(da, a)
-    return risultato

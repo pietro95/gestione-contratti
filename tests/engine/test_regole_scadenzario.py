@@ -47,7 +47,7 @@ def test_consumo_nessuna_rata_programmata():
     )
     assert genera_rate(v) == []
     viste, esiti = calcola([v])
-    # La spesa si distribuisce sul periodo (pro-rata a giorni), senza avvisi: non c'è un
+    # La spesa si distribuisce sul periodo (a mesi frazionati), senza avvisi: non c'è un
     # calendario di fatturazione.
     assert viste["cassa"].totale(Livello.PROBABILE) == euro("600.00")
     assert viste["cassa"].totale(Livello.MASSIMO) == euro("1200.00")
@@ -80,7 +80,7 @@ def test_sal_senza_rate_ne_quote_ne_fatture_non_e_a_pro_rata():
     viste, esiti = calcola([v])
     assert viste["cassa"].totale() == euro("0.00")
     assert viste["consuntivo"].totale() == euro("0.00")
-    assert viste["competenza"].totale() == euro("3650.00")  # la competenza resta a giorni
+    assert viste["competenza"].totale() == euro("3650.00")  # la competenza resta a mesi frazionati
     assert [e.codice for e in esiti] == ["SAL_NON_PIANIFICATO"]
 
 

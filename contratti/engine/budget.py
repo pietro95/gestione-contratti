@@ -3,10 +3,11 @@
 - Impegno: intero valore della voce nel suo anno di impegno.
 - Cassa: rate per data fattura (la data di pagamento non entra nel budget); per le voci a SAL
   le fatture registrate per data documento e, per il residuo, rate a mano o quote (Rev29).
-- Competenza: pro-rata a giorni sul periodo di servizio, indipendente dalla fatturazione.
+- Competenza: ripartizione a mesi frazionati sul periodo di servizio, indipendente dalla
+  fatturazione.
 - Consuntivo a competenza (Rev21): fatture registrate e stanziamenti al posto delle rate,
-  imputati a giorni al periodo di competenza; le rate senza fattura né stanziamento restano
-  la previsione.
+  imputati a mesi frazionati al periodo di competenza; le rate senza fattura né stanziamento
+  restano la previsione.
 
 Ogni ripartizione quadra al centesimo con il valore ripartito.
 """
@@ -15,7 +16,7 @@ from collections.abc import Iterable
 from dataclasses import replace
 from decimal import Decimal
 
-from contratti.engine import sal
+from contratti.engine import mesi_frazionati, sal
 from contratti.engine.date import giorni
 from contratti.engine.importi import ZERO, arrotonda, ripartisci
 from contratti.engine.scadenzario import genera_rate, quote_valide
@@ -41,8 +42,8 @@ def valore(voce: Voce, livello: Livello = Livello.FISSO) -> Decimal:
 
 
 def competenza_per_anno(voce: Voce, importo: Decimal) -> dict[int, Decimal]:
-    """Pro-rata a giorni sul periodo di servizio; residuo sull'ultimo anno (TC-01)."""
-    return sal.a_giorni(importo, voce.inizio, voce.fine)
+    """Ripartizione a mesi frazionati sul periodo di servizio (TC-01)."""
+    return mesi_frazionati.competenza_per_anno(importo, voce.inizio, voce.fine)
 
 
 def competenza_fisso(voce: Voce, esiti: list[Esito]) -> dict[int, Decimal]:
@@ -52,8 +53,8 @@ def competenza_fisso(voce: Voce, esiti: list[Esito]) -> dict[int, Decimal]:
             # Per un SAL le quote regolano il fatturato (Rev29), non la competenza.
             esito = Esito(
                 "SAL_QUOTE_NON_IN_COMPETENZA",
-                "Quote per periodo di una voce a SAL non usate nella competenza (pro-rata a "
-                "giorni sul servizio): valgono per il fatturato.",
+                "Quote per periodo di una voce a SAL non usate nella competenza (ripartizione a "
+                "mesi frazionati sul servizio): valgono per il fatturato.",
             )
         else:
             esito = Esito(
@@ -97,9 +98,10 @@ def cassa_per_anno(voce: Voce, livello: Livello, esiti: list[Esito]) -> dict[int
     """Fisso dalle rate per data fattura; variabile distribuito sulle stesse date.
 
     Il variabile segue gli importi fissi delle rate; se il fisso è zero, i giorni dei
-    periodi. Senza rate (Da verificare) vale il pro-rata a giorni, segnalato; a consumo vale lo
-    stesso pro-rata, senza avviso. Le voci a SAL non hanno mai il pro-rata: fatture, poi rate o
-    quote per il residuo (``contratti.engine.sal``, Rev29).
+    periodi. Senza rate (Da verificare) vale la ripartizione a mesi frazionati, segnalata; a
+    consumo vale la stessa ripartizione, senza avviso. Le voci a SAL non hanno mai la
+    ripartizione sul tempo: fatture, poi rate o quote per il residuo
+    (``contratti.engine.sal``, Rev29).
     """
     if sal.da_fonti_reali(voce):
         ripartizione, nuovi = ripartizione_sal(voce, livello, sal.VISTA_CASSA)
@@ -112,12 +114,14 @@ def cassa_per_anno(voce: Voce, livello: Livello, esiti: list[Esito]) -> dict[int
 
     if not rate:
         modalita = voce.piano.modalita if voce.piano else None
-        # A consumo non ha un calendario di fatturazione: il pro-rata è la regola, non un avviso.
+        # A consumo non ha un calendario di fatturazione: la ripartizione sul tempo è la regola,
+        # non un avviso.
         if modalita != Modalita.CONSUMO:
             esiti.append(
                 Esito(
                     "CASSA_PRO_RATA",
-                    f"Cassa stimata a pro-rata: nessuna rata ({modalita or 'piano assente'}).",
+                    "Cassa stimata con ripartizione a mesi frazionati: nessuna rata "
+                    f"({modalita or 'piano assente'}).",
                 )
             )
         return competenza_per_anno(voce, valore(voce, livello))
@@ -143,7 +147,7 @@ def cassa_per_anno(voce: Voce, livello: Livello, esiti: list[Esito]) -> dict[int
 
 
 def _a_competenza(importo: Decimal, inizio, fine) -> dict[int, Decimal]:
-    """Importo ripartito a giorni sugli anni del periodo; residuo sull'ultimo anno."""
+    """Importo ripartito a mesi frazionati sugli anni del periodo."""
     return competenza_per_anno(
         Voce(importo_fisso=importo, inizio=inizio, fine=fine, anno_impegno=0), importo
     )
@@ -175,10 +179,10 @@ def consuntivo_per_anno(voce: Voce, livello: Livello, esiti: list[Esito]) -> dic
     """Consuntivo a competenza della voce (Rev21).
 
     Per ogni rata: la fattura registrata (valore base) o lo stanziamento che la sostituisce,
-    imputati a giorni sul loro periodo di competenza; altrimenti la previsione della rata,
+    imputati a mesi frazionati sul loro periodo di competenza; altrimenti la previsione della rata,
     sul periodo della rata se noto, altrimenti nell'anno della data fattura. Si sommano le
     fatture e gli stanziamenti non abbinati a una rata. La quota variabile segue il
-    pro-rata a giorni della voce, come la competenza.
+    ripartizione a mesi frazionati della voce, come la competenza.
     """
     if sal.da_fonti_reali(voce):
         ripartizione, nuovi = ripartizione_sal(voce, livello, sal.VISTA_CONSUNTIVO)

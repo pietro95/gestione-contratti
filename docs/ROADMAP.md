@@ -37,7 +37,7 @@ Ogni fase è una PR (o poche PR) verso `main`. Una fase è chiusa solo quando tu
 
 `contratti/engine/`, puro:
 - generazione dello scadenzario rate;
-- competenza a giorni;
+- competenza a giorni (dalla Rev31 a mesi frazionati, F15);
 - viste impegno, cassa e competenza con livelli fisso, probabile e massimo;
 - data limite e alert;
 - rinnovi previsti ricorsivi.
@@ -165,7 +165,7 @@ Rev00: note raccolte dal responsabile del progetto dopo il primo uso in produzio
 - Il budget si legge sulla fatturazione (rate per data fattura): prima colonna e default.
 - "Impegno" diventa "Ordinato (contratti emessi)": resta come informazione per il Procurement.
 - Elenco di lavoro "Piani da verificare": voci senza piano reale, il cui fatturato è un
-  pro-rata, ordinate per importo.
+  ripartizione sul tempo (a giorni; dalla Rev31 a mesi frazionati), ordinate per importo.
 
 **OPEX e CAPEX distinti**
 - Budget con filtro natura obbligatorio (default OPEX); "OPEX e CAPEX, separati" mostra due
@@ -713,3 +713,23 @@ inserite a mano e le fatture registrate.
 **Accettazione:** TC-23 con test automatici (motore, report, connettore, GUI, browser); le altre
 modalità invariate; Reader 403; `ruff`, `pytest`, `makemigrations --check` puliti; report di
 impatto esaminato dal responsabile prima del merge.
+
+## F15 — Competenza a mesi frazionati (Rev31)
+
+SPEC §5.2, TC-24, **bozza da approvare**.
+
+- **Funzione unica** `contratti/engine/mesi_frazionati.py` (pura, `Decimal`, pesi `Fraction`):
+  sostituisce la ripartizione a giorni in vista Competenza, consuntivo a competenza (fatture,
+  stanziamenti, periodo della rata), cassa delle voci senza rate, previsioni dei rinnovi, colonna
+  «normalizzato» del piano ordini e competenza dichiarata a confronto. Nessun dato salvato cambia:
+  la competenza è un valore derivato, quindi non servono migration né ricalcolo.
+- **Testi**: «ripartizione a mesi frazionati» in tooltip, legende, export, PDF e descrizioni dei
+  tool MCP (`budget`, `piano_ordini`, `piani_da_verificare`).
+- **Impatto**: comando `impatto_competenza --anno 2027 --natura OPEX`, prima/dopo per conto e voci
+  che cambiano di più, da eseguire prima del rilascio.
+
+**Accettazione:** TC-24 e TC-01, TC-02, TC-03, TC-10, TC-11, TC-14, TC-23 ricalcolati con test
+automatici (esempi, proprietà con `hypothesis`, oracolo indipendente a giorni); fatturato per data
+fattura e ordinato invariati; `ruff`, `pytest`, `makemigrations --check` puliti; limite noto del
+confine in febbraio documentato in SPEC §5.2.
+

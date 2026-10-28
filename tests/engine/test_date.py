@@ -4,7 +4,7 @@ import datetime
 
 import pytest
 
-from contratti.engine.date import aggiungi_mesi, giorni, periodi_per_anno
+from contratti.engine.date import aggiungi_mesi, giorni
 
 D = datetime.date
 
@@ -32,15 +32,6 @@ def test_aggiungi_mesi_fine_mese(data, mesi, atteso):
 def test_giorni_estremi_inclusi():
     assert giorni(D(2025, 12, 21), D(2026, 12, 20)) == 365
     assert giorni(D(2026, 1, 1), D(2026, 1, 1)) == 1
-
-
-def test_periodi_per_anno():
-    assert periodi_per_anno(D(2023, 3, 24), D(2026, 3, 23)) == {
-        2023: 283,
-        2024: 366,
-        2025: 365,
-        2026: 82,
-    }
 
 
 def test_mese_precedente():

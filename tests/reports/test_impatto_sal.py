@@ -58,12 +58,14 @@ def test_solo_le_voci_a_sal(archivio_sal):
 def test_prima_e_il_pro_rata_dopo_fatture_e_quote(archivio_sal):
     righe = {r.voce.pk: r for r in righe_impatto(Livello.FISSO)}
     lavori = righe[archivio_sal["lavori"].pk]
-    # Prima: i numeri del report che ha dato origine alla Rev29.
+    # Prima: la ripartizione sul tempo che il report della Rev29 mostrava a giorni.
     assert lavori.prima["cassa"] == {
-        2024: Decimal("256031.07"),
-        2025: Decimal("1198094.11"),
-        2026: Decimal("1198094.11"),
-        2027: Decimal("295420.46"),
+        2024: Decimal("254217.84"),
+        2025: Decimal("1197076.41"),
+        2026: Decimal(
+            "1197076.40"
+        ),  # il centesimo di residuo va all'ultimo dei due anni di peso pari
+        2027: Decimal("299269.10"),
     }
     # Dopo: fatture 2025 e 2026, quota 2027 come previsto.
     assert lavori.dopo["cassa"] == {
@@ -71,8 +73,8 @@ def test_prima_e_il_pro_rata_dopo_fatture_e_quote(archivio_sal):
         2026: Decimal("1144060.62"),
         2027: Decimal("316708.26"),
     }
-    assert lavori.delta("cassa", 2024) == Decimal("-256031.07")
-    assert lavori.delta("cassa", 2027) == Decimal("21287.80")
+    assert lavori.delta("cassa", 2024) == Decimal("-254217.84")
+    assert lavori.delta("cassa", 2027) == Decimal("17439.16")
     assert (lavori.n_fatture, lavori.fatturato) == (2, Decimal("2630931.49"))
     assert (lavori.n_quote, lavori.somma_quote) == (3, FISSO)
     assert lavori.fonti == "fatture, quote"

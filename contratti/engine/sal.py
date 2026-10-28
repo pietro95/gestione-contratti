@@ -5,13 +5,14 @@ Una voce a SAL non ha un calendario di fatturazione: le rate si inseriscono a ma
 ordine, da:
 
 1. **consuntivo**: le fatture registrate (valore base). Nella cassa per anno della data
-   documento; nel consuntivo, insieme agli stanziamenti, a giorni sul periodo di competenza;
+   documento; nel consuntivo, insieme agli stanziamenti, a mesi frazionati sul periodo di
+   competenza;
 2. **previsto**: il residuo ``importo_fisso − consuntivo``, dalle rate inserite a mano (non
    consuntivate); se non ce ne sono, dalle quote per periodo, solo per gli anni successivi
    all'ultimo anno con consuntivo (dove ci sono fatture valgono le fatture: niente doppio
    conto). Il previsto non supera mai il residuo;
 3. **non pianificato**: la parte di residuo senza né rate né quote. Resta fuori dai totali e si
-   segnala: l'ultima fonte non è mai il pro-rata a giorni.
+   segnala: l'ultima fonte non è mai la ripartizione sul tempo.
 
 Consuntivo e previsto restano separati, perché possono coesistere nello stesso anno.
 """
@@ -20,8 +21,8 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+from contratti.engine import mesi_frazionati
 from contratti.engine.acquisti import formato_euro
-from contratti.engine.date import periodi_per_anno
 from contratti.engine.importi import ZERO, arrotonda, ripartisci
 from contratti.engine.tipi import Consuntivo, Esito, Modalita, Quota, TipoConsuntivo, Voce
 
@@ -76,15 +77,9 @@ def e_sal(voce: Voce) -> bool:
 
 def da_fonti_reali(voce: Voce) -> bool:
     """Voce a SAL di un contratto registrato: fatturato da fatture, rate o quote. Una voce di un
-    contratto previsto non ha né fatture né quote né rate: la sua previsione resta a pro-rata."""
+    contratto previsto non ha né fatture né quote né rate: la sua previsione resta a mesi
+    frazionati."""
     return e_sal(voce) and not voce.previsto
-
-
-def a_giorni(importo: Decimal, inizio, fine) -> dict[int, Decimal]:
-    """Importo ripartito a giorni sugli anni del periodo [inizio, fine]; residuo sull'ultimo."""
-    per_anno = periodi_per_anno(inizio, fine)
-    anni = sorted(per_anno)
-    return dict(zip(anni, ripartisci(importo, [per_anno[a] for a in anni]), strict=True))
 
 
 # --- Quote per periodo di una voce a SAL ---------------------------------------------------------
@@ -208,7 +203,9 @@ def ripartisci_sal(voce: Voce, variabile: Decimal, vista: str) -> RipartoSal:
         else:
             righe += [
                 RigaConsuntivoSal(anno, importo, riferimento)
-                for anno, importo in a_giorni(c.importo, c.inizio, c.fine).items()
+                for anno, importo in mesi_frazionati.competenza_per_anno(
+                    c.importo, c.inizio, c.fine
+                ).items()
             ]
     consumato = sum((r.importo for r in righe), ZERO)
     ultimo_anno = max(
@@ -236,7 +233,9 @@ def ripartisci_sal(voce: Voce, variabile: Decimal, vista: str) -> RipartoSal:
             if c is not None and (c.tipo == TipoConsuntivo.FATTURA or not cassa):
                 continue
             if not cassa and rata.periodo_inizio and rata.periodo_fine:
-                parti = a_giorni(rata.importo, rata.periodo_inizio, rata.periodo_fine)
+                parti = mesi_frazionati.competenza_per_anno(
+                    rata.importo, rata.periodo_inizio, rata.periodo_fine
+                )
             else:
                 parti = {rata.data_fattura.year: rata.importo}
             for anno, importo in parti.items():

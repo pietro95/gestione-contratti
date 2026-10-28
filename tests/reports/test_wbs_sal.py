@@ -1,4 +1,4 @@
-"""Spese per WBS delle voci a SAL (SPEC §5.2, Rev29): fatture e quote, mai il pro-rata a giorni.
+"""Spese per WBS delle voci a SAL (SPEC §5.2, Rev29): fatture e quote, mai ripartite sul tempo.
 
 Caso di riferimento (anonimo): lavori a SAL, importo fisso 2.947.639,75, dal 15/10/2024 al
 31/03/2027, quote ad anno solare e sei fatture del 2025 e 2026.
@@ -105,7 +105,7 @@ def test_con_quote_la_vista_fatturato_le_usa_per_anno_senza_pro_rata(lavori):
         2026: Decimal("1144060.62"),
         2027: Decimal("316708.26"),
     }
-    assert riga.per_anno.get(2024, Decimal(0)) == 0  # non i 256.031,07 del pro-rata
+    assert riga.per_anno.get(2024, Decimal(0)) == 0  # non i 254.217,84 della ripartizione sul tempo
     assert sum(riga.per_anno.values()) == FISSO
     # Sono quote, cioè previsto: nessuna fattura registrata.
     assert riga.consuntivo == {}
@@ -276,7 +276,7 @@ def test_le_viste_impegno_e_competenza_non_cambiano(lavori):
     assert not impegno.a_sal
     competenza = _riga(spese_wbs(lavori["wbs"], "competenza", Livello.FISSO), lavori["voce"])
     assert sum(competenza.per_anno.values()) == FISSO
-    assert competenza.per_anno[2024] == Decimal("256031.07")  # pro-rata: è la competenza
+    assert competenza.per_anno[2024] == Decimal("254217.84")  # mesi frazionati: è la competenza
 
 
 def test_posticipata_annuale_e_una_tantum_restano_sulle_rate(lavori):

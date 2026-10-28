@@ -130,7 +130,7 @@ Convenzioni comuni:
 - **Date** ISO `AAAA-MM-GG`.
 - Ogni risultato riporta `alla_data` (data di calcolo), i filtri applicati (cluster compresi) e un `link` alla pagina dell'app sull'host interno, per la verifica.
 - Elenchi paginati: `limite` (default 25, max 100) e `cursore`; `troncato: true` se ci sono altri elementi. Mai risultati parziali senza dirlo.
-- Anomalie ed esiti del motore (pro-rata per `Da verificare`, data di inizio mancante, quote ignorate) in `avvisi`, come nell'interfaccia.
+- Anomalie ed esiti del motore (ripartizione a mesi frazionati per `Da verificare`, data di inizio mancante, quote ignorate) in `avvisi`, come nell'interfaccia.
 - Ogni tool dichiara `inputSchema`, `outputSchema` e `readOnlyHint: true`.
 - Ogni oggetto restituito ha `id` e `versione` (ultimo record della storia), che servono alla scrittura (§8.1).
 

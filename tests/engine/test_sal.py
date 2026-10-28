@@ -270,7 +270,7 @@ def _consuntivo(v):
 
 
 def test_consuntivo_senza_pro_rata_e_senza_doppio_conto():
-    # Prima: pro-rata a giorni sull'intero contratto più le fatture.
+    # Prima: ripartizione sull'intero contratto più le fatture.
     per_anno, esiti = _consuntivo(sal(consuntivi=_fatture(*FATTURE)))
     assert sum(per_anno.values()) == euro("2630931.49")
     assert 2024 not in per_anno and 2027 not in per_anno
@@ -286,14 +286,14 @@ def test_consuntivo_con_quote_per_gli_anni_dopo_l_ultima_fattura():
     }
 
 
-def test_consuntivo_imputa_le_fatture_a_giorni_sulla_competenza():
+def test_consuntivo_imputa_le_fatture_a_mesi_frazionati_sulla_competenza():
     f = Consuntivo(
         TipoConsuntivo.FATTURA, euro("1200.00"), D(2026, 7, 1), D(2027, 6, 30),
         data=D(2026, 9, 1), riferimento=1,
     )  # fmt: skip
     v = replace(sal(consuntivi=(f,)), importo_fisso=euro("1200.00"))
     per_anno, _ = _consuntivo(v)
-    assert per_anno == {2026: euro("604.93"), 2027: euro("595.07")}
+    assert per_anno == {2026: euro("600.00"), 2027: euro("600.00")}
     # La cassa invece conta per data documento.
     assert cassa(v)[0] == {2026: euro("1200.00")}
 
@@ -309,7 +309,7 @@ def test_stanziamento_senza_fattura_conta_nel_consuntivo_non_nella_cassa():
 
 
 def test_voce_prevista_a_sal_resta_a_pro_rata_e_lo_dichiara():
-    # Un rinnovo previsto non ha fatture, quote né rate: la previsione è a giorni, segnalata.
+    # Un rinnovo previsto non ha fatture, quote né rate: la previsione è a mesi frazionati.
     v = replace(sal(), previsto=True)
     per_anno, esiti = cassa(v)
     assert sum(per_anno.values()) == euro(FISSO)

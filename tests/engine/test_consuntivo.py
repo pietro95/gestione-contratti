@@ -32,13 +32,13 @@ def test_senza_fatture_il_consuntivo_segue_le_rate():
     assert esiti == []
 
 
-def test_fattura_a_cavallo_d_anno_si_ripartisce_a_giorni():
-    # Competenza 01/07/2026-30/06/2027: 184 giorni nel 2026, 181 nel 2027.
+def test_fattura_a_cavallo_d_anno_si_ripartisce_a_mesi_frazionati():
+    # Competenza 01/07/2026-30/06/2027: sei mesi interi nel 2026, sei nel 2027.
     f = _fattura("1200.00", D(2026, 7, 1), D(2027, 6, 30))
     viste, _ = calcola([_voce_con_rata(f)])
-    atteso = ripartisci(euro("1200.00"), [184, 181])
-    assert viste["consuntivo"].importo(2026) == atteso[0] == euro("604.93")
-    assert viste["consuntivo"].importo(2027) == atteso[1] == euro("595.07")
+    atteso = ripartisci(euro("1200.00"), [6, 6])
+    assert viste["consuntivo"].importo(2026) == atteso[0] == euro("600.00")
+    assert viste["consuntivo"].importo(2027) == atteso[1] == euro("600.00")
     assert viste["consuntivo"].totale() == euro("1200.00")
     # La cassa legge ancora la rata (data fattura) e la competenza del contratto il servizio.
     assert viste["cassa"].importo(2026) == euro("1000.00")

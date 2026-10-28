@@ -48,8 +48,8 @@ def test_la_fattura_abbinata_alla_rata_conta_per_competenza(scenario):
     fa = _fattura(c, valore_base=Decimal("1000.00"), rata=scenario["rata"])
     fa.competenza_dal, fa.competenza_al = D(2025, 7, 1), D(2026, 6, 30)
     fa.save()
-    assert _consuntivo(2025) == Decimal("504.11")  # 184/365 di 1000
-    assert _consuntivo(2026) == Decimal("495.89")
+    assert _consuntivo(2025) == Decimal("500.00")  # 6 mesi su 12
+    assert _consuntivo(2026) == Decimal("500.00")
     # La cassa continua a leggere la data fattura della rata.
     budget = calcola_budget(Filtri(anno=2026, previsionali=False), OGGI)
     assert budget.totali()["totale"]["cassa"][Livello.FISSO] == Decimal("1000.00")

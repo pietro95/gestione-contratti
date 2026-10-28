@@ -192,7 +192,7 @@ def cruscotto(oggi: datetime.date, filtri: dict) -> dict[Alert, list[RigaContrat
 
 
 def voci_piano_da_verificare(codici: list[str] | None = None, sottocluster: int | None = None):
-    """Voci attive senza piano di fatturazione reale: il loro fatturato è un pro-rata.
+    """Voci attive senza piano di fatturazione reale: il fatturato è a mesi frazionati.
 
     Le più pesanti prima (fisso + massimale): sono quelle che spostano di più il budget.
     ``codici``: cluster da mostrare, ``sottocluster``: id del sottocluster; vuoto = tutti.

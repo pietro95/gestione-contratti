@@ -72,7 +72,7 @@ def test_tc10_dal_database():
         (D(2026, 10, 1), D(2027, 3, 31), 2026),
     ]
     viste, _ = calcola(voci)
-    assert viste["competenza"].importo(2026) == E("12143.52")
+    assert viste["competenza"].importo(2026) == E("12150.00")
     assert viste["impegno"].importo(2026) == E("12300.00")
     assert viste["cassa"].importo(2026) == E("12300.00")
 
@@ -232,10 +232,10 @@ def test_tc11_dal_database():
     viste, esiti = calcola(voci)
     assert esiti == []
     assert [viste["competenza"].importo(a) for a in (2026, 2027, 2028, 2029)] == [
-        E("5041.10"),
-        E("10237.59"),
-        E("10766.52"),
-        E("5454.79"),
+        E("5000.00"),
+        E("10250.00"),
+        E("10750.00"),
+        E("5500.00"),
     ]
     assert viste["cassa"].importo(2027) == E("10500.00")
 

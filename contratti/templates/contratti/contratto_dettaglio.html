@@ -126,7 +126,7 @@
             {% endfor %}
             </tbody>
           </table></div></div>
-          {% else %}<p class="text-body-secondary mb-0"><i class="bi bi-info-circle" aria-hidden="true"></i> Nessuna rata salvata{% if voce.piano_fatturazione.modalita == "da_verificare" %}: piano da verificare, la cassa usa il pro-rata{% endif %}.</p>{% endif %}
+          {% else %}<p class="text-body-secondary mb-0"><i class="bi bi-info-circle" aria-hidden="true"></i> Nessuna rata salvata{% if voce.piano_fatturazione.modalita == "da_verificare" %}: piano da verificare, la cassa usa la ripartizione a mesi frazionati{% endif %}.</p>{% endif %}
           {% endwith %}
         </div>
       </div>

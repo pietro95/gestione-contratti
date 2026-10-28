@@ -1192,7 +1192,7 @@ def fornitore_modifica(request, pk=None):
 
 @login_required
 def piani_da_verificare(request):
-    """Elenco di lavoro: voci con piano `Da verificare`, il cui fatturato è un pro-rata."""
+    """Elenco di lavoro: voci con piano `Da verificare`, fatturato a mesi frazionati."""
     voci = list(
         selettori.voci_piano_da_verificare(
             _cluster_richiesti(request), _sottocluster_richiesto(request)

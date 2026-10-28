@@ -24,7 +24,7 @@ class RigaCompetenza:
     dichiarato: Decimal
     note: str
     calcolato: dict[Livello, Decimal]  # vista di riferimento, per livello
-    competenza_contratto: Decimal  # pro-rata a giorni, livello probabile
+    competenza_contratto: Decimal  # mesi frazionati, livello probabile
 
     @property
     def probabile(self) -> Decimal:

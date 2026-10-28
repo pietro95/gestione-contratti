@@ -16,12 +16,12 @@ def per_anno(totali, anni, livello=Livello.FISSO):
 # --- TC-01 -------------------------------------------------------------------
 
 
-def test_tc01_competenza_a_giorni():
+def test_tc01_competenza_a_mesi_frazionati():
     v = voce("4800.00", D(2025, 12, 21), D(2026, 12, 20), piano=piano("anticipata", "annuale"))
     viste, _ = calcola([v])
     assert per_anno(viste["competenza"], [2025, 2026]) == {
-        2025: euro("144.66"),
-        2026: euro("4655.34"),
+        2025: euro("141.94"),
+        2026: euro("4658.06"),
     }
     assert viste["competenza"].totale() == euro("4800.00")  # mai il 108% del vecchio Excel
 
@@ -52,10 +52,10 @@ def test_tc02_pluriennale_una_tantum_anticipato():
         2026: euro("0.00"),
     }
     assert per_anno(viste["competenza"], anni) == {
-        2023: euro("5678.09"),
-        2024: euro("7343.40"),
-        2025: euro("7323.33"),
-        2026: euro("1645.24"),
+        2023: euro("5655.15"),
+        2024: euro("7330.02"),
+        2025: euro("7330.02"),
+        2026: euro("1674.87"),
     }
     for vista in viste.values():
         assert vista.totale() == euro("21990.06")
@@ -99,9 +99,9 @@ def test_tc03_aggregati():
         2028: euro("6000.00"),
     }
     assert per_anno(viste["competenza"], [2026, 2027, 2028]) == {
-        2026: euro("6041.04"),
-        2027: euro("11983.58"),
-        2028: euro("5975.38"),
+        2026: euro("6000.00"),
+        2027: euro("12000.00"),
+        2028: euro("6000.00"),
     }
 
 
@@ -216,9 +216,9 @@ def test_tc10_viste():
         2027: euro("0.00"),
     }
     assert per_anno(viste["competenza"], anni) == {
-        2025: euro("9041.10"),
-        2026: euro("12143.52"),
-        2027: euro("3115.38"),
+        2025: euro("9000.00"),
+        2026: euro("12150.00"),
+        2027: euro("3150.00"),
     }
     for vista in viste.values():
         assert vista.totale() == euro("24300.00")
@@ -271,20 +271,20 @@ def test_tc11_viste():
         2029: euro("0.00"),
     }
     assert per_anno(viste["competenza"], anni) == {
-        2026: euro("5041.10"),
-        2027: euro("10237.59"),
-        2028: euro("10766.52"),
-        2029: euro("5454.79"),
+        2026: euro("5000.00"),
+        2027: euro("10250.00"),
+        2028: euro("10750.00"),
+        2029: euro("5500.00"),
     }
 
 
 def test_tc11_controllo_senza_quote():
     viste, _ = calcola([tc11(quote=())])
     assert per_anno(viste["competenza"], [2026, 2027, 2028, 2029]) == {
-        2026: euro("5288.32"),
-        2027: euro("10490.42"),
-        2028: euro("10519.16"),
-        2029: euro("5202.10"),
+        2026: euro("5250.00"),
+        2027: euro("10500.00"),
+        2028: euro("10500.00"),
+        2029: euro("5250.00"),
     }
 
 
@@ -312,7 +312,7 @@ def test_tc11_quote_incoerenti_ignorate_e_segnalate(difetto):
     v = tc11(quote)
     viste, esiti = calcola([v])
     assert [e.codice for e in esiti] == ["QUOTE_INCOERENTI"]
-    assert viste["competenza"].importo(2026) == euro("5288.32")  # come senza quote
+    assert viste["competenza"].importo(2026) == euro("5250.00")  # come senza quote
     assert [r.importo for r in genera_rate(v)] == [euro("10500.00")] * 3
 
 

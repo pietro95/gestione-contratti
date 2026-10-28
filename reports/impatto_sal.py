@@ -1,9 +1,9 @@
 """Impatto della Rev29 sulle voci a SAL: per ogni voce, il fatturato per anno prima e dopo.
 
 «Prima» è il calcolo precedente alla Rev29: una voce a SAL trattata come «Da verificare», cioè con
-le rate salvate se ci sono e altrimenti il pro-rata a giorni (nel consuntivo sommato anche alle
-fatture non abbinate). «Dopo» è il calcolo attuale. Solo lettura: serve a vedere, prima del
-rilascio, quali totali cambiano. Si usa dal comando ``impatto_sal``.
+le rate salvate se ci sono e altrimenti la ripartizione a mesi frazionati (nel consuntivo sommato
+anche alle fatture non abbinate). «Dopo» è il calcolo attuale. Solo lettura: serve a vedere,
+prima del rilascio, quali totali cambiano. Si usa dal comando ``impatto_sal``.
 """
 
 import datetime
@@ -83,7 +83,8 @@ def righe_impatto(livello: Livello = Livello.PROBABILE) -> list[RigaImpatto]:
 
 
 def _riga(contratto, voce, ve, livello: Livello) -> RigaImpatto:
-    # Il calcolo precedente: la stessa voce con modalità «Da verificare» (rate salvate o pro-rata).
+    # Il calcolo precedente: la stessa voce con modalità «Da verificare» (rate salvate o, senza,
+    # ripartizione a mesi frazionati).
     prima_ve = replace(ve, piano=replace(ve.piano, modalita=Modalita.DA_VERIFICARE))
     viste_prima, _ = motore.calcola([prima_ve])
     viste_dopo, esiti = motore.calcola([ve])
@@ -121,8 +122,9 @@ def impatto_xlsx(righe: list[RigaImpatto], livello: Livello, oggi: datetime.date
     anni = _anni(righe)
     intestazione = [
         "Impatto della Rev29 sulle voci a SAL",
-        f"Livello {livello.value}. Prima = calcolo precedente (rate salvate, altrimenti pro-rata "
-        "a giorni); dopo = fatture, poi rate a mano o quote, mai il pro-rata.",
+        f"Livello {livello.value}. Prima = calcolo precedente (rate salvate, altrimenti "
+        "ripartizione a mesi frazionati); dopo = fatture, poi rate a mano o quote, mai la "
+        "ripartizione sul tempo.",
         "Importi imponibili (IVA esclusa). Solo lettura: nessun dato è stato modificato.",
         f"Generato il {oggi:%d/%m/%Y}.",
     ]

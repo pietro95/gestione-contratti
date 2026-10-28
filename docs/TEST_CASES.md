@@ -2,32 +2,33 @@
 
 Ogni caso descrive: input, output atteso, regola della SPEC che verifica.
 
-Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (redatto su richiesta del responsabile del progetto del 02/10/2026). F9.4: aggiunto TC-13 (redatto su richiesta del responsabile del progetto del 05/10/2026). F9.5: aggiunto TC-14 (redatto su richiesta del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (redatto su decisione del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev11: aggiunti TC-15 e TC-16 (redatti su decisione del responsabile del progetto del 05/10/2026, bozza da approvare). SPEC Rev13: TC-15 riscritto sulle fasi della richiesta di RDA, aggiunto TC-17 (redatti su decisione del responsabile del progetto del 07/10/2026, bozza da approvare). SPEC Rev14: TC-15 (e) aggiornato ai tre passi della fattura (stessa origine, bozza da approvare). SPEC Rev15: aggiunto TC-18 (stessa origine, bozza da approvare). SPEC Rev21: aggiunto TC-20 (redatto su decisione del responsabile del progetto del 15/10/2026, bozza da approvare). SPEC Rev22: TC-20 esteso (g)–(i), stessa origine; TC-20 approvato il 16/10/2026.
+Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (redatto su richiesta del responsabile del progetto del 02/10/2026). F9.4: aggiunto TC-13 (redatto su richiesta del responsabile del progetto del 05/10/2026). F9.5: aggiunto TC-14 (redatto su richiesta del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (redatto su decisione del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev11: aggiunti TC-15 e TC-16 (redatti su decisione del responsabile del progetto del 05/10/2026, bozza da approvare). SPEC Rev13: TC-15 riscritto sulle fasi della richiesta di RDA, aggiunto TC-17 (redatti su decisione del responsabile del progetto del 07/10/2026, bozza da approvare). SPEC Rev14: TC-15 (e) aggiornato ai tre passi della fattura (stessa origine, bozza da approvare). SPEC Rev15: aggiunto TC-18 (stessa origine, bozza da approvare). SPEC Rev21: aggiunto TC-20 (redatto su decisione del responsabile del progetto del 15/10/2026, bozza da approvare). SPEC Rev22: TC-20 esteso (g)–(i), stessa origine; TC-20 approvato il 16/10/2026. SPEC Rev31: TC-01, TC-02, TC-03, TC-10, TC-11, TC-14 e TC-23 ricalcolati a mesi frazionati, aggiunto TC-24 (richiesta del 28/10/2026, bozza da approvare).
 
 I valori sono stati calcolati a mano e verificati con uno script indipendente. **Se un test non passa, l'errore è nel codice, non nel caso.** Un caso si modifica solo con l'approvazione del responsabile del progetto e insieme a una nuova revisione della SPEC.
 
 Convenzioni valide per tutti i casi:
 - importi in euro, IVA esclusa;
-- arrotondamento `ROUND_HALF_UP` al centesimo, con il residuo sull'ultimo anno o sull'ultima rata;
-- i giorni si contano estremi inclusi.
+- arrotondamento `ROUND_HALF_UP` al centesimo, con il residuo sull'ultima rata; nella ripartizione della competenza, sull'anno con il peso maggiore (a parità l'ultimo);
+- i giorni si contano estremi inclusi;
+- la competenza si ripartisce a **mesi frazionati** (SPEC §5.2, Rev31): ogni mese di calendario toccato pesa giorni coperti / giorni del mese; la quota di un anno è importo × peso dell'anno / peso totale. I valori di competenza di questo documento seguono la Rev31 (**bozza da approvare**).
 
 ---
 
-## TC-01 — Competenza pro-rata a giorni (correzione del bug Excel)
+## TC-01 — Competenza a mesi frazionati (correzione del bug Excel)
 
 SPEC §5.2 (vista Competenza) e §2.1 (bug dei mesi).
 
 Input:
 - voce fissa 4.800,00 €;
-- periodo di servizio dal 21/12/2025 al 20/12/2026 (12 mesi, 365 giorni).
+- periodo di servizio dal 21/12/2025 al 20/12/2026 (12 mesi).
 
 Output atteso (competenza):
 
-| Anno | Giorni | Importo |
+| Anno | Peso (mesi) | Importo |
 |---|---|---|
-| 2025 | 11 | 144,66 |
-| 2026 | 354 | 4.655,34 |
-| **Totale** | 365 | **4.800,00** |
+| 2025 | 11/31 | 141,94 |
+| 2026 | 11 + 20/31 | 4.658,06 |
+| **Totale** | 12 | **4.800,00** |
 
 Controllo negativo: il vecchio Excel dava 400,00 + 4.800,00 = 5.200,00 (108%). Il totale di competenza deve essere **sempre** uguale al valore del contratto.
 
@@ -37,18 +38,18 @@ SPEC §5.2. Il caso è modellato su "AutoCAD LT 36 mesi, spesa liquidata nel 202
 
 Input:
 - voce fissa 21.990,06 €;
-- servizio dal 24/03/2023 al 23/03/2026 (1.096 giorni);
+- servizio dal 24/03/2023 al 23/03/2026 (36 mesi);
 - fatturazione `Una tantum`, anticipata, fattura il 24/03/2023;
 - OdA emesso il 10/03/2023.
 
 Output atteso:
 
-| Anno | Impegno | Cassa (data fattura) | Competenza (giorni) |
+| Anno | Impegno | Cassa (data fattura) | Competenza (mesi frazionati) |
 |---|---|---|---|
-| 2023 | 21.990,06 | 21.990,06 | 5.678,09 (283 gg) |
-| 2024 | 0,00 | 0,00 | 7.343,40 (366 gg) |
-| 2025 | 0,00 | 0,00 | 7.323,33 (365 gg) |
-| 2026 | 0,00 | 0,00 | 1.645,24 (82 gg) |
+| 2023 | 21.990,06 | 21.990,06 | 5.655,15 (9 + 8/31 mesi) |
+| 2024 | 0,00 | 0,00 | 7.330,02 (12 mesi) |
+| 2025 | 0,00 | 0,00 | 7.330,02 (12 mesi) |
+| 2026 | 0,00 | 0,00 | 1.674,87 (2 + 23/31 mesi) |
 | **Totale** | 21.990,06 | 21.990,06 | 21.990,06 |
 
 ## TC-03 — Posticipato trimestrale con pagamento a 60 giorni
@@ -77,9 +78,9 @@ Aggregati attesi:
 
 | Anno | Cassa (data fattura) | Competenza |
 |---|---|---|
-| 2026 | 6.000,00 | 6.041,04 (184 gg) |
-| 2027 | 12.000,00 | 11.983,58 (365 gg) |
-| 2028 | 6.000,00 | 5.975,38 (182 gg) |
+| 2026 | 6.000,00 | 6.000,00 (6 mesi) |
+| 2027 | 12.000,00 | 12.000,00 (12 mesi) |
+| 2028 | 6.000,00 | 6.000,00 (6 mesi) |
 
 ## TC-04 — Anticipato annuale su tre anni
 
@@ -214,7 +215,7 @@ Input:
 Date attese:
 - data di fine effettiva: 31/03/2027 (la più lontana tra le proroghe);
 - data limite di avvio: 30/11/2026 (31/03/2027 − 4 mesi);
-- periodo di servizio della voce di proroga 1: 01/04/2026–30/09/2026 (183 gg); della proroga 2: 01/10/2026–31/03/2027 (182 gg).
+- periodo di servizio della voce di proroga 1: 01/04/2026–30/09/2026 (6 mesi); della proroga 2: 01/10/2026–31/03/2027 (6 mesi).
 
 Scadenzario atteso (data fattura): voce base 01/04/2025 = 12.000,00; proroga 1 01/04/2026 = 6.000,00; proroga 2 01/10/2026 = 6.300,00.
 
@@ -222,9 +223,9 @@ Output atteso:
 
 | Anno | Impegno | Cassa (data fattura) | Competenza |
 |---|---|---|---|
-| 2025 | 12.000,00 | 12.000,00 | 9.041,10 (voce base, 275 gg) |
-| 2026 | 12.300,00 | 12.300,00 | 12.143,52 (base 2.958,90 su 90 gg + proroga 1 6.000,00 + proroga 2 3.184,62 su 92 gg) |
-| 2027 | 0,00 | 0,00 | 3.115,38 (proroga 2, 90 gg) |
+| 2025 | 12.000,00 | 12.000,00 | 9.000,00 (voce base, 9 mesi) |
+| 2026 | 12.300,00 | 12.300,00 | 12.150,00 (base 3.000,00 su 3 mesi + proroga 1 6.000,00 + proroga 2 3.150,00 su 3 mesi) |
+| 2027 | 0,00 | 0,00 | 3.150,00 (proroga 2, 3 mesi) |
 | **Totale** | 24.300,00 | 24.300,00 | 24.300,00 |
 
 Alert con decisione `Rinnovare` e pratica `Non avviata`, senza successore:
@@ -241,9 +242,9 @@ SPEC §4 (Quota per periodo) e §5.2 (competenza per quota).
 Input:
 - voce fissa 31.500,00 €, servizio dal 01/07/2026 al 30/06/2029, `Anticipata` annuale, OdA nel 2026;
 - quote per periodo:
-  - 01/07/2026–30/06/2027: 10.000,00 (365 gg);
-  - 01/07/2027–30/06/2028: 10.500,00 (366 gg);
-  - 01/07/2028–30/06/2029: 11.000,00 (365 gg).
+  - 01/07/2026–30/06/2027: 10.000,00 (12 mesi);
+  - 01/07/2027–30/06/2028: 10.500,00 (12 mesi);
+  - 01/07/2028–30/06/2029: 11.000,00 (12 mesi).
 
 Scadenzario atteso: 3 rate, ciascuna pari alla sua quota: 01/07/2026 = 10.000,00; 01/07/2027 = 10.500,00; 01/07/2028 = 11.000,00.
 
@@ -251,13 +252,13 @@ Output atteso:
 
 | Anno | Impegno | Cassa (data fattura) | Competenza |
 |---|---|---|---|
-| 2026 | 31.500,00 | 10.000,00 | 5.041,10 (quota 1, 184 gg) |
-| 2027 | 0,00 | 10.500,00 | 10.237,59 (quota 1 4.958,90 su 181 gg + quota 2 5.278,69 su 184 gg) |
-| 2028 | 0,00 | 11.000,00 | 10.766,52 (quota 2 5.221,31 su 182 gg + quota 3 5.545,21 su 184 gg) |
-| 2029 | 0,00 | 0,00 | 5.454,79 (quota 3, 181 gg) |
+| 2026 | 31.500,00 | 10.000,00 | 5.000,00 (quota 1, 6 mesi) |
+| 2027 | 0,00 | 10.500,00 | 10.250,00 (quota 1 5.000,00 su 6 mesi + quota 2 5.250,00 su 6 mesi) |
+| 2028 | 0,00 | 11.000,00 | 10.750,00 (quota 2 5.250,00 su 6 mesi + quota 3 5.500,00 su 6 mesi) |
+| 2029 | 0,00 | 0,00 | 5.500,00 (quota 3, 6 mesi) |
 | **Totale** | 31.500,00 | 31.500,00 | 31.500,00 |
 
-Controllo: senza quote, la stessa voce darebbe in competenza 5.288,32 / 10.490,42 / 10.519,16 / 5.202,10 (pro-rata uniforme sul totale).
+Controllo: senza quote, la stessa voce darebbe in competenza 5.250,00 / 10.500,00 / 10.500,00 / 5.250,00 (ripartizione uniforme sul totale).
 
 Quote incoerenti (non contigue, fuori dal periodo della voce o con somma diversa dal fisso): si ignorano, il calcolo usa l'intera voce e segnala l'anomalia `QUOTE_INCOERENTI`.
 
@@ -392,8 +393,8 @@ data limite 14/01/2026. C1 non ha alert; la sua pratica passa a «Contratto atti
 | Anno | Fatturato | Ordinato | Competenza |
 |---|---|---|---|
 | 2024 | 300,00 (C1) | | |
-| 2025 | 25,00 (C2) | 25,00 (C2) | 80,00 = 60,00 (C1, 73/365 di 300,00) + 20,00 (C2, 292/365 di 25,00) |
-| 2026 | | | 5,00 (C2, 73/365 di 25,00) |
+| 2025 | 25,00 (C2) | 25,00 (C2) | 81,18 = 61,29 (C1, dal 01/01 al 14/03) + 19,89 (C2, dal 15/03 al 31/12) |
+| 2026 | | | 5,11 (C2, dal 01/01 al 14/03) |
 
 Il rinnovo previsto dal 15/03/2026 entra nel budget 2026 come previsionale.
 
@@ -573,7 +574,7 @@ Atteso, budget 2026, livello fisso:
 
 Fatture e stanziamenti (abbinati alla rata, valore base):
 - **(a) Fattura a cavallo d'anno.** La rata di dicembre è sostituita da una fattura con valore
-  base 1.000,00 € e competenza 01/12/2026–31/01/2027 (62 giorni: 31 nel 2026, 31 nel 2027):
+  base 1.000,00 € e competenza 01/12/2026–31/01/2027 (due mesi interi: uno nel 2026, uno nel 2027):
   2026 = 11.000,00 + 500,00 = 11.500,00 €; 2027 = 500,00 €. Totale 12.000,00 €. Cassa e
   competenza del contratto invariate (12.000,00 € nel 2026).
 - **(b) Fattura emessa dopo la fine dell'anno.** La fattura di dicembre è registrata il
@@ -596,7 +597,7 @@ Fatture e stanziamenti (abbinati alla rata, valore base):
   31/08/2026. Data 10/01/2026: 01/12/2025–31/12/2025. Data 31/03/2024: 01/02/2024–29/02/2024.
 - **(h) Periodo della rata.** Contratto dal 01/12/2025, 12 mesi, 6.000,00 € fissi, fatturazione
   bimestrale posticipata (rate da 1.000,00 €): la rata 1 ha periodo 01/12/2025–31/01/2026 e data
-  fattura 31/01/2026; nel budget a competenza 2025 pesano 500,00 € (31 giorni su 62) e nel 2026
+  fattura 31/01/2026; nel budget a competenza 2025 pesano 500,00 € (un mese su due) e nel 2026
   500,00 € della rata 1, più le altre cinque rate: 2025 = 500,00 €, 2026 = 5.500,00 €. Il
   risultato è lo stesso se la rata è stata salvata senza periodo.
 - **(i) Stanziamento proposto.** Contratto dal 01/01/2026, 12.000,00 € fissi, mensile posticipato
@@ -656,7 +657,7 @@ rata. Quote ad anno solare: 2024 = 0,00; 2025 = 1.486.870,87; 2026 = 1.144.060,6
 
 - **(a) Solo quote.** Vista «Fatturato»: 2024 assente o 0,00; **2025 = 1.486.870,87;
   2026 = 1.144.060,62; 2027 = 316.708,26**; totale = fisso. Sono previsto, nessun consuntivo. Mai
-  la ripartizione a giorni (256.031,07 / 1.198.094,11 / 1.198.094,11 / 295.420,46). Quote ad anno
+  la ripartizione sul tempo (254.217,84 / 1.197.076,41 / 1.197.076,40 / 299.269,10). Quote ad anno
   solare ammesse anche se la prima inizia il 01/01/2024 e l'ultima finisce il 31/12/2027.
 - **(b) Solo fatture.** **2025 = 1.486.870,87; 2026 = 1.144.060,62**; 2024 e 2027 assenti o 0,00.
   Residuo 316.708,26 € non pianificato: fuori dai totali, con avviso `SAL_NON_PIANIFICATO`.
@@ -669,3 +670,46 @@ rata. Quote ad anno solare: 2024 = 0,00; 2025 = 1.486.870,87; 2026 = 1.144.060,6
 - **(f) WBS.** Fattura con WBS diversa da quella della voce: il costo sta sulla WBS della
   fattura, il residuo su quella della voce, anomalia su entrambe le pagine.
 - **(g) Regressione.** Voci `Posticipata` annuale e `Una tantum`: risultati invariati.
+
+## TC-24 — Competenza a mesi frazionati: contratti contigui e invarianti
+
+SPEC §5.2 (vista Competenza e viste a competenza), Rev31, **bozza da approvare**.
+
+Metodo: ogni mese di calendario toccato dal periodo pesa giorni coperti / giorni del mese; peso di
+un anno = somma dei pesi dei suoi mesi; quota dell'anno = importo × peso dell'anno / peso totale,
+ROUND_HALF_UP al centesimo; il residuo di centesimi va all'anno con il peso maggiore (a parità,
+l'ultimo), così la somma è esattamente l'importo. Se il residuo desse a un anno una quota di
+segno opposto all'importo (pochi centesimi su molti anni) si usa l'arrotondamento cumulato.
+
+**Caso DPO** (canone 6.500,00 €/anno, due contratti contigui da 12 mesi):
+
+| Contratto | Periodo | 2026 | 2027 | 2028 |
+|---|---|---|---|---|
+| 1 | 08/06/2026–07/06/2027 | 3.665,28 (6 + 23/30 mesi) | 2.834,72 (5 + 7/30) | |
+| 2 | 08/06/2027–07/06/2028 | | 3.665,28 | 2.834,72 |
+| **Competenza 2027** | | | **6.500,00** | |
+
+Con la ripartizione a giorni la competenza 2027 era 2.813,70 + 3.676,23 = 6.489,93 €.
+
+Altri casi (importo → quote per anno):
+
+| Caso | Periodo | Importo | Quote |
+|---|---|---|---|
+| un giorno | 15/03/2026 | 100,00 | 2026 = 100,00 |
+| annuale solare | 01/01/2026–31/12/2026 | 1.200,00 | 2026 = 1.200,00 (100%) |
+| inizio il 31 | 31/01/2026–30/01/2027 | 1.200,00 | 1.103,23 / 96,77 |
+| inizio il 29/02 | 29/02/2028–28/02/2029 | 1.000,00 | 833,81 / 166,19 |
+| 36 mesi | 01/03/2026–28/02/2029 | 36.000,00 | 10.000,00 / 12.000,00 / 12.000,00 / 2.000,00 |
+| residuo | 01/01/2026–29/02/2028 | 100,00 | 46,15 / 46,16 / 7,69 (il centesimo di residuo va a uno dei due anni di peso maggiore) |
+| residuo a pari peso | 01/11/2026–28/02/2027 | 100,01 | 50,01 / 50,00 |
+
+**Invarianti.**
+1. Per ogni contratto, voce o rata, la somma delle quote su tutti gli anni è l'importo, al centesimo.
+2. Contratti contigui da 12 mesi con lo stesso giorno di confine, che coprono un anno solare intero,
+   sommano esattamente al canone annuo, **tranne** quando il confine cade in **febbraio** tra un
+   anno bisestile e uno no: il mese di inizio e quello di fine di uno stesso contratto sono
+   frazioni di febbraio di lunghezza diversa (28 e 29 giorni) e il peso totale non è 12 mesi.
+   Esempio: 6.500,00 € dal 15/02/2027 al 14/02/2028 e dal 15/02/2028 al 14/02/2029: competenza 2028
+   = 6.492,99 € (scarto −7,01 €). Provando ogni giorno d'inizio dal 2024 al 2028 con catene di quattro
+   contratti, quadrano tutti tranne le date d'inizio dal 02 al 29 febbraio, con scarto massimo
+   15,11 € su 6.500,00 € (0,23%). Non si corregge con un workaround: è una conseguenza del metodo.
