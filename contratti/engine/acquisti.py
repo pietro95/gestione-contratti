@@ -737,6 +737,7 @@ class DatiPAC:
     valore_base: Decimal | None
     oneri: Decimal | None = None
     bollo: Decimal | None = None
+    numero_contratto: str | None = None
 
 
 def _euro(valore: Decimal | None) -> str:
@@ -744,8 +745,9 @@ def _euro(valore: Decimal | None) -> str:
 
 
 def indicazioni_validazione(d: DatiPAC) -> str:
-    """«Valore base da prelevare € …. COGE: …, CDC: …, WBS: …» (TC-18)."""
+    """«Contratto …. Valore base da prelevare € …. COGE: …, CDC: …, WBS: …» (TC-25, Rev33)."""
     return (
+        f"Contratto {d.numero_contratto or NESSUNO}. "
         f"Valore base da prelevare {_euro(d.valore_base)}. "
         f"COGE: {d.conto or NESSUNO}, CDC: {d.centro_costo or NESSUNO}, WBS: {d.wbs or NESSUNO}"
     )
@@ -754,6 +756,7 @@ def indicazioni_validazione(d: DatiPAC) -> str:
 def commento_pac(d: DatiPAC) -> str:
     """Il commento per PAC nel formato usato finora (TC-18)."""
     righe = [
+        f"Contratto: {d.numero_contratto or NESSUNO}",
         f"ODA : {d.numero_rdc or DA_REGISTRARE}",
         f"{d.accettazione}: {d.numero_accettazione or DA_REGISTRARE}",
         f"CDC: {d.centro_costo or NESSUNO}",

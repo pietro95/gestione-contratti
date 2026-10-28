@@ -24,7 +24,8 @@ from contratti.engine.acquisti import (
 D = datetime.date
 OGGI = D(2026, 10, 7)
 
-PAC_ATTESO = """ODA : RDC-0001
+PAC_ATTESO = """Contratto: 5800000013
+ODA : RDC-0001
 MAP: MAP-0001
 CDC: C0001
 COGE: 600010
@@ -35,6 +36,7 @@ Oneri previdenziali: € 173,66
 Bollo: € 2,00"""
 
 DATI_13 = DatiPAC(
+    numero_contratto="5800000013",
     numero_rdc="RDC-0001",
     accettazione="MAP",
     numero_accettazione="MAP-0001",
@@ -120,17 +122,20 @@ def test_commento_per_pac_senza_map_ne_oneri():
         valore_base=Decimal("1504.17"),
     )  # fmt: skip
     righe = commento_pac(dati).splitlines()
-    assert righe[1] == "MAP: (da registrare)"
+    assert righe[0] == "Contratto: --"
+    assert righe[2] == "MAP: (da registrare)"
     assert righe[-1] == "Valore base prelevato da contratto: € 1.504,17"
     migo = DatiPAC(None, "MIGO", None, None, None, None, None)
-    assert commento_pac(migo).splitlines()[:5] == [
-        "ODA : (da registrare)", "MIGO: (da registrare)", "CDC: --", "COGE: --", "WBS: --",
+    assert commento_pac(migo).splitlines()[:6] == [
+        "Contratto: --", "ODA : (da registrare)", "MIGO: (da registrare)", "CDC: --",
+        "COGE: --", "WBS: --",
     ]  # fmt: skip
 
 
 def test_indicazioni_per_la_validazione():
     assert indicazioni_validazione(DATI_13) == (
-        "Valore base da prelevare € 1.504,17. COGE: 600010, CDC: C0001, WBS: WBS-TEST-01"
+        "Contratto 5800000013. Valore base da prelevare € 1.504,17. "
+        "COGE: 600010, CDC: C0001, WBS: WBS-TEST-01"
     )
 
 

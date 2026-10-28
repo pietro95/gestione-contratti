@@ -121,7 +121,9 @@ def test_flusso_della_fattura(pagina, tmp_path):
     # Commento per PAC negli appunti, poi il trasferimento.
     pagina.click("text=Copia il commento per PAC")
     expect(pagina.locator("button.copiato")).to_be_visible()
-    assert pagina.evaluate("navigator.clipboard.readText()") == PAC_ATTESO
+    assert pagina.evaluate("navigator.clipboard.readText()") == PAC_ATTESO.replace(
+        "5800000013", "5800000077"
+    )
     pagina.click("button:has-text('Registra il trasferimento')")
     expect(pagina.locator(".sottotitolo .stato").first).to_have_text("Trasferita")
 

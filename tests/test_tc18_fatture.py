@@ -72,6 +72,7 @@ def registro(make_user):
     cs = f.contratto(
         fornitore=s,
         fabbisogno=f.fabbisogno("Consulenza S", referente_utente=utenti["bianchi"]),
+        numero_contratto="5800000013",
     )
     conto = f.conto(
         codice="600010", descrizione="Conto di prova", valido_dal=D(2020, 1, 1), cluster=it
@@ -253,14 +254,15 @@ def test_lavorazione_13_2026_e_pac(registro, tmp_path):
     f13 = _fattura("13/2026")
     assert fatture.anomalie(f13) == []
     assert fatture.indicazioni_validazione(f13) == (
-        "Valore base da prelevare € 1.504,17. COGE: 600010, CDC: C0001, WBS: WBS-TEST-01"
+        "Contratto 5800000013. Valore base da prelevare € 1.504,17. "
+        "COGE: 600010, CDC: C0001, WBS: WBS-TEST-01"
     )
     f13.bollo = Decimal("3.00")
     assert fatture.anomalie(f13) == ["IMPORTO_NON_QUADRA"]
     f13 = _fattura("13/2026")
     fatture.registra_documento(f13, "ODA_RDC", "RDC-0001", OGGI)
     f13 = _fattura("13/2026")
-    assert fatture.commento_pac(f13).splitlines()[1] == "MAP: (da registrare)"
+    assert fatture.commento_pac(f13).splitlines()[2] == "MAP: (da registrare)"
     with pytest.raises(acquisti.OperazioneNonAmmessa):
         fatture.registra_documento(f13, "ODA_RDC", "RDC-0002", OGGI)  # una RdC per fattura
     fatture.registra_documento(f13, "MAP", "MAP-0001", OGGI)
