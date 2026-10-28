@@ -776,7 +776,8 @@ class ModalitaFatturazione(models.TextChoices):
     UNA_TANTUM = "una_tantum", "Una tantum"
     SAL = "sal", "A SAL"
     CONSUMO = "consumo", "A consumo"
-    # Migrazione (SPEC §7.6): piano non noto, la cassa usa il pro-rata e lo segnala.
+    # Migrazione (SPEC §7.6): piano non noto, la cassa usa la ripartizione a mesi frazionati e lo
+    # segnala.
     DA_VERIFICARE = "da_verificare", "Da verificare"
 
 
@@ -1928,7 +1929,7 @@ class Fattura(Archiviabile):
         help_text="Es. more o danni presenti in fattura e non imputabili al nostro ufficio.",
     )
     # Rev21: periodo di competenza della fattura. Il budget a competenza imputa il valore base
-    # agli anni di questo periodo (pro-rata a giorni); obbligatorio con il valore base.
+    # agli anni di questo periodo (ripartizione a mesi frazionati); obbligatorio con il valore base.
     competenza_dal = models.DateField("competenza dal", null=True, blank=True)
     competenza_al = models.DateField("competenza al", null=True, blank=True)
     # Imputazione propria della fattura, se diversa da quella della voce (es. acquisti vari

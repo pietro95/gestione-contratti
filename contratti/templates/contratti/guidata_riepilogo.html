@@ -20,7 +20,7 @@
     <tfoot class="fw-semibold"><tr><td colspan="3">Totale ({{ rate|length }} rate)</td><td class="text-end">{{ totale|euro }}</td></tr></tfoot>
   </table></div>
   {% else %}
-  <div class="card-body"><p class="text-body-secondary mb-0"><i class="bi bi-info-circle" aria-hidden="true"></i> Nessuna rata: {% if voce.piano_fatturazione.modalita == "sal" %}con la fatturazione a SAL le rate si inseriscono a mano{% elif voce.piano_fatturazione.modalita == "da_verificare" %}piano da verificare, la cassa usa il pro-rata{% else %}controlla date e piano del contratto{% endif %}.</p></div>
+  <div class="card-body"><p class="text-body-secondary mb-0"><i class="bi bi-info-circle" aria-hidden="true"></i> Nessuna rata: {% if voce.piano_fatturazione.modalita == "sal" %}con la fatturazione a SAL le rate si inseriscono a mano{% elif voce.piano_fatturazione.modalita == "da_verificare" %}piano da verificare, la cassa usa la ripartizione a mesi frazionati{% else %}controlla date e piano del contratto{% endif %}.</p></div>
   {% endif %}
 </div>
 {% empty %}

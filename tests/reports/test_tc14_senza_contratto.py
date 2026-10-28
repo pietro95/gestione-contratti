@@ -120,9 +120,9 @@ def test_budget_consolidato_e_previsionale(c1, c2):
     assert tot(2024, "cassa", "consolidato") == Decimal("300.00")
     assert tot(2025, "cassa", "consolidato") == Decimal("25.00")
     assert tot(2025, "impegno", "consolidato") == Decimal("25.00")
-    # 60,00 del contratto (73/365 di 300,00) + 20,00 del rinnovo (292/365 di 25,00).
-    assert tot(2025, "competenza", "consolidato") == Decimal("80.00")
-    assert tot(2026, "competenza", "consolidato") == Decimal("5.00")
+    # 61,29 del contratto (dal 01/01 al 14/03/2025) + 19,89 del rinnovo (dal 15/03 al 31/12/2025).
+    assert tot(2025, "competenza", "consolidato") == Decimal("81.18")
+    assert tot(2026, "competenza", "consolidato") == Decimal("5.11")
     # Il rinnovo dopo il 14/03/2026 è previsto, come per un contratto.
     assert tot(2026, "cassa", "previsionale") > 0
     voci = calcola_budget(Filtri(anno=2025, natura="OPEX"), oggi).voci

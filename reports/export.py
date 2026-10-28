@@ -284,7 +284,7 @@ def quadratura_xlsx(q: Quadratura):
     intestazione = [
         f"Quadratura con il Dashboard Excel — {q.file} ({q.area})",
         "Excel: formula del Dashboard ricalcolata (bug dei mesi compreso). "
-        "App: competenza a giorni delle voci importate. Differenza = app − Excel.",
+        "App: competenza a mesi frazionati delle voci importate. Differenza = app − Excel.",
         _generato(datetime.date.today()),
     ]
     colonne = [

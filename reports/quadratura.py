@@ -31,7 +31,7 @@ FOGLIO_DASHBOARD = "Contratti"  # il Dashboard somma solo la tabella "Contratti"
 
 CAUSE = {
     "BUG_MESI": "Bug dei mesi: l'Excel conta i mesi di calendario toccati, più della durata.",
-    "MESI_VS_GIORNI": "Ripartizione a mesi nell'Excel, a giorni nell'app.",
+    "MESI_VS_GIORNI": "Ripartizione a mesi interi nell'Excel, a mesi frazionati nell'app.",
     "MASSIMO_SOVRASCRITTO": "Corrispettivo Massimo scritto a mano, diverso da minimo + extra.",
     "SCADENZA_SOVRASCRITTA": "Data di scadenza scritta a mano, diversa da inizio + mesi − 1.",
     "MODIFICATA_DOPO_IMPORT": "Importi o date della voce cambiati nell'app dopo l'import.",

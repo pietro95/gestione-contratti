@@ -16,7 +16,7 @@ Nelle sezioni le righe sono raggruppate per cluster e sottocluster, con i subtot
 Oltre ai previsti, il piano riporta i contratti già registrati (in stipula o stipulati) che
 pesano nell'anno, cioè con competenza dell'anno diversa da zero: fase «registrato», fuori dai
 totali del valore contrattuale (sono già ordinati). Ogni riga ha il valore contrattuale
-(intera durata) e il valore normalizzato sull'anno (competenza pro-rata a giorni, SPEC §5.2).
+(intera durata) e il valore normalizzato sull'anno (competenza a mesi frazionati, SPEC §5.2).
 """
 
 import datetime
@@ -70,7 +70,7 @@ class RigaPiano:
     # Contratto già registrato (fase «registrato»); per i previsti è None.
     contratto: m.Contratto | None = None
     stato: str = PREVISTO  # Previsto, In stipula o Stipulato
-    # Valore normalizzato sull'anno: competenza pro-rata a giorni (SPEC §5.2), totale e per natura.
+    # Valore normalizzato sull'anno: competenza a mesi frazionati (SPEC §5.2), totale e per natura.
     normalizzato: Importi = field(default_factory=dict)
     normalizzato_per_natura: dict[str, Importi] = field(default_factory=dict)
     fonti: dict[str, str] = field(default_factory=dict)  # fonte di finanziamento per natura

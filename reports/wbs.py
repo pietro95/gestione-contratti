@@ -27,7 +27,7 @@ FONTI_VOCE = {
     "cassa": "rate del piano",
     "consuntivo": "fatture e stanziamenti (competenza); rate dove mancano",
     "impegno": "valore contrattuale nell'anno di impegno",
-    "competenza": "pro-rata a giorni sul periodo di servizio",
+    "competenza": "ripartizione a mesi frazionati sul periodo di servizio",
 }
 VISTE_CON_SAL = (sal.VISTA_CASSA, sal.VISTA_CONSUNTIVO)
 NOMI_FONTI_SAL = {

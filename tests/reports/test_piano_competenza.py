@@ -44,15 +44,15 @@ def _riga(piano, contratto):
 
 
 def test_registrato_con_valore_contrattuale_e_normalizzato():
-    c = _registrato()  # 01/07/2026–30/06/2027: 184 giorni nel 2026 su 365
+    c = _registrato()  # 01/07/2026–30/06/2027: 6 mesi su 12 nel 2026
     r = _riga(calcola_piano(2026, OGGI), c)
     assert r.fase == "registrato" and r.data_limite is None
     assert r.importi[FISSO] == Decimal("1200.00")
-    assert r.normalizzato[FISSO] == Decimal("604.93")
+    assert r.normalizzato[FISSO] == Decimal("600.00")
     assert r.per_natura["OPEX"][FISSO] == Decimal("1200.00")
     # Nell'anno dopo, il resto: i due anni quadrano con il valore contrattuale.
     r27 = _riga(calcola_piano(2027, OGGI), c)
-    assert r27.normalizzato[FISSO] == Decimal("595.07")
+    assert r27.normalizzato[FISSO] == Decimal("600.00")
     assert r.normalizzato[FISSO] + r27.normalizzato[FISSO] == r.importi[FISSO]
 
 
@@ -63,7 +63,7 @@ def test_registrato_fuori_dai_totali_contrattuali_ma_nelle_sezioni():
     assert piano.totali()[FISSO] == Decimal("0.00")
     (opex,) = piano.sezioni()
     assert opex.totali.contrattuale[FISSO] == Decimal("0.00")
-    assert opex.totali.normalizzato[FISSO] == Decimal("604.93")
+    assert opex.totali.normalizzato[FISSO] == Decimal("600.00")
 
 
 def test_stato_in_stipula_e_stipulato():

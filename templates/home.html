@@ -76,7 +76,7 @@
         <thead><tr><th scope="col">Vista</th>{% for n in budget.nature %}<th scope="col" class="text-end">{{ n }}</th>{% endfor %}</tr></thead>
         <tbody>{% for vista, importi in budget.righe %}<tr{% if forloop.first %} class="fw-semibold"{% endif %}><th scope="row" class="fw-normal">{{ vista }}</th>{% for i in importi %}<td class="text-end">{{ i|euro }}</td>{% endfor %}</tr>{% endfor %}</tbody>
       </table></div>
-      <div class="card-footer small text-body-secondary">OPEX e CAPEX sono budget distinti.{% if piani_da_verificare %} <a class="text-decoration-underline" href="{% url 'contratti:piani_da_verificare' %}">{{ piani_da_verificare }} voci con piano da verificare</a>: il loro fatturato è stimato a pro-rata.{% endif %}</div>
+      <div class="card-footer small text-body-secondary">OPEX e CAPEX sono budget distinti.{% if piani_da_verificare %} <a class="text-decoration-underline" href="{% url 'contratti:piani_da_verificare' %}">{{ piani_da_verificare }} voci con piano da verificare</a>: il loro fatturato è stimato con la ripartizione a mesi frazionati.{% endif %}</div>
       {% else %}<div class="vuoto py-4">Budget non calcolabile: parametri di configurazione mancanti.</div>{% endif %}
     </div>
   </div>

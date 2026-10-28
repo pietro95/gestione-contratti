@@ -391,7 +391,7 @@ qui sotto restano per l'emergenza: fanno la stessa cosa con lo stesso codice.
 7. **Configurazione** (admin dell'app): verifica soglie, lead time e parametri, che sono valori
    provvisori.
 8. **Piani di fatturazione**: dall'app, menu "Piani da verificare". Le voci importate hanno il
-   piano `Da verificare` e il loro fatturato è stimato a pro-rata: imposta modalità e
+   piano `Da verificare` e il loro fatturato è stimato con la ripartizione a mesi frazionati: imposta modalità e
    periodicità reali partendo dalle voci più pesanti, poi genera lo scadenzario.
 
 ### 6.1 Struttura ICTDINN: cluster, responsabili, conti e WBS (dalla v1.5)

@@ -1,6 +1,6 @@
 {% extends "reports/pdf/base.html" %}
 {% load registro %}
-{% block sottotitolo %}Al {{ oggi|date:"d/m/Y" }} · contratti da stipulare nell'anno (servizio in partenza nell'anno) e rinnovi in ritardo · valore contrattuale sull'intera durata (totali solo sulle righe da avviare) e valore normalizzato sull'anno (competenza a giorni) · importi imponibili{% if raggruppa_stipulati %} · contratti già stipulati raggruppati in una riga per sottocluster{% endif %}{% endblock %}
+{% block sottotitolo %}Al {{ oggi|date:"d/m/Y" }} · contratti da stipulare nell'anno (servizio in partenza nell'anno) e rinnovi in ritardo · valore contrattuale sull'intera durata (totali solo sulle righe da avviare) e valore normalizzato sull'anno (competenza a mesi frazionati) · importi imponibili{% if raggruppa_stipulati %} · contratti già stipulati raggruppati in una riga per sottocluster{% endif %}{% endblock %}
 {% block contenuto %}
 <table class="kpi"><tr>
   <td><div class="etichetta">Ordini da emettere</div><div class="valore">{{ piano.da_avviare|length }}</div><div class="nota">contratti da stipulare nell'anno{% if piano.da_concludere %} · {{ piano.da_concludere|length }} da concludere{% endif %}{% if piano.in_ritardo %} · {{ piano.in_ritardo|length }} in ritardo{% endif %}{% if piano.registrati %} · {{ piano.registrati|length }} già registrati{% endif %}</div></td>

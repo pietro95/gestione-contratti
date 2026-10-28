@@ -180,7 +180,7 @@ def budget(ctx: Contesto, argomenti: dict) -> dict:
                 "sal_non_pianificato": {
                     "totale": b.sal_non_pianificato,
                     "nota": "Importo fisso di voci a SAL senza rate, quote né fatture: fuori dai "
-                    "totali, non distribuito a giorni.",
+                    "totali, non ripartito sul tempo.",
                     "voci": [
                         {
                             "contratto_id": x.contratto.pk,
@@ -273,8 +273,9 @@ def piano_ordini(ctx: Contesto, argomenti: dict) -> dict:
             "«In stipula» o «Stipulato», senza data limite, fuori dai totali contrattuali. "
             "Nell'anno in corso in_ritardo segnala data limite passata con pratica non avviata "
             "o servizio che doveva già partire. «importi» è il valore contrattuale sull'intera "
-            "durata; «normalizzato» è il valore sull'anno (competenza pro-rata a giorni); "
-            "ogni riga ha sottocluster e fonte di finanziamento (fabbisogno, altrimenti WBS, "
+            "durata; «normalizzato» è il valore sull'anno (competenza, ripartizione a mesi "
+            "frazionati); ogni riga ha sottocluster e fonte di finanziamento (fabbisogno, "
+            "altrimenti WBS, "
             "altrimenti «Ordinaria»). Imponibile IVA esclusa. I rinnovi senza contratto non "
             "ci sono (non passano dal Procurement). OPEX e CAPEX si totalizzano separati."
         ),
@@ -417,8 +418,8 @@ def piani_da_verificare(ctx: Contesto, argomenti: dict) -> dict:
         "alla_data": ctx.oggi,
         "filtri": {"cluster": codici or "tutti", "sottocluster": sottocluster},
         "nota": (
-            "Voci senza piano di fatturazione reale: il loro fatturato nel budget è un pro-rata "
-            "a giorni. Le più pesanti (fisso + massimale) prima."
+            "Voci senza piano di fatturazione reale: il loro fatturato nel budget è una "
+            "ripartizione a mesi frazionati. Le più pesanti (fisso + massimale) prima."
         ),
         "totale_peso": sum((v.peso for v in voci), ZERO),
         "voci": [
@@ -447,7 +448,7 @@ STRUMENTI = [
         descrizione=(
             "Budget di un anno nelle tre viste: fatturato (per data fattura, riferimento del "
             "Controllo di gestione), ordinato (contratti emessi nell'anno), competenza "
-            "(pro-rata a giorni). Per ogni vista consolidato (contratti registrati), "
+            "(ripartizione a mesi frazionati). Per ogni vista consolidato (contratti registrati), "
             "previsionale (rinnovi previsti) e totale; livelli fisso, probabile, massimo. OPEX "
             "e CAPEX in sezioni separate, mai sommate. Gruppi di default: conto per l'OPEX, WBS "
             "per il CAPEX. Le voci su WBS a progetto (es. dissalatori) sono escluse se non "
@@ -534,7 +535,8 @@ STRUMENTI = [
         titolo="Piani di fatturazione da verificare",
         descrizione=(
             "Voci con piano di fatturazione «Da verificare» o assente: nel budget il loro "
-            "fatturato è stimato a pro-rata. Le più pesanti prima. Riservato ad Admin ed Editor."
+            "fatturato è stimato con la ripartizione a mesi frazionati. Le più pesanti prima. "
+            "Riservato ad Admin ed Editor."
         ),
         input_schema={
             "type": "object",

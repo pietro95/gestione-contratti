@@ -88,9 +88,9 @@ def genera_rate(voce: Voce, importo: Decimal | None = None) -> list[Rata]:
     """Rate della quota fissa (o di ``importo``) secondo il piano della voce.
 
     SAL, Da verificare e A consumo non generano rate: le prime si inseriscono a mano, per le
-    altre la cassa usa il pro-rata a giorni (SPEC §4; per il consumo senza avviso, perché
-    non c'è un calendario di fatturazione da rispettare). Con quote per periodo coerenti, ogni
-    quota si fattura come una voce a sé, con lo stesso piano; la numerazione prosegue.
+    altre la cassa usa la ripartizione a mesi frazionati (SPEC §4; per il consumo senza avviso,
+    perché non c'è un calendario di fatturazione da rispettare). Con quote per periodo coerenti,
+    ogni quota si fattura come una voce a sé, con lo stesso piano; la numerazione prosegue.
     """
     piano = voce.piano
     quote = quote_valide(voce) if importo is None else None
