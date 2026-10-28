@@ -2,7 +2,7 @@
 
 Ogni caso descrive: input, output atteso, regola della SPEC che verifica.
 
-Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (redatto su richiesta del responsabile del progetto del 02/10/2026). F9.4: aggiunto TC-13 (redatto su richiesta del responsabile del progetto del 05/10/2026). F9.5: aggiunto TC-14 (redatto su richiesta del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (redatto su decisione del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev11: aggiunti TC-15 e TC-16 (redatti su decisione del responsabile del progetto del 05/10/2026, bozza da approvare). SPEC Rev13: TC-15 riscritto sulle fasi della richiesta di RDA, aggiunto TC-17 (redatti su decisione del responsabile del progetto del 07/10/2026, bozza da approvare). SPEC Rev14: TC-15 (e) aggiornato ai tre passi della fattura (stessa origine, bozza da approvare). SPEC Rev15: aggiunto TC-18 (stessa origine, bozza da approvare). SPEC Rev21: aggiunto TC-20 (redatto su decisione del responsabile del progetto del 15/10/2026, bozza da approvare). SPEC Rev22: TC-20 esteso (g)–(i), stessa origine; TC-20 approvato il 16/10/2026. SPEC Rev31: TC-01, TC-02, TC-03, TC-10, TC-11, TC-14 e TC-23 ricalcolati a mesi frazionati, aggiunto TC-24 (richiesta del 28/10/2026, bozza da approvare).
+Allineato alla SPEC Rev02 (01/10/2026): TC-03 aggiornato alla regola di pagamento d.f.f.m. e senza la cassa per data di pagamento; aggiunto TC-10. SPEC Rev04: aggiunto TC-11. F9.3: aggiunto TC-12 (redatto su richiesta del responsabile del progetto del 02/10/2026). F9.4: aggiunto TC-13 (redatto su richiesta del responsabile del progetto del 05/10/2026). F9.5: aggiunto TC-14 (redatto su richiesta del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev09: TC-14 riscritto per il rinnovo senza contratto (redatto su decisione del responsabile del progetto del 05/10/2026, da approvare). SPEC Rev11: aggiunti TC-15 e TC-16 (redatti su decisione del responsabile del progetto del 05/10/2026, bozza da approvare). SPEC Rev13: TC-15 riscritto sulle fasi della richiesta di RDA, aggiunto TC-17 (redatti su decisione del responsabile del progetto del 07/10/2026, bozza da approvare). SPEC Rev14: TC-15 (e) aggiornato ai tre passi della fattura (stessa origine, bozza da approvare). SPEC Rev15: aggiunto TC-18 (stessa origine, bozza da approvare). SPEC Rev21: aggiunto TC-20 (redatto su decisione del responsabile del progetto del 15/10/2026, bozza da approvare). SPEC Rev22: TC-20 esteso (g)–(i), stessa origine; TC-20 approvato il 16/10/2026. SPEC Rev31: TC-01, TC-02, TC-03, TC-10, TC-11, TC-14 e TC-23 ricalcolati a mesi frazionati, aggiunto TC-24 (richiesta del 28/10/2026, approvata). SPEC Rev32: TC-24 esteso ai confini in febbraio.
 
 I valori sono stati calcolati a mano e verificati con uno script indipendente. **Se un test non passa, l'errore è nel codice, non nel caso.** Un caso si modifica solo con l'approvazione del responsabile del progetto e insieme a una nuova revisione della SPEC.
 
@@ -10,7 +10,7 @@ Convenzioni valide per tutti i casi:
 - importi in euro, IVA esclusa;
 - arrotondamento `ROUND_HALF_UP` al centesimo, con il residuo sull'ultima rata; nella ripartizione della competenza, sull'anno con il peso maggiore (a parità l'ultimo);
 - i giorni si contano estremi inclusi;
-- la competenza si ripartisce a **mesi frazionati** (SPEC §5.2, Rev31): ogni mese di calendario toccato pesa giorni coperti / giorni del mese; la quota di un anno è importo × peso dell'anno / peso totale. I valori di competenza di questo documento seguono la Rev31 (**bozza da approvare**).
+- la competenza si ripartisce a **mesi frazionati** (SPEC §5.2, Rev31 e Rev32, approvate il 28/10/2026): ogni mese di calendario toccato pesa giorni coperti / giorni del mese (febbraio: 29 posizioni fisse); la quota di un anno è importo × peso dell'anno / peso totale. I valori di competenza di questo documento seguono la Rev31.
 
 ---
 
@@ -673,7 +673,7 @@ rata. Quote ad anno solare: 2024 = 0,00; 2025 = 1.486.870,87; 2026 = 1.144.060,6
 
 ## TC-24 — Competenza a mesi frazionati: contratti contigui e invarianti
 
-SPEC §5.2 (vista Competenza e viste a competenza), Rev31, **bozza da approvare**.
+SPEC §5.2 (vista Competenza e viste a competenza), Rev31 e Rev32, approvate.
 
 Metodo: ogni mese di calendario toccato dal periodo pesa giorni coperti / giorni del mese; peso di
 un anno = somma dei pesi dei suoi mesi; quota dell'anno = importo × peso dell'anno / peso totale,
@@ -706,10 +706,11 @@ Altri casi (importo → quote per anno):
 **Invarianti.**
 1. Per ogni contratto, voce o rata, la somma delle quote su tutti gli anni è l'importo, al centesimo.
 2. Contratti contigui da 12 mesi con lo stesso giorno di confine, che coprono un anno solare intero,
-   sommano esattamente al canone annuo, **tranne** quando il confine cade in **febbraio** tra un
-   anno bisestile e uno no: il mese di inizio e quello di fine di uno stesso contratto sono
-   frazioni di febbraio di lunghezza diversa (28 e 29 giorni) e il peso totale non è 12 mesi.
-   Esempio: 6.500,00 € dal 15/02/2027 al 14/02/2028 e dal 15/02/2028 al 14/02/2029: competenza 2028
-   = 6.492,99 € (scarto −7,01 €). Provando ogni giorno d'inizio dal 2024 al 2028 con catene di quattro
-   contratti, quadrano tutti tranne le date d'inizio dal 02 al 29 febbraio, con scarto massimo
-   15,11 € su 6.500,00 € (0,23%). Non si corregge con un workaround: è una conseguenza del metodo.
+   sommano esattamente al canone annuo, **anche con confine in febbraio** tra anno bisestile e non
+   (Rev32: febbraio ha sempre 29 posizioni, l'ultimo giorno del mese è l'ultima). Esempio: 6.500,00 €
+   dal 15/02/2027 al 14/02/2028 (2027 = 5.696,84; 2028 = 803,16) e dal 15/02/2028 al 14/02/2029
+   (2028 = 5.696,84; 2029 = 803,16): competenza 2028 = 6.500,00 € (con il peso a giorni di
+   febbraio era 6.492,99 €). Provando ogni giorno d'inizio dal 2024 al 2028 con catene di quattro
+   contratti, quadrano tutti **tranne l'inizio al 28/02 di un anno bisestile**: ha lo stesso
+   anniversario (28/02 dell'anno dopo, SPEC §5.1) di un inizio al 29/02, e per far pesare 12 mesi
+   a entrambi il 28/02 bisestile dovrebbe pesare zero. Scarto sotto lo 0,25% del canone.

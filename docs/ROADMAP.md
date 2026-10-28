@@ -714,9 +714,9 @@ inserite a mano e le fatture registrate.
 modalità invariate; Reader 403; `ruff`, `pytest`, `makemigrations --check` puliti; report di
 impatto esaminato dal responsabile prima del merge.
 
-## F15 — Competenza a mesi frazionati (Rev31)
+## F15 — Competenza a mesi frazionati (Rev31, Rev32)
 
-SPEC §5.2, TC-24, **bozza da approvare**.
+SPEC §5.2, TC-24, approvate il 28/10/2026.
 
 - **Funzione unica** `contratti/engine/mesi_frazionati.py` (pura, `Decimal`, pesi `Fraction`):
   sostituisce la ripartizione a giorni in vista Competenza, consuntivo a competenza (fatture,
@@ -731,5 +731,5 @@ SPEC §5.2, TC-24, **bozza da approvare**.
 **Accettazione:** TC-24 e TC-01, TC-02, TC-03, TC-10, TC-11, TC-14, TC-23 ricalcolati con test
 automatici (esempi, proprietà con `hypothesis`, oracolo indipendente a giorni); fatturato per data
 fattura e ordinato invariati; `ruff`, `pytest`, `makemigrations --check` puliti; limite noto del
-confine in febbraio documentato in SPEC §5.2.
+febbraio a 29 posizioni (Rev32): i contratti contigui con confine in febbraio sommano al canone; resta un solo caso irrisolvibile (inizio al 28/02 bisestile), documentato in SPEC §5.2. Connettore MCP: `metodo_competenza` in `budget`, `piano_ordini`, `fabbisogno`.
 

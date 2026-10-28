@@ -16,6 +16,7 @@ from reports.budget import (
     ETICHETTE_VISTE,
     FONTI_VISTE,
     LIVELLI,
+    METODO_COMPETENZA,
     PARTI,
     VISTE,
     Filtri,
@@ -168,6 +169,7 @@ def budget(ctx: Contesto, argomenti: dict) -> dict:
             "livello_dei_gruppi": livello.value,
         },
         "viste": {NOMI_VISTE[v]: ETICHETTE_VISTE[v] for v in VISTE},
+        "metodo_competenza": METODO_COMPETENZA,
         "avvertenza": (
             "OPEX e CAPEX sono budget distinti: non sommarli. Il fatturato (data fattura) è il "
             "budget di riferimento. «previsionale» sono i rinnovi previsti, non ancora "
@@ -264,6 +266,7 @@ def piano_ordini(ctx: Contesto, argomenti: dict) -> dict:
             "sottocluster": argomenti.get("sottocluster"),
             "natura": natura or "OPEX e CAPEX",
         },
+        "metodo_competenza": METODO_COMPETENZA,
         "nota": (
             "Una riga per ogni contratto previsto che va stipulato nell'anno (servizio in "
             "partenza nell'anno): fase da_avviare, entra nei totali. Nell'anno in corso anche "
@@ -483,7 +486,8 @@ STRUMENTI = [
             "dai totali), più i contratti già registrati (in stipula o stipulati) con competenza "
             "nell'anno, con sottocluster, procedura presunta, lead time, data limite di "
             "avvio della procedura, stato della pratica, natura, fonte di finanziamento, "
-            "valore contrattuale sull'intera durata e valore normalizzato sull'anno. "
+            "valore contrattuale sull'intera durata e valore normalizzato sull'anno (competenza a "
+            "mesi frazionati). "
             "Avvisi di possibile frazionamento quando più fabbisogni dello stesso "
             "sottocluster o dello stesso fornitore superano una soglia. Ordinato per data limite."
         ),

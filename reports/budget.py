@@ -40,6 +40,24 @@ FONTI_VISTE = {
     "impegno": "valore contrattuale nell'anno di emissione",
     "competenza": "ripartizione a mesi frazionati sul periodo di servizio",
 }
+# Come si ripartisce la competenza sugli anni (SPEC §5.2, Rev31): la stessa dicitura per la
+# pagina, gli export e il connettore MCP.
+METODO_COMPETENZA = {
+    "metodo": "mesi_frazionati",
+    "descrizione": (
+        "Ripartizione a mesi frazionati: ogni mese di calendario toccato dal periodo pesa giorni "
+        "coperti / giorni del mese; la quota di un anno è importo × peso dell'anno / peso "
+        "totale, al centesimo (ROUND_HALF_UP), con il residuo all'anno di peso maggiore. La "
+        "somma delle quote di un contratto è il suo importo; due contratti contigui da 12 mesi "
+        "che coprono un anno solare intero sommano al canone annuo. Per febbraio si usano 29 "
+        "posizioni fisse (l'ultimo giorno del mese è sempre l'ultima), così il giorno di "
+        "confine pesa uguale in ogni anno."
+    ),
+    "limite_noto": (
+        "Unica eccezione: un contratto da 12 mesi che inizia il 28/02 di un anno bisestile "
+        "(scarto sotto lo 0,25% del canone)."
+    ),
+}
 # Vista con cui si confronta il budget assegnato al sottocluster: il riferimento del budget
 # (SPEC Rev23, §5.2).
 VISTA_ASSEGNATO = "consuntivo"
