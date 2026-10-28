@@ -188,8 +188,11 @@ def test_lavorazione_completa(scenario):
     fa = fatture.QS_FATTURE.get(pk=fa.pk)
     assert fatture.passo_fattura(fa) == PassoFattura.TRASFERIMENTO
     pagina = html.unescape(client.get(url).content.decode())
-    assert PAC_ATTESO in pagina
-    assert "Valore base da prelevare € 1.504,17. COGE: 600010, CDC: C0001" in pagina
+    assert PAC_ATTESO.replace("5800000013", "5800000077") in pagina
+    assert (
+        "Contratto 5800000077. Valore base da prelevare € 1.504,17. COGE: 600010, CDC: C0001"
+        in pagina
+    )
     client.post(
         reverse("contratti:fattura_trasferisci", args=[fa.pk]),
         {"data": OGGI.strftime("%d/%m/%Y")},

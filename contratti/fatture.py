@@ -826,6 +826,7 @@ def dati_pac(fattura: m.Fattura) -> motore.DatiPAC:
         valore_base=fattura.valore_base,
         oneri=fattura.oneri,
         bollo=fattura.bollo,
+        numero_contratto=fattura.contratto.numero_contratto if fattura.contratto_id else None,
     )
 
 

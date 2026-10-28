@@ -545,7 +545,9 @@ def test_tc18_via_mcp(make_user, editor, registro_fatture):
     )
     wbs = m.WBS.objects.create(codice_wbs="WBS-TEST-01", descrizione="WBS di prova", cluster=it)
     studio = f.fornitore("Studio Prova", nome_breve="STUDIOP")
-    cs = f.contratto(fornitore=studio, fabbisogno=f.fabbisogno("Consulenza S"))
+    cs = f.contratto(
+        fornitore=studio, fabbisogno=f.fabbisogno("Consulenza S"), numero_contratto="5800000013"
+    )
     f.voce(cs, natura=m.Natura.CAPEX, conto=conto, centro_costo="C0001", wbs=wbs,
            importo_fisso=Decimal("5000.00"))  # fmt: skip
     f13 = m.Fattura.objects.create(fornitore=studio, numero="13/2026", data=D(2026, 9, 28),

@@ -184,7 +184,8 @@ def test_fatture_tc18(registro, tmp_path, lettore):  # noqa: F811
     dati = esegui(lettore, "fattura", {"id": f13.pk})
     assert dati["commento_pac"] == PAC_ATTESO
     assert dati["indicazioni_validazione"] == (
-        "Valore base da prelevare € 1.504,17. COGE: 600010, CDC: C0001, WBS: WBS-TEST-01"
+        "Contratto 5800000013. Valore base da prelevare € 1.504,17. "
+        "COGE: 600010, CDC: C0001, WBS: WBS-TEST-01"
     )
     assert dati["passo"] == "trasferimento" and dati["anomalie"] == []
     mie = esegui(rossi, "elenco_fatture", {"vista": "mie"})
