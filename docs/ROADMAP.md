@@ -740,10 +740,16 @@ Richiesta del responsabile del progetto, approvata il 05/11/2026 (SPEC Rev35). I
 1. **Modello e permessi** (SPEC Rev35): sottocluster obbligatorio su fabbisogni e RDA; WBS di
    cluster, autorizzazioni extra budget e conti legati al sottocluster; cluster dedotto dal
    sottocluster; «Non classificato» come ripiego; migration 0052–0054 con test su dati d'esempio.
-2. **Filtro a tendina per sottocluster** in tutte le viste web (cluster espandibili in sottocluster,
+2. **Filtro a tendina per sottocluster** (SPEC Rev36) in tutte le viste web (cluster espandibili in sottocluster,
    di default tutti i sottocluster dell'utente), al posto del filtro per cluster.
 3. **Connettore MCP**: i tool di lettura filtrano per sottocluster; SPEC_MCP aggiornata.
 
 **Accettazione del passo 1:** `ruff`, `pytest`, `makemigrations --check` puliti; la migration dei dati
 provata su un database con i casi critici (un solo sottocluster, più sottocluster, nessuno, conti
 condivisi); nessun fabbisogno, RDA o autorizzazione senza sottocluster.
+
+**Accettazione del passo 2:** tendina ad albero in contratti, fabbisogni, cruscotto, RDA, piani da
+verificare, budget, piano ordini, WBS, extra budget, stato delle RDA, cruscotto acquisti, contratti da
+chiudere, stanziamenti e anomalie; default = sottocluster dell'utente; nessun controllo annidato
+(axe-core) e uso da tastiera; PDF, XLSX e nomi dei file con i sottocluster; `ruff`, `pytest` (compresi
+i test nel browser) e `makemigrations --check` puliti.
