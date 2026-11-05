@@ -308,3 +308,18 @@ th a.ordina .bi { font-size: .75rem; opacity: .7; }
 .passi li.fatto .passo-numero { background: var(--sa-verde); color: #fff; border-color: var(--sa-verde); }
 .riga-stipulati .btn .bi-chevron-right { display: inline-block; transition: transform .15s; }
 .riga-stipulati .btn:not(.collapsed) .bi-chevron-right { transform: rotate(90deg); }
+
+/* Tendina «Sottocluster» ad albero (Rev36): cluster espandibili con i loro sottocluster. */
+.albero-sottocluster { position: relative; }
+.albero-pulsante { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.albero-menu { min-width: 20rem; max-height: 60vh; overflow-y: auto; }
+.albero-cluster > summary { list-style: none; cursor: pointer; }
+.albero-cluster > summary::-webkit-details-marker { display: none; }
+.albero-riga { display: flex; align-items: center; gap: .5rem; padding: .25rem .25rem; border-radius: .375rem; }
+.albero-riga:hover { background: var(--bs-tertiary-bg); }
+.albero-riga::before { content: "\F285"; font-family: "bootstrap-icons"; font-size: .75rem; transition: transform .15s; }
+.albero-cluster[open] > .albero-riga::before { transform: rotate(90deg); }
+.albero-nome { font-weight: 600; }
+.albero-figli { padding: .125rem 0 .25rem 2.25rem; }
+.albero-figlio { display: flex; align-items: center; gap: .5rem; padding: .125rem 0; cursor: pointer; }
+.albero-figlio .form-check-input { float: none; margin: 0; }

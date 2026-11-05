@@ -17,6 +17,7 @@ from contratti.engine import budget, sal
 from contratti.engine.importi import ZERO
 from contratti.engine.stato_budget import StatoBudget, percentuale_utilizzo, stato_budget
 from contratti.engine.tipi import Esito, Livello, Voce
+from contratti.permessi import ids_sottocluster
 from contratti.selettori import codici_cluster
 
 # Rev21: il budget di riferimento è il consuntivo a competenza (fatture registrate e
@@ -124,8 +125,12 @@ class Filtri:
     previsionali: bool = True
     natura: str = ""  # vuoto: entrambe, da presentare separate
     wbs: int | None = None
-    sottocluster: int | None = None  # pk del sottocluster del fabbisogno
+    sottocluster: "int | tuple[int, ...] | None" = None  # pk (uno o più) dei sottocluster
     fabbisogno: int | None = None  # un solo fabbisogno (confronto con la competenza dichiarata)
+
+    def __post_init__(self):
+        # Un id o più id (la tendina ad albero): sempre una tupla; vuoto = tutti.
+        object.__setattr__(self, "sottocluster", ids_sottocluster(self.sottocluster))
 
     def ammette(self, cl: adapters.Classificazione) -> bool:
         """La voce, con la sua classificazione, entra in questo budget?"""
@@ -312,15 +317,17 @@ def _totali(voci: list[VoceBudget]) -> dict[str, Somme]:
 
 
 def budget_assegnato(filtri: Filtri) -> dict[str, Decimal | None]:
-    """Budget assegnato al sottocluster filtrato nell'anno, per natura (None: non assegnato)."""
+    """Budget assegnato ai sottocluster filtrati nell'anno, per natura (None: non assegnato).
+
+    Con più sottocluster è la somma di quelli assegnati.
+    """
     if not filtri.sottocluster:
         return {}
-    assegnati = {
-        b.natura: b.importo
-        for b in m.BudgetSottocluster.objects.filter(
-            sottocluster_id=filtri.sottocluster, anno=filtri.anno, archiviato=False
-        )
-    }
+    assegnati: dict[str, Decimal] = {}
+    for b in m.BudgetSottocluster.objects.filter(
+        sottocluster_id__in=filtri.sottocluster, anno=filtri.anno, archiviato=False
+    ):
+        assegnati[b.natura] = assegnati.get(b.natura, ZERO) + b.importo
     return {natura: assegnati.get(natura) for natura in NATURE}
 
 
@@ -328,7 +335,7 @@ def _assegnati(qs, filtri: Filtri, campo: str) -> dict[str, Decimal]:
     """Somma gli assegnati per codice (del conto o della WBS) nell'ambito del filtro."""
     qs = qs.filter(anno=filtri.anno, archiviato=False)
     if filtri.sottocluster:
-        qs = qs.filter(sottocluster_id=filtri.sottocluster)
+        qs = qs.filter(sottocluster_id__in=filtri.sottocluster)
     else:
         codici = codici_cluster(filtri.area)
         if codici:
@@ -434,7 +441,7 @@ def _contratti(filtri: Filtri):
     if filtri.fornitore:
         qs = qs.filter(fornitore_id=filtri.fornitore)
     if filtri.sottocluster:
-        qs = qs.filter(fabbisogno__sottocluster_id=filtri.sottocluster)
+        qs = qs.filter(fabbisogno__sottocluster_id__in=filtri.sottocluster)
     if filtri.fabbisogno:
         qs = qs.filter(fabbisogno_id=filtri.fabbisogno)
     return qs.select_related("fabbisogno__cluster", "fornitore", "procedura").prefetch_related(
@@ -505,7 +512,7 @@ def _voci_previste(filtri: Filtri, oggi: datetime.date):
     if codici := codici_cluster(filtri.area):
         fabbisogni = fabbisogni.filter(cluster__codice__in=codici)
     if filtri.sottocluster:
-        fabbisogni = fabbisogni.filter(sottocluster_id=filtri.sottocluster)
+        fabbisogni = fabbisogni.filter(sottocluster_id__in=filtri.sottocluster)
     if filtri.fabbisogno:
         fabbisogni = fabbisogni.filter(pk=filtri.fabbisogno)
     voci: list[VoceBudget] = []

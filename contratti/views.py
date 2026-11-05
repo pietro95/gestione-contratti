@@ -65,35 +65,28 @@ def storico(oggetto) -> list[dict]:
     return list(reversed(voci))
 
 
-# --- Cluster visibili -----------------------------------------------------------------
+# --- Sottocluster visibili -------------------------------------------------------------
 
 
-def _cluster_richiesti(request) -> list[str]:
-    """Codici dei cluster da mostrare: di default i propri (F9.2), «tutti» a richiesta."""
-    return permessi.codici_filtro(request.user, request.GET.getlist("area"))
+def _sottocluster_richiesti(request) -> tuple[int, ...]:
+    """Id dei sottocluster da mostrare: di default i propri (Rev36); vuoto = nessuna restrizione."""
+    return permessi.filtro_sottocluster(request.user, request.GET.getlist("sottocluster"))
 
 
-def _sottocluster_richiesto(request) -> int | None:
-    """Il sottocluster scelto nei filtri (id), o ``None`` = tutti."""
-    return permessi.id_sottocluster(request.GET.get("sottocluster"))
-
-
-def _contesto_cluster(request) -> dict:
-    scelto = _sottocluster_richiesto(request)
+def _contesto_sottocluster(request) -> dict:
+    """La tendina ad albero dei sottocluster (partial ``_filtro_sottocluster.html``)."""
     return {
-        "aree": permessi.scelte_filtro(request.user),
-        "area_scelte": permessi.selezione_filtro(request.user, request.GET.getlist("area")),
-        "sottocluster_elenco": _sottocluster_scelta(),
-        "sottocluster_scelto": "" if scelto is None else str(scelto),
+        "filtro_sottocluster": permessi.contesto_filtro_sottocluster(
+            request.user, request.GET.getlist("sottocluster")
+        )
     }
 
 
-def _etichetta_cluster(valore: str) -> str:
-    if valore == permessi.TUTTI:
-        return "Tutti i cluster"
-    if valore == permessi.MIEI:
-        return "I miei cluster"
-    return f"Cluster: {valore}"
+def _etichetta_sottocluster(valori: list[str]) -> str:
+    """Il chip dei filtri attivi: «Sottocluster: ICT (tutti), OT · Reti»."""
+    if permessi.TUTTI in valori:
+        return "Sottocluster: tutti"
+    return permessi.descrivi_sottocluster_scelti(permessi._id_validi(valori))
 
 
 # --- Cruscotto -------------------------------------------------------------------------
@@ -105,11 +98,11 @@ def home(request):
     from reports.budget import ETICHETTE_VISTE, NATURE, VISTE, Filtri, calcola_budget
 
     oggi = oggi_richiesta(request)
-    codici = permessi.codici_filtro(request.user, [])
-    gruppi = selettori.cruscotto(oggi, {"area": codici})
+    ids = permessi.filtro_sottocluster(request.user, [])
+    gruppi = selettori.cruscotto(oggi, {"sottocluster": ids})
     contratti = selettori.contratti_base().filter(archiviato=False)
-    if codici:
-        contratti = contratti.filter(fabbisogno__cluster__codice__in=codici)
+    if ids:
+        contratti = contratti.filter(fabbisogno__sottocluster_id__in=ids)
     righe = selettori.righe_contratti(contratti, oggi)
     entro = oggi + datetime.timedelta(days=90)
     prossime = sorted(
@@ -126,7 +119,7 @@ def home(request):
         # OPEX e CAPEX affiancati, mai sommati.
         per_natura = {
             s.filtri.natura: s.totali()["totale"]
-            for s in calcola_budget(Filtri(anno=oggi.year, area=tuple(codici)), oggi).sezioni()
+            for s in calcola_budget(Filtri(anno=oggi.year, sottocluster=ids), oggi).sezioni()
         }
         budget = {
             "nature": NATURE,
@@ -159,7 +152,7 @@ def home(request):
             "prossime": prossime[:8],
             "prossime_totale": len(prossime),
             "budget": budget,
-            "cluster_propri": permessi.cluster_propri(request.user),
+            "sottocluster_propri": len(ids) or None,
         },
     )
 
@@ -179,10 +172,7 @@ def cerca(request):
 @login_required
 def cruscotto(request):
     oggi = oggi_richiesta(request)
-    filtri = {
-        "area": _cluster_richiesti(request),
-        "sottocluster": _sottocluster_richiesto(request),
-    }
+    filtri = {"sottocluster": _sottocluster_richiesti(request)}
     gruppi = selettori.cruscotto(oggi, filtri)
     return render(
         request,
@@ -199,7 +189,7 @@ def cruscotto(request):
                 (Alert.GIALLO, "In avvicinamento o pratica in corso", gruppi[Alert.GIALLO]),
             ],
             "filtri": filtri,
-            **_contesto_cluster(request),
+            **_contesto_sottocluster(request),
             "proposte_aperte": m.PropostaRaggruppamento.objects.filter(stato="proposta").count()
             + m.PropostaPredecessore.objects.filter(stato="proposta").count(),
         },
@@ -223,10 +213,8 @@ def _filtra_contratti(request, oggi):
             | Q(numero_rda__icontains=q)
             | Q(fornitore__ragione_sociale__icontains=q)
         )
-    if codici := _cluster_richiesti(request):
-        qs = qs.filter(fabbisogno__cluster__codice__in=codici)
-    if sottocluster := _sottocluster_richiesto(request):
-        qs = qs.filter(fabbisogno__sottocluster_id=sottocluster)
+    if sottocluster := _sottocluster_richiesti(request):
+        qs = qs.filter(fabbisogno__sottocluster_id__in=sottocluster)
     # Finanziato: almeno una voce su WBS a progetto (F9.2).
     # Extra budget: almeno una voce autorizzata dall'AD fuori budget (Rev18); prevale.
     su_progetto = Q(voci__archiviato=False, voci__wbs__tipo=m.WBS.Tipo.PROGETTO)
@@ -285,6 +273,11 @@ def filtri_attivi(g, etichette: dict) -> list[tuple[str, str]]:
     """(parametro, testo) dei filtri valorizzati, per le etichette rimovibili."""
     attivi = []
     for chiave, descrivi in etichette.items():
+        if chiave == "sottocluster":  # selezione multipla: un solo chip riassuntivo
+            valori = [v for v in g.getlist(chiave) if v.strip()]
+            if valori:
+                attivi.append((chiave, descrivi(valori)))
+            continue
         valore = g.get(chiave, "").strip()
         if valore:
             testo = descrivi(valore) if callable(descrivi) else f"{descrivi}: {valore}"
@@ -298,10 +291,6 @@ def _ordine_qs(ordina: str, campi: dict, default: tuple) -> tuple:
     if not campo:
         return default
     return (f"-{campo}" if ordina.startswith("-") else campo, "pk")
-
-
-def _sottocluster_scelta():
-    return m.Sottocluster.objects.filter(archiviato=False).select_related("cluster")
 
 
 def _nome(modello, pk):
@@ -326,8 +315,7 @@ def contratti_elenco(request):
             g,
             {
                 "q": "Testo",
-                "area": _etichetta_cluster,
-                "sottocluster": lambda v: _nome(m.Sottocluster, v),
+                "sottocluster": _etichetta_sottocluster,
                 "stato": lambda v: "Stato: " + dict(STATI_TEMPORALI).get(v, v),
                 "alert": lambda v: "Alert: " + v,
                 "anno": "Attivi nell'anno",
@@ -341,7 +329,7 @@ def contratti_elenco(request):
             },
         ),
         "filtri": request.GET,
-        **_contesto_cluster(request),
+        **_contesto_sottocluster(request),
         "fornitori": m.Fornitore.objects.filter(archiviato=False),
         "stati": STATI_TEMPORALI,
         "alert": [(a.value, a.value.capitalize()) for a in Alert],
@@ -1005,12 +993,10 @@ def fabbisogni_elenco(request):
         qs = qs.filter(
             Q(descrizione__icontains=q) | Q(referente__icontains=q) | Q(note__icontains=q)
         )
-    if codici := _cluster_richiesti(request):
-        qs = qs.filter(cluster__codice__in=codici)
     if g.get("decisione"):
         qs = qs.filter(decisione=g["decisione"])
-    if sottocluster := _sottocluster_richiesto(request):
-        qs = qs.filter(sottocluster_id=sottocluster)
+    if sottocluster := _sottocluster_richiesti(request):
+        qs = qs.filter(sottocluster_id__in=sottocluster)
     ordine = _ordine_qs(
         g.get("ordina", ""),
         {
@@ -1033,15 +1019,14 @@ def fabbisogni_elenco(request):
                 g,
                 {
                     "q": "Testo",
-                    "area": _etichetta_cluster,
                     "decisione": lambda v: (
                         "Decisione: " + dict(m.Fabbisogno.Decisione.choices).get(v, v)
                     ),
-                    "sottocluster": lambda v: _nome(m.Sottocluster, v),
+                    "sottocluster": _etichetta_sottocluster,
                     "archiviati": lambda v: "Con gli archiviati",
                 },
             ),
-            **_contesto_cluster(request),
+            **_contesto_sottocluster(request),
             "decisioni": m.Fabbisogno.Decisione.choices,
         },
     )
@@ -1193,16 +1178,12 @@ def fornitore_modifica(request, pk=None):
 @login_required
 def piani_da_verificare(request):
     """Elenco di lavoro: voci con piano `Da verificare`, fatturato a mesi frazionati."""
-    voci = list(
-        selettori.voci_piano_da_verificare(
-            _cluster_richiesti(request), _sottocluster_richiesto(request)
-        )
-    )
+    voci = list(selettori.voci_piano_da_verificare((), _sottocluster_richiesti(request)))
     return render(
         request,
         "contratti/piani_da_verificare.html",
         {
-            **_contesto_cluster(request),
+            **_contesto_sottocluster(request),
             "voci": voci,
             "totale": sum((v.peso for v in voci), Decimal("0.00")),
             "puo_modificare": role_of(request.user) in ("Admin", "Editor"),

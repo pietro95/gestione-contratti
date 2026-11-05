@@ -50,6 +50,66 @@
     });
   }
 
+  // Tendina «Sottocluster» (Rev36): cluster espandibili in sottocluster, selezione multipla.
+  // La casella del cluster sceglie tutti i suoi sottocluster ed è «parziale» se ne mancano;
+  // resta sempre almeno un sottocluster scelto. Senza JavaScript restano le caselle dei
+  // sottocluster, da scegliere una a una.
+  function alberoSottocluster(radice) {
+    radice.querySelectorAll("[data-albero-sottocluster]").forEach(function (el) {
+      if (el.dataset.alberoPronto) return;
+      el.dataset.alberoPronto = "1";
+      var etichetta = el.querySelector("[data-albero-etichetta]");
+      function caselle() { return Array.prototype.slice.call(el.querySelectorAll("input[type=checkbox][name]")); }
+      function aggiorna() {
+        var tutte = caselle();
+        var scelte = tutte.filter(function (c) { return c.checked; });
+        el.querySelectorAll("details.albero-cluster").forEach(function (d) {
+          var figli = Array.prototype.slice.call(d.querySelectorAll("input[type=checkbox][name]"));
+          var n = figli.filter(function (c) { return c.checked; }).length;
+          var cl = d.querySelector("[data-albero-cluster]");
+          cl.checked = figli.length > 0 && n === figli.length;
+          cl.indeterminate = n > 0 && n < figli.length;
+          d.querySelector("[data-albero-conteggio]").textContent = n + "/" + figli.length;
+        });
+        if (scelte.length === tutte.length) {
+          etichetta.textContent = "Tutti i sottocluster";
+        } else if (scelte.length === 1) {
+          var d = scelte[0].closest("details");
+          etichetta.textContent = d.dataset.codice + " · " + scelte[0].parentNode.textContent.trim();
+        } else {
+          etichetta.textContent = scelte.length + " sottocluster su " + tutte.length;
+        }
+      }
+      // Un clic sulla casella del cluster non deve aprire o chiudere il riquadro.
+      el.querySelectorAll("summary input").forEach(function (c) {
+        c.addEventListener("click", function (e) { e.stopPropagation(); });
+      });
+      el.addEventListener("change", function (e) {
+        var t = e.target;
+        if (t.matches("[data-albero-cluster]")) {
+          t.closest("details").querySelectorAll("input[type=checkbox][name]").forEach(function (c) { c.checked = t.checked; });
+          t.indeterminate = false;
+        }
+        if (!caselle().some(function (c) { return c.checked; })) {  // almeno uno
+          if (t.matches("[data-albero-cluster]")) {
+            t.closest("details").querySelectorAll("input[type=checkbox][name]").forEach(function (c) { c.checked = true; });
+          } else {
+            t.checked = true;
+          }
+        }
+        aggiorna();
+      });
+      el.querySelectorAll("[data-albero-azione]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var propri = b.dataset.alberoAzione === "propri";
+          caselle().forEach(function (c) { c.checked = propri ? c.dataset.propri === "1" : true; });
+          aggiorna();
+        });
+      });
+      aggiorna();
+    });
+  }
+
   // Date: calendario italiano, valore gg/mm/aaaa (il server accetta anche aaaa-mm-gg).
   function date(radice) {
     if (typeof flatpickr === "undefined") return;
@@ -316,6 +376,7 @@
   function inizializza(radice) {
     tendine(radice);
     cluster(radice);
+    alberoSottocluster(radice);
     date(radice);
     righe(radice);
     scorrimenti(radice);

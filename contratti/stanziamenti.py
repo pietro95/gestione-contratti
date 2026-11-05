@@ -53,7 +53,7 @@ def proposte(
     oggi: datetime.date,
     codici_cluster=(),
     contratto: m.Contratto | None = None,
-    sottocluster: int | None = None,
+    sottocluster: "int | tuple[int, ...] | None" = None,
 ):
     """Rate da stanziare, dalla più vecchia. ``codici_cluster`` e ``sottocluster`` vuoti: tutti."""
     limite = oggi - datetime.timedelta(days=tolleranza(oggi))
@@ -75,7 +75,11 @@ def proposte(
     if codici_cluster:
         qs = qs.filter(piano__voce__contratto__fabbisogno__cluster__codice__in=codici_cluster)
     if sottocluster:
-        qs = qs.filter(piano__voce__contratto__fabbisogno__sottocluster_id=sottocluster)
+        qs = qs.filter(
+            piano__voce__contratto__fabbisogno__sottocluster_id__in=permessi.ids_sottocluster(
+                sottocluster
+            )
+        )
     rate = list(qs)
     derivati: dict[int, dict] = {}
     risultato = []

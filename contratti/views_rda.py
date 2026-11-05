@@ -19,11 +19,10 @@ from contratti import models as m
 from contratti.engine import acquisti as motore
 from contratti.views import (
     PER_PAGINA,
-    _cluster_richiesti,
-    _contesto_cluster,
+    _contesto_sottocluster,
     _nome,
     _pk_o_none,
-    _sottocluster_richiesto,
+    _sottocluster_richiesti,
     filtri_attivi,
     oggi_richiesta,
     storico,
@@ -84,9 +83,7 @@ def rda_elenco(request):
     qs = _qs_rda()
     if not g.get("archiviate"):
         qs = qs.filter(archiviato=False)
-    if codici := _cluster_richiesti(request):
-        qs = qs.filter(cluster__codice__in=codici)
-    qs = acquisti.filtra_rda_per_sottocluster(qs, _sottocluster_richiesto(request))
+    qs = acquisti.filtra_rda_per_sottocluster(qs, _sottocluster_richiesti(request))
     if g.get("mie"):
         qs = qs.filter(referente_utente=request.user)
     if q := g.get("q", "").strip():
@@ -121,7 +118,7 @@ def rda_elenco(request):
                     "archiviate": lambda v: "Con le archiviate",
                 },
             ),
-            **_contesto_cluster(request),
+            **_contesto_sottocluster(request),
             "puo_scrivere": permessi.puo_modificare(request.user),
         },
     )

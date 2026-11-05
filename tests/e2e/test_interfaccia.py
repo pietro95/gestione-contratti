@@ -43,7 +43,7 @@ def _pagine(dati):
         "/",
         "/cruscotto/",
         "/contratti/",
-        "/contratti/?area=IT&ordina=-fine",
+        "/contratti/?ordina=-fine",
         f"/contratti/{c.pk}/",
         f"/contratti/{c.pk}/modifica/",
         f"/contratti/{c.pk}/rinnovo/",
@@ -180,13 +180,14 @@ def test_filtri_attivi_e_ordinamento(pagina, dati):
     pagina.goto(f"{pagina.base}/contratti/?ordina=inizio")
     prima = pagina.locator("#tabella tbody tr").first.inner_text()
     assert "5800000002" in prima  # 2024 prima del 2026
-    pagina.goto(f"{pagina.base}/contratti/?ordina=-inizio&area=IT")
+    sotto = dati["fabbisogno"].sottocluster
+    pagina.goto(f"{pagina.base}/contratti/?ordina=-inizio&sottocluster={sotto.pk}")
     assert "5800000001" in pagina.locator("#tabella tbody tr").first.inner_text()
-    chip = pagina.locator(".chip", has_text="Cluster: IT")
+    chip = pagina.locator(".chip", has_text="Sottocluster:")
     assert chip.is_visible()
     chip.locator("a").click()
     pagina.wait_for_load_state("networkidle")
-    assert "area=" not in pagina.url
+    assert "sottocluster=" not in pagina.url
     assert altro.pk
 
 
@@ -272,9 +273,9 @@ def test_stampa_dei_report_senza_colonne_tagliate(pagina, dati):
     """In stampa (A4 orizzontale) nessuna tabella esce dal foglio e i totali sono in fondo."""
     pagina.set_viewport_size({"width": 1050, "height": 740})  # area utile di un A4 orizzontale
     for url in (
-        "/report/budget/?anno=2026&natura=separate&area=tutti",
-        "/report/piano-ordini/?anno=2027&area=tutti",
-        "/contratti/?area=tutti",
+        "/report/budget/?anno=2026&natura=separate&sottocluster=tutti",
+        "/report/piano-ordini/?anno=2027&sottocluster=tutti",
+        "/contratti/?sottocluster=tutti",
     ):
         pagina.goto(pagina.base + url)
         pagina.wait_for_load_state("networkidle")
@@ -302,7 +303,7 @@ def test_piano_ordini_stipulati_in_una_riga_espandibile(pagina, dati):
         fab = f.fabbisogno(nome, decisione="dismettere")
         c = f.contratto(fabbisogno=fab, data_inizio=datetime.date(2026, 1, 1), durata_mesi=24)
         f.piano(f.voce(c, descrizione="Canone", importo_fisso=Decimal("2400.00")))
-    pagina.goto(pagina.base + "/report/piano-ordini/?anno=2027&area=tutti")
+    pagina.goto(pagina.base + "/report/piano-ordini/?anno=2027&sottocluster=tutti")
     pagina.wait_for_load_state("networkidle")
     riga = pagina.locator("tr.riga-stipulati").first
     assert "già stipulat" in riga.inner_text()
@@ -316,30 +317,38 @@ def test_piano_ordini_stipulati_in_una_riga_espandibile(pagina, dati):
     assert not pagina.errori, pagina.errori
 
 
-def test_filtro_con_piu_cluster(pagina, dati):
-    """F9.6: più cluster nel filtro; «Tutti i cluster» esclude gli altri e viceversa."""
-    for codice in ("TLC", "OT"):
-        f.cluster(codice)
+def test_tendina_sottocluster_ad_albero(pagina, dati):
+    """Rev36: cluster espandibili in sottocluster; si scelgono cluster o singoli sottocluster."""
+    alfa = f.sottocluster("Alfa", "IT")
+    beta = f.sottocluster("Beta", "IT")
+    gamma = f.sottocluster("Gamma", "TLC")
     pagina.goto(f"{pagina.base}/report/budget/?anno=2026")
-    wrapper = pagina.locator("select#id_area ~ .ts-wrapper")
-    scelti = wrapper.locator(".ts-control .item")
-    expect(scelti).to_have_count(1)
-    expect(scelti.first).to_contain_text("Tutti i cluster")
-
-    def scegli(codice):
-        # Clic sull'area libera del controllo: sulla voce già scelta il clic la seleziona.
-        controllo = wrapper.locator(".ts-control")
-        box = controllo.bounding_box()
-        controllo.click(position={"x": box["width"] - 8, "y": box["height"] / 2})
-        pagina.locator(f".ts-dropdown .option[data-value='{codice}']").click()
-
-    scegli("IT")
-    scegli("TLC")
-    expect(scelti).to_have_count(2)  # «Tutti» tolto scegliendo un cluster
+    albero = pagina.locator("[data-albero-sottocluster]")
+    pulsante = albero.locator(".albero-pulsante")
+    expect(pulsante).to_contain_text("Tutti i sottocluster")  # di default tutti i propri
+    pulsante.click()
+    cluster_tlc = albero.locator("details[data-codice=TLC] [data-albero-cluster]")
+    cluster_it = albero.locator("details[data-codice=IT] [data-albero-cluster]")
+    # Il cluster sceglie e toglie tutti i suoi sottocluster.
+    cluster_tlc.uncheck()
+    expect(albero.locator(f"input[name=sottocluster][value='{gamma.pk}']")).not_to_be_checked()
+    expect(pulsante).to_contain_text("sottocluster su")
+    # Un sottocluster solo: il cluster diventa «parziale» e il riquadro si espande.
+    albero.locator("details[data-codice=IT] summary .albero-nome").click()
+    albero.locator(f"input[name=sottocluster][value='{beta.pk}']").uncheck()
+    assert cluster_it.evaluate("e => e.indeterminate") is True
+    expect(pulsante).to_contain_text("2 sottocluster su")
+    # Resta sempre almeno un sottocluster scelto.
+    albero.locator(f"input[name=sottocluster][value='{alfa.pk}']").uncheck()
+    expect(albero.locator("input[name=sottocluster]:checked")).not_to_have_count(0)
+    assert not violazioni_axe(pagina)
     pagina.locator("form.filtri button[type=submit]").click()
-    pagina.wait_for_url("**area=IT&area=TLC**")
-    expect(wrapper.locator(".ts-control .item")).to_have_count(2)
-    scegli("tutti")
-    expect(scelti).to_have_count(1)
-    expect(scelti.first).to_contain_text("Tutti i cluster")
+    pagina.wait_for_url("**sottocluster=**")
+    assert f"sottocluster={beta.pk}" not in pagina.url
+    pagina.locator("[data-albero-sottocluster] .albero-pulsante").click()
+    expect(
+        pagina.locator(f"[data-albero-sottocluster] input[value='{beta.pk}']")
+    ).not_to_be_checked()
+    pagina.locator("[data-albero-azione=tutti]").click()
+    expect(pagina.locator(".albero-pulsante")).to_contain_text("Tutti i sottocluster")
     assert not pagina.errori

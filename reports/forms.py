@@ -1,4 +1,5 @@
 from django import forms
+from django.template.loader import render_to_string
 
 from contratti import models as m
 from contratti import permessi
@@ -18,58 +19,75 @@ ENTRAMBE = "separate"
 AUTOMATICO = "auto"
 
 
-def _scelte_cluster(utente) -> list[tuple[str, str]]:
-    if utente is None:
-        return [("", "Tutti i cluster"), *m.scelte_cluster()]
-    return permessi.scelte_filtro(utente)
-
-
 def _valori(dati, chiave) -> list[str]:
     valori = dati.getlist(chiave) if hasattr(dati, "getlist") else dati.get(chiave) or []
     return [valori] if isinstance(valori, str) else list(valori)
 
 
-def _cluster_default(dati, utente) -> None:
-    """Di default ognuno vede i propri cluster (F9.2); la tendina lo mostra.
+class AlberoSottoclusterWidget(forms.Widget):
+    """Tendina a selezione multipla: cluster espandibili in sottocluster (Rev36).
 
-    Più cluster insieme: «area» si ripete (``?area=IT&area=TLC``).
+    Il form le passa l'albero già calcolato (``filtro``); i valori sono gli id dei sottocluster.
     """
-    valori = _valori(dati, "area")
-    if utente is not None:
-        valori = permessi.selezione_filtro(utente, valori)
-    if hasattr(dati, "setlist"):
-        dati.setlist("area", valori)
-    else:
-        dati["area"] = valori
+
+    template = "contratti/_albero_sottocluster.html"
+
+    def __init__(self, attrs=None):
+        super().__init__(attrs)
+        self.filtro: dict = {"albero": [], "etichetta": "Tutti i sottocluster"}
+
+    def render(self, name, value, attrs=None, renderer=None):
+        identificativo = (attrs or {}).get("id") or f"id_{name}"
+        return render_to_string(
+            self.template, {"filtro": self.filtro, "nome": name, "identificativo": identificativo}
+        )
+
+    def value_from_datadict(self, data, files, name):
+        return data.getlist(name) if hasattr(data, "getlist") else (data.get(name) or [])
 
 
-def _codici(utente, valori) -> tuple[str, ...]:
-    valori = [v for v in valori or [] if v]
-    if utente is None:
-        return tuple(valori)
-    return tuple(permessi.codici_filtro(utente, valori))
-
-
-def _campo_cluster():
+def _campo_sottocluster():
     return forms.MultipleChoiceField(
-        choices=[],
-        required=False,
-        label="Cluster",
-        widget=forms.SelectMultiple(attrs={"class": "form-select js-cluster"}),
+        choices=[], required=False, label="Sottocluster", widget=AlberoSottoclusterWidget()
     )
 
 
-class FiltriBudgetForm(FormBase):
+def _prepara_sottocluster(form, dati, utente) -> None:
+    """Di default ognuno vede i propri sottocluster; la tendina lo mostra (Rev36).
+
+    La selezione si ripete (``?sottocluster=3&sottocluster=7``); «tutti» li sceglie tutti.
+    """
+    scelti = [
+        str(i) for i in permessi.selezione_sottocluster(utente, _valori(dati, "sottocluster"))
+    ]
+    if hasattr(dati, "setlist"):
+        dati.setlist("sottocluster", scelti)
+    else:
+        dati["sottocluster"] = scelti
+    campo = form.fields["sottocluster"]
+    campo.choices = [(str(s.pk), str(s)) for s in m.Sottocluster.objects.all()]
+    campo.widget.filtro = permessi.contesto_filtro_sottocluster(utente, scelti)
+
+
+class SottoclusterFiltroMixin:
+    """Metodi comuni dei form con la tendina dei sottocluster."""
+
+    utente = None
+
+    def sottocluster_ids(self) -> tuple[int, ...]:
+        """Id da filtrare; vuoto = nessuna restrizione (sono scelti tutti i sottocluster)."""
+        return permessi.filtro_sottocluster(self.utente, self.cleaned_data.get("sottocluster"))
+
+    def descrizione_sottocluster(self) -> str:
+        return permessi.descrivi_sottocluster_scelti(self.sottocluster_ids())
+
+
+class FiltriBudgetForm(SottoclusterFiltroMixin, FormBase):
     anno = forms.IntegerField(min_value=2000, max_value=2100)
     natura = forms.ChoiceField(
         choices=[*m.Natura.choices, (ENTRAMBE, "OPEX e CAPEX, separati")], required=False
     )
-    area = _campo_cluster()
-    sottocluster = forms.ModelChoiceField(
-        queryset=m.Sottocluster.objects.filter(archiviato=False).select_related("cluster"),
-        required=False,
-        empty_label="Tutti i sottocluster",
-    )
+    sottocluster = _campo_sottocluster()
     conto = forms.ModelChoiceField(
         queryset=m.ContoCoge.objects.order_by("codice"), required=False, empty_label="Tutti i conti"
     )
@@ -106,7 +124,6 @@ class FiltriBudgetForm(FormBase):
         dati = dati.copy()
         dati.setdefault("anno", str(anno_default))
         self.utente = utente
-        _cluster_default(dati, utente)
         # Il budget si legge sul fatturato e stanziato (competenza): le altre viste si scelgono.
         if not _valori(dati, "viste"):
             if hasattr(dati, "setlist"):
@@ -121,16 +138,15 @@ class FiltriBudgetForm(FormBase):
         # OPEX e CAPEX sono budget distinti: di default si vede l'OPEX, mai la somma.
         dati.setdefault("natura", m.Natura.OPEX)
         super().__init__(dati)
-        self.fields["area"].choices = _scelte_cluster(utente)
+        _prepara_sottocluster(self, dati, utente)
 
     def filtri(self) -> Filtri:
         d = self.cleaned_data
         return Filtri(
             anno=d["anno"],
-            area=_codici(self.utente, d.get("area")),
             conto=d["conto"].pk if d.get("conto") else None,
             fornitore=d["fornitore"].pk if d.get("fornitore") else None,
-            sottocluster=d["sottocluster"].pk if d.get("sottocluster") else None,
+            sottocluster=self.sottocluster_ids(),
             progetti=d.get("progetti") or "",
             extra_budget=d.get("extra_budget") or "",
             previsionali=d.get("previsti") != "no",
@@ -155,35 +171,23 @@ class FiltriBudgetForm(FormBase):
         return Livello(self.cleaned_data.get("livello") or Livello.PROBABILE)
 
 
-class FiltriPianoForm(FormBase):
+class FiltriPianoForm(SottoclusterFiltroMixin, FormBase):
     anno = forms.IntegerField(min_value=2000, max_value=2100)
-    area = _campo_cluster()
-    sottocluster = forms.ModelChoiceField(
-        queryset=m.Sottocluster.objects.filter(archiviato=False).select_related("cluster"),
-        required=False,
-        empty_label="Tutti i sottocluster",
-    )
+    sottocluster = _campo_sottocluster()
     natura = forms.ChoiceField(choices=[("", "OPEX e CAPEX"), *m.Natura.choices], required=False)
 
     def __init__(self, dati, *, anno_default: int, utente=None):
         dati = dati.copy()
         dati.setdefault("anno", str(anno_default))
         self.utente = utente
-        _cluster_default(dati, utente)
         super().__init__(dati)
-        self.fields["area"].choices = _scelte_cluster(utente)
-
-    def codici_cluster(self) -> tuple[str, ...]:
-        return _codici(self.utente, self.cleaned_data.get("area"))
+        _prepara_sottocluster(self, dati, utente)
 
     def voci(self) -> list[str]:
         d = self.cleaned_data
         return [
             f"Anno {d['anno']}",
-            permessi.descrivi_filtro(self.codici_cluster()),
-            f"sottocluster {d['sottocluster']}"
-            if d.get("sottocluster")
-            else "tutti i sottocluster",
+            self.descrizione_sottocluster().replace("Sottocluster: ", "sottocluster ", 1),
             d["natura"] if d.get("natura") else "OPEX e CAPEX",
         ]
 
@@ -191,35 +195,19 @@ class FiltriPianoForm(FormBase):
         return "; ".join(self.voci())
 
 
-class FiltriClusterForm(FormBase):
-    """Cluster e sottocluster: contratti da chiudere, anomalie dell'esecuzione (F11.4)."""
+class FiltriClusterForm(SottoclusterFiltroMixin, FormBase):
+    """Sottocluster: contratti da chiudere, anomalie dell'esecuzione (F11.4)."""
 
-    area = _campo_cluster()
-    sottocluster = forms.ModelChoiceField(
-        queryset=m.Sottocluster.objects.filter(archiviato=False).select_related("cluster"),
-        required=False,
-        empty_label="Tutti i sottocluster",
-    )
+    sottocluster = _campo_sottocluster()
 
     def __init__(self, dati, *, utente=None):
         dati = dati.copy()
         self.utente = utente
-        _cluster_default(dati, utente)
         super().__init__(dati)
-        self.fields["area"].choices = _scelte_cluster(utente)
-
-    def codici_cluster(self) -> tuple[str, ...]:
-        return _codici(self.utente, self.cleaned_data.get("area"))
-
-    def sottocluster_id(self) -> int | None:
-        scelto = self.cleaned_data.get("sottocluster")
-        return scelto.pk if scelto else None
+        _prepara_sottocluster(self, dati, utente)
 
     def voci(self) -> list[str]:
-        voci = [permessi.descrivi_filtro(self.codici_cluster())]
-        if self.sottocluster_id():
-            voci.append(permessi.descrivi_sottocluster(self.sottocluster_id()))
-        return voci
+        return [self.descrizione_sottocluster()]
 
     def descrizione(self) -> str:
         return "; ".join(self.voci())
@@ -266,8 +254,7 @@ class FiltriRdaForm(FiltriClusterForm):
 
         d = self.cleaned_data
         return FiltriRDA(
-            cluster=self.codici_cluster(),
-            sottocluster=self.sottocluster_id(),
+            sottocluster=self.sottocluster_ids(),
             referente=d["referente"].pk if d.get("referente") else None,
             fasi=tuple(d.get("fase") or ()),
             anno=d.get("anno"),
