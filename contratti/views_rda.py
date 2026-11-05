@@ -20,7 +20,7 @@ from contratti.engine import acquisti as motore
 from contratti.views import (
     PER_PAGINA,
     _contesto_sottocluster,
-    _nome,
+    _etichetta_sottocluster,
     _pk_o_none,
     _sottocluster_richiesti,
     filtri_attivi,
@@ -112,7 +112,7 @@ def rda_elenco(request):
                 g,
                 {
                     "q": "Testo",
-                    "sottocluster": lambda v: _nome(m.Sottocluster, v),
+                    "sottocluster": _etichetta_sottocluster,
                     "fase": lambda v: "Fase: " + motore.ETICHETTE_FASE.get(v, v),
                     "mie": lambda v: "Le mie RDA",
                     "archiviate": lambda v: "Con le archiviate",

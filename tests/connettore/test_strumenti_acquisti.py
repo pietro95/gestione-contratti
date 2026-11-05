@@ -140,7 +140,7 @@ def test_elenco_rda_come_la_vista_e_l_export(rda_tc17, lettore, make_user):
     # Stesso totale dell'export XLSX della vista «Stato delle RDA».
     client = Client()
     client.force_login(lettore)
-    risposta = client.get(reverse("reports:stato_rda") + "?area=tutti&formato=xlsx")
+    risposta = client.get(reverse("reports:stato_rda") + "?sottocluster=tutti&formato=xlsx")
     ws = openpyxl.load_workbook(io.BytesIO(risposta.content))["Stato delle RDA"]
     totale = [r for r in ws.iter_rows(values_only=True) if r[0] == "Totale"][0]
     assert Decimal(str(totale[13])) == Decimal(dati["totale_importo"])

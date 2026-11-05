@@ -124,14 +124,14 @@ def test_rda_da_processare_e_mie_rda(rda_varie):
 
 def test_vista_stato_rda_ed_export(rda_varie, client):
     client.force_login(rda_varie["rossi"])
-    url = reverse("reports:stato_rda") + "?area=tutti&oggi=2026-07-16"
+    url = reverse("reports:stato_rda") + "?sottocluster=tutti&oggi=2026-07-16"
     pagina = client.get(url).content.decode()
     assert "5100000001" in pagina and "1.650,49" in pagina
     risposta = client.get(url + "&formato=xlsx")
     wb = openpyxl.load_workbook(io.BytesIO(risposta.content))
     ws = wb["Stato delle RDA"]
     valori = [c.value for riga in ws.iter_rows() for c in riga]
-    assert "Cluster: tutti" in valori and Decimal("1650.49") == Decimal(str(valori[-2]))
+    assert "Sottocluster: tutti" in valori and Decimal("1650.49") == Decimal(str(valori[-2]))
     risposta = client.get(url + "&fase=inserita&formato=pdf")
     assert risposta["Content-Type"] == "application/pdf"
 

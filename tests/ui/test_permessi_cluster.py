@@ -1,6 +1,7 @@
 """F9.2: l'Editor modifica solo i propri cluster; ognuno vede di default i propri."""
 
 import datetime
+import re
 
 import pytest
 from django.http import QueryDict
@@ -106,32 +107,39 @@ def test_admin_tutti_e_transizione_senza_assegnazioni(struttura, utente, make_us
     assert _modifica(utente("lettore", READER, "OT"), ot).status_code == 403
 
 
-def test_di_default_si_vedono_i_propri_cluster(struttura, utente):
+def _sotto(struttura, codice) -> int:
+    """Il sottocluster del fabbisogno del cluster (Rev35: «Non classificato» nei test)."""
+    return struttura["fab"][codice].sottocluster_id
+
+
+def test_di_default_si_vedono_i_propri_sottocluster(struttura, utente):
     editor = utente("e.it", EDITOR, "IT", "TLC")
     elenco = reverse("contratti:contratti")
     html = editor.get(elenco).content.decode()
     assert "580000" in html and "580001" in html and "580002" not in html
-    assert "I miei cluster (IT, TLC)" in html
-    html = editor.get(elenco + "?area=tutti").content.decode()
+    assert "2 sottocluster su 3" in html  # la tendina mostra la selezione di default
+    html = editor.get(elenco + "?sottocluster=tutti").content.decode()
     assert "580002" in html
-    html = editor.get(elenco + "?area=OT").content.decode()  # gli altri a richiesta
+    ot = _sotto(struttura, "OT")
+    html = editor.get(elenco + f"?sottocluster={ot}").content.decode()  # gli altri a richiesta
     assert "580002" in html and "580000" not in html
     html = editor.get(reverse("contratti:fabbisogni")).content.decode()
     assert "Licenze IT" in html and "Telecontrollo" not in html
-    # Chi non ha cluster assegnati vede tutto.
+    # Chi non ha assegnazioni vede tutto.
     html = utente("lettore", READER).get(elenco).content.decode()
-    assert "580002" in html and "I miei cluster" not in html
+    assert "580002" in html and "3 sottocluster su 3" not in html and "Tutti i sottocluster" in html
 
 
-def test_budget_e_piano_ordini_di_default_sui_propri_cluster(struttura, utente):
+def test_budget_e_piano_ordini_di_default_sui_propri_sottocluster(struttura, utente):
     editor = utente("e.it", EDITOR, "IT", "TLC")
+    propri = tuple(sorted((_sotto(struttura, "IT"), _sotto(struttura, "TLC"))))
     form = FiltriBudgetForm({}, anno_default=2026, utente=editor.utente)
-    assert form.is_valid() and form.filtri().area == ("IT", "TLC")
-    form = FiltriBudgetForm({"area": "tutti"}, anno_default=2026, utente=editor.utente)
-    assert form.is_valid() and form.filtri().area == ()
+    assert form.is_valid() and form.filtri().sottocluster == propri
+    form = FiltriBudgetForm({"sottocluster": "tutti"}, anno_default=2026, utente=editor.utente)
+    assert form.is_valid() and form.filtri().sottocluster == ()
     form = FiltriPianoForm({}, anno_default=2027, utente=editor.utente)
-    assert form.is_valid() and form.codici_cluster() == ("IT", "TLC")
-    assert form.descrizione().startswith("Anno 2027; Cluster: IT, TLC;")
+    assert form.is_valid() and form.sottocluster_ids() == propri
+    assert form.descrizione().startswith("Anno 2027; sottocluster IT (tutti), TLC (tutti);")
     risposta = editor.get(reverse("reports:piano_ordini"))
     assert risposta.status_code == 200
     assert {r.fabbisogno.cluster.codice for r in risposta.context["piano"].righe} <= {"IT", "TLC"}
@@ -223,19 +231,27 @@ def test_conto_senza_cluster_bloccato_dopo_la_struttura(struttura, utente):
     assert c.voci.count() == 1
 
 
-def test_piu_cluster_nel_filtro(struttura, utente):
-    """F9.6: il filtro «Cluster» accetta più cluster (``?area=IT&area=OT``)."""
+def test_piu_sottocluster_nel_filtro(struttura, utente):
+    """Rev36: il filtro accetta più sottocluster (``?sottocluster=3&sottocluster=7``)."""
     editor = utente("e.it", EDITOR, "IT", "TLC")
-    assert permessi.selezione_filtro(editor.utente, []) == [permessi.MIEI]
-    assert permessi.selezione_filtro(editor.utente, ["IT", "tutti"]) == [permessi.TUTTI]
-    assert permessi.selezione_filtro(editor.utente, ["IT", "OT", "IT"]) == ["IT", "OT"]
-    html = editor.get(reverse("contratti:contratti") + "?area=IT&area=OT").content.decode()
+    it, tlc, ot = (_sotto(struttura, c) for c in ("IT", "TLC", "OT"))
+    assert permessi.selezione_sottocluster(editor.utente, []) == [it, tlc]
+    assert sorted(permessi.selezione_sottocluster(editor.utente, [str(it), "tutti"])) == sorted(
+        (it, tlc, ot)
+    )
+    assert permessi.selezione_sottocluster(editor.utente, [str(it), str(ot), str(it)]) == [it, ot]
+    assert permessi.selezione_sottocluster(editor.utente, ["abc"]) == [it, tlc]  # non valido
+    html = editor.get(
+        reverse("contratti:contratti") + f"?sottocluster={it}&sottocluster={ot}"
+    ).content.decode()
     assert "580000" in html and "580002" in html and "580001" not in html
-    assert 'value="IT" selected' in html and 'value="OT" selected' in html
-    form = FiltriBudgetForm(QueryDict("area=IT&area=OT"), anno_default=2026, utente=editor.utente)
-    assert form.is_valid() and form.filtri().area == ("IT", "OT")
-    risposta = editor.get(reverse("reports:piano_ordini") + "?anno=2027&area=TLC&area=OT")
-    assert risposta.context["form"].codici_cluster() == ("TLC", "OT")
-    assert permessi.descrivi_filtro([]) == "Cluster: tutti"
-    m.Cluster.objects.filter(codice="OT").update(nome="Telecontrollo")
-    assert permessi.descrivi_filtro(["IT", "OT"]) == "Cluster: IT, OT (Telecontrollo)"
+    assert re.search(rf'value="{ot}"[^>]*checked', html)
+    assert not re.search(rf'value="{tlc}"[^>]*checked', html)
+    form = FiltriBudgetForm(
+        QueryDict(f"sottocluster={it}&sottocluster={ot}"),
+        anno_default=2026,
+        utente=editor.utente,
+    )
+    assert form.is_valid() and form.filtri().sottocluster == tuple(sorted((it, ot)))
+    assert permessi.descrivi_sottocluster_scelti([]) == "Sottocluster: tutti"
+    assert permessi.descrivi_sottocluster_scelti([it, ot]) == "Sottocluster: IT (tutti), OT (tutti)"

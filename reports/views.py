@@ -235,7 +235,11 @@ def wbs_elenco(request):
         "reports/wbs_elenco.html",
         {
             "elenco": elenco_wbs(
-                [], tipo, archiviate=bool(g.get("archiviate")), sottocluster=sottocluster
+                [],
+                tipo,
+                archiviate=bool(g.get("archiviate")),
+                sottocluster=sottocluster,
+                tutte_a_progetto=not scelti,
             ),
             "filtro_sottocluster": permessi.contesto_filtro_sottocluster(request.user, scelti),
             "tipi": m.WBS.Tipo.choices,

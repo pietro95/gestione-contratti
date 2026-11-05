@@ -210,6 +210,7 @@ def elenco_wbs(
     tipo: str = "",
     archiviate: bool = False,
     sottocluster: "int | tuple[int, ...] | None" = None,
+    tutte_a_progetto: bool = False,
 ):
     """WBS con il numero di voci; di default quelle dei cluster dati e tutte le WBS a progetto.
 
@@ -224,7 +225,10 @@ def elenco_wbs(
         n_voci=Count("voci", filter=voci, distinct=True)
     )
     if ids:  # le WBS dei sottocluster scelti e quelle con voci di fabbisogni dei sottocluster
-        qs = qs.filter(Q(sottocluster_id__in=ids) | Q(n_voci__gt=0))
+        ammesse = Q(sottocluster_id__in=ids) | Q(n_voci__gt=0)
+        if tutte_a_progetto:  # nella vista di default (nessuna scelta) restano tutte
+            ammesse |= Q(tipo=m.WBS.Tipo.PROGETTO)
+        qs = qs.filter(ammesse)
     if not archiviate:
         qs = qs.filter(archiviato=False)
     if tipo:

@@ -75,7 +75,7 @@ def _a4_orizzontale(visto):
 
 
 def test_budget_pdf_a4_orizzontale_con_i_totali(dati, lettore, catturato):
-    url = reverse("reports:budget") + "?anno=2026&area=tutti&formato=pdf"
+    url = reverse("reports:budget") + "?anno=2026&sottocluster=tutti&formato=pdf"
     r = _scarica(lettore, url)
     assert r["Content-Disposition"].endswith('_Budget_2026_OPEX.pdf"')
     _a4_orizzontale(catturato)
@@ -85,7 +85,9 @@ def test_budget_pdf_a4_orizzontale_con_i_totali(dati, lettore, catturato):
 
 
 def test_budget_pdf_opex_e_capex_con_dettaglio(dati, lettore, catturato):
-    url = reverse("reports:budget") + "?anno=2026&area=tutti&natura=&dettaglio=1&formato=pdf"
+    url = (
+        reverse("reports:budget") + "?anno=2026&sottocluster=tutti&natura=&dettaglio=1&formato=pdf"
+    )
     assert _scarica(lettore, url)["Content-Disposition"].endswith('_Budget_2026_OPEX_CAPEX.pdf"')
     doc = _a4_orizzontale(catturato)
     assert len(doc.pages) >= 2  # la sezione CAPEX parte su una pagina nuova
@@ -95,7 +97,9 @@ def test_budget_pdf_opex_e_capex_con_dettaglio(dati, lettore, catturato):
 
 
 def test_piano_ordini_e_spese_wbs_pdf(dati, lettore, catturato):
-    r = _scarica(lettore, reverse("reports:piano_ordini") + "?anno=2027&area=tutti&formato=pdf")
+    r = _scarica(
+        lettore, reverse("reports:piano_ordini") + "?anno=2027&sottocluster=tutti&formato=pdf"
+    )
     assert r["Content-Disposition"].endswith('_Piano_ordini_2027.pdf"')
     _a4_orizzontale(catturato)
     assert "Piattaforma di prova" in render_to_string(catturato["template"], catturato["contesto"])
@@ -118,29 +122,30 @@ def test_nel_pdf_solo_file_locali():
     assert pdf._solo_statici(pdf._url("css/pdf.css"))
 
 
-def test_cluster_in_evidenza_nel_pdf(dati, lettore, catturato):
-    """Il PDF dice sempre quali cluster comprende: sotto il titolo, in testata e nel nome."""
-    f.cluster("TLC")
-    url = reverse("reports:budget") + "?anno=2026&area=IT&area=TLC&formato=pdf"
-    r = _scarica(lettore, url)
+def test_sottocluster_in_evidenza_nel_pdf(dati, lettore, catturato):
+    """Il PDF dice sempre quali sottocluster comprende: sotto il titolo, in testata e nel nome."""
+    it, tlc = f.sottocluster("Server", "IT"), f.sottocluster("Reti", "TLC")
+    f.sottocluster("Sala", "OT")  # la scelta è ristretta: non sono tutti
+    url = reverse("reports:budget") + f"?anno=2026&sottocluster={it.pk}&sottocluster={tlc.pk}"
+    r = _scarica(lettore, url + "&formato=pdf")
     assert r["Content-Disposition"].endswith('_Budget_2026_OPEX_IT-TLC.pdf"')
     html = render_to_string(catturato["template"], catturato["contesto"])
-    assert '<span class="filtro">Cluster: IT, TLC</span>' in html
-    assert "Registro contratti ICTDINN · Cluster: IT, TLC" in html
-    r = _scarica(lettore, reverse("reports:budget") + "?anno=2026&area=tutti&formato=pdf")
+    assert '<span class="filtro">Sottocluster: ' in html and "IT · Server" in html
+    assert "Registro contratti ICTDINN · Sottocluster: " in html
+    r = _scarica(lettore, reverse("reports:budget") + "?anno=2026&sottocluster=tutti&formato=pdf")
     assert r["Content-Disposition"].endswith('_Budget_2026_OPEX.pdf"')
-    assert '<span class="filtro">Cluster: tutti</span>' in render_to_string(
+    assert '<span class="filtro">Sottocluster: tutti</span>' in render_to_string(
         catturato["template"], catturato["contesto"]
     )
-    url = reverse("reports:piano_ordini") + "?anno=2027&area=IT&formato=pdf"
+    url = reverse("reports:piano_ordini") + f"?anno=2027&sottocluster={it.pk}&formato=pdf"
     assert _scarica(lettore, url)["Content-Disposition"].endswith('_Piano_ordini_2027_IT.pdf"')
-    assert '<span class="filtro">Cluster: IT</span>' in render_to_string(
+    assert '<span class="filtro">Sottocluster: IT · Server</span>' in render_to_string(
         catturato["template"], catturato["contesto"]
     )
 
 
 def test_piano_ordini_pdf_avvisi_di_frazionamento_solo_a_richiesta(dati, lettore, catturato):
-    url = reverse("reports:piano_ordini") + "?anno=2027&area=tutti&formato=pdf"
+    url = reverse("reports:piano_ordini") + "?anno=2027&sottocluster=tutti&formato=pdf"
     _scarica(lettore, url)
     assert "Possibile frazionamento" not in render_to_string(
         catturato["template"], catturato["contesto"]

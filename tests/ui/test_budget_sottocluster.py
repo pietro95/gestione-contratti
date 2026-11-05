@@ -59,7 +59,7 @@ def test_box_assegnato_e_residuo(reader, sotto):
     )
     risposta = reader.get(
         reverse("reports:budget"),
-        {"anno": 2026, "natura": "OPEX", "sottocluster": sotto["reti"].pk, "area": "IT"},
+        {"anno": 2026, "natura": "OPEX", "sottocluster": sotto["reti"].pk},
     )
     (sezione,) = risposta.context["sezioni"]
     a = sezione["assegnato"]
@@ -84,13 +84,24 @@ def test_box_non_assegnato_e_senza_filtro(reader, sotto):
     assert 'id="assegnato-' not in r.content.decode()
 
 
-def test_box_nascosto_fuori_dai_cluster_filtrati(reader, sotto):
-    f.cluster("TLC")
+def test_box_somma_dei_sottocluster_scelti(reader, sotto):
+    """Rev36: con più sottocluster il box somma gli assegnati e il speso dei sottocluster."""
+    m.Sottocluster.objects.create(cluster=f.cluster("OT"), nome="Altro")  # la scelta è ristretta
+    for sc, importo in ((sotto["reti"], "12000.00"), (sotto["server"], "5000.00")):
+        m.BudgetSottocluster.objects.create(
+            sottocluster=sc, anno=2026, natura="OPEX", importo=Decimal(importo)
+        )
     r = reader.get(
         reverse("reports:budget"),
-        {"anno": 2026, "natura": "OPEX", "sottocluster": sotto["reti"].pk, "area": "TLC"},
+        {
+            "anno": 2026,
+            "natura": "OPEX",
+            "sottocluster": [sotto["reti"].pk, sotto["server"].pk],
+        },
     )
-    assert r.context["sezioni"][0]["assegnato"] is None
+    a = r.context["sezioni"][0]["assegnato"]
+    assert a["importo"] == Decimal("17000.00") and a["speso"] == Decimal("14000.00")
+    assert a["residuo"] == Decimal("3000.00")
 
 
 def test_assegnato_archiviato_e_altro_anno_ignorati(sotto):
