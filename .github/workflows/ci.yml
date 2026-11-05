@@ -205,7 +205,7 @@ jobs:
           access=$(python3 -c "import json; print(json.load(open('/tmp/token.json'))['access_token'])")
           refresh=$(python3 -c "import json; print(json.load(open('/tmp/token.json'))['refresh_token'])")
           $cm -H "Authorization: Bearer $access" -H "Content-Type: application/json" \
-            --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"scadenze","arguments":{"cluster":["tutti"]}}}' \
+            --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"scadenze","arguments":{"sottocluster":["tutti"]}}}' \
             "https://$HOST_MCP/mcp" > /tmp/scadenze.json
           python3 -c "import json; r=json.load(open('/tmp/scadenze.json'))['result']; assert not r.get('isError'), r; print('righe:', r['structuredContent']['totale'])"
           # Refresh ruotato con l'utente limitato (cancella il vecchio access token).
