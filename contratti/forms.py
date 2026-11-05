@@ -225,7 +225,6 @@ class FabbisognoForm(ModelFormBootstrap):
             "Fabbisogno",
             [
                 "descrizione",
-                "cluster",
                 "sottocluster",
                 "fonte_finanziamento",
                 "referente_utente",
@@ -258,7 +257,6 @@ class FabbisognoForm(ModelFormBootstrap):
         model = m.Fabbisogno
         fields = [
             "descrizione",
-            "cluster",
             "sottocluster",
             "fonte_finanziamento",
             "referente_utente",
@@ -282,30 +280,18 @@ class FabbisognoForm(ModelFormBootstrap):
 
     def __init__(self, *args, utente=None, **kwargs):
         super().__init__(*args, **kwargs)
-        cluster = m.Cluster.objects.filter(archiviato=False)
-        if utente is not None and (ammessi := permessi.cluster_modificabili(utente)) is not None:
-            cluster = cluster.filter(pk__in=ammessi)  # solo i propri cluster (F9.2)
-        _solo_attivi(self, "cluster", cluster)
         self.utente = utente
         sottocluster = m.Sottocluster.objects.filter(archiviato=False)
         if utente is not None:  # solo i propri sottocluster (Rev25)
             sottocluster = permessi.sottocluster_modificabili(utente, sottocluster)
         _solo_attivi(self, "sottocluster", sottocluster)
         _solo_attivi(self, "fonte_finanziamento", m.FonteFinanziamento.objects.filter(attiva=True))
-        # Nuovo: obbligatorio; un fabbisogno già classificato non perde il sottocluster; quelli
-        # importati senza si completano quando conviene, senza bloccare altre modifiche.
-        self.fields["sottocluster"].required = not self.instance.pk or bool(
-            self.instance.sottocluster_id
-        )
+        self.fields["sottocluster"].required = True  # Rev35: sempre in un sottocluster
         self.fields["sottocluster"].empty_label = "— scegli il sottocluster —"
         self.fields["sottocluster"].queryset = self.fields["sottocluster"].queryset.select_related(
             "cluster"
         )
-        self.fields[
-            "sottocluster"
-        ].help_text = (
-            "Obbligatorio: classifica il fabbisogno nel cluster (deve essere del cluster scelto)."
-        )
+        self.fields["sottocluster"].help_text = "Obbligatorio: raggruppa il piano ordini."
         referente = self.fields["referente_utente"]
         referente.queryset = utenti_attivi()
         referente.label = "Referente"
@@ -334,12 +320,12 @@ class FabbisognoForm(ModelFormBootstrap):
 
     def clean(self):
         dati = super().clean()
-        cluster, sottocluster = dati.get("cluster"), dati.get("sottocluster")
+        sottocluster = dati.get("sottocluster")
         if (
             self.utente is not None
-            and cluster is not None
+            and sottocluster is not None
             and not permessi.puo_modificare_in(
-                self.utente, cluster.pk, sottocluster.pk if sottocluster else None
+                self.utente, sottocluster.cluster_id, sottocluster.pk
             )
         ):
             self.add_error("sottocluster", "Non hai il permesso su questo sottocluster.")
@@ -349,7 +335,10 @@ class FabbisognoForm(ModelFormBootstrap):
                 "Per il previsto manuale servono insieme avvio e durata, oppure nessuno dei due."
             )
         verifica_natura_wbs(
-            self, dati.get("natura_previsti") or m.Natura.OPEX, "wbs_previsti", dati.get("cluster")
+            self,
+            dati.get("natura_previsti") or m.Natura.OPEX,
+            "wbs_previsti",
+            sottocluster.cluster if sottocluster else None,
         )
         return dati
 
@@ -753,7 +742,7 @@ class VoceForm(ModelFormBootstrap):
             conto = dati.get(campo)
             if conto is None:
                 continue
-            cluster_conto = list(conto.clusters.all())
+            cluster_conto = conto.clusters
             if cluster_conto and self.cluster and self.cluster not in cluster_conto:
                 elenco = ", ".join(c.codice for c in cluster_conto)
                 self.add_error(

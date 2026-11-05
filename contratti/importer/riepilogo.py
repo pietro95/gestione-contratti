@@ -295,7 +295,9 @@ class Importatore:
         self.report = report
         self.oggi = oggi
         self.conti = {}
-        for c in m.ContoCoge.objects.prefetch_related("clusters").order_by("valido_dal"):
+        for c in m.ContoCoge.objects.prefetch_related("sottocluster__cluster").order_by(
+            "valido_dal"
+        ):
             self.conti[c.codice] = c  # l'ultimo per validità
         self.fornitori = {}
         for f in m.Fornitore.objects.filter(archiviato=False):
@@ -329,7 +331,7 @@ class Importatore:
         if tabelle.centro_costo_da_segnalare(centro):
             self.anomalia(n, "CENTRO_COSTO_NON_IN_TABELLA", "centro_costo", centro,
                           tabelle.MESSAGGIO_CENTRO_COSTO)  # fmt: skip
-        if data_rda is None or data_rda < INIZIO_SAP or conto is None or not conto.clusters.all():
+        if data_rda is None or data_rda < INIZIO_SAP or conto is None or not conto.clusters:
             # Fuori perimetro: solo questa anomalia, non quelle del conto.
             del self.report.anomalie[prima:]
         if data_rda is None or data_rda < INIZIO_SAP:
@@ -342,7 +344,7 @@ class Importatore:
                 "RDA prima del 01/04/2025 (numerazione SAP) o senza data.",
             )
             return
-        if conto is None or not conto.clusters.all():
+        if conto is None or not conto.clusters:
             self.conta("fuori_perimetro")
             self.anomalia(
                 n,
@@ -440,7 +442,7 @@ class Importatore:
 
     def _cluster_conto(self, conto, numero) -> m.Cluster:
         """Cluster della RDA: quello del conto; con più cluster il primo, segnalato (Rev25)."""
-        cluster = sorted(conto.clusters.all(), key=lambda c: c.codice)
+        cluster = conto.clusters
         if len(cluster) > 1:
             self.anomalia(
                 numero,

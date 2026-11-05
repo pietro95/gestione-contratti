@@ -38,7 +38,7 @@ def _conto(codice, cluster=None):
     conto = m.ContoCoge.objects.create(
         codice=codice, descrizione=f"Conto {codice} (prova)", valido_dal=D(2020, 1, 1)
     )
-    conto.clusters.add(cluster or f.cluster("IT"))
+    conto.imposta_cluster([cluster or f.cluster("IT")])
     return conto
 
 

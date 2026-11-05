@@ -250,11 +250,12 @@ def test_dati_sap_e_contratti_proposti(client, editor, rda_bozza, licenze_cad): 
 
 
 def test_registra_rda(client, editor, tabelle_sap):  # noqa: F811
-    dati = {"cluster": f.cluster("IT").pk, "descrizione": "RDA storica", "numero_rda":
+    sotto = f.sottocluster("Licenze software", "IT")
+    dati = {"sottocluster": sotto.pk, "descrizione": "RDA storica", "numero_rda":
             "5100000016", "data_inserimento": "01/09/2026", "referente": "Rossi"}  # fmt: skip
     uguale(
         client, editor, lambda cl: cl.post("/rda/registra/", dati), "registra_rda",
-        {"cluster": "IT", "descrizione": "RDA storica", "numero_rda": "5100000016",
+        {"sottocluster": sotto.pk, "descrizione": "RDA storica", "numero_rda": "5100000016",
          "data_inserimento": "2026-09-01", "referente": "Rossi"},
     )  # fmt: skip
 
@@ -754,7 +755,8 @@ def test_editor_di_un_altro_cluster(make_user, rda_bozza, una_tantum):
     ):  # fmt: skip
         assert "cluster che non puoi modificare" in errore(verdi, nome, argomenti)
     assert "Scegli un'opzione valida" in errore(verdi, "registra_rda", {
-        "cluster": "IT", "descrizione": "X", "numero_rda": "5100000001",
+        "sottocluster": f.sottocluster("Licenze software", "IT").pk, "descrizione": "X",
+        "numero_rda": "5100000001",
     })  # fmt: skip
 
 

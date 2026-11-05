@@ -128,7 +128,7 @@ def test_editor_fuori_dai_propri_cluster(editor, contratto_in_alert):
         ("avanza_pratica", lambda c: {"contratto_id": c.pk, "stato": "offerta_richiesta",
                                       "data": "2026-10-05"}),
         ("genera_scadenzario", lambda c: {"voce_id": c.voci.get().pk}),
-        ("crea_fabbisogno", lambda c: {"descrizione": "Nuovo servizio", "cluster": "IT",
+        ("crea_fabbisogno", lambda c: {"descrizione": "Nuovo servizio",
                                       "sottocluster": f.sottocluster().pk}),
         ("archivia", lambda c: {"tipo": "contratto", "id": c.pk}),
     ],
@@ -175,7 +175,7 @@ def test_nuovo_fabbisogno_vuoto_non_sposta_il_budget(editor, contratto_in_alert)
     dati = ok(
         ctx(editor),
         "crea_fabbisogno",
-        {"descrizione": "Nuovo servizio", "cluster": cluster, "sottocluster": f.sottocluster().pk},
+        {"descrizione": "Nuovo servizio", "sottocluster": f.sottocluster().pk},
     )
     assert dati["effetti"]["budget_livello_probabile"] == []
     (fab,) = dati["effetti"]["fabbisogni"]
@@ -200,9 +200,9 @@ def test_budget_prima_e_dopo_sono_quelli_del_cluster(editor, contratto_in_alert)
 def test_fabbisogno_spostato_di_cluster(editor, contratto_in_alert):
     """Il budget esce da un cluster ed entra nell'altro: tutti e due con il loro «prima»."""
     fab = contratto_in_alert.fabbisogno
-    f.cluster("TLC")
+    tlc = f.sottocluster("Connettività", "TLC")
     origine = budget_probabile("IT", 2026)
-    dati = ok(ctx(editor), "modifica_fabbisogno", {"id": fab.pk, "cluster": "TLC"})
+    dati = ok(ctx(editor), "modifica_fabbisogno", {"id": fab.pk, "sottocluster": tlc.pk})
     righe = [r for r in dati["effetti"]["budget_livello_probabile"] if r["anno"] == 2026]
     assert {r["cluster"] for r in righe} == {"IT", "TLC"}
     for r in righe:
@@ -222,7 +222,6 @@ def test_anteprima_di_dati_non_validi(editor):
         "crea_fabbisogno",
         {
             "descrizione": "X",
-            "cluster": "IT",
             "sottocluster": f.sottocluster().pk,
             "previsto_data_avvio": "2027-01-01",
         },

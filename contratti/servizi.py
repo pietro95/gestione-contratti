@@ -553,7 +553,8 @@ def _allinea_rda(richieste, destinazione: m.Fabbisogno, motivo: str) -> None:
         if r.fabbisogno_id is not None:
             r.fabbisogno = destinazione
         r.cluster_id = destinazione.cluster_id
-        _salva(r, motivo, update_fields=["fabbisogno", "cluster"])
+        r.sottocluster_id = destinazione.sottocluster_id
+        _salva(r, motivo, update_fields=["fabbisogno", "cluster", "sottocluster"])
 
 
 # --- Contratti doppi -------------------------------------------------------------------

@@ -77,7 +77,7 @@ def test_import_crea_la_struttura(file):
     assert sotto[("BE", "Sicurezza fisica")].owner == "Anna Bianchi"
     # conti: ognuno dei cluster in cui compare; validi dal 1/1/2026
     c = m.ContoCoge.objects.get(codice="600001")
-    assert [x.codice for x in c.clusters.all()] == ["ALFA"] and c.valido_dal == D(2026, 1, 1)
+    assert [x.codice for x in c.clusters] == ["ALFA"] and c.valido_dal == D(2026, 1, 1)
     assert m.ContoCoge.objects.get(codice="600010").descrizione == "ACQUISTO MATERIALE"
     assert m.ContoCoge.objects.get(codice="600041").descrizione == "SCAVI"
     assert r.conteggi["conti_creati"] == 8
@@ -122,9 +122,7 @@ def test_esistenti_si_riconoscono_e_non_si_alterano(file):
         and m.Sottocluster.objects.filter(nome="Elaborazione").count() == 1
     )
     conto.refresh_from_db()  # solo i cluster cambiano
-    assert conto.descrizione == "Descrizione SAP" and [x.codice for x in conto.clusters.all()] == [
-        "ALF"
-    ]
+    assert conto.descrizione == "Descrizione SAP" and [x.codice for x in conto.clusters] == ["ALF"]
     assert m.ContoCoge.objects.filter(codice="600001").count() == 1
     progetto.refresh_from_db()
     assert progetto.tipo == m.WBS.Tipo.PROGETTO and r.codici()["WBS_A_PROGETTO"] == 1

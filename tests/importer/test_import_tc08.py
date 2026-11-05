@@ -129,7 +129,8 @@ def test_valori_assegnati_ai_dati_mancanti(excel):
     c = m.Contratto.objects.select_related("procedura", "fabbisogno").get()
     assert c.procedura.codice == "da_verificare"
     assert c.procedura.lead_time_mesi == 6
-    assert c.fabbisogno.sottocluster is None
+    # Rev35: l'Excel non indica il sottocluster, quindi quello di ripiego da riclassificare.
+    assert c.fabbisogno.sottocluster.nome == m.NOME_NON_CLASSIFICATO
     piano = c.voci.get().piano_fatturazione
     assert piano.modalita == "da_verificare"
     assert c.chiave_import

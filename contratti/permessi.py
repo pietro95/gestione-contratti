@@ -61,8 +61,8 @@ def struttura_caricata() -> bool:
 
 
 def conti_per_cluster() -> bool:
-    """Il piano dei conti ha i cluster (struttura caricata): da qui il cluster è obbligatorio."""
-    return m.ContoCoge.objects.filter(clusters__isnull=False).exists()
+    """Il piano dei conti ha i sottocluster (struttura caricata): da qui sono obbligatori."""
+    return m.ContoCoge.objects.filter(sottocluster__isnull=False).exists()
 
 
 def cluster_modificabili(user) -> frozenset[int] | None:
@@ -131,7 +131,8 @@ def puo_modificare_fabbisogno(user, fabbisogno) -> bool:
 def ambito_del(oggetto) -> tuple[int, int | None]:
     """(cluster, sottocluster) di un oggetto con permessi per sottocluster: anche una RDA."""
     if isinstance(oggetto, m.RichiestaAcquisto):
-        return oggetto.cluster_id, oggetto.sottocluster_id
+        cluster = oggetto.sottocluster.cluster_id if oggetto.sottocluster_id else oggetto.cluster_id
+        return cluster, oggetto.sottocluster_id
     f = fabbisogno_del(oggetto)
     return f.cluster_id, f.sottocluster_id
 

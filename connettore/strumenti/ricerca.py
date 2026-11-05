@@ -32,18 +32,20 @@ def _conti_e_wbs(ctx: Contesto, argomenti: dict) -> dict:
     codici = cluster_filtro(ctx.utente, argomenti.get("cluster"))
     uscita = {}
     if "conti" in includi:
-        conti = m.ContoCoge.objects.prefetch_related("clusters").order_by("codice", "-valido_dal")
+        conti = m.ContoCoge.objects.prefetch_related("sottocluster__cluster").order_by(
+            "codice", "-valido_dal"
+        )
         conti = conti.filter(valido_dal__lte=ctx.oggi).filter(
             Q(valido_al__isnull=True) | Q(valido_al__gte=ctx.oggi)
         )
         if codici:
-            conti = conti.filter(clusters__codice__in=codici).distinct()
+            conti = conti.filter(sottocluster__cluster__codice__in=codici).distinct()
         uscita["conti"] = [
             {
                 "id": c.pk,
                 "codice": c.codice,
                 "descrizione": c.descrizione,
-                "cluster": sorted(k.codice for k in c.clusters.all()),
+                "cluster": sorted(k.codice for k in c.clusters),
             }
             for c in conti
         ]

@@ -111,7 +111,6 @@ class RdaManualeForm(ModelFormBootstrap):
         (
             "RDA",
             [
-                "cluster",
                 "sottocluster",
                 "descrizione",
                 "fornitore_proposto",
@@ -126,7 +125,6 @@ class RdaManualeForm(ModelFormBootstrap):
     class Meta:
         model = m.RichiestaAcquisto
         fields = [
-            "cluster",
             "sottocluster",
             "descrizione",
             "fornitore_proposto",
@@ -143,15 +141,12 @@ class RdaManualeForm(ModelFormBootstrap):
 
     def __init__(self, *args, utente=None, **kwargs):
         super().__init__(*args, **kwargs)
-        cluster = m.Cluster.objects.filter(archiviato=False)
-        if utente is not None and (ammessi := permessi.cluster_modificabili(utente)) is not None:
-            cluster = cluster.filter(pk__in=ammessi)
-        _solo_attivi(self, "cluster", cluster)
         sottocluster = m.Sottocluster.objects.filter(archiviato=False).select_related("cluster")
         if utente is not None:
             sottocluster = permessi.sottocluster_modificabili(utente, sottocluster)
         _solo_attivi(self, "sottocluster", sottocluster)
-        self.fields["sottocluster"].empty_label = "— nessuno —"
+        self.fields["sottocluster"].required = True
+        self.fields["sottocluster"].empty_label = "— scegli il sottocluster —"
         _solo_attivi(self, "fornitore_proposto", m.Fornitore.objects.filter(archiviato=False))
         self.fields["numero_rda"].required = True
 
@@ -184,7 +179,7 @@ class PosizioneForm(FormBase):
         self.fields["gruppo_merci"].queryset = m.GruppoMerci.objects.filter(attivo=True)
         conti = m.ContoCoge.objects.all()
         if cluster is not None and permessi.conti_per_cluster():
-            conti = conti.filter(clusters=cluster)
+            conti = conti.filter(sottocluster__cluster=cluster).distinct()
         self.fields["conto"].queryset = conti
         self.fields["wbs"].queryset = wbs_ammesse(cluster)
         self.fields["quantita"].widget.attrs["inputmode"] = "decimal"

@@ -96,10 +96,10 @@ class _Caricamento:
             raise ValueError(f"Cluster inesistente: {area}.") from exc
         self.oggi = oggi
         self.procedura = m.Procedura.objects.get(codice="da_verificare")
-        conti = m.ContoCoge.objects.prefetch_related("clusters").order_by("valido_dal")
+        conti = m.ContoCoge.objects.prefetch_related("sottocluster__cluster").order_by("valido_dal")
         self.conti = {c.codice: c for c in conti}
         # Struttura caricata: un conto senza cluster va completato (SPEC §4).
-        self.conti_con_cluster = any(c.clusters.all() for c in self.conti.values())
+        self.conti_con_cluster = any(c.clusters for c in self.conti.values())
         self.fornitori = {chiave_nome(f.ragione_sociale): f for f in m.Fornitore.objects.all()}
         self.creati_ora: set[str] = set()
         self._wbs: m.WBS | None = None  # WBS del contratto in corso di creazione
@@ -268,7 +268,7 @@ class _Caricamento:
 
     def _voce(self, contratto: m.Contratto, r: Riga, chiave: str):
         conto = self.conti.get(r.conto) if r.conto else None
-        cluster_conto = list(conto.clusters.all()) if conto is not None else []
+        cluster_conto = list(conto.clusters) if conto is not None else []
         if cluster_conto and self.cluster not in cluster_conto:
             self.report.anomalia(
                 r.foglio, r.numero, "CONTO_ALTRO_CLUSTER", "conto", r.conto,

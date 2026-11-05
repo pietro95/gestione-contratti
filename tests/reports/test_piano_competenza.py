@@ -19,7 +19,7 @@ from contratti import models as m
 from contratti.engine.tipi import Livello
 from contratti.forms import FabbisognoForm
 from reports.export import piano_xlsx
-from reports.piano_ordini import FONTE_ORDINARIA, SENZA_SOTTOCLUSTER, calcola_piano
+from reports.piano_ordini import FONTE_ORDINARIA, calcola_piano
 
 from .. import factories as f
 
@@ -169,8 +169,9 @@ def test_raggruppamento_cluster_sottocluster_con_subtotali(struttura):
     opex = calcola_piano(2026, OGGI).sezioni("OPEX")[0]
     assert [g.cluster.codice for g in opex.cluster] == ["IT", "TLC"]
     it = opex.cluster[0]
-    assert [g.nome for g in it.sottocluster] == ["Reti", "Server", SENZA_SOTTOCLUSTER]
-    reti = it.sottocluster[0]
+    # Rev35: nessun fabbisogno senza sottocluster; senza indicazione va in «Non classificato».
+    assert [g.nome for g in it.sottocluster] == [m.NOME_NON_CLASSIFICATO, "Reti", "Server"]
+    reti = it.sottocluster[1]
     assert len(reti.righe) == 2 and reti.totali.normalizzato[FISSO] == Decimal("1200.00")
     # Il totale del cluster è la somma dei subtotali, quello della sezione dei cluster.
     assert it.totali.normalizzato[FISSO] == sum(
@@ -210,17 +211,11 @@ def test_fonte_del_previsto_manuale_dalla_wbs(struttura):
     assert r.fonti == {"CAPEX": "Fonte C (prova)"}
 
 
-def test_sottocluster_validato_sul_cluster(struttura):
-    dati = {
-        "descrizione": "Fabbisogno di prova",
-        "cluster": struttura["tlc"].pk,
-        "decisione": "da_valutare",
-        "sottocluster": struttura["reti"].pk,  # sottocluster di IT su un fabbisogno TLC
-    }
+def test_il_sottocluster_del_fabbisogno_e_obbligatorio(struttura):
+    dati = {"descrizione": "Fabbisogno di prova", "decisione": "da_valutare"}
     form = FabbisognoForm(dati)
     assert not form.is_valid() and "sottocluster" in form.errors
-    dati["cluster"] = struttura["it"].pk
-    assert FabbisognoForm(dati).is_valid()
+    assert FabbisognoForm({**dati, "sottocluster": struttura["reti"].pk}).is_valid()
 
 
 @pytest.fixture

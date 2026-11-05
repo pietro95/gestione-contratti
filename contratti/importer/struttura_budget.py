@@ -365,13 +365,14 @@ class _Importatore:
                               "Tipo di costo diverso da CAPEX e OPEX: conti ignorati.")  # fmt: skip
                 continue
             for codice, descrizione in riga.conti:
-                voce = per_conto.setdefault(codice, {"descrizione": "", "cluster": {}})
+                voce = per_conto.setdefault(codice, {"descrizione": "", "sottocluster": {}})
                 voce["descrizione"] = voce["descrizione"] or descrizione
-                voce["cluster"][self.cluster_di(riga).pk] = self.cluster_di(riga)
+                sotto = self.sottocluster_di(riga)
+                voce["sottocluster"][sotto.pk] = sotto
             if not riga.conti and riga.natura in (m.Natura.CAPEX, m.Natura.OPEX):
                 self.segnala_conto_mancante(riga)
         for codice, dati in per_conto.items():
-            cluster = list(dati["cluster"].values())
+            sottocluster = list(dati["sottocluster"].values())
             conto = m.ContoCoge.objects.filter(codice=codice).order_by("-valido_dal").first()
             if conto is None:
                 conto = m.ContoCoge(
@@ -381,10 +382,10 @@ class _Importatore:
                 )
                 conto._change_reason = "Import struttura budget"
                 conto.save()
-                conto.clusters.set(cluster)
+                conto.sottocluster.set(sottocluster)
                 self.conta("conti_creati")
-            elif set(conto.clusters.all()) != set(cluster):
-                conto.clusters.set(cluster)
+            elif set(conto.sottocluster.all()) != set(sottocluster):
+                conto.sottocluster.set(sottocluster)
                 self.conta("conti_aggiornati")
 
     def segnala_conto_mancante(self, riga):
@@ -430,7 +431,7 @@ class _Importatore:
                     codice_wbs=codice,
                     descrizione=descrizione[:200],
                     tipo=m.WBS.Tipo.CLUSTER,
-                    cluster=cluster,
+                    sottocluster=self.sottocluster_di(riga),
                 )
                 wbs._change_reason = "Import struttura budget"
                 wbs.save()
@@ -439,8 +440,8 @@ class _Importatore:
                 self.anomalia(riga, "WBS_A_PROGETTO", "wbs", codice,
                               "WBS a progetto già registrata: non cambia. Se è di cluster, "
                               "cambiala in amministrazione.")  # fmt: skip
-            elif wbs.cluster_id != cluster.pk:
-                wbs.cluster = cluster
+            elif wbs.sottocluster_id != (sotto := self.sottocluster_di(riga)).pk:
+                wbs.sottocluster = sotto
                 wbs._change_reason = "Import struttura budget"
                 wbs.save()
                 self.conta("wbs_aggiornate")

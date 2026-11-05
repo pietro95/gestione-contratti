@@ -32,7 +32,7 @@ def editor(make_user):
 
 @pytest.fixture
 def base():
-    return {"descrizione": "Fornitura switch", "cluster": "IT", "sottocluster": f.sottocluster().pk}
+    return {"descrizione": "Fornitura switch", "sottocluster": f.sottocluster().pk}
 
 
 def test_crea_fabbisogno_con_i_campi_nuovi(editor, base):

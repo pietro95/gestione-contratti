@@ -60,7 +60,7 @@ def test_somma_per_fornitore_e_singolo_oltre_soglia():
     assert grande.sopra_soglia
 
 
-def test_senza_sottocluster_e_non_indicato_non_si_raggruppano():
+def test_non_classificato_e_non_indicato_non_si_raggruppano():
     anonimo = f.fornitore("(non indicato)")
     for nome in ("Riga import 1", "Riga import 2"):
         fab = f.fabbisogno(nome, decisione="rinnovare")
@@ -71,9 +71,7 @@ def test_senza_sottocluster_e_non_indicato_non_si_raggruppano():
 
 def test_filtri_area_e_sottocluster():
     _in_scadenza("Licenza A", "1000.00")
-    c = _in_scadenza("Rete B", "1000.00", sottocluster=f.sottocluster("Connettività"))
-    c.fabbisogno.cluster = f.cluster("TLC")
-    c.fabbisogno.save()
+    _in_scadenza("Rete B", "1000.00", sottocluster=f.sottocluster("Connettività", "TLC"))
     assert [r.fabbisogno.descrizione for r in calcola_piano(2027, OGGI, area="TLC").da_avviare] == [
         "Rete B"
     ]

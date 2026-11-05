@@ -253,11 +253,8 @@ def rda_registra(request):
         utente=request.user,
     )
     if request.method == "POST" and form.is_valid():
-        permessi.verifica(request.user, form.cleaned_data["cluster"].pk)
         sotto = form.cleaned_data["sottocluster"]
-        if not permessi.puo_modificare_in(
-            request.user, form.cleaned_data["cluster"].pk, sotto.pk if sotto else None
-        ):
+        if not permessi.puo_modificare_in(request.user, sotto.cluster_id, sotto.pk):
             raise PermissionDenied("Non hai il permesso su questo sottocluster.")
         rda = form.save()
         messages.success(request, "RDA registrata. Collegala alla pratica e ai contratti.")

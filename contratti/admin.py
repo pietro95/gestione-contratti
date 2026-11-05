@@ -148,47 +148,60 @@ class CompetenzaDichiarataAdmin(ArchiviabileAdmin):
 @admin.register(m.WBS)
 class WBSAdmin(ArchiviabileAdmin):
     list_display = (
-        "codice_wbs", "descrizione", "tipo", "cluster", "fonte_finanziamento", "archiviato",
+        "codice_wbs", "descrizione", "tipo", "sottocluster", "fonte_finanziamento", "archiviato",
     )  # fmt: skip
-    list_filter = ("tipo", "cluster", "fonte_finanziamento", "archiviato")
+    list_filter = (
+        "tipo",
+        "sottocluster__cluster",
+        "sottocluster",
+        "fonte_finanziamento",
+        "archiviato",
+    )
     search_fields = ("codice_wbs", "descrizione")
-    autocomplete_fields = ("cluster", "fonte_finanziamento")
+    autocomplete_fields = ("sottocluster", "fonte_finanziamento")
 
 
 @admin.register(m.AutorizzazioneExtraBudget)
 class AutorizzazioneExtraBudgetAdmin(ArchiviabileAdmin):
     list_display = (
-        "codice", "descrizione", "cluster", "protocollo", "data_autorizzazione",
+        "codice", "descrizione", "sottocluster", "protocollo", "data_autorizzazione",
         "importo_autorizzato", "archiviato",
     )  # fmt: skip
-    list_filter = ("cluster", "archiviato")
+    list_filter = ("sottocluster__cluster", "sottocluster", "archiviato")
     search_fields = ("codice", "descrizione", "protocollo")
-    autocomplete_fields = ("cluster",)
+    autocomplete_fields = ("sottocluster",)
 
 
 class ContoCogeForm(forms.ModelForm):
-    """Ogni conto appartiene ad almeno un cluster (SPEC §4): obbligatorio in amministrazione."""
+    """Ogni conto ha almeno un sottocluster (SPEC §4): obbligatorio in amministrazione."""
 
     class Meta:
         model = m.ContoCoge
-        fields = ["codice", "descrizione", "clusters", "valido_dal", "valido_al", "sostituito_da"]
+        fields = [
+            "codice",
+            "descrizione",
+            "sottocluster",
+            "valido_dal",
+            "valido_al",
+            "sostituito_da",
+        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["clusters"].required = True
+        self.fields["sottocluster"].required = True
 
 
 @admin.register(m.ContoCoge)
 class ContoCogeAdmin(BaseAdmin):
     form = ContoCogeForm
-    list_display = ("codice", "descrizione", "cluster_elenco", "valido_dal", "valido_al")
-    list_filter = ("clusters",)
+    list_display = ("codice", "descrizione", "sottocluster_elenco", "valido_dal", "valido_al")
+    list_filter = ("sottocluster__cluster", "sottocluster")
     search_fields = ("codice", "descrizione")
-    autocomplete_fields = ("sostituito_da", "clusters")
+    autocomplete_fields = ("sostituito_da", "sottocluster")
 
-    @admin.display(description="cluster")
-    def cluster_elenco(self, conto):
-        return ", ".join(c.codice for c in conto.clusters.all())
+    @admin.display(description="sottocluster")
+    def sottocluster_elenco(self, conto):
+        return ", ".join(str(s) for s in conto.sottocluster.all())
 
 
 @admin.register(m.AssegnazioneCluster)
@@ -295,7 +308,6 @@ class FabbisognoAdmin(ArchiviabileAdmin):
             {
                 "fields": (
                     "descrizione",
-                    "cluster",
                     "sottocluster",
                     "fonte_finanziamento",
                 )
@@ -461,12 +473,15 @@ class RichiestaAcquistoAdmin(ArchiviabileAdmin):
     list_filter = ("cluster", "origine", "scopo", "archiviato")
     search_fields = ("numero_rda", "descrizione", "intestazione", "referente")
     autocomplete_fields = (
-        "cluster", "fabbisogno", "contratto_in_scadenza", "referente_utente",
+        "sottocluster", "fabbisogno", "contratto_in_scadenza", "referente_utente",
         "fornitore_proposto", "richiedente", "gruppo_acquisti",
     )  # fmt: skip
     inlines = [PosizioneRDAInline, EventoRDAInline]
     fieldsets = (
-        (None, {"fields": ("origine", "scopo", "cluster", "fabbisogno", "contratto_in_scadenza")}),
+        (
+            None,
+            {"fields": ("origine", "scopo", "sottocluster", "fabbisogno", "contratto_in_scadenza")},
+        ),
         ("Referente", {"fields": ("referente_utente", "referente")}),
         (
             "Richiesta",

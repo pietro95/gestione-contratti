@@ -121,7 +121,7 @@ def test_solo_contratti_una_tantum(archivio):
 
 def test_autorizzazione_dello_stesso_cluster(archivio):
     aut = archivio["aut"]
-    aut.cluster = f.cluster("TLC")
+    aut.sottocluster = f.sottocluster("Altro", "TLC")
     aut.save()
     with pytest.raises(ValidationError, match="cluster TLC"):
         archivio["opex"].full_clean()

@@ -538,7 +538,8 @@ def avvisi_frazionamento(righe: list[RigaPiano], soglie: list[m.Soglia]):
     """
     gruppi: dict[tuple[str, str], list[RigaPiano]] = defaultdict(list)
     for r in righe:
-        if (sc := r.sottocluster) is not None:
+        # «Non classificato» (Rev35) non è una classificazione: non raggruppa.
+        if (sc := r.sottocluster) is not None and sc.nome != m.NOME_NON_CLASSIFICATO:
             gruppi[("sottocluster", str(sc))].append(r)
         f = r.fornitore_uscente
         if f is not None and not f.ragione_sociale.startswith("("):

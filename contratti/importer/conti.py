@@ -77,7 +77,7 @@ def _riga(report: Report, numero: int, r: dict) -> None:
         conto = ContoCoge(codice=codice, valido_dal=dal)
         esito = "creati"
     elif (conto.descrizione, conto.valido_al) == (descrizione, al) and (
-        not cluster or set(conto.clusters.all()) == set(cluster)
+        not cluster or set(conto.clusters) == set(cluster)
     ):
         report.conteggi["invariati"] += 1
         return
@@ -90,5 +90,5 @@ def _riga(report: Report, numero: int, r: dict) -> None:
         raise tabelle.FileNonValido(f"Riga {numero}: {exc}") from exc
     conto.save()
     if cluster:  # colonna vuota: i cluster già registrati restano
-        conto.clusters.set(cluster)
+        conto.imposta_cluster(cluster)
     report.conteggi[esito] += 1

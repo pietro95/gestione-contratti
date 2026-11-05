@@ -107,6 +107,24 @@ class Archiviabile(models.Model):
         abstract = True
 
 
+class CompletaSottocluster(models.Model):
+    """Prima della validazione e del salvataggio completa sottocluster e cluster (Rev35)."""
+
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        self.completa()
+        super().save(*args, **kwargs)
+
+    def completa(self) -> None:
+        completa_sottocluster(self)
+
+    def clean_fields(self, exclude=None):
+        self.completa()
+        super().clean_fields(exclude=exclude)
+
+
 class ConfigurazioneProvvisoria(models.Model):
     """Parametri con valori iniziali da concordare (SPEC §9)."""
 
@@ -285,7 +303,7 @@ class FonteFinanziamento(models.Model):
         return self.nome
 
 
-class WBS(Archiviabile):
+class WBS(CompletaSottocluster, Archiviabile):
     """Elemento WBS di SAP, su cui si imputano le spese CAPEX (F9.2).
 
     - Di cluster: CAPEX "generico" del cluster, entra nel suo budget CAPEX.
@@ -300,8 +318,17 @@ class WBS(Archiviabile):
     codice_wbs = models.CharField("codice WBS", max_length=40, unique=True)
     descrizione = models.CharField(max_length=200)
     tipo = models.CharField(max_length=10, choices=Tipo.choices, default=Tipo.PROGETTO)
+    # Rev35: la WBS di cluster sta in un sottocluster; il cluster se ne deduce.
+    sottocluster = models.ForeignKey(
+        "Sottocluster", on_delete=models.PROTECT, null=True, blank=True, related_name="wbs"
+    )
     cluster = models.ForeignKey(
-        "Cluster", on_delete=models.PROTECT, null=True, blank=True, related_name="wbs"
+        "Cluster",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="wbs",
+        editable=False,
     )
     fonte_finanziamento = models.ForeignKey(
         FonteFinanziamento,
@@ -324,17 +351,27 @@ class WBS(Archiviabile):
                 condition=Q(tipo="progetto") | Q(cluster__isnull=False),
                 name="contratti_wbs_cluster_se_di_cluster",
             ),
+            models.CheckConstraint(
+                condition=Q(tipo="progetto") | Q(sottocluster__isnull=False),
+                name="contratti_wbs_sottocluster_se_di_cluster",
+            ),
         ]
 
     def __str__(self):
         return f"{self.codice_wbs} — {self.descrizione}"
+
+    def completa(self) -> None:
+        if self.tipo == self.Tipo.PROGETTO and not self.sottocluster_id:
+            self.cluster = None
+        else:
+            completa_sottocluster(self)
 
     @property
     def a_progetto(self) -> bool:
         return self.tipo == self.Tipo.PROGETTO
 
 
-class AutorizzazioneExtraBudget(Archiviabile):
+class AutorizzazioneExtraBudget(CompletaSottocluster, Archiviabile):
     """Attività spot autorizzata dall'AD fuori dal budget (Rev18).
 
     Come una WBS a progetto, ma logica (non è un elemento SAP) e valida per OPEX e CAPEX: le
@@ -345,8 +382,14 @@ class AutorizzazioneExtraBudget(Archiviabile):
 
     codice = models.CharField(max_length=40, unique=True)
     descrizione = models.CharField(max_length=200)
+    sottocluster = models.ForeignKey(
+        "Sottocluster", on_delete=models.PROTECT, related_name="autorizzazioni_extra_budget"
+    )
     cluster = models.ForeignKey(
-        "Cluster", on_delete=models.PROTECT, related_name="autorizzazioni_extra_budget"
+        "Cluster",
+        on_delete=models.PROTECT,
+        related_name="autorizzazioni_extra_budget",
+        editable=False,
     )
     protocollo = models.CharField("protocollo dell'autorizzazione AD", max_length=60)
     data_autorizzazione = models.DateField("data dell'autorizzazione AD")
@@ -393,10 +436,10 @@ class ContoCoge(models.Model):
         related_name="sostituisce",
         help_text="Conto che lo sostituisce dalla fine della validità.",
     )
-    # F9.2: il conto appartiene a un cluster; dalla Rev25 può essere di più cluster (conti
-    # generici condivisi). Vuoto finché non si carica la struttura (import «Struttura
-    # ICTDINN»): i conti senza cluster sono segnalati.
-    clusters = models.ManyToManyField("Cluster", blank=True, related_name="conti")
+    # F9.2, Rev25, Rev35: il conto appartiene a uno o più sottocluster (i conti generici sono
+    # condivisi). Vuoto finché non si carica la struttura (import «Struttura ICTDINN»): i conti
+    # senza sottocluster sono segnalati.
+    sottocluster = models.ManyToManyField("Sottocluster", blank=True, related_name="conti")
     history = HistoricalRecords()
 
     class Meta:
@@ -418,6 +461,24 @@ class ContoCoge(models.Model):
 
     def __str__(self):
         return f"{self.codice} {self.descrizione}"
+
+    def imposta_cluster(self, cluster) -> None:
+        """Assegna il conto a tutti i sottocluster attivi dei cluster dati (Rev35).
+
+        Per i file che indicano solo il cluster: l'amministrazione restringe poi i sottocluster.
+        """
+        trovati = []
+        for c in cluster:
+            veri = Sottocluster.objects.filter(cluster=c, archiviato=False)
+            veri = list(veri.exclude(nome=NOME_NON_CLASSIFICATO))
+            trovati += veri or [Sottocluster.non_classificato(c)]
+        self.sottocluster.set(trovati)
+
+    @property
+    def clusters(self) -> list["Cluster"]:
+        """I cluster dei suoi sottocluster (in sola lettura: il dato è il sottocluster)."""
+        trovati = {s.cluster_id: s.cluster for s in self.sottocluster.all()}
+        return sorted(trovati.values(), key=lambda c: c.codice)
 
 
 # ---------------------------------------------------------------------------
@@ -478,6 +539,41 @@ class Sottocluster(Archiviabile):
 
     def __str__(self):
         return f"{self.cluster.codice} · {self.nome}"
+
+    @classmethod
+    def non_classificato(cls, cluster) -> "Sottocluster":
+        """Il sottocluster di ripiego di un cluster (Rev35).
+
+        Ogni fabbisogno, RDA, WBS e autorizzazione extra budget sta in un sottocluster: dove il
+        dato d'origine non lo indica (import dell'Excel, vecchi record) si usa l'unico
+        sottocluster attivo del cluster, o «Non classificato», da riclassificare a mano.
+        """
+        attivi = list(cls.objects.filter(cluster=cluster, archiviato=False)[:2])
+        if len(attivi) == 1:
+            return attivi[0]
+        sottocluster, _ = cls.objects.get_or_create(
+            cluster=cluster, nome=NOME_NON_CLASSIFICATO, defaults={"archiviato": False}
+        )
+        if sottocluster.archiviato:
+            sottocluster.archiviato = False
+            sottocluster.save(update_fields=["archiviato"])
+        return sottocluster
+
+
+NOME_NON_CLASSIFICATO = "Non classificato"
+
+
+def completa_sottocluster(oggetto) -> None:
+    """Allinea ``cluster`` e ``sottocluster`` di un oggetto (Rev35).
+
+    Il sottocluster è il dato; il cluster è la sua colonna ridondante (serve alle query e ai
+    raggruppamenti): si deduce sempre da lì. Con il solo cluster si usa il sottocluster di
+    ripiego.
+    """
+    if oggetto.sottocluster_id:
+        oggetto.cluster_id = oggetto.sottocluster.cluster_id
+    elif oggetto.cluster_id:
+        oggetto.sottocluster = Sottocluster.non_classificato(oggetto.cluster)
 
 
 class AssegnazioneCluster(Archiviabile):
@@ -871,7 +967,7 @@ class TipoAcquisto(models.TextChoices):
     FORNITURA = "fornitura", "Forniture"
 
 
-class Fabbisogno(Archiviabile):
+class Fabbisogno(CompletaSottocluster, Archiviabile):
     """Servizio ricorrente che vive per anni; i contratti ne sono le istanze."""
 
     class Decisione(models.TextChoices):
@@ -881,14 +977,15 @@ class Fabbisogno(Archiviabile):
         DISMETTERE = "dismettere", "Dismettere"
 
     descrizione = models.CharField(max_length=250)
-    cluster = models.ForeignKey(Cluster, on_delete=models.PROTECT, related_name="fabbisogni")
+    # Rev35: il fabbisogno sta sempre in un sottocluster; il cluster se ne deduce al salvataggio.
     sottocluster = models.ForeignKey(
         Sottocluster,
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
         related_name="fabbisogni",
-        help_text="Classificazione del fabbisogno nel cluster; raggruppa il piano ordini.",
+        help_text="Raggruppa il piano ordini e dà i permessi.",
+    )
+    cluster = models.ForeignKey(
+        Cluster, on_delete=models.PROTECT, related_name="fabbisogni", editable=False
     )
     fonte_finanziamento = models.ForeignKey(
         FonteFinanziamento,
@@ -1040,17 +1137,6 @@ class Fabbisogno(Archiviabile):
     def area(self) -> str:
         """Codice del cluster (prima di F9.2 era l'area IT/TLC)."""
         return self.cluster.codice
-
-    def clean(self):
-        super().clean()
-        if (
-            self.sottocluster_id
-            and self.cluster_id
-            and self.sottocluster.cluster_id != self.cluster_id
-        ):
-            raise ValidationError(
-                {"sottocluster": "Il sottocluster deve appartenere al cluster del fabbisogno."}
-            )
 
 
 class CompetenzaDichiarata(Archiviabile):
@@ -1675,7 +1761,7 @@ class StatoPratica(models.Model):
 # ---------------------------------------------------------------------------
 
 
-class RichiestaAcquisto(Archiviabile):
+class RichiestaAcquisto(CompletaSottocluster, Archiviabile):
     """Richiesta d'acquisto (RDA).
 
     Nasce sul portale come richiesta compilata dal referente a partire dal fabbisogno;
@@ -1697,16 +1783,14 @@ class RichiestaAcquisto(Archiviabile):
 
     origine = models.CharField(max_length=10, choices=Origine.choices, default=Origine.PORTALE)
     scopo = models.CharField(max_length=20, choices=Scopo.choices, blank=True)
-    cluster = models.ForeignKey(
-        Cluster, on_delete=models.PROTECT, related_name="richieste_acquisto"
-    )
     sottocluster = models.ForeignKey(
         Sottocluster,
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
         related_name="richieste_acquisto",
         help_text="Di norma quello del fabbisogno della pratica; ne decide i permessi (Rev25).",
+    )
+    cluster = models.ForeignKey(
+        Cluster, on_delete=models.PROTECT, related_name="richieste_acquisto", editable=False
     )
     # La pratica: il contratto in scadenza (rinnovo) oppure il fabbisogno. Mai entrambi.
     fabbisogno = models.ForeignKey(
@@ -1822,15 +1906,14 @@ class RichiestaAcquisto(Archiviabile):
     def __str__(self):
         return f"RDA {self.numero_rda}" if self.numero_rda else f"Richiesta di RDA #{self.pk}"
 
-    def save(self, *args, **kwargs):
-        pratica = None if self.sottocluster_id else self.fabbisogno_della_pratica()
-        if (
-            pratica is not None
-            and pratica.sottocluster_id
-            and pratica.cluster_id == self.cluster_id
-        ):
-            self.sottocluster_id = pratica.sottocluster_id
-        super().save(*args, **kwargs)
+    def completa(self) -> None:
+        if not self.sottocluster_id:
+            pratica = self.fabbisogno_della_pratica()
+            if pratica is not None and (
+                not self.cluster_id or pratica.cluster_id == self.cluster_id
+            ):
+                self.sottocluster_id = pratica.sottocluster_id
+        completa_sottocluster(self)
 
     @property
     def nome_referente(self) -> str:
@@ -1850,10 +1933,12 @@ class RichiestaAcquisto(Archiviabile):
                 {"contratto_in_scadenza": "Un contratto una tantum non si rinnova."}
             )
         fabbisogno = self.fabbisogno_della_pratica()
-        if fabbisogno is not None and self.cluster_id and fabbisogno.cluster_id != self.cluster_id:
-            raise ValidationError({"cluster": "Il cluster è quello del fabbisogno."})
-        if self.sottocluster_id and self.sottocluster.cluster_id != self.cluster_id:
-            raise ValidationError({"sottocluster": "Il sottocluster deve essere del cluster."})
+        if (
+            fabbisogno is not None
+            and self.sottocluster_id
+            and fabbisogno.sottocluster_id != self.sottocluster_id
+        ):
+            raise ValidationError({"sottocluster": "Il sottocluster è quello del fabbisogno."})
         if (
             self.data_rilascio
             and self.data_inserimento

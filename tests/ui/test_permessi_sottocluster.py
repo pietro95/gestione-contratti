@@ -130,13 +130,15 @@ def test_rda_eredita_il_sottocluster_dalla_pratica(ambiente):
     rda = _rda(ambiente["ict"], fabbisogno=ambiente["fab"]["tlc"])
     assert rda.sottocluster == ambiente["tlc"]
     senza = _rda(ambiente["ict"], fabbisogno=ambiente["fab"]["senza"])
-    assert senza.sottocluster is None
+    assert senza.sottocluster == ambiente["fab"]["senza"].sottocluster  # Rev35: ripiego
     esplicita = _rda(ambiente["ict"], ambiente["it"], fabbisogno=ambiente["fab"]["tlc"])
     assert esplicita.sottocluster == ambiente["it"]  # la scelta esplicita non si sovrascrive
 
 
-def test_rda_sottocluster_di_un_altro_cluster_non_valida(ambiente):
-    rda = m.RichiestaAcquisto(cluster=f.cluster("OT"), sottocluster=ambiente["it"], descrizione="r")
+def test_rda_sottocluster_diverso_da_quello_della_pratica_non_valida(ambiente):
+    rda = m.RichiestaAcquisto(
+        sottocluster=ambiente["it"], fabbisogno=ambiente["fab"]["tlc"], descrizione="r"
+    )
     with pytest.raises(ValidationError) as exc:
         rda.clean()
     assert "sottocluster" in exc.value.message_dict
@@ -158,7 +160,6 @@ def test_registra_rda_a_mano_rispetta_il_sottocluster(ambiente):
     editor = ambiente["client"]("e.it", ambiente["ict"], ambiente["it"])
     url = reverse("contratti:rda_registra")
     dati = {
-        "cluster": ambiente["ict"].pk,
         "descrizione": "RDA a mano",
         "numero_rda": "1000000001",
         "sottocluster": ambiente["tlc"].pk,
@@ -168,8 +169,6 @@ def test_registra_rda_a_mano_rispetta_il_sottocluster(ambiente):
     risposta = editor.post(url, {**dati, "sottocluster": ambiente["it"].pk})
     assert risposta.status_code == 302
     assert m.RichiestaAcquisto.objects.get().sottocluster == ambiente["it"]
-    # senza sottocluster: serve il cluster intero
-    assert (
-        editor.post(url, {**dati, "numero_rda": "1000000002", "sottocluster": ""}).status_code
-        == 403
-    )
+    # Rev35: il sottocluster è obbligatorio
+    risposta = editor.post(url, {**dati, "numero_rda": "1000000002", "sottocluster": ""})
+    assert risposta.status_code == 200 and "sottocluster" in risposta.context["form"].errors
