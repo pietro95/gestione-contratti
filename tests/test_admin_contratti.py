@@ -57,6 +57,21 @@ def dati():
     m.BudgetSottocluster.objects.create(
         sottocluster=sottocluster, anno=2026, natura="OPEX", importo=Decimal("1000.00")
     )
+    conto = m.ContoCoge.objects.create(
+        codice="CONTO-PROVA", descrizione="Conto di prova", valido_dal=datetime.date(2026, 1, 1)
+    )
+    m.BudgetConto.objects.create(
+        sottocluster=sottocluster,
+        conto=conto,
+        anno=2026,
+        importo=Decimal("500.00"),
+    )
+    m.BudgetWBS.objects.create(
+        sottocluster=sottocluster,
+        wbs=m.WBS.objects.get(codice_wbs="WBS-PROVA-01"),
+        anno=2026,
+        importo=Decimal("700.00"),
+    )
     m.FonteFinanziamento.objects.create(nome="Fonte di prova")
     m.CompetenzaDichiarata.objects.create(
         fabbisogno=c.fabbisogno, anno=2027, natura="OPEX", importo=Decimal("1000.00")

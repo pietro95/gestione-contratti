@@ -43,6 +43,8 @@ def test_parametri_iniziali_provvisori():
         "fattura_ferma_giorni": Decimal("15"),
         # Stanziamenti (migration 0039, SPEC Rev22).
         "stanziamento_giorni": Decimal("15"),
+        # Budget assegnato per conto (migration 0051, SPEC Rev34).
+        "budget_soglia_avvicinamento": Decimal("90"),
     }
     assert set(valori) == set(m.Parametro.Chiave.values)
     assert not m.Parametro.objects.filter(provvisorio=False).exists()

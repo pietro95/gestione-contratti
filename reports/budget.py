@@ -15,6 +15,7 @@ from contratti import adapters
 from contratti import models as m
 from contratti.engine import budget, sal
 from contratti.engine.importi import ZERO
+from contratti.engine.stato_budget import StatoBudget, percentuale_utilizzo, stato_budget
 from contratti.engine.tipi import Esito, Livello, Voce
 from contratti.selettori import codici_cluster
 
@@ -61,6 +62,21 @@ METODO_COMPETENZA = {
 # Vista con cui si confronta il budget assegnato al sottocluster: il riferimento del budget
 # (SPEC Rev23, §5.2).
 VISTA_ASSEGNATO = "consuntivo"
+# Vista mostrata di default nel budget: le altre si scelgono dal filtro «Viste».
+VISTA_DEFAULT = "consuntivo"
+# Nomi per la tendina «Viste» (le etichette complete sono nelle intestazioni).
+_NOMI_VISTE = {
+    "consuntivo": "Fatturato e stanziato (competenza)",
+    "cassa": "Fatturato (data fattura)",
+    "impegno": "Ordinato",
+    "competenza": "Competenza del contratto",
+}
+
+
+def nomi_viste() -> dict[str, str]:
+    return dict(_NOMI_VISTE)
+
+
 # Nomi brevi per le intestazioni delle colonne dell'export.
 SIGLE_VISTE = {
     "consuntivo": "fatt+stanz competenza",
@@ -306,6 +322,82 @@ def budget_assegnato(filtri: Filtri) -> dict[str, Decimal | None]:
         )
     }
     return {natura: assegnati.get(natura) for natura in NATURE}
+
+
+def _assegnati(qs, filtri: Filtri, campo: str) -> dict[str, Decimal]:
+    """Somma gli assegnati per codice (del conto o della WBS) nell'ambito del filtro."""
+    qs = qs.filter(anno=filtri.anno, archiviato=False)
+    if filtri.sottocluster:
+        qs = qs.filter(sottocluster_id=filtri.sottocluster)
+    else:
+        codici = codici_cluster(filtri.area)
+        if codici:
+            qs = qs.filter(sottocluster__cluster__codice__in=codici)
+    assegnati: dict[str, Decimal] = defaultdict(lambda: ZERO)
+    for codice, importo_ in qs.values_list(campo, "importo"):
+        assegnati[codice] += importo_
+    return dict(assegnati)
+
+
+def assegnati_per_conto(filtri: Filtri) -> dict[str, Decimal]:
+    """Budget OPEX assegnato per codice di conto nell'anno del filtro (Rev34).
+
+    Con il filtro per sottocluster conta quel sottocluster; altrimenti la somma dei
+    sottocluster dei cluster visibili (``filtri.area``, vuoto = tutti). Il CAPEX non ha
+    budget per conto: grava sulla WBS.
+    """
+    if filtri.natura == m.Natura.CAPEX:
+        return {}
+    return _assegnati(m.BudgetConto.objects.all(), filtri, "conto__codice")
+
+
+def assegnati_per_wbs(filtri: Filtri) -> dict[str, Decimal]:
+    """Budget CAPEX assegnato per codice WBS nell'anno del filtro (Rev34)."""
+    if filtri.natura == m.Natura.OPEX:
+        return {}
+    return _assegnati(m.BudgetWBS.objects.all(), filtri, "wbs__codice_wbs")
+
+
+def assegnati_del_criterio(filtri: Filtri, criterio: str) -> dict[str, Decimal] | None:
+    """Assegnati per i gruppi del criterio: OPEX per conto, CAPEX per WBS (Rev34).
+
+    ``None`` se per quella natura e quel raggruppamento il confronto non si fa (OPEX per WBS,
+    CAPEX per conto, fornitore, cluster, fabbisogno): le spese CAPEX gravano sulla WBS, non sul
+    conto, e l'assegnato OPEX è del conto.
+    """
+    if criterio == "conto" and filtri.natura == m.Natura.OPEX:
+        return assegnati_per_conto(filtri)
+    if criterio == "wbs" and filtri.natura == m.Natura.CAPEX:
+        return assegnati_per_wbs(filtri)
+    return None
+
+
+@dataclass(frozen=True)
+class ConfrontoConto:
+    """Assegnato del conto, speso (vista di riferimento, livello scelto) e stato."""
+
+    assegnato: Decimal | None
+    speso: Decimal
+    stato: StatoBudget
+    percentuale: Decimal | None
+
+
+def confronto_conto(
+    assegnati: dict[str, Decimal], chiave: str, totali: dict[str, Somme], livello: Livello,
+    soglia_pct: Decimal,
+) -> ConfrontoConto:  # fmt: skip
+    """Confronto del gruppo ``chiave`` (codice del conto o della WBS) con il suo assegnato."""
+    assegnato = assegnati.get(chiave) if chiave else None
+    speso = totali["totale"][VISTA_ASSEGNATO][livello]
+    return ConfrontoConto(
+        assegnato, speso, stato_budget(assegnato, speso, soglia_pct),
+        percentuale_utilizzo(assegnato, speso),
+    )  # fmt: skip
+
+
+def soglia_avvicinamento(oggi: datetime.date) -> Decimal:
+    """Soglia (%) da cui lo stato è «in avvicinamento»: tabella dei parametri (Rev34)."""
+    return adapters.parametro(m.Parametro.Chiave.BUDGET_SOGLIA_AVVICINAMENTO, oggi)
 
 
 def importi_anno(voce: Voce, anno: int) -> tuple[Somme, list[Esito]]:

@@ -1,10 +1,12 @@
 """Export XLSX dei report: riepilogo e dettaglio, con i filtri in intestazione."""
 
 import datetime
+from decimal import Decimal
 
 from contratti import models as m
 from contratti import permessi
 from contratti.engine.importi import ZERO, arrotonda
+from contratti.engine.stato_budget import ETICHETTE_STATO
 from contratti.engine.tipi import Livello
 from contratti.selettori import codici_cluster
 from reports import xlsx
@@ -17,11 +19,16 @@ from reports.budget import (
     SIGLE_VISTE,
     VISTE,
     Budget,
+    assegnati_del_criterio,
+    confronto_conto,
+    soglia_avvicinamento,
 )
 from reports.piano_ordini import PianoOrdini
 from reports.quadratura import CAUSE, Quadratura
 
 NOTA_IMPONIBILE = "Importi imponibili (IVA esclusa)."
+# Rev34: assegnato per conto e stato rispetto al fatturato e stanziato (competenza).
+COLONNE_STATO = ["Budget assegnato (conto OPEX, WBS CAPEX)", "Stato", "Utilizzo %"]
 
 
 def _generato(oggi: datetime.date) -> str:
@@ -69,11 +76,23 @@ def suffisso_cluster(codici) -> str:
     return "_" + "-".join(codici) if codici else ""
 
 
-def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):
+def budget_xlsx(
+    budget: Budget,
+    criteri: dict[str, str] | str,
+    viste=VISTE,
+    livello_stato: Livello = Livello.PROBABILE,
+    soglia: Decimal | None = None,
+):
     """``criteri``: raggruppamento per natura (es. OPEX per conto, CAPEX per WBS)."""
     if isinstance(criteri, str):
         criteri = dict.fromkeys(m.Natura.values, criteri)
     wb = xlsx.nuovo_libro()
+    if soglia is None:
+        soglia = soglia_avvicinamento(budget.oggi)
+
+    def celle_stato(c):
+        return [c.assegnato, ETICHETTE_STATO[c.stato], c.percentuale]
+
     intestazione = [
         f"Budget {budget.filtri.anno}",
         descrivi_filtri(budget),
@@ -85,7 +104,7 @@ def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):
     righe = []
     for s in sezioni:
         totali = s.totali()
-        for vista in VISTE:
+        for vista in viste:
             for livello in LIVELLI:
                 righe.append(
                     [s.filtri.natura, ETICHETTE_VISTE[vista], livello.value]
@@ -96,8 +115,12 @@ def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):
 
     usati = list(dict.fromkeys(criteri[s.filtri.natura] for s in sezioni))
     criterio = usati[0] if len(usati) == 1 else ""
+    # Rev34: assegnato e stato dove le righe sono i conti (OPEX) o le WBS (CAPEX).
+    assegnati = {
+        s.filtri.natura: assegnati_del_criterio(s.filtri, criteri[s.filtri.natura]) for s in sezioni
+    }
     colonne = ["Natura", RAGGRUPPAMENTI[criterio] if criterio else "Gruppo"]
-    for vista in VISTE:
+    for vista in viste:
         for livello in LIVELLI:
             for parte in PARTI:
                 colonne.append(f"{SIGLE_VISTE[vista]} {livello.value} {parte}")
@@ -105,21 +128,33 @@ def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):
     for s in sezioni:
         for g in s.gruppi(criteri[s.filtri.natura]):
             riga = [s.filtri.natura, g.etichetta]
-            for vista in VISTE:
+            for vista in viste:
                 for livello in LIVELLI:
                     riga += [g.totali[parte][vista][livello] for parte in PARTI]
+            da_confrontare = assegnati[s.filtri.natura]
+            riga += (
+                celle_stato(
+                    confronto_conto(da_confrontare, g.chiave, g.totali, livello_stato, soglia)
+                )
+                if da_confrontare is not None
+                else [None] * len(COLONNE_STATO)
+            )
             righe.append(riga)
-    xlsx.foglio(wb, f"Per {criterio}" if criterio else "Per gruppo", intestazione, colonne, righe)
+    colonne_gruppi = colonne + COLONNE_STATO
+    xlsx.foglio(
+        wb, f"Per {criterio}" if criterio else "Per gruppo", intestazione, colonne_gruppi, righe
+    )
 
     # CAPEX per WBS e, dentro ogni WBS, per conto: la lettura del Controllo di gestione.
     capex = [s for s in sezioni if s.filtri.natura == m.Natura.CAPEX]
     if capex and criteri[m.Natura.CAPEX] == "wbs":
+        # Le spese CAPEX gravano sulla WBS: nessun assegnato né stato sui conti sotto la WBS.
         colonne_wbs = ["WBS", "Conto", *colonne[2:]]
         righe = []
         for g in capex[0].gruppi("wbs"):
             for sg in g.sotto("conto"):
                 riga = [g.etichetta, sg.etichetta]
-                for vista in VISTE:
+                for vista in viste:
                     for livello in LIVELLI:
                         riga += [sg.totali[parte][vista][livello] for parte in PARTI]
                 righe.append(riga)
@@ -129,7 +164,7 @@ def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):
         "Tipo", "Natura", "Previsto n.", "Cluster", "Fabbisogno", "Contratto", "Voce",
         "Fornitore", "Conto", "WBS", "Finanziamento", "Inizio servizio", "Fine servizio",
     ]  # fmt: skip
-    colonne += [f"{SIGLE_VISTE[vista]} {liv.value}" for vista in VISTE for liv in LIVELLI]
+    colonne += [f"{SIGLE_VISTE[vista]} {liv.value}" for vista in viste for liv in LIVELLI]
     righe = []
     for v in sorted(budget.voci, key=lambda v: v.natura != "OPEX"):
         righe.append(
@@ -150,7 +185,7 @@ def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):
                 v.inizio,
                 v.fine,
             ]
-            + [v.importi[vista][livello] for vista in VISTE for livello in LIVELLI]
+            + [v.importi[vista][livello] for vista in viste for livello in LIVELLI]
         )
     xlsx.foglio(wb, "Dettaglio voci", intestazione, colonne, righe)
 

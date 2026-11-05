@@ -1,0 +1,2 @@
+{% load registro %}
+{% if c %}<td class="num">{% if c.assegnato is None %}—{% else %}{{ c.assegnato|euro }}{% endif %}</td><td class="sx">{% if c.stato.value == "ok" %}OK{% elif c.stato.value == "in_avvicinamento" %}In avvicinamento{% elif c.stato.value == "superato" %}<b>Superato</b>{% else %}Non assegnato{% endif %}{% if c.percentuale is not None %} <span class="tenue">{{ c.percentuale|floatformat:1 }}%</span>{% endif %}</td>{% else %}<td></td><td></td>{% endif %}

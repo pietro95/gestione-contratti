@@ -4,7 +4,15 @@ from contratti import models as m
 from contratti import permessi
 from contratti.engine.tipi import Livello
 from contratti.forms import FormBase
-from reports.budget import EXTRA_BUDGET, PROGETTI, RAGGRUPPAMENTI, Filtri
+from reports.budget import (
+    EXTRA_BUDGET,
+    PROGETTI,
+    RAGGRUPPAMENTI,
+    VISTA_DEFAULT,
+    VISTE,
+    Filtri,
+    nomi_viste,
+)
 
 ENTRAMBE = "separate"
 AUTOMATICO = "auto"
@@ -87,12 +95,24 @@ class FiltriBudgetForm(FormBase):
     livello = forms.ChoiceField(
         choices=[(liv.value, liv.value.capitalize()) for liv in Livello], required=False
     )
+    viste = forms.MultipleChoiceField(
+        choices=list(nomi_viste().items()),
+        required=False,
+        label="Viste",
+        widget=forms.SelectMultiple(attrs={"class": "form-select js-cluster"}),
+    )
 
     def __init__(self, dati, *, anno_default: int, utente=None):
         dati = dati.copy()
         dati.setdefault("anno", str(anno_default))
         self.utente = utente
         _cluster_default(dati, utente)
+        # Il budget si legge sul fatturato e stanziato (competenza): le altre viste si scelgono.
+        if not _valori(dati, "viste"):
+            if hasattr(dati, "setlist"):
+                dati.setlist("viste", [VISTA_DEFAULT])
+            else:
+                dati["viste"] = [VISTA_DEFAULT]
         # I default si vedono anche nelle tendine: livello probabile, OPEX per conto e CAPEX per
         # WBS (come lo legge il Controllo di gestione), con i previsti.
         dati.setdefault("livello", Livello.PROBABILE.value)
@@ -123,6 +143,12 @@ class FiltriBudgetForm(FormBase):
         if per != AUTOMATICO:
             return per
         return "wbs" if natura == m.Natura.CAPEX else "conto"
+
+    @property
+    def viste_scelte(self) -> tuple[str, ...]:
+        """Viste da mostrare, nell'ordine canonico; di default solo il riferimento del budget."""
+        scelte = set(self.cleaned_data.get("viste") or ())
+        return tuple(v for v in VISTE if v in scelte) or (VISTA_DEFAULT,)
 
     @property
     def livello_scelto(self) -> Livello:

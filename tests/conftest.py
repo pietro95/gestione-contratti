@@ -126,3 +126,68 @@ def make_user(db, django_user_model):
         return user
 
     return _make
+
+
+@pytest.fixture
+def conti_assegnati(db):
+    """Quattro conti OPEX da 10.000,00 € nel 2026 con assegnato diverso (SPEC Rev34)."""
+    import datetime
+    from decimal import Decimal
+
+    from contratti import models as m
+    from tests import factories as f
+
+    D = datetime.date
+    it = f.cluster("IT")
+    sc = m.Sottocluster.objects.create(cluster=it, nome="Reti")
+    assegnati = {"C-OK": "20000.00", "C-AVV": "10500.00", "C-SUP": "9000.00", "C-NO": None}
+    risultato = {}
+    for codice, importo in assegnati.items():
+        conto = f.conto(codice, f"Conto {codice}", cluster=it)
+        fab = f.fabbisogno(
+            f"Servizio {codice}", cluster=it, sottocluster=sc, decisione="dismettere"
+        )
+        c = f.contratto(fabbisogno=fab, data_inizio=D(2026, 1, 1), durata_mesi=12)
+        f.piano(
+            f.voce(c, importo_fisso=Decimal("10000.00"), conto=conto),
+            modalita="anticipata",
+            periodicita="annuale",
+        )
+        if importo:
+            m.BudgetConto.objects.create(
+                sottocluster=sc, conto=conto, anno=2026, importo=Decimal(importo)
+            )
+        risultato[codice] = conto
+    # CAPEX: la spesa grava sulla WBS, qualunque sia il conto della voce. W-OK ha due voci su
+    # due conti diversi (20.000,00 su 25.000,00); W-SUP una sola (10.000,00 su 5.000,00).
+    wbs = {}
+    spese = {"W-OK": ("C-OK", "C-AVV"), "W-SUP": ("C-SUP",), "W-NO": ("C-NO",)}
+    assegnati_wbs = {"W-OK": "25000.00", "W-SUP": "5000.00", "W-NO": None}
+    for codice, conti_voci in spese.items():
+        wbs[codice] = m.WBS.objects.create(
+            codice_wbs=codice, descrizione=f"WBS {codice}", tipo=m.WBS.Tipo.CLUSTER, cluster=it
+        )
+        for conto_codice in conti_voci:
+            fab = f.fabbisogno(
+                f"CAPEX {codice} {conto_codice}",
+                cluster=it,
+                sottocluster=sc,
+                decisione="dismettere",
+            )
+            c = f.contratto(fabbisogno=fab, data_inizio=D(2026, 1, 1), durata_mesi=12)
+            f.piano(
+                f.voce(
+                    c,
+                    importo_fisso=Decimal("10000.00"),
+                    natura=m.Natura.CAPEX,
+                    wbs=wbs[codice],
+                    conto=risultato[conto_codice],
+                ),
+                modalita="anticipata",
+                periodicita="annuale",
+            )
+        if assegnati_wbs[codice]:
+            m.BudgetWBS.objects.create(
+                sottocluster=sc, wbs=wbs[codice], anno=2026, importo=Decimal(assegnati_wbs[codice])
+            )
+    return {"sc": sc, "conti": risultato, "wbs": wbs}

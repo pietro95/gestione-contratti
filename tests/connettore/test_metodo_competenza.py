@@ -30,7 +30,11 @@ def _competenza(dati, livello="fisso"):
 
 
 def test_budget_competenza_2027_e_il_canone_e_dichiara_il_metodo(dpo, utente_reader):
-    dati = esegui(utente_reader, "budget", {"anno": 2027, "cluster": ["tutti"], "previsti": False})
+    dati = esegui(
+        utente_reader,
+        "budget",
+        {"anno": 2027, "cluster": ["tutti"], "previsti": False, "viste": ["competenza"]},
+    )
     assert _competenza(dati) == CANONE
     assert dati["metodo_competenza"]["metodo"] == "mesi_frazionati"
     assert "giorni coperti / giorni del mese" in dati["metodo_competenza"]["descrizione"]
@@ -41,7 +45,11 @@ def test_budget_competenza_2027_e_il_canone_e_dichiara_il_metodo(dpo, utente_rea
 def test_budget_2026_e_2028_quadrano_con_il_2027(dpo, utente_reader):
     valori = {
         anno: _competenza(
-            esegui(utente_reader, "budget", {"anno": anno, "cluster": ["tutti"], "previsti": False})
+            esegui(
+                utente_reader,
+                "budget",
+                {"anno": anno, "cluster": ["tutti"], "previsti": False, "viste": ["competenza"]},
+            )
         )
         for anno in (2026, 2027, 2028)
     }
