@@ -21,7 +21,7 @@ from reports.budget import (
     VISTA_DEFAULT,
     VISTE,
     Filtri,
-    assegnati_per_conto,
+    assegnati_del_criterio,
     calcola_budget,
     confronto_conto,
     soglia_avvicinamento,
@@ -143,7 +143,7 @@ def budget(ctx: Contesto, argomenti: dict) -> dict:
     for s in b.sezioni():
         natura = s.filtri.natura
         criterio = RAGGRUPPAMENTI[per] if per else ("wbs" if natura == m.Natura.CAPEX else "conto")
-        assegnati = assegnati_per_conto(s.filtri) if criterio == "conto" else {}
+        assegnati = assegnati_del_criterio(s.filtri, criterio)
         sezione = {
             "natura": natura,
             "totale": _tutti_i_livelli(s.totali(), viste),
@@ -160,7 +160,7 @@ def budget(ctx: Contesto, argomenti: dict) -> dict:
                                 confronto_conto(assegnati, g.chiave, g.totali, livello, soglia)
                             )
                         }
-                        if criterio == "conto"
+                        if assegnati is not None
                         else {}
                     ),
                     **(
@@ -205,10 +205,11 @@ def budget(ctx: Contesto, argomenti: dict) -> dict:
         "altre_viste_disponibili": [NOMI_VISTE[v] for v in VISTE if v not in viste],
         "budget_assegnato_per_conto": {
             "nota": (
-                "Sui gruppi per conto: budget assegnato al conto (sottocluster filtrato, o cluster "
-                "visibili), speso = fatturato e stanziato (competenza) al livello dei gruppi, "
-                "utilizzo in %. Stato: ok, in_avvicinamento (dalla soglia all'assegnato incluso), "
-                "superato (speso oltre l'assegnato), non_assegnato."
+                "Sui gruppi per conto (OPEX) e per WBS (CAPEX): budget assegnato al conto o alla "
+                "WBS (sottocluster filtrato, o cluster visibili), speso = fatturato e stanziato "
+                "(competenza) al livello dei gruppi, utilizzo in %. Le spese CAPEX gravano sulla "
+                "WBS, non sul conto. Stato: ok, in_avvicinamento (dalla soglia all'assegnato "
+                "incluso), superato (speso oltre l'assegnato), non_assegnato."
             ),
             "soglia_avvicinamento_pct": soglia,
         },
@@ -497,8 +498,8 @@ STRUMENTI = [
             "(competenza); con «viste» si aggiungono fatturato (data fattura), ordinato (contratti "
             "emessi nell'anno) e competenza (ripartizione a mesi frazionati). Per ogni vista "
             "consolidato (contratti registrati), previsionale (rinnovi previsti) e totale; livelli "
-            "fisso, probabile, massimo. Nei gruppi per conto: budget assegnato al conto, "
-            "utilizzo e stato (ok, in_avvicinamento, superato, non_assegnato). OPEX "
+            "fisso, probabile, massimo. Nei gruppi per conto (OPEX) e per WBS (CAPEX): budget "
+            "assegnato, utilizzo e stato (ok, in_avvicinamento, superato, non_assegnato). OPEX "
             "e CAPEX in sezioni separate, mai sommate. Gruppi di default: conto per l'OPEX, WBS "
             "per il CAPEX. Le voci su WBS a progetto (es. dissalatori) sono escluse se non "
             "richieste. Segnala i rinnovi mancanti."

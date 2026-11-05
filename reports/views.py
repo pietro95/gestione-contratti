@@ -18,7 +18,7 @@ from reports.budget import (
     RAGGRUPPAMENTI,
     VISTA_ASSEGNATO,
     VISTE,
-    assegnati_per_conto,
+    assegnati_del_criterio,
     budget_assegnato,
     calcola_budget,
     confronto_conto,
@@ -66,17 +66,12 @@ def _assegnato(b, livello) -> dict | None:
 def _sezione(b, criterio, livello, viste, soglia) -> dict:
     """Una natura del budget (OPEX o CAPEX): riepilogo, gruppi e totali, mai sommati tra loro."""
     totali = b.totali()
-    # Rev34: assegnato e stato per conto, sulle righe dei conti (OPEX per conto, CAPEX per WBS
-    # con il dettaglio per conto).
-    assegnati = assegnati_per_conto(b.filtri)
-    per_conto = criterio in ("conto", "wbs")
-
-    # L'assegnato è del conto, non della WBS: nel dettaglio per conto di una WBS lo stato usa lo
-    # speso del conto su tutte le WBS, così è lo stesso in ogni riga dello stesso conto.
-    totali_conti = {g.chiave: g.totali for g in b.gruppi("conto")}
+    # Rev34: assegnato e stato sulle righe dei gruppi: OPEX per conto, CAPEX per WBS. Le spese
+    # CAPEX gravano sulla WBS, non sul conto: i conti sotto la WBS non hanno confronto.
+    assegnati = assegnati_del_criterio(b.filtri, criterio)
 
     def confronto(g):
-        return confronto_conto(assegnati, g.chiave, totali_conti[g.chiave], livello, soglia)
+        return confronto_conto(assegnati, g.chiave, g.totali, livello, soglia)
 
     gruppi = []
     for g in b.gruppi(criterio):
@@ -86,7 +81,7 @@ def _sezione(b, criterio, livello, viste, soglia) -> dict:
             gruppi.append((g, voci))
     return {
         "natura": b.filtri.natura,
-        "per_conto": per_conto,
+        "con_confronto": assegnati is not None,
         "assegnato": _assegnato(b, livello),
         "budget": b,
         "criterio": RAGGRUPPAMENTI[criterio],
@@ -98,11 +93,10 @@ def _sezione(b, criterio, livello, viste, soglia) -> dict:
             {
                 "etichetta": g.etichetta,
                 "celle": _celle(g.totali, livello, viste),
-                "confronto": confronto(g) if criterio == "conto" else None,
+                "confronto": confronto(g) if assegnati is not None else None,
                 # CAPEX per WBS: il dettaglio per conto, come lo legge il Controllo di gestione.
                 "sotto": [
-                    (sg.etichetta, _celle(sg.totali, livello, viste), confronto(sg))
-                    for sg in g.sotto("conto")
+                    (sg.etichetta, _celle(sg.totali, livello, viste)) for sg in g.sotto("conto")
                 ]
                 if criterio == "wbs"
                 else [],

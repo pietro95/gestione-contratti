@@ -715,10 +715,11 @@ class BudgetSottocluster(Archiviabile):
 
 
 class BudgetConto(Archiviabile):
-    """Budget assegnato a un conto, nell'ambito di un sottocluster, per un anno e una natura.
+    """Budget OPEX assegnato a un conto, nell'ambito di un sottocluster, per un anno.
 
-    Dato deciso (non derivato), inserito dall'amministrazione: il budget mostra, per ogni conto,
-    l'assegnato e lo stato rispetto al fatturato e stanziato (SPEC §5.2, Rev34).
+    Dato deciso (non derivato), inserito dall'amministrazione: il budget OPEX mostra, per ogni
+    conto, l'assegnato e lo stato rispetto al fatturato e stanziato (SPEC §5.2, Rev34). Il CAPEX
+    non ha budget per conto: la spesa grava sulla WBS (``BudgetWBS``).
     """
 
     sottocluster = models.ForeignKey(
@@ -726,19 +727,17 @@ class BudgetConto(Archiviabile):
     )
     conto = models.ForeignKey(ContoCoge, on_delete=models.PROTECT, related_name="budget_assegnati")
     anno = models.PositiveSmallIntegerField(db_index=True)
-    natura = models.CharField(max_length=5, choices=Natura.choices)
-    importo = importo("budget assegnato (imponibile)")
+    importo = importo("budget OPEX assegnato (imponibile)")
     note = models.TextField(blank=True)
     history = HistoricalRecords()
 
     class Meta:
-        verbose_name = "budget assegnato al conto"
-        verbose_name_plural = "budget assegnati ai conti"
+        verbose_name = "budget OPEX assegnato al conto"
+        verbose_name_plural = "budget OPEX assegnati ai conti"
         ordering = ["-anno", "sottocluster__cluster__codice", "sottocluster__nome", "conto__codice"]
         constraints = [
             models.UniqueConstraint(
-                fields=["sottocluster", "conto", "anno", "natura"],
-                name="contratti_budget_conto_unico",
+                fields=["sottocluster", "conto", "anno"], name="contratti_budget_conto_unico"
             ),
             models.CheckConstraint(
                 condition=Q(importo__gte=0), name="contratti_budget_conto_non_negativo"
@@ -746,7 +745,44 @@ class BudgetConto(Archiviabile):
         ]
 
     def __str__(self):
-        return f"{self.sottocluster} · {self.conto.codice} · {self.anno} · {self.natura}"
+        return f"{self.sottocluster} · {self.conto.codice} · {self.anno}"
+
+
+class BudgetWBS(Archiviabile):
+    """Budget CAPEX assegnato a una WBS, nell'ambito di un sottocluster, per un anno.
+
+    Le spese CAPEX gravano esclusivamente sulla WBS, non sul conto associato (SPEC §5.2, Rev34).
+    """
+
+    sottocluster = models.ForeignKey(
+        Sottocluster, on_delete=models.PROTECT, related_name="budget_wbs"
+    )
+    wbs = models.ForeignKey("WBS", on_delete=models.PROTECT, related_name="budget_assegnati")
+    anno = models.PositiveSmallIntegerField(db_index=True)
+    importo = importo("budget CAPEX assegnato (imponibile)")
+    note = models.TextField(blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "budget CAPEX assegnato alla WBS"
+        verbose_name_plural = "budget CAPEX assegnati alle WBS"
+        ordering = [
+            "-anno",
+            "sottocluster__cluster__codice",
+            "sottocluster__nome",
+            "wbs__codice_wbs",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["sottocluster", "wbs", "anno"], name="contratti_budget_wbs_unico"
+            ),
+            models.CheckConstraint(
+                condition=Q(importo__gte=0), name="contratti_budget_wbs_non_negativo"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.sottocluster} · {self.wbs.codice_wbs} · {self.anno}"
 
 
 class Fornitore(Archiviabile):

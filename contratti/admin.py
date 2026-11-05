@@ -123,10 +123,18 @@ class BudgetSottoclusterAdmin(ArchiviabileAdmin):
 
 @admin.register(m.BudgetConto)
 class BudgetContoAdmin(ArchiviabileAdmin):
-    list_display = ("sottocluster", "conto", "anno", "natura", "importo", "archiviato")
-    list_filter = ("anno", "natura", "sottocluster__cluster", "archiviato")
+    list_display = ("sottocluster", "conto", "anno", "importo", "archiviato")
+    list_filter = ("anno", "sottocluster__cluster", "archiviato")
     search_fields = ("sottocluster__nome", "conto__codice", "conto__descrizione", "note")
     autocomplete_fields = ("sottocluster", "conto")
+
+
+@admin.register(m.BudgetWBS)
+class BudgetWBSAdmin(ArchiviabileAdmin):
+    list_display = ("sottocluster", "wbs", "anno", "importo", "archiviato")
+    list_filter = ("anno", "sottocluster__cluster", "archiviato")
+    search_fields = ("sottocluster__nome", "wbs__codice_wbs", "wbs__descrizione", "note")
+    autocomplete_fields = ("sottocluster", "wbs")
 
 
 @admin.register(m.CompetenzaDichiarata)

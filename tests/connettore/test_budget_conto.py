@@ -44,3 +44,16 @@ def test_connettore_viste_a_scelta(conti_assegnati, utente_reader):
     )
     dati = risposta["result"]["structuredContent"]
     assert list(dati["viste"]) == ["ordinato"]
+
+
+def test_connettore_capex_assegnato_sulla_wbs(conti_assegnati, utente_reader):
+    risposta, _ = protocollo.gestisci(
+        chiama("budget", {"anno": 2026, "natura": "CAPEX", "cluster": ["tutti"]}),
+        Contesto(utente_reader, OGGI),
+    )
+    (sezione,) = risposta["result"]["structuredContent"]["sezioni"]
+    assert sezione["raggruppato_per"] == "wbs"
+    per_wbs = {g["chiave"]: g["budget_assegnato"] for g in sezione["gruppi"]}
+    assert per_wbs["W-OK"]["stato"] == "ok" and per_wbs["W-OK"]["speso"] == "20000.00"
+    assert per_wbs["W-SUP"]["stato"] == "superato"
+    assert per_wbs["W-NO"]["stato"] == "non_assegnato"

@@ -155,7 +155,39 @@ def conti_assegnati(db):
         )
         if importo:
             m.BudgetConto.objects.create(
-                sottocluster=sc, conto=conto, anno=2026, natura="OPEX", importo=Decimal(importo)
+                sottocluster=sc, conto=conto, anno=2026, importo=Decimal(importo)
             )
         risultato[codice] = conto
-    return {"sc": sc, "conti": risultato}
+    # CAPEX: la spesa grava sulla WBS, qualunque sia il conto della voce. W-OK ha due voci su
+    # due conti diversi (20.000,00 su 25.000,00); W-SUP una sola (10.000,00 su 5.000,00).
+    wbs = {}
+    spese = {"W-OK": ("C-OK", "C-AVV"), "W-SUP": ("C-SUP",), "W-NO": ("C-NO",)}
+    assegnati_wbs = {"W-OK": "25000.00", "W-SUP": "5000.00", "W-NO": None}
+    for codice, conti_voci in spese.items():
+        wbs[codice] = m.WBS.objects.create(
+            codice_wbs=codice, descrizione=f"WBS {codice}", tipo=m.WBS.Tipo.CLUSTER, cluster=it
+        )
+        for conto_codice in conti_voci:
+            fab = f.fabbisogno(
+                f"CAPEX {codice} {conto_codice}",
+                cluster=it,
+                sottocluster=sc,
+                decisione="dismettere",
+            )
+            c = f.contratto(fabbisogno=fab, data_inizio=D(2026, 1, 1), durata_mesi=12)
+            f.piano(
+                f.voce(
+                    c,
+                    importo_fisso=Decimal("10000.00"),
+                    natura=m.Natura.CAPEX,
+                    wbs=wbs[codice],
+                    conto=risultato[conto_codice],
+                ),
+                modalita="anticipata",
+                periodicita="annuale",
+            )
+        if assegnati_wbs[codice]:
+            m.BudgetWBS.objects.create(
+                sottocluster=sc, wbs=wbs[codice], anno=2026, importo=Decimal(assegnati_wbs[codice])
+            )
+    return {"sc": sc, "conti": risultato, "wbs": wbs}

@@ -31,22 +31,22 @@
 <h3>{{ s.natura }} per {% if s.criterio == "WBS" %}WBS{% else %}{{ s.criterio|lower }}{% endif %} · livello {{ livello.value }}</h3>
 <table class="dati" id="gruppi-{{ s.natura }}">
   <thead>
-    <tr><th class="sx" rowspan="2">{{ s.criterio }}</th>{% for v in viste %}<th colspan="3">{{ v }}</th>{% endfor %}{% if s.per_conto %}<th class="num" rowspan="2">Assegnato</th><th class="sx" rowspan="2">Stato</th>{% endif %}</tr>
+    <tr><th class="sx" rowspan="2">{{ s.criterio }}</th>{% for v in viste %}<th colspan="3">{{ v }}</th>{% endfor %}{% if s.con_confronto %}<th class="num" rowspan="2">Assegnato</th><th class="sx" rowspan="2">Stato</th>{% endif %}</tr>
     <tr>{% for v in viste %}<th class="num">Consolidato</th><th class="num">Previsionale</th><th class="num">Totale</th>{% endfor %}</tr>
   </thead>
   <tbody>
   {% for g in s.gruppi %}
-    <tr><td class="sx">{{ g.etichetta }} <span class="tenue">({{ g.voci|length }})</span></td>{% for c in g.celle %}<td class="num">{{ c.0|euro }}</td><td class="num tenue">{{ c.1|euro }}</td><td class="num forte">{{ c.2|euro }}</td>{% endfor %}{% if s.per_conto %}{% include "reports/pdf/_confronto_conto.html" with c=g.confronto %}{% endif %}</tr>
-    {% for etichetta, celle, confronto in g.sotto %}
-    <tr class="sotto"><td class="sx">conto {{ etichetta }}</td>{% for c in celle %}<td class="num">{{ c.0|euro }}</td><td class="num">{{ c.1|euro }}</td><td class="num">{{ c.2|euro }}</td>{% endfor %}{% if s.per_conto %}{% include "reports/pdf/_confronto_conto.html" with c=confronto %}{% endif %}</tr>
+    <tr><td class="sx">{{ g.etichetta }} <span class="tenue">({{ g.voci|length }})</span></td>{% for c in g.celle %}<td class="num">{{ c.0|euro }}</td><td class="num tenue">{{ c.1|euro }}</td><td class="num forte">{{ c.2|euro }}</td>{% endfor %}{% if s.con_confronto %}{% include "reports/pdf/_confronto_conto.html" with c=g.confronto %}{% endif %}</tr>
+    {% for etichetta, celle in g.sotto %}
+    <tr class="sotto"><td class="sx">conto {{ etichetta }}</td>{% for c in celle %}<td class="num">{{ c.0|euro }}</td><td class="num">{{ c.1|euro }}</td><td class="num">{{ c.2|euro }}</td>{% endfor %}{% if s.con_confronto %}<td colspan="2"></td>{% endif %}</tr>
     {% endfor %}
   {% empty %}
     <tr><td colspan="{{ n_colonne }}" class="vuoto">Nessuna voce con importi nell'anno.</td></tr>
   {% endfor %}
-    <tr class="totale"><td class="sx">Totale {{ s.natura }}</td>{% for c in s.totale_celle %}<td class="num">{{ c.0|euro }}</td><td class="num">{{ c.1|euro }}</td><td class="num">{{ c.2|euro }}</td>{% endfor %}{% if s.per_conto %}<td colspan="2"></td>{% endif %}</tr>
+    <tr class="totale"><td class="sx">Totale {{ s.natura }}</td>{% for c in s.totale_celle %}<td class="num">{{ c.0|euro }}</td><td class="num">{{ c.1|euro }}</td><td class="num">{{ c.2|euro }}</td>{% endfor %}{% if s.con_confronto %}<td colspan="2"></td>{% endif %}</tr>
   </tbody>
 </table>
-{% if s.per_conto %}<p class="nota">Stato: speso = Fatturato e stanziato (competenza), livello {{ livello.value }}. OK sotto il {{ soglia|floatformat:"-2" }}% dell'assegnato, in avvicinamento dal {{ soglia|floatformat:"-2" }}% all'assegnato, superato oltre.</p>{% endif %}
+{% if s.con_confronto %}<p class="nota">Stato: speso = Fatturato e stanziato (competenza), livello {{ livello.value }}. OK sotto il {{ soglia|floatformat:"-2" }}% dell'assegnato, in avvicinamento dal {{ soglia|floatformat:"-2" }}% all'assegnato, superato oltre.</p>{% endif %}
 
 {% if dettaglio and s.gruppi %}
 <h3 class="nuova-pagina">Dettaglio delle voci {{ s.natura }} · livello {{ livello.value }}</h3>

@@ -64,8 +64,13 @@ def dati():
         sottocluster=sottocluster,
         conto=conto,
         anno=2026,
-        natura="OPEX",
         importo=Decimal("500.00"),
+    )
+    m.BudgetWBS.objects.create(
+        sottocluster=sottocluster,
+        wbs=m.WBS.objects.get(codice_wbs="WBS-PROVA-01"),
+        anno=2026,
+        importo=Decimal("700.00"),
     )
     m.FonteFinanziamento.objects.create(nome="Fonte di prova")
     m.CompetenzaDichiarata.objects.create(

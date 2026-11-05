@@ -19,7 +19,7 @@ from reports.budget import (
     SIGLE_VISTE,
     VISTE,
     Budget,
-    assegnati_per_conto,
+    assegnati_del_criterio,
     confronto_conto,
     soglia_avvicinamento,
 )
@@ -28,7 +28,7 @@ from reports.quadratura import CAUSE, Quadratura
 
 NOTA_IMPONIBILE = "Importi imponibili (IVA esclusa)."
 # Rev34: assegnato per conto e stato rispetto al fatturato e stanziato (competenza).
-COLONNE_STATO = ["Budget assegnato (per conto)", "Stato", "Utilizzo %"]
+COLONNE_STATO = ["Budget assegnato (conto OPEX, WBS CAPEX)", "Stato", "Utilizzo %"]
 
 
 def _generato(oggi: datetime.date) -> str:
@@ -89,15 +89,6 @@ def budget_xlsx(
     wb = xlsx.nuovo_libro()
     if soglia is None:
         soglia = soglia_avvicinamento(budget.oggi)
-    totali_conti: dict[str, dict] = {}
-
-    def confronto(natura_filtri, g):
-        """Assegnato e stato del conto (Rev34): lo speso è quello del conto su tutte le WBS."""
-        chiave = g.chiave
-        return confronto_conto(
-            assegnati[natura_filtri], chiave, totali_conti[natura_filtri][chiave],
-            livello_stato, soglia,
-        )  # fmt: skip
 
     def celle_stato(c):
         return [c.assegnato, ETICHETTE_STATO[c.stato], c.percentuale]
@@ -124,9 +115,9 @@ def budget_xlsx(
 
     usati = list(dict.fromkeys(criteri[s.filtri.natura] for s in sezioni))
     criterio = usati[0] if len(usati) == 1 else ""
-    assegnati = {s.filtri.natura: assegnati_per_conto(s.filtri) for s in sezioni}
-    totali_conti = {
-        s.filtri.natura: {g.chiave: g.totali for g in s.gruppi("conto")} for s in sezioni
+    # Rev34: assegnato e stato dove le righe sono i conti (OPEX) o le WBS (CAPEX).
+    assegnati = {
+        s.filtri.natura: assegnati_del_criterio(s.filtri, criteri[s.filtri.natura]) for s in sezioni
     }
     colonne = ["Natura", RAGGRUPPAMENTI[criterio] if criterio else "Gruppo"]
     for vista in viste:
@@ -140,20 +131,25 @@ def budget_xlsx(
             for vista in viste:
                 for livello in LIVELLI:
                     riga += [g.totali[parte][vista][livello] for parte in PARTI]
-            # Assegnato e stato (Rev34) solo dove il gruppo è un conto.
+            da_confrontare = assegnati[s.filtri.natura]
             riga += (
-                celle_stato(confronto(s.filtri.natura, g))
-                if criteri[s.filtri.natura] == "conto"
-                else [None] * 3
+                celle_stato(
+                    confronto_conto(da_confrontare, g.chiave, g.totali, livello_stato, soglia)
+                )
+                if da_confrontare is not None
+                else [None] * len(COLONNE_STATO)
             )
             righe.append(riga)
-    colonne += COLONNE_STATO
-    xlsx.foglio(wb, f"Per {criterio}" if criterio else "Per gruppo", intestazione, colonne, righe)
+    colonne_gruppi = colonne + COLONNE_STATO
+    xlsx.foglio(
+        wb, f"Per {criterio}" if criterio else "Per gruppo", intestazione, colonne_gruppi, righe
+    )
 
     # CAPEX per WBS e, dentro ogni WBS, per conto: la lettura del Controllo di gestione.
     capex = [s for s in sezioni if s.filtri.natura == m.Natura.CAPEX]
     if capex and criteri[m.Natura.CAPEX] == "wbs":
-        colonne_wbs = ["WBS", "Conto", *colonne[2:]]  # già con le colonne di assegnato e stato
+        # Le spese CAPEX gravano sulla WBS: nessun assegnato né stato sui conti sotto la WBS.
+        colonne_wbs = ["WBS", "Conto", *colonne[2:]]
         righe = []
         for g in capex[0].gruppi("wbs"):
             for sg in g.sotto("conto"):
@@ -161,7 +157,6 @@ def budget_xlsx(
                 for vista in viste:
                     for livello in LIVELLI:
                         riga += [sg.totali[parte][vista][livello] for parte in PARTI]
-                riga += celle_stato(confronto(m.Natura.CAPEX, sg))
                 righe.append(riga)
         xlsx.foglio(wb, "CAPEX per WBS e conto", intestazione, colonne_wbs, righe)
 
