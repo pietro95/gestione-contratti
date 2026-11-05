@@ -1,6 +1,7 @@
 """Rev25: il filtro per sottocluster in tutte le viste che filtrano per cluster."""
 
 import datetime
+import re
 from decimal import Decimal
 
 import pytest
@@ -39,9 +40,7 @@ def ambiente(come):
 
 
 def _pagina(ambiente, nome, sotto=None, **extra):
-    parametri = {"area": "tutti", "oggi": OGGI, **extra}
-    if sotto is not None:
-        parametri["sottocluster"] = sotto
+    parametri = {"sottocluster": "tutti" if sotto is None else sotto, "oggi": OGGI, **extra}
     risposta = ambiente["client"].get(reverse(nome), parametri)
     assert risposta.status_code == 200, nome
     return risposta.content.decode()
@@ -65,8 +64,9 @@ def test_elenchi_del_registro_filtrano(ambiente, nome, extra):
     assert "Alfa" in tutti and "Beta" in tutti
     html = _pagina(ambiente, nome, ambiente["a"].pk, **extra)
     _solo_alfa(html, "Fabbisogno di Alfa", "Fabbisogno di Beta")
-    # la tendina c'è e ricorda la scelta
-    assert 'name="sottocluster"' in html and f'value="{ambiente["a"].pk}" selected' in html
+    # la tendina c'è e ricorda la scelta (Alfa spuntato, Beta no)
+    assert re.search(rf'value="{ambiente["a"].pk}"[^>]*checked', html)
+    assert not re.search(rf'value="{ambiente["b"].pk}"[^>]*checked', html)
 
 
 def test_cruscotto_e_contratti_con_sottocluster_non_valido_non_si_rompono(ambiente):
@@ -118,7 +118,11 @@ def test_stanziamenti(ambiente):
 def test_export_xlsx_porta_il_sottocluster_nell_intestazione(ambiente):
     risposta = ambiente["client"].get(
         reverse("reports:contratti_da_chiudere"),
-        {"area": "tutti", "oggi": OGGI, "sottocluster": ambiente["a"].pk, "formato": "xlsx"},
+        {
+            "oggi": OGGI,
+            "sottocluster": ambiente["a"].pk,
+            "formato": "xlsx",
+        },
     )
     assert risposta.status_code == 200
     import io

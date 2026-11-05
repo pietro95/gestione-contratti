@@ -839,13 +839,7 @@ def registra_contratto_da_rda(
     return contratto
 
 
-def filtra_rda_per_sottocluster(qs, sottocluster: int | None):
-    """RDA del sottocluster: il suo, o quello del fabbisogno della pratica se non ce l'ha."""
-    if not sottocluster:
-        return qs
-    senza = Q(sottocluster__isnull=True)
-    return qs.filter(
-        Q(sottocluster_id=sottocluster)
-        | (senza & Q(fabbisogno__sottocluster_id=sottocluster))
-        | (senza & Q(contratto_in_scadenza__fabbisogno__sottocluster_id=sottocluster))
-    )
+def filtra_rda_per_sottocluster(qs, sottocluster):
+    """RDA dei sottocluster dati (un id, più id o niente = tutte): quello della RDA (Rev35)."""
+    ids = permessi.ids_sottocluster(sottocluster)
+    return qs.filter(sottocluster_id__in=ids) if ids else qs

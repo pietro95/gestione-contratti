@@ -21,6 +21,7 @@ from contratti.engine import sal
 from contratti.engine.acquisti import formato_euro
 from contratti.engine.importi import ZERO
 from contratti.engine.tipi import Esito, Livello
+from contratti.permessi import ids_sottocluster
 
 # Fonte dell'importo, per vista: cosa rappresentano le cifre della riga di una voce non a SAL.
 FONTI_VOCE = {
@@ -208,21 +209,26 @@ def elenco_wbs(
     codici_cluster: list[str],
     tipo: str = "",
     archiviate: bool = False,
-    sottocluster: int | None = None,
+    sottocluster: "int | tuple[int, ...] | None" = None,
+    tutte_a_progetto: bool = False,
 ):
     """WBS con il numero di voci; di default quelle dei cluster dati e tutte le WBS a progetto.
 
-    Con ``sottocluster``: solo le WBS con almeno una voce di un fabbisogno di quel sottocluster,
-    e il numero di voci conta solo quelle.
+    Con ``sottocluster`` (uno o più): le WBS di quei sottocluster e quelle con almeno una voce di
+    un loro fabbisogno; il numero di voci conta solo quelle voci.
     """
+    ids = ids_sottocluster(sottocluster)
     voci = Q(voci__archiviato=False, voci__contratto__archiviato=False)
-    if sottocluster:
-        voci &= Q(voci__contratto__fabbisogno__sottocluster_id=sottocluster)
+    if ids:
+        voci &= Q(voci__contratto__fabbisogno__sottocluster_id__in=ids)
     qs = m.WBS.objects.select_related("cluster").annotate(
         n_voci=Count("voci", filter=voci, distinct=True)
     )
-    if sottocluster:
-        qs = qs.filter(n_voci__gt=0)
+    if ids:  # le WBS dei sottocluster scelti e quelle con voci di fabbisogni dei sottocluster
+        ammesse = Q(sottocluster_id__in=ids) | Q(n_voci__gt=0)
+        if tutte_a_progetto:  # nella vista di default (nessuna scelta) restano tutte
+            ammesse |= Q(tipo=m.WBS.Tipo.PROGETTO)
+        qs = qs.filter(ammesse)
     if not archiviate:
         qs = qs.filter(archiviato=False)
     if tipo:

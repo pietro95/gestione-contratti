@@ -32,6 +32,7 @@ from contratti.engine.budget import valore
 from contratti.engine.date import UN_GIORNO, aggiungi_mesi
 from contratti.engine.importi import ZERO
 from contratti.engine.tipi import ContrattoPrevisto, Livello, Voce
+from contratti.permessi import ids_sottocluster
 from contratti.selettori import codici_cluster
 from reports.budget import LIVELLI, NATURE, importi_anno, orizzonte_report
 
@@ -439,7 +440,7 @@ def calcola_piano(
     oggi: datetime.date,
     *,
     area: str | tuple[str, ...] = "",
-    sottocluster: int | None = None,
+    sottocluster: "int | tuple[int, ...] | None" = None,
     natura: str = "",
 ) -> PianoOrdini:
     with adapters.parametri_in_cache():
@@ -469,7 +470,7 @@ def _calcola_piano(anno: int, oggi: datetime.date, area, sottocluster: int | Non
     if codici := codici_cluster(area):
         fabbisogni = fabbisogni.filter(cluster__codice__in=codici)
     if sottocluster:
-        fabbisogni = fabbisogni.filter(sottocluster_id=sottocluster)
+        fabbisogni = fabbisogni.filter(sottocluster_id__in=ids_sottocluster(sottocluster))
     righe: list[RigaPiano] = []
     for f in fabbisogni.order_by("pk"):
         righe += _righe_previste(f, anno, oggi, orizzonte, procedura_default, recupero)

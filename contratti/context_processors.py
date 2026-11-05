@@ -27,6 +27,6 @@ def navigazione(request):
             else 0
         ),
         "piani_da_verificare": selettori.voci_piano_da_verificare(
-            permessi.codici_filtro(user, [])
+            (), permessi.filtro_sottocluster(user, [])
         ).count(),
     }

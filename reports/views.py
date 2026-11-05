@@ -6,7 +6,6 @@ from django.shortcuts import get_object_or_404, render
 from contratti import models as m
 from contratti import permessi
 from contratti.engine.tipi import Livello
-from contratti.selettori import codici_cluster
 from contratti.views import oggi_richiesta
 from reports import pdf, xlsx
 from reports.budget import (
@@ -24,7 +23,13 @@ from reports.budget import (
     confronto_conto,
     soglia_avvicinamento,
 )
-from reports.export import budget_xlsx, descrivi_filtri, piano_xlsx, suffisso_cluster, voci_filtri
+from reports.export import (
+    budget_xlsx,
+    descrivi_filtri,
+    piano_xlsx,
+    suffisso_sottocluster,
+    voci_filtri,
+)
 from reports.extra_budget import avviso_sforamento, elenco_autorizzazioni, spese_extra_budget
 from reports.forms import FiltriBudgetForm, FiltriPianoForm
 from reports.piano_ordini import calcola_piano
@@ -39,19 +44,16 @@ def _celle(totali, livello, viste) -> list:
 
 
 def _assegnato(b, livello) -> dict | None:
-    """Box del budget assegnato al sottocluster filtrato (natura della sezione).
+    """Box del budget assegnato ai sottocluster filtrati (natura della sezione).
 
     Il residuo è l'assegnato meno il totale della vista di riferimento (Fatturato e stanziato)
-    al livello scelto.
-    Il box non compare se il sottocluster è di un cluster fuori dalla visibilità.
+    al livello scelto. Con più sottocluster è la somma degli assegnati. Il box compare solo
+    quando la selezione è ristretta (non con tutti i sottocluster).
     """
     f = b.filtri
     if not f.sottocluster:
         return None
-    sc = m.Sottocluster.objects.select_related("cluster").get(pk=f.sottocluster)
-    codici = codici_cluster(f.area)
-    if codici and sc.cluster.codice not in codici:
-        return None
+    sc = permessi.descrivi_sottocluster_scelti(f.sottocluster).removeprefix("Sottocluster: ")
     assegnato = budget_assegnato(f).get(f.natura)
     totale = b.totali()["totale"][VISTA_ASSEGNATO][livello]
     return {
@@ -140,15 +142,15 @@ def budget(request):
     if request.GET.get("formato") == "pdf":
         natura = b.filtri.natura or "OPEX_CAPEX"
         titolo = f"Budget {b.filtri.anno}" + (f" · {b.filtri.natura}" if b.filtri.natura else "")
-        codici = codici_cluster(b.filtri.area)
         contesto |= {
             "titolo": titolo,
             "filtri": descrivi_filtri(b),
             "voci_filtri": voci_filtri(b),
-            "cluster": permessi.descrivi_filtro(codici),
+            "cluster": permessi.descrivi_sottocluster_scelti(b.filtri.sottocluster),
             "dettaglio": bool(request.GET.get("dettaglio")),
         }
-        nome = f"{oggi:%Y.%m.%d}_Budget_{b.filtri.anno}_{natura}{suffisso_cluster(codici)}.pdf"
+        suffisso = suffisso_sottocluster(b.filtri.sottocluster)
+        nome = f"{oggi:%Y.%m.%d}_Budget_{b.filtri.anno}_{natura}{suffisso}.pdf"
         return pdf.risposta("reports/pdf/budget.html", contesto, nome, request)
     return render(request, "reports/budget.html", contesto)
 
@@ -161,12 +163,10 @@ def piano_ordini(request):
     if not form.is_valid():
         return render(request, "reports/piano_ordini.html", contesto)
     d = form.cleaned_data
-    sottocluster = d["sottocluster"].pk if d.get("sottocluster") else None
     piano = calcola_piano(
         d["anno"],
         oggi,
-        area=form.codici_cluster(),
-        sottocluster=sottocluster,
+        sottocluster=form.sottocluster_ids(),
         natura=d.get("natura") or "",
     )
     semplificata = request.GET.get("vista") == VISTA_SEMPLIFICATA
@@ -204,50 +204,44 @@ def piano_ordini(request):
         "livelli": LIVELLI,
     }
     if request.GET.get("formato") == "pdf":
-        codici = form.codici_cluster()
+        ids = form.sottocluster_ids()
         contesto |= {
             "titolo": f"Piano ordini {piano.anno}",
             # Gli avvisi di frazionamento sono una verifica interna: nel PDF solo a richiesta.
             "con_avvisi": bool(request.GET.get("dettaglio")),
             "filtri": form.descrizione(),
             "voci_filtri": form.voci(),
-            "cluster": permessi.descrivi_filtro(codici),
+            "cluster": form.descrizione_sottocluster(),
         }
         raggruppa = bool(request.GET.get("raggruppa"))
         contesto["raggruppa_stipulati"] = raggruppa
         suffisso = "_stipulati_raggruppati" if raggruppa else ""
-        nome = f"{oggi:%Y.%m.%d}_Piano_ordini_{piano.anno}{suffisso_cluster(codici)}{suffisso}.pdf"
+        nome = (
+            f"{oggi:%Y.%m.%d}_Piano_ordini_{piano.anno}{suffisso_sottocluster(ids)}{suffisso}.pdf"
+        )
         return pdf.risposta("reports/pdf/piano_ordini.html", contesto, nome, request)
     return render(request, "reports/piano_ordini.html", contesto)
-
-
-def _contesto_sottocluster(scelto: int | None) -> dict:
-    """Tendina «Sottocluster» dei filtri (come nelle viste dei contratti)."""
-    return {
-        "sottocluster_elenco": m.Sottocluster.objects.filter(archiviato=False).select_related(
-            "cluster"
-        ),
-        "sottocluster_scelto": "" if scelto is None else str(scelto),
-    }
 
 
 @login_required
 def wbs_elenco(request):
     """WBS di cluster (di default dei propri cluster) e WBS a progetto, con il numero di voci."""
     g = request.GET
-    codici = permessi.codici_filtro(request.user, g.getlist("area"))
-    sottocluster = permessi.id_sottocluster(g.get("sottocluster"))
+    scelti = g.getlist("sottocluster")
+    sottocluster = permessi.filtro_sottocluster(request.user, scelti)
     tipo = g.get("tipo", "") if g.get("tipo") in m.WBS.Tipo.values else ""
     return render(
         request,
         "reports/wbs_elenco.html",
         {
             "elenco": elenco_wbs(
-                codici, tipo, archiviate=bool(g.get("archiviate")), sottocluster=sottocluster
+                [],
+                tipo,
+                archiviate=bool(g.get("archiviate")),
+                sottocluster=sottocluster,
+                tutte_a_progetto=not scelti,
             ),
-            **_contesto_sottocluster(sottocluster),
-            "aree": permessi.scelte_filtro(request.user),
-            "area_scelte": permessi.selezione_filtro(request.user, g.getlist("area")),
+            "filtro_sottocluster": permessi.contesto_filtro_sottocluster(request.user, scelti),
             "tipi": m.WBS.Tipo.choices,
             "filtri": g,
         },
@@ -302,12 +296,10 @@ def wbs_spese(request, pk):
 def extra_budget_elenco(request):
     """Autorizzazioni extra budget dell'AD (Rev18) con voci collegate, consumato e residuo."""
     g = request.GET
-    codici = permessi.codici_filtro(request.user, g.getlist("area"))
-    sottocluster = permessi.id_sottocluster(g.get("sottocluster"))
+    scelti = g.getlist("sottocluster")
+    sottocluster = permessi.filtro_sottocluster(request.user, scelti)
     elenco = list(
-        elenco_autorizzazioni(
-            codici, archiviate=bool(g.get("archiviate")), sottocluster=sottocluster
-        )
+        elenco_autorizzazioni([], archiviate=bool(g.get("archiviate")), sottocluster=sottocluster)
     )
     for a in elenco:
         a.residuo = a.importo_autorizzato - a.consumato
@@ -317,9 +309,7 @@ def extra_budget_elenco(request):
         "reports/extra_budget_elenco.html",
         {
             "elenco": elenco,
-            **_contesto_sottocluster(sottocluster),
-            "aree": permessi.scelte_filtro(request.user),
-            "area_scelte": permessi.selezione_filtro(request.user, g.getlist("area")),
+            "filtro_sottocluster": permessi.contesto_filtro_sottocluster(request.user, scelti),
             "filtri": g,
         },
     )

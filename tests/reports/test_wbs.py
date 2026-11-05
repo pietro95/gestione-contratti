@@ -88,14 +88,18 @@ def _client(make_user, nome, ruolo):
 
 
 def test_pagine_wbs_ed_export(capex, make_user):
-    tlc = f.cluster("TLC")
-    m.WBS.objects.create(codice_wbs="X.0003.00.000", descrizione="TLC", tipo="cluster", cluster=tlc)
+    m.WBS.objects.create(
+        codice_wbs="X.0003.00.000",
+        descrizione="TLC",
+        tipo="cluster",
+        sottocluster=f.sottocluster("Reti", "TLC"),
+    )
     m.AssegnazioneCluster.objects.create(username="u_it", cluster=f.cluster("IT"))
     client = _client(make_user, "u_it", READER)
     html = client.get(reverse("reports:wbs")).content.decode()
     # Di default: WBS dei propri cluster e tutte le WBS a progetto.
     assert "X.0001.00.000" in html and "X.0002.00.000" in html and "X.0003.00.000" not in html
-    html = client.get(reverse("reports:wbs") + "?area=tutti").content.decode()
+    html = client.get(reverse("reports:wbs") + "?sottocluster=tutti").content.decode()
     assert "X.0003.00.000" in html
     url = reverse("reports:wbs_spese", args=[capex["wbs"].pk])
     risposta = client.get(url + "?vista=cassa&livello=fisso")

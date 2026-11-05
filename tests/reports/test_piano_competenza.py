@@ -230,12 +230,12 @@ def test_pagina_con_sezioni_sottocluster_e_fonte(struttura, lettore):
     fonte = m.FonteFinanziamento.objects.create(nome="Fonte D (prova)")
     _misto(struttura, fonte_finanziamento=fonte)
     url = reverse("reports:piano_ordini")
-    risposta = lettore.get(url, {"anno": 2026, "area": "tutti"})
+    risposta = lettore.get(url, {"anno": 2026, "sottocluster": "tutti"})
     html = risposta.content.decode()
     assert 'id="sezione-opex"' in html and 'id="sezione-capex"' in html
     assert "Reti" in html and "Fonte D (prova)" in html and "Normalizzato 2026" in html
     assert [s.natura for s in risposta.context["sezioni"]] == ["OPEX", "CAPEX"]
-    solo = lettore.get(url, {"anno": 2026, "area": "tutti", "natura": "CAPEX"})
+    solo = lettore.get(url, {"anno": 2026, "sottocluster": "tutti", "natura": "CAPEX"})
     assert [s.natura for s in solo.context["sezioni"]] == ["CAPEX"]
     assert 'id="sezione-opex"' not in solo.content.decode()
 
@@ -244,7 +244,7 @@ def test_xlsx_un_foglio_per_natura(struttura, lettore):
     fonte = m.FonteFinanziamento.objects.create(nome="Fonte E (prova)")
     _misto(struttura, fonte_finanziamento=fonte)
     risposta = lettore.get(
-        reverse("reports:piano_ordini"), {"anno": 2026, "area": "tutti", "formato": "xlsx"}
+        reverse("reports:piano_ordini"), {"anno": 2026, "sottocluster": "tutti", "formato": "xlsx"}
     )
     wb = openpyxl.load_workbook(io.BytesIO(risposta.content))
     assert wb.sheetnames[:2] == ["OPEX", "CAPEX"]
@@ -287,7 +287,8 @@ def test_stipulati_in_una_riga_espandibile_per_sottocluster(make_user):
     admin = Client()
     admin.login(username="admin_piano", password=PASSWORD)
     html = admin.get(
-        reverse("reports:piano_ordini"), {"anno": 2026, "area": "tutti", "oggi": "2026-06-01"}
+        reverse("reports:piano_ordini"),
+        {"anno": 2026, "sottocluster": "tutti", "oggi": "2026-06-01"},
     ).content.decode()
     assert html.count("2 contratti già stipulati") == 1
     assert html.count('class="collapse stip-opex-') == 2  # i due dettagli, nascosti di default
@@ -330,7 +331,7 @@ def test_pdf_senza_totali_in_testa(make_user, monkeypatch):
         return HttpResponse(b"%PDF", content_type="application/pdf")
 
     monkeypatch.setattr(modulo_pdf, "risposta", finto)
-    client.get(reverse("reports:piano_ordini") + "?anno=2026&area=tutti&formato=pdf")
+    client.get(reverse("reports:piano_ordini") + "?anno=2026&sottocluster=tutti&formato=pdf")
     html = render_to_string(catturato["template"], catturato["contesto"], None)
     assert "Ordini da emettere" in html
     assert "valore probabile" not in html and "valore massimo" not in html
@@ -354,7 +355,10 @@ def test_pdf_due_versioni_dei_stipulati(make_user, monkeypatch):
         return HttpResponse(b"%PDF", content_type="application/pdf")
 
     monkeypatch.setattr(modulo_pdf, "risposta", finto)
-    url = reverse("reports:piano_ordini") + "?anno=2026&area=tutti&oggi=2026-06-01&formato=pdf"
+    url = (
+        reverse("reports:piano_ordini")
+        + "?anno=2026&sottocluster=tutti&oggi=2026-06-01&formato=pdf"
+    )
     client.get(url)
     completo = render_to_string(catturato["template"], catturato["contesto"], None)
     assert "Stipulato A" in completo and "Stipulato B" in completo
@@ -372,7 +376,7 @@ def test_pagina_senza_totali_in_testa(struttura, lettore):
     """In testa niente totali per natura: i totali stanno solo in fondo a ogni sezione."""
     _misto(struttura)
     html = lettore.get(
-        reverse("reports:piano_ordini"), {"anno": 2026, "area": "tutti"}
+        reverse("reports:piano_ordini"), {"anno": 2026, "sottocluster": "tutti"}
     ).content.decode()
     assert "Ordini da emettere" in html and "Possibile frazionamento" in html
     assert "valore probabile" not in html and "valore massimo" not in html

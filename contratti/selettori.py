@@ -10,6 +10,7 @@ from contratti import models as m
 from contratti.engine import scadenze
 from contratti.engine.date import aggiungi_mesi
 from contratti.engine.tipi import Alert
+from contratti.permessi import ids_sottocluster
 
 ORDINE_ALERT = {Alert.ROSSO: 0, Alert.ARANCIONE: 1, Alert.GIALLO: 2, Alert.VERDE: 3, None: 4}
 
@@ -126,7 +127,7 @@ def righe_previsti_manuali(oggi: datetime.date, filtri: dict) -> list[RigaContra
     if codici := codici_cluster(filtri.get("area")):
         qs = qs.filter(cluster__codice__in=codici)
     if filtri.get("sottocluster"):
-        qs = qs.filter(sottocluster_id=filtri["sottocluster"])
+        qs = qs.filter(sottocluster_id__in=ids_sottocluster(filtri["sottocluster"]))
     default = m.Procedura.objects.filter(codice="da_verificare").first()
     righe = []
     for f in qs:
@@ -176,7 +177,7 @@ def cruscotto(oggi: datetime.date, filtri: dict) -> dict[Alert, list[RigaContrat
     if codici := codici_cluster(filtri.get("area")):
         qs = qs.filter(fabbisogno__cluster__codice__in=codici)
     if filtri.get("sottocluster"):
-        qs = qs.filter(fabbisogno__sottocluster_id=filtri["sottocluster"])
+        qs = qs.filter(fabbisogno__sottocluster_id__in=ids_sottocluster(filtri["sottocluster"]))
     gruppi: dict[Alert, list[RigaContratto]] = {
         Alert.ROSSO: [],
         Alert.ARANCIONE: [],
@@ -191,7 +192,9 @@ def cruscotto(oggi: datetime.date, filtri: dict) -> dict[Alert, list[RigaContrat
     return gruppi
 
 
-def voci_piano_da_verificare(codici: list[str] | None = None, sottocluster: int | None = None):
+def voci_piano_da_verificare(
+    codici: list[str] | None = None, sottocluster: "int | tuple[int, ...] | None" = None
+):
     """Voci attive senza piano di fatturazione reale: il fatturato è a mesi frazionati.
 
     Le più pesanti prima (fisso + massimale): sono quelle che spostano di più il budget.
@@ -212,7 +215,7 @@ def voci_piano_da_verificare(codici: list[str] | None = None, sottocluster: int 
     if codici:
         qs = qs.filter(contratto__fabbisogno__cluster__codice__in=codici)
     if sottocluster:
-        qs = qs.filter(contratto__fabbisogno__sottocluster_id=sottocluster)
+        qs = qs.filter(contratto__fabbisogno__sottocluster_id__in=ids_sottocluster(sottocluster))
     return qs
 
 

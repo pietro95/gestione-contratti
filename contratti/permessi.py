@@ -206,6 +206,132 @@ def selezione_filtro(user, valori: list[str]) -> list[str]:
     return list(dict.fromkeys(valori))
 
 
+# --- Filtro per sottocluster (Rev36) ---------------------------------------------------
+
+
+def sottocluster_propri(user) -> list[m.Sottocluster]:
+    """I sottocluster attivi dell'utente: la selezione di default dei filtri.
+
+    Un'assegnazione al cluster intero li dà tutti; una limitata a un sottocluster, solo quello.
+    Chi non ha assegnazioni (o ha TUTTI) li vede tutti.
+    """
+    attivi = m.Sottocluster.objects.filter(archiviato=False).select_related("cluster")
+    if user is None or cluster_assegnati(user) is None or not _assegnazioni(user):
+        return list(attivi)
+    propri = list(
+        attivi.filter(
+            Q(cluster_id__in=_cluster_interi(user)) | Q(pk__in=sottocluster_assegnati(user))
+        )
+    )
+    return propri or list(attivi)
+
+
+def _id_validi(valori) -> list[int]:
+    visti: dict[int, None] = {}
+    for valore in valori or []:
+        try:
+            visti[int(valore)] = None
+        except (TypeError, ValueError):
+            continue
+    return list(visti)
+
+
+def selezione_sottocluster(user, valori) -> list[int]:
+    """Id dei sottocluster scelti nel filtro; nessun valore valido = i propri (default).
+
+    «tutti» (anche tra altri valori) sceglie tutti i sottocluster attivi.
+    """
+    valori = [v for v in (valori or []) if v not in (None, "")]
+    if TUTTI in valori:
+        return [s.pk for s in m.Sottocluster.objects.filter(archiviato=False)]
+    return _id_validi(valori) or [s.pk for s in sottocluster_propri(user)]
+
+
+def filtro_sottocluster(user, valori) -> tuple[int, ...]:
+    """Id da usare nelle query; vuoto = nessun filtro (sono scelti tutti i sottocluster attivi).
+
+    Così i dati senza sottocluster (WBS a progetto) e quelli di sottocluster archiviati restano
+    visibili quando non si restringe niente.
+    """
+    scelti = selezione_sottocluster(user, valori)
+    attivi = set(m.Sottocluster.objects.filter(archiviato=False).values_list("pk", flat=True))
+    return () if attivi <= set(scelti) else tuple(sorted(scelti))
+
+
+def albero_sottocluster(user, valori) -> list[dict]:
+    """I cluster con i loro sottocluster e cosa è scelto, per la tendina ad albero."""
+    scelti = set(selezione_sottocluster(user, valori))
+    per_cluster: dict[int, dict] = {}
+    for s in m.Sottocluster.objects.filter(
+        archiviato=False, cluster__archiviato=False
+    ).select_related("cluster"):
+        nodo = per_cluster.setdefault(s.cluster_id, {"cluster": s.cluster, "sottocluster": []})
+        nodo["sottocluster"].append({"pk": s.pk, "nome": s.nome, "scelto": s.pk in scelti})
+    albero = sorted(per_cluster.values(), key=lambda n: n["cluster"].codice)
+    for nodo in albero:
+        nodo["sottocluster"].sort(key=lambda x: x["nome"].lower())
+        n_scelti = sum(x["scelto"] for x in nodo["sottocluster"])
+        nodo["n_scelti"] = n_scelti
+        nodo["tutti"] = n_scelti == len(nodo["sottocluster"])
+        nodo["alcuni"] = 0 < n_scelti < len(nodo["sottocluster"])
+    return albero
+
+
+def contesto_filtro_sottocluster(user, valori) -> dict:
+    """Contesto del partial ``_filtro_sottocluster.html`` (anche per i form dei report)."""
+    albero = albero_sottocluster(user, valori)
+    totale = sum(len(n["sottocluster"]) for n in albero)
+    scelti = sum(n["n_scelti"] for n in albero)
+    if totale and scelti == totale:
+        etichetta = "Tutti i sottocluster"
+    elif scelti == 1:
+        etichetta = next(
+            f"{n['cluster'].codice} · {x['nome']}"
+            for n in albero
+            for x in n["sottocluster"]
+            if x["scelto"]
+        )
+    else:
+        etichetta = f"{scelti} sottocluster su {totale}"
+    propri = {s.pk for s in sottocluster_propri(user)}
+    return {
+        "albero": albero,
+        "etichetta": etichetta,
+        "n_scelti": scelti,
+        "n_totali": totale,
+        # I «miei»: si mostra la scorciatoia solo se differiscono da «tutti».
+        "propri_ids": propri if len(propri) < totale else set(),
+    }
+
+
+def descrivi_sottocluster_scelti(ids) -> str:
+    """«Sottocluster: ICT (tutti), OT · Reti» o «Sottocluster: tutti», per le intestazioni."""
+    if not ids:
+        return "Sottocluster: tutti"
+    scelti = set(ids)
+    per_cluster: dict[str, list[m.Sottocluster]] = {}
+    for s in m.Sottocluster.objects.filter(pk__in=scelti).select_related("cluster"):
+        per_cluster.setdefault(s.cluster.codice, []).append(s)
+    parti = []
+    for codice in sorted(per_cluster):
+        attivi = m.Sottocluster.objects.filter(cluster__codice=codice, archiviato=False)
+        tutti = {s.pk for s in attivi}
+        if tutti and tutti <= scelti:
+            parti.append(f"{codice} (tutti)")
+        else:
+            parti += [str(s) for s in sorted(per_cluster[codice], key=lambda x: x.nome.lower())]
+    return "Sottocluster: " + ", ".join(parti)
+
+
+def ids_sottocluster(valore) -> tuple[int, ...]:
+    """Il filtro per sottocluster: un id, più id o niente (= tutti), sempre come tupla."""
+    if not valore:
+        return ()
+    if isinstance(valore, int):
+        return (valore,)
+    return tuple(int(v) for v in valore if v)
+
+
 def id_sottocluster(valore) -> int | None:
     """Il parametro «sottocluster» dei filtri: id intero, oppure ``None`` (vuoto o non valido)."""
     try:

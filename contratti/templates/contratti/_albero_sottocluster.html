@@ -1,0 +1,29 @@
+{# Tendina a selezione multipla: cluster espandibili in sottocluster (Rev36). Senza JavaScript restano le caselle dei sottocluster. #}
+<div class="dropdown albero-sottocluster" data-albero-sottocluster>
+  <button type="button" class="form-select text-start albero-pulsante" id="{{ identificativo }}" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" aria-haspopup="true">
+    <span data-albero-etichetta>{{ filtro.etichetta }}</span>
+  </button>
+  <div class="dropdown-menu albero-menu p-2" role="group" aria-label="Sottocluster">
+    <div class="d-flex gap-2 mb-2">
+      <button type="button" class="btn btn-sm btn-outline-secondary" data-albero-azione="tutti">Tutti</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" data-albero-azione="propri" {% if not filtro.propri_ids %}hidden{% endif %}>I miei</button>
+    </div>
+    {% for nodo in filtro.albero %}
+    <div class="albero-cluster" data-codice="{{ nodo.cluster.codice }}">
+      <div class="albero-riga">
+        <button type="button" class="albero-espandi" data-albero-espandi aria-expanded="{% if nodo.alcuni %}true{% else %}false{% endif %}" aria-controls="{{ identificativo }}-{{ nodo.cluster.codice }}" aria-label="Mostra i sottocluster di {{ nodo.cluster.codice }}"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+        <input type="checkbox" class="form-check-input albero-cluster-casella" id="{{ identificativo }}-c-{{ nodo.cluster.codice }}" data-albero-cluster{% if nodo.tutti %} checked{% endif %}>
+        <label class="albero-nome" for="{{ identificativo }}-c-{{ nodo.cluster.codice }}">{{ nodo.cluster }}</label>
+        <small class="text-body-secondary ms-auto" data-albero-conteggio>{{ nodo.n_scelti }}/{{ nodo.sottocluster|length }}</small>
+      </div>
+      <div class="albero-figli" id="{{ identificativo }}-{{ nodo.cluster.codice }}"{% if not nodo.alcuni %} hidden{% endif %}>
+        {% for s in nodo.sottocluster %}
+        <label class="albero-figlio"><input type="checkbox" class="form-check-input" name="{{ nome }}" value="{{ s.pk|stringformat:"d" }}" data-propri="{% if s.pk in filtro.propri_ids %}1{% endif %}"{% if s.scelto %} checked{% endif %}> <span>{{ s.nome }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+    {% empty %}
+    <p class="small text-body-secondary mb-0">Nessun sottocluster.</p>
+    {% endfor %}
+  </div>
+</div>

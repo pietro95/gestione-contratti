@@ -8,7 +8,6 @@ from contratti import permessi
 from contratti.engine.importi import ZERO, arrotonda
 from contratti.engine.stato_budget import ETICHETTE_STATO
 from contratti.engine.tipi import Livello
-from contratti.selettori import codici_cluster
 from reports import xlsx
 from reports.budget import (
     ETICHETTE_VISTE,
@@ -36,15 +35,13 @@ def _generato(oggi: datetime.date) -> str:
 
 
 def voci_filtri(budget: Budget) -> list[str]:
-    """I filtri del budget, uno per voce: il cluster sempre, anche quando sono tutti."""
+    """I filtri del budget, uno per voce: i sottocluster sempre, anche quando sono tutti."""
     f = budget.filtri
     parti = [
         f"Anno {f.anno}",
-        permessi.descrivi_filtro(codici_cluster(f.area)),
+        permessi.descrivi_sottocluster_scelti(f.sottocluster),
         f"natura {f.natura}" if f.natura else "OPEX e CAPEX separati",
     ]
-    if f.sottocluster:
-        parti.append(f"sottocluster {m.Sottocluster.objects.filter(pk=f.sottocluster).first()}")
     if f.conto:
         parti.append(f"conto {m.ContoCoge.objects.filter(pk=f.conto).first()}")
     if f.fornitore:
@@ -69,6 +66,16 @@ def voci_filtri(budget: Budget) -> list[str]:
 
 def descrivi_filtri(budget: Budget) -> str:
     return "; ".join(voci_filtri(budget))
+
+
+def suffisso_sottocluster(ids) -> str:
+    """Per il nome del file: ``_IT-TLC`` (cluster dei sottocluster scelti), niente se sono tutti."""
+    if not ids:
+        return ""
+    codici = sorted(
+        set(m.Sottocluster.objects.filter(pk__in=ids).values_list("cluster__codice", flat=True))
+    )
+    return "_" + "-".join(codici)
 
 
 def suffisso_cluster(codici) -> str:

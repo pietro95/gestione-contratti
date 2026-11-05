@@ -16,6 +16,7 @@ from contratti import acquisti, adapters, fatture
 from contratti import models as m
 from contratti.engine import acquisti as motore
 from contratti.engine.importi import ZERO
+from contratti.permessi import ids_sottocluster
 
 Fase = motore.Fase
 Azione = motore.Azione
@@ -94,8 +95,8 @@ def riga_rda(rda: m.RichiestaAcquisto, oggi: datetime.date, giorni_ferma: int) -
 
 @dataclass(frozen=True)
 class FiltriRDA:
-    cluster: tuple[str, ...] = ()  # vuoto = tutti
-    sottocluster: int | None = None
+    cluster: tuple[str, ...] = ()  # vuoto = tutti (usato dal connettore)
+    sottocluster: "int | tuple[int, ...] | None" = None
     referente: int | None = None
     fasi: tuple[str, ...] = ()
     anno: int | None = None
@@ -147,7 +148,9 @@ def conteggi_per_fase(righe: list[RigaRDA]) -> list[tuple[str, str, int, Decimal
 
 
 def rda_da_processare(
-    cluster: tuple[str, ...], oggi: datetime.date, sottocluster: int | None = None
+    cluster: tuple[str, ...],
+    oggi: datetime.date,
+    sottocluster: "int | tuple[int, ...] | None" = None,
 ) -> list[tuple[Azione, str, list[RigaRDA]]]:
     """RDA nelle fasi dell'addetto, per azione; in ogni gruppo le ferme e le più vecchie prima."""
     filtri = FiltriRDA(
@@ -351,12 +354,14 @@ def _contratti(cluster: tuple[str, ...], sottocluster: int | None = None):
     if cluster:
         qs = qs.filter(fabbisogno__cluster__codice__in=cluster)
     if sottocluster:
-        qs = qs.filter(fabbisogno__sottocluster_id=sottocluster)
+        qs = qs.filter(fabbisogno__sottocluster_id__in=ids_sottocluster(sottocluster))
     return qs.order_by("fabbisogno__descrizione", "pk")
 
 
 def contratti_da_chiudere(
-    cluster: tuple[str, ...], oggi: datetime.date, sottocluster: int | None = None
+    cluster: tuple[str, ...],
+    oggi: datetime.date,
+    sottocluster: "int | tuple[int, ...] | None" = None,
 ) -> list[RigaEsecuzione]:
     """Non chiusi, con la prestazione finita (fine effettiva < oggi), con il motivo."""
     righe = []
@@ -372,7 +377,9 @@ def contratti_da_chiudere(
 
 
 def anomalie_esecuzione(
-    cluster: tuple[str, ...], oggi: datetime.date, sottocluster: int | None = None
+    cluster: tuple[str, ...],
+    oggi: datetime.date,
+    sottocluster: "int | tuple[int, ...] | None" = None,
 ) -> list[RigaEsecuzione]:
     """Contratti con anomalie dell'esecuzione o fatture con anomalie (SPEC §5.8)."""
     righe = []
