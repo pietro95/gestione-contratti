@@ -139,7 +139,7 @@ def test_sottocluster_in_evidenza_nel_pdf(dati, lettore, catturato):
     )
     url = reverse("reports:piano_ordini") + f"?anno=2027&sottocluster={it.pk}&formato=pdf"
     assert _scarica(lettore, url)["Content-Disposition"].endswith('_Piano_ordini_2027_IT.pdf"')
-    assert '<span class="filtro">Sottocluster: IT · Server</span>' in render_to_string(
+    assert '<span class="filtro">sottocluster IT · Server</span>' in render_to_string(
         catturato["template"], catturato["contesto"]
     )
 

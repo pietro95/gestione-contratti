@@ -9,18 +9,19 @@
       <button type="button" class="btn btn-sm btn-outline-secondary" data-albero-azione="propri" {% if not filtro.propri_ids %}hidden{% endif %}>I miei</button>
     </div>
     {% for nodo in filtro.albero %}
-    <details class="albero-cluster" data-codice="{{ nodo.cluster.codice }}"{% if nodo.alcuni %} open{% endif %}>
-      <summary class="albero-riga">
-        <input type="checkbox" class="form-check-input albero-cluster-casella" data-albero-cluster{% if nodo.tutti %} checked{% endif %} aria-label="Tutto il cluster {{ nodo.cluster.codice }}">
-        <span class="albero-nome">{{ nodo.cluster }}</span>
+    <div class="albero-cluster" data-codice="{{ nodo.cluster.codice }}">
+      <div class="albero-riga">
+        <button type="button" class="albero-espandi" data-albero-espandi aria-expanded="{% if nodo.alcuni %}true{% else %}false{% endif %}" aria-controls="{{ identificativo }}-{{ nodo.cluster.codice }}" aria-label="Mostra i sottocluster di {{ nodo.cluster.codice }}"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+        <input type="checkbox" class="form-check-input albero-cluster-casella" id="{{ identificativo }}-c-{{ nodo.cluster.codice }}" data-albero-cluster{% if nodo.tutti %} checked{% endif %}>
+        <label class="albero-nome" for="{{ identificativo }}-c-{{ nodo.cluster.codice }}">{{ nodo.cluster }}</label>
         <small class="text-body-secondary ms-auto" data-albero-conteggio>{{ nodo.n_scelti }}/{{ nodo.sottocluster|length }}</small>
-      </summary>
-      <div class="albero-figli">
+      </div>
+      <div class="albero-figli" id="{{ identificativo }}-{{ nodo.cluster.codice }}"{% if not nodo.alcuni %} hidden{% endif %}>
         {% for s in nodo.sottocluster %}
-        <label class="albero-figlio"><input type="checkbox" class="form-check-input" name="{{ nome }}" value="{{ s.pk }}" data-propri="{% if s.pk in filtro.propri_ids %}1{% endif %}"{% if s.scelto %} checked{% endif %}> <span class="form-check-label">{{ s.nome }}</span></label>
+        <label class="albero-figlio"><input type="checkbox" class="form-check-input" name="{{ nome }}" value="{{ s.pk }}" data-propri="{% if s.pk in filtro.propri_ids %}1{% endif %}"{% if s.scelto %} checked{% endif %}> <span>{{ s.nome }}</span></label>
         {% endfor %}
       </div>
-    </details>
+    </div>
     {% empty %}
     <p class="small text-body-secondary mb-0">Nessun sottocluster.</p>
     {% endfor %}

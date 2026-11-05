@@ -327,21 +327,33 @@ def test_tendina_sottocluster_ad_albero(pagina, dati):
     pulsante = albero.locator(".albero-pulsante")
     expect(pulsante).to_contain_text("Tutti i sottocluster")  # di default tutti i propri
     pulsante.click()
-    cluster_tlc = albero.locator("details[data-codice=TLC] [data-albero-cluster]")
-    cluster_it = albero.locator("details[data-codice=IT] [data-albero-cluster]")
+    cluster_tlc = albero.locator(".albero-cluster[data-codice=TLC] [data-albero-cluster]")
+    cluster_it = albero.locator(".albero-cluster[data-codice=IT] [data-albero-cluster]")
     # Il cluster sceglie e toglie tutti i suoi sottocluster.
     cluster_tlc.uncheck()
     expect(albero.locator(f"input[name=sottocluster][value='{gamma.pk}']")).not_to_be_checked()
     expect(pulsante).to_contain_text("sottocluster su")
     # Un sottocluster solo: il cluster diventa «parziale» e il riquadro si espande.
-    albero.locator("details[data-codice=IT] summary .albero-nome").click()
+    albero.locator(".albero-cluster[data-codice=IT] [data-albero-espandi]").click()
     albero.locator(f"input[name=sottocluster][value='{beta.pk}']").uncheck()
     assert cluster_it.evaluate("e => e.indeterminate") is True
     expect(pulsante).to_contain_text("2 sottocluster su")
-    # Resta sempre almeno un sottocluster scelto.
-    albero.locator(f"input[name=sottocluster][value='{alfa.pk}']").uncheck()
-    expect(albero.locator("input[name=sottocluster]:checked")).not_to_have_count(0)
+    # Resta sempre almeno un sottocluster scelto: si toglie uno dopo l'altro, l'ultimo resta.
+    for espandi in albero.locator("[data-albero-espandi][aria-expanded=false]").all():
+        espandi.click()
+    for casella in albero.locator("input[name=sottocluster]").all():
+        casella.click()  # si toglie se scelta, si aggiunge se non lo è
+    albero.locator("[data-albero-azione=tutti]").click()
+    for casella in albero.locator("input[name=sottocluster]").all():
+        casella.click()
+    expect(albero.locator("input[name=sottocluster]:checked")).to_have_count(1)
+    albero.locator(f"input[name=sottocluster][value='{alfa.pk}']").check()
+    albero.locator(f"input[name=sottocluster][value='{beta.pk}']").check()
+    albero.locator(f"input[name=sottocluster][value='{gamma.pk}']").check()
+    albero.locator(f"input[name=sottocluster][value='{beta.pk}']").uncheck()
     assert not violazioni_axe(pagina)
+    pagina.keyboard.press("Escape")  # il riquadro aperto copre il pulsante «Aggiorna»
+    expect(albero.locator(".dropdown-menu")).to_be_hidden()
     pagina.locator("form.filtri button[type=submit]").click()
     pagina.wait_for_url("**sottocluster=**")
     assert f"sottocluster={beta.pk}" not in pagina.url

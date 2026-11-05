@@ -63,7 +63,7 @@
       function aggiorna() {
         var tutte = caselle();
         var scelte = tutte.filter(function (c) { return c.checked; });
-        el.querySelectorAll("details.albero-cluster").forEach(function (d) {
+        el.querySelectorAll(".albero-cluster").forEach(function (d) {
           var figli = Array.prototype.slice.call(d.querySelectorAll("input[type=checkbox][name]"));
           var n = figli.filter(function (c) { return c.checked; }).length;
           var cl = d.querySelector("[data-albero-cluster]");
@@ -74,25 +74,29 @@
         if (scelte.length === tutte.length) {
           etichetta.textContent = "Tutti i sottocluster";
         } else if (scelte.length === 1) {
-          var d = scelte[0].closest("details");
+          var d = scelte[0].closest(".albero-cluster");
           etichetta.textContent = d.dataset.codice + " · " + scelte[0].parentNode.textContent.trim();
         } else {
           etichetta.textContent = scelte.length + " sottocluster su " + tutte.length;
         }
       }
-      // Un clic sulla casella del cluster non deve aprire o chiudere il riquadro.
-      el.querySelectorAll("summary input").forEach(function (c) {
-        c.addEventListener("click", function (e) { e.stopPropagation(); });
+      // Il chevron apre e chiude i sottocluster del cluster (la casella e il nome lo scelgono).
+      el.querySelectorAll("[data-albero-espandi]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var aperto = b.getAttribute("aria-expanded") === "true";
+          b.setAttribute("aria-expanded", aperto ? "false" : "true");
+          document.getElementById(b.getAttribute("aria-controls")).hidden = aperto;
+        });
       });
       el.addEventListener("change", function (e) {
         var t = e.target;
         if (t.matches("[data-albero-cluster]")) {
-          t.closest("details").querySelectorAll("input[type=checkbox][name]").forEach(function (c) { c.checked = t.checked; });
+          t.closest(".albero-cluster").querySelectorAll("input[type=checkbox][name]").forEach(function (c) { c.checked = t.checked; });
           t.indeterminate = false;
         }
         if (!caselle().some(function (c) { return c.checked; })) {  // almeno uno
           if (t.matches("[data-albero-cluster]")) {
-            t.closest("details").querySelectorAll("input[type=checkbox][name]").forEach(function (c) { c.checked = true; });
+            t.closest(".albero-cluster").querySelectorAll("input[type=checkbox][name]").forEach(function (c) { c.checked = true; });
           } else {
             t.checked = true;
           }

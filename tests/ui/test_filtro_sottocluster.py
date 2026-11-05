@@ -119,7 +119,6 @@ def test_export_xlsx_porta_il_sottocluster_nell_intestazione(ambiente):
     risposta = ambiente["client"].get(
         reverse("reports:contratti_da_chiudere"),
         {
-            "sottocluster": "tutti",
             "oggi": OGGI,
             "sottocluster": ambiente["a"].pk,
             "formato": "xlsx",
