@@ -15,7 +15,7 @@ OGGI = datetime.date.today()
 
 def test_connettore_budget_di_default_e_assegnato(conti_assegnati, utente_reader):
     risposta, _ = protocollo.gestisci(
-        chiama("budget", {"anno": 2026, "natura": "OPEX", "cluster": ["tutti"]}),
+        chiama("budget", {"anno": 2026, "natura": "OPEX", "sottocluster": ["tutti"]}),
         Contesto(utente_reader, OGGI),
     )
     dati = risposta["result"]["structuredContent"]
@@ -38,7 +38,8 @@ def test_connettore_budget_di_default_e_assegnato(conti_assegnati, utente_reader
 def test_connettore_viste_a_scelta(conti_assegnati, utente_reader):
     risposta, _ = protocollo.gestisci(
         chiama(
-            "budget", {"anno": 2026, "natura": "OPEX", "cluster": ["tutti"], "viste": ["ordinato"]}
+            "budget",
+            {"anno": 2026, "natura": "OPEX", "sottocluster": ["tutti"], "viste": ["ordinato"]},
         ),
         Contesto(utente_reader, OGGI),
     )
@@ -48,7 +49,7 @@ def test_connettore_viste_a_scelta(conti_assegnati, utente_reader):
 
 def test_connettore_capex_assegnato_sulla_wbs(conti_assegnati, utente_reader):
     risposta, _ = protocollo.gestisci(
-        chiama("budget", {"anno": 2026, "natura": "CAPEX", "cluster": ["tutti"]}),
+        chiama("budget", {"anno": 2026, "natura": "CAPEX", "sottocluster": ["tutti"]}),
         Contesto(utente_reader, OGGI),
     )
     (sezione,) = risposta["result"]["structuredContent"]["sezioni"]

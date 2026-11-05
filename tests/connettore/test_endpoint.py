@@ -191,8 +191,8 @@ def test_tool_con_link_dal_container_pubblico(mcp_post, utente_reader, crea_toke
     for nome, argomenti in [
         ("contratto", {"id": archivio.pk}),
         ("fabbisogno", {"id": archivio.fabbisogno_id}),
-        ("budget", {"anno": 2027, "cluster": ["tutti"]}),
-        ("piano_ordini", {"anno": 2027, "cluster": ["tutti"]}),
+        ("budget", {"anno": 2027, "sottocluster": ["tutti"]}),
+        ("piano_ordini", {"anno": 2027, "sottocluster": ["tutti"]}),
         ("spese_wbs", {"codice_wbs": "WBS-PROVA"}),
         ("scadenzario", {"contratto_id": archivio.pk}),
     ]:

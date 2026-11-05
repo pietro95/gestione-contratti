@@ -2,7 +2,7 @@
 
 > Specifica normativa del connettore. L'inquadramento architetturale è in [ARCHITECTURE](ARCHITECTURE.md), i principi di protezione in [SECURITY](SECURITY.md) e le procedure di esercizio in [RUNBOOK](RUNBOOK.md).
 
-Rev12 — 28/10/2026 — decisioni del responsabile del progetto, **approvata** il 28/10/2026. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
+Rev15 — 05/11/2026 — richiesta del responsabile del progetto, **approvata** il 05/11/2026. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
 
 Storico revisioni:
 - Rev00 (05/10/2026): prima bozza, raccomandata l'opzione «solo rete interna con ponte locale».
@@ -20,6 +20,7 @@ Storico revisioni:
 - Rev12 (28/10/2026): decisione del responsabile del progetto, **approvata** (SPEC Rev31 e Rev32). La competenza esposta dai tool è a **mesi frazionati**; `budget`, `piano_ordini` e `fabbisogno` aggiungono `metodo_competenza` (§5). Nessun nuovo tool, nessuna scrittura.
 - Rev13 (05/11/2026): richiesta del responsabile del progetto, **approvata** il 05/11/2026 (SPEC Rev34). `budget`: argomento `viste` (fatturato_stanziato_competenza, fatturato, ordinato, competenza); **di default solo fatturato_stanziato_competenza**, come la pagina; `altre_viste_disponibili` elenca le altre. Sui gruppi per conto (OPEX) e per WBS (CAPEX; la spesa CAPEX grava sulla WBS, non sul conto), `budget_assegnato` con assegnato, speso, utilizzo in % e stato (ok, in_avvicinamento, superato, non_assegnato); la soglia è in `budget_assegnato_per_conto`. Nessun nuovo tool, nessuna scrittura.
 - Rev14 (05/11/2026): richiesta del responsabile del progetto, **approvata** il 05/11/2026 (SPEC Rev35), passo 1 di 3. `crea_fabbisogno`, `modifica_fabbisogno` e `registra_rda` non hanno più l'argomento `cluster`: si indica il **`sottocluster`** (id da `riferimenti`), obbligatorio alla creazione; il cluster se ne ricava. Il filtro `cluster` dei tool di lettura passa ai sottocluster nel passo 3.
+- Rev15 (05/11/2026): richiesta del responsabile del progetto, **approvata** il 05/11/2026 (SPEC Rev36), passo 3 di 3. **I filtri `cluster` dei tool di lettura sono sostituiti da `sottocluster`**: elenco di id da `riferimenti` (anche più d'uno), «tutti» li sceglie tutti; vuoto = i sottocluster dell'utente (tutti, se non ne ha di assegnati), come la tendina della GUI. L'argomento `cluster` non è più ammesso (errore «argomento sconosciuto»). I risultati riportano `sottocluster_filtro` (id o «tutti») al posto di `cluster_filtro`; `riferimenti` indica per ogni sottocluster se è `proprio` e, con `includi`, i sottocluster di conti e WBS. Strumenti: `scadenze`, `budget`, `piano_ordini`, `spese_wbs`, `piani_da_verificare`, `riferimenti`, `elenco_rda`, `cruscotto_acquisti`, `contratti_da_chiudere`, `stanziamenti`, `anomalie_esecuzione`.
 
 ## 1. Obiettivo
 
@@ -123,7 +124,7 @@ Niente registrazione dinamica (DCR): aprirebbe un endpoint pubblico di creazione
 
 - **Tutti i ruoli** (Admin, Editor, Reader) possono collegare il connettore.
 - In F10 il connettore è **solo lettura per tutti**. Con F10.1 Admin ed Editor possono anche scrivere, con lo scope `registro.scrittura` e le regole di §8; il Reader resta in lettura.
-- Visibilità per cluster identica all'interfaccia (`contratti/permessi.py`): di default i propri cluster, gli altri su richiesta esplicita con il parametro `cluster`. Chi non ha cluster assegnati vede tutto.
+- Visibilità per cluster identica all'interfaccia (`contratti/permessi.py`): di default i propri sottocluster (Rev15), gli altri su richiesta esplicita con il parametro `sottocluster`. Chi non ha assegnazioni vede tutto.
 - La simulazione della data (`?oggi=`, solo Admin nell'interfaccia) non si espone: i calcoli usano sempre la data di oggi (D5).
 
 ## 5. Strumenti di lettura (F10)
@@ -131,7 +132,7 @@ Niente registrazione dinamica (DCR): aprirebbe un endpoint pubblico di creazione
 Convenzioni comuni:
 - **Importi** come stringa decimale con punto e due decimali (`"12345.60"`), mai numeri JSON: un numero JSON è un float per il client (regola 3). Il modello li presenta in formato italiano.
 - **Date** ISO `AAAA-MM-GG`.
-- Ogni risultato riporta `alla_data` (data di calcolo), i filtri applicati (cluster compresi) e un `link` alla pagina dell'app sull'host interno, per la verifica.
+- Ogni risultato riporta `alla_data` (data di calcolo), i filtri applicati (sottocluster compresi) e un `link` alla pagina dell'app sull'host interno, per la verifica.
 - Elenchi paginati: `limite` (default 25, max 100) e `cursore`; `troncato: true` se ci sono altri elementi. Mai risultati parziali senza dirlo.
 - **Competenza** (Rev12, SPEC Rev31 e Rev32): i tool `budget`, `piano_ordini` e `fabbisogno` restituiscono `metodo_competenza` (`metodo: mesi_frazionati`, `descrizione`, `limite_noto`), la stessa dicitura della pagina; le descrizioni dei tool e le etichette delle viste parlano di «ripartizione a mesi frazionati». Valgono per ogni valore di competenza e «normalizzato» esposto, compresa la competenza dichiarata a confronto.
 - Anomalie ed esiti del motore (ripartizione a mesi frazionati per `Da verificare`, data di inizio mancante, quote ignorate) in `avvisi`, come nell'interfaccia.
@@ -141,16 +142,16 @@ Convenzioni comuni:
 | Tool | Argomenti | Restituisce | Riusa |
 |---|---|---|---|
 | `cerca` | `testo` (≥ 2 caratteri), `tipo` (contratti/fabbisogni/fornitori, facoltativo) | id, descrizione, fornitore, numero contratto, CIG, stato temporale, cluster | `views.cerca` (logica da spostare in `selettori`) |
-| `scadenze` | `cluster`, `alert` (🔴 🟠 🟡), `entro` (data) | contratti e previsti in alert con data di fine, data limite, procedura, lead time, stato pratica | `selettori.cruscotto` |
+| `scadenze` | `sottocluster`, `alert` (🔴 🟠 🟡), `entro` (data) | contratti e previsti in alert con data di fine, data limite, procedura, lead time, stato pratica | `selettori.cruscotto` |
 | `contratto` | `id` | anagrafica, catena (predecessori, successore, confluiti), proroghe, opzioni, voci con classificazione e piano, data di fine e data limite calcolate, alert, storico pratica | adapters + `servizi.contratto_e_predecessori` / `contratto_e_successivi` |
 | `fabbisogno` | `id` | descrizione, cluster, sottocluster, referente (nome), priorità, tipo d'acquisto, fonte della stima, `una_tantum`, decisione di continuità, stima del prossimo importo (complessiva), previsto manuale, catena dei contratti, previsti calcolati con importi e date, rinnovo mancante, `competenza_dichiarata` a confronto con il calcolo (dichiarata, calcolata ai tre livelli, scostamento sul probabile), `testo_libero` | `adapters.previsti_fabbisogno`, `reports.competenza.confronto` |
 | `scadenzario` | `contratto_id` o `voce_id` | rate: numero, data fattura, pagamento stimato, importo, consuntivo, modificata a mano | modelli `Rata` |
-| `budget` | `anno`, `cluster`, `sottocluster`, `natura`, `conto`, `fornitore`, `wbs`, `progetti`, `previsionali`, `raggruppa_per` (cluster, conto, fornitore, wbs, fabbisogno), `viste` | per gruppo, nelle viste scelte (default: fatturato e stanziato a competenza; poi fatturato, ordinato, competenza) × fisso, probabile, massimo; per i gruppi per conto (OPEX) e per WBS (CAPEX), budget assegnato e stato (Rev13); OPEX e CAPEX **separati e mai sommati**; rinnovi mancanti | `reports.budget.calcola_budget`, `raggruppa` |
-| `piano_ordini` | `anno`, `cluster`, `categoria`, `natura` | righe del piano (SPEC §5.4), avvisi di frazionamento | `reports.piano_ordini.calcola_piano` |
-| `spese_wbs` | `wbs_id`, `vista`, `livello`; senza WBS (elenco): `cluster`, `sottocluster`, `tipo` | contratti e importi anno per anno sulla WBS | `reports.wbs` |
-| `piani_da_verificare` | `cluster`, `sottocluster` | voci con piano `Da verificare` | `selettori.voci_piano_da_verificare` |
+| `budget` | `anno`, `sottocluster`, `natura`, `conto`, `fornitore`, `wbs`, `progetti`, `previsionali`, `raggruppa_per` (cluster, conto, fornitore, wbs, fabbisogno), `viste` | per gruppo, nelle viste scelte (default: fatturato e stanziato a competenza; poi fatturato, ordinato, competenza) × fisso, probabile, massimo; per i gruppi per conto (OPEX) e per WBS (CAPEX), budget assegnato e stato (Rev13); OPEX e CAPEX **separati e mai sommati**; rinnovi mancanti | `reports.budget.calcola_budget`, `raggruppa` |
+| `piano_ordini` | `anno`, `sottocluster`, `categoria`, `natura` | righe del piano (SPEC §5.4), avvisi di frazionamento | `reports.piano_ordini.calcola_piano` |
+| `spese_wbs` | `wbs_id`, `vista`, `livello`; senza WBS (elenco): `sottocluster`, `tipo` | contratti e importi anno per anno sulla WBS | `reports.wbs` |
+| `piani_da_verificare` | `sottocluster` | voci con piano `Da verificare` | `selettori.voci_piano_da_verificare` |
 | `fornitore` | `id` | anagrafica, contratti attivi e storici, totali per anno | viste fornitore |
-| `riferimenti` | — | cluster visibili e propri, categorie, procedure con id, codice, lead time e se sono proponibili per un fabbisogno (`per_fabbisogni`, Rev24), priorità e fonti della stima (Rev10), soglie valide | tabelle di configurazione |
+| `riferimenti` | `includi`, `sottocluster` | cluster e sottocluster visibili e propri, categorie, procedure con id, codice, lead time e se sono proponibili per un fabbisogno (`per_fabbisogni`, Rev24), priorità e fonti della stima (Rev10), soglie valide | tabelle di configurazione |
 
 Non esposti (minimizzazione, non serve all'uso previsto): note libere dei contratti (possono contenere dati imprevisti), utenti e assegnazioni, registro degli import. Rev10: del fabbisogno si espongono il **nome** del referente (D16, D18) e il testo libero (`motivazione`, `note`) in un campo proprio `testo_libero`, come per RDA e fatture (§6, §11.1).
 
@@ -308,14 +309,14 @@ Rev08, decisioni del responsabile del progetto del 07/10/2026 (D14–D17). La re
 | Tool | Argomenti | Restituisce | Riusa |
 |---|---|---|---|
 | `rda` | `id` | scopo, cluster, pratica (contratto in scadenza o fabbisogno) con il suo stato, fase con data, giorni e «ferma», numero SAP e date, referente, posizioni con importo, contratti generati con la differenza dalla RDA, storico della richiesta, scheda SAP, `testo_richiesta` | `acquisti.dati_rda`, `scheda`, `testo_della_richiesta`, `differenza_da_rda` |
-| `elenco_rda` | `cluster`, `sottocluster`, `fase` (più d'una), `anno`, `referente` (`me` o id), `fornitore`, `wbs`, `testo`, paginazione | righe della vista «Stato delle RDA», totale e conteggi per fase | `reports.acquisti.stato_rda`, `conteggi_per_fase` |
+| `elenco_rda` | `sottocluster`, `fase` (più d'una), `anno`, `referente` (`me` o id), `fornitore`, `wbs`, `testo`, paginazione | righe della vista «Stato delle RDA», totale e conteggi per fase | `reports.acquisti.stato_rda`, `conteggi_per_fase` |
 | `fattura` | `id` | fornitore, numero, data, importo del documento, valore base, oneri, bollo, passo con «ferma», contratto (o proposto) e voce, rata, referente (o proposto), convalida, documenti SAP, trasferimento, fuori registro, anomalie, `indicazioni_validazione`, `commento_pac` | `contratti.fatture` |
 | `elenco_fatture` | `vista` (`da_prendere`, `mie`, `tutte`), `proposte_a_me`, `passo`, `testo`, `fuori_registro`, paginazione | righe con passo, giorni, «ferma», contratto e referente proposti | `views_fatture`, `reports.acquisti` |
 | `esecuzione` | `contratto_id` | fatturato, residuo sul fisso e sul massimo, avanzamento, motivo «da chiudere», anomalie del contratto e delle fatture, fatture con il passo, documenti di esecuzione | `acquisti.riepilogo_esecuzione`, `fatture.anomalie` |
-| `cruscotto_acquisti` | `cluster`, `sottocluster` | RDA da processare per azione con le ferme, fatture da lavorare per passo, contratti da chiudere | `reports.acquisti` |
-| `contratti_da_chiudere` | `cluster`, `sottocluster` | righe con motivo, fatturato e residui | `reports.acquisti.contratti_da_chiudere` |
-| `stanziamenti` | `cluster`, `sottocluster`, `contratto_id` | rate scadute senza fattura proposte allo stanziamento (importo e competenza proposti) e stanziamenti registrati; totali proposto e stanziato | `contratti.stanziamenti.proposte`, `m.Stanziamento` |
-| `anomalie_esecuzione` | `cluster`, `sottocluster` | contratti e fatture con le anomalie, conteggi | `reports.acquisti.anomalie_esecuzione`, `conteggi_anomalie` |
+| `cruscotto_acquisti` | `sottocluster` | RDA da processare per azione con le ferme, fatture da lavorare per passo, contratti da chiudere | `reports.acquisti` |
+| `contratti_da_chiudere` | `sottocluster` | righe con motivo, fatturato e residui | `reports.acquisti.contratti_da_chiudere` |
+| `stanziamenti` | `sottocluster`, `contratto_id` | rate scadute senza fattura proposte allo stanziamento (importo e competenza proposti) e stanziamenti registrati; totali proposto e stanziato | `contratti.stanziamenti.proposte`, `m.Stanziamento` |
+| `anomalie_esecuzione` | `sottocluster` | contratti e fatture con le anomalie, conteggi | `reports.acquisti.anomalie_esecuzione`, `conteggi_anomalie` |
 
 Tool esistenti estesi:
 - `contratto`: RDA d'origine, tipo d'acquisto, una tantum, RUP, CUP, chiusura;

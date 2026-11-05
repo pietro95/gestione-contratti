@@ -129,12 +129,12 @@ def test_elenco_rda_come_la_vista_e_l_export(rda_tc17, lettore, make_user):
     m.PosizioneRDA.objects.create(
         rda=altra, numero=1, descrizione_breve="X", importo_unitario=Decimal("10.00")
     )
-    dati = esegui(lettore, "elenco_rda", {"cluster": ["tutti"]})
+    dati = esegui(lettore, "elenco_rda", {"sottocluster": ["tutti"]})
     assert dati["totale"] == 2 and dati["totale_importo"] == "1358.98"
     assert {x["fase"]: x["rda"] for x in dati["per_fase"]} == {"inserita": 2}
-    assert esegui(lettore, "elenco_rda", {"cluster": ["TLC"]})["totale"] == 1
-    assert esegui(lettore, "elenco_rda", {"cluster": ["tutti"], "anno": 2025})["totale"] == 1
-    mie = esegui(rda_tc17.referente_utente, "elenco_rda", {"cluster": ["tutti"],
+    assert esegui(lettore, "elenco_rda", {"sottocluster": [altra.sottocluster_id]})["totale"] == 1
+    assert esegui(lettore, "elenco_rda", {"sottocluster": ["tutti"], "anno": 2025})["totale"] == 1
+    mie = esegui(rda_tc17.referente_utente, "elenco_rda", {"sottocluster": ["tutti"],
                                                           "referente": "me"})  # fmt: skip
     assert [r["id"] for r in mie["righe"]] == [rda_tc17.pk]
     # Stesso totale dell'export XLSX della vista «Stato delle RDA».
@@ -232,15 +232,15 @@ def test_esecuzione_e_viste_tc16(f1, lettore):
         "9000.00", "1000.00", "3000.00",
     )  # fmt: skip
     assert (dati["avanzamento_pct"], dati["da_chiudere"]) == (90, "Attestazione mancante")
-    chiudere = esegui(lettore, "contratti_da_chiudere", {"cluster": ["tutti"]}, D(2026, 4, 25))
+    chiudere = esegui(lettore, "contratti_da_chiudere", {"sottocluster": ["tutti"]}, D(2026, 4, 25))
     assert chiudere["per_motivo"] == {"Attestazione mancante": 1}
     m.Fattura.objects.create(
         contratto=f1, numero="FA-3", data=D(2026, 5, 5), importo_documento=3500,
         valore_base=3500, competenza_dal=D(2026, 5, 5), competenza_al=D(2026, 5, 5),
     )  # fmt: skip
-    anomalie = esegui(lettore, "anomalie_esecuzione", {"cluster": ["tutti"]}, D(2026, 5, 6))
+    anomalie = esegui(lettore, "anomalie_esecuzione", {"sottocluster": ["tutti"]}, D(2026, 5, 6))
     assert anomalie["conteggi"] == {"FATTURATO_OLTRE_MASSIMO": 1}
-    cruscotto = esegui(lettore, "cruscotto_acquisti", {"cluster": ["tutti"]}, D(2026, 5, 6))
+    cruscotto = esegui(lettore, "cruscotto_acquisti", {"sottocluster": ["tutti"]}, D(2026, 5, 6))
     assert [r["contratto"]["id"] for r in cruscotto["contratti_da_chiudere"]] == [f1.pk]
     dettaglio = esegui(lettore, "contratto", {"id": f1.pk})
     assert dettaglio["una_tantum"] is True and dettaglio["tipo_acquisto"] == "servizio"

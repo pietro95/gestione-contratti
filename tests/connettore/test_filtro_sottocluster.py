@@ -44,30 +44,28 @@ def _id(dati, chiave="contratto"):
 
 def test_elenco_rda_e_contratti_da_chiudere(ambiente):
     u, a = ambiente["admin"], ambiente["a"]
-    tutti = esegui(u, "elenco_rda", {"cluster": ["tutti"]}, OGGI)
+    tutti = esegui(u, "elenco_rda", {"sottocluster": ["tutti"]}, OGGI)
     assert tutti["totale"] == 2 and tutti["sottocluster_filtro"] == "tutti"
-    dati = esegui(u, "elenco_rda", {"cluster": ["tutti"], "sottocluster": a.pk}, OGGI)
-    assert dati["totale"] == 1 and dati["sottocluster_filtro"] == a.pk
-    da_chiudere = esegui(u, "contratti_da_chiudere", {"cluster": ["tutti"]}, OGGI)
-    filtrato = esegui(
-        u, "contratti_da_chiudere", {"cluster": ["tutti"], "sottocluster": a.pk}, OGGI
-    )
+    dati = esegui(u, "elenco_rda", {"sottocluster": [a.pk]}, OGGI)
+    assert dati["totale"] == 1 and dati["sottocluster_filtro"] == [a.pk]
+    da_chiudere = esegui(u, "contratti_da_chiudere", {"sottocluster": ["tutti"]}, OGGI)
+    filtrato = esegui(u, "contratti_da_chiudere", {"sottocluster": [a.pk]}, OGGI)
     assert da_chiudere["totale"] == 2 and filtrato["totale"] == 1
 
 
 def test_altri_strumenti_accettano_il_sottocluster(ambiente):
     u, a = ambiente["admin"], ambiente["a"]
     for nome in ("anomalie_esecuzione", "stanziamenti", "cruscotto_acquisti"):
-        dati = esegui(u, nome, {"cluster": ["tutti"], "sottocluster": a.pk}, OGGI)
+        dati = esegui(u, nome, {"sottocluster": [a.pk]}, OGGI)
         assert dati["alla_data"] == OGGI.isoformat() or dati["alla_data"] == OGGI
-    voci = esegui(u, "piani_da_verificare", {"cluster": ["tutti"], "sottocluster": a.pk}, OGGI)
-    assert voci["totale"] == 1 and voci["filtri"]["sottocluster"] == a.pk
-    assert esegui(u, "piani_da_verificare", {"cluster": ["tutti"]}, OGGI)["totale"] == 2
+    voci = esegui(u, "piani_da_verificare", {"sottocluster": [a.pk]}, OGGI)
+    assert voci["totale"] == 1 and voci["filtri"]["sottocluster"] == [a.pk]
+    assert esegui(u, "piani_da_verificare", {"sottocluster": ["tutti"]}, OGGI)["totale"] == 2
 
 
 def test_budget_e_spese_per_wbs(ambiente):
     u, a = ambiente["admin"], ambiente["a"]
-    dati = esegui(u, "budget", {"anno": 2024, "cluster": ["tutti"], "sottocluster": a.pk}, OGGI)
+    dati = esegui(u, "budget", {"anno": 2024, "sottocluster": [a.pk]}, OGGI)
     assert dati["sezioni"]
     wbs = m.WBS.objects.create(
         codice_wbs="W-A", descrizione="WBS A", tipo=m.WBS.Tipo.CLUSTER, cluster=ambiente["ict"]
@@ -77,12 +75,48 @@ def test_budget_e_spese_per_wbs(ambiente):
     )
     voce = ambiente["contratti"]["a"].voci.get()
     m.VoceContratto.objects.filter(pk=voce.pk).update(wbs=wbs, natura="capex")
-    dati = esegui(u, "spese_wbs", {"cluster": ["tutti"], "sottocluster": a.pk}, OGGI)
+    dati = esegui(u, "spese_wbs", {"sottocluster": [a.pk]}, OGGI)
     assert [w["codice"] for w in dati["wbs"]] == ["W-A"]
-    assert len(esegui(u, "spese_wbs", {"cluster": ["tutti"]}, OGGI)["wbs"]) == 2
+    assert len(esegui(u, "spese_wbs", {"sottocluster": ["tutti"]}, OGGI)["wbs"]) == 2
 
 
 def test_sottocluster_sconosciuto_e_rifiutato(ambiente):
-    assert "Sottocluster sconosciuto: 99999" in errore(
-        ambiente["admin"], "elenco_rda", {"cluster": ["tutti"], "sottocluster": 99999}
+    assert "Sottocluster sconosciuti: 99999" in errore(
+        ambiente["admin"], "elenco_rda", {"sottocluster": [99999]}
     )
+
+
+def test_piu_sottocluster_e_default_dai_propri(ambiente, make_user):
+    """Rev36: un elenco di id (anche più d'uno), «tutti», e di default i sottocluster propri."""
+    from accounts.roles import READER
+
+    a, b = ambiente["a"], ambiente["b"]
+    altro = m.Sottocluster.objects.create(cluster=f.cluster("OT"), nome="Altro")  # non tutti
+    u = ambiente["admin"]
+    due = esegui(u, "elenco_rda", {"sottocluster": [a.pk, b.pk]}, OGGI)
+    assert due["totale"] == 2 and due["sottocluster_filtro"] == sorted([a.pk, b.pk])
+    assert esegui(u, "elenco_rda", {"sottocluster": [altro.pk]}, OGGI)["totale"] == 0
+    # Un lettore assegnato solo ad Alfa vede di default Alfa; «tutti» li vede tutti.
+    lettore = make_user("lettore_alfa", role=READER)
+    m.AssegnazioneCluster.objects.create(
+        username="lettore_alfa", cluster=ambiente["ict"], sottocluster=a
+    )
+    di_default = esegui(lettore, "elenco_rda", {}, OGGI)
+    assert di_default["totale"] == 1 and di_default["sottocluster_filtro"] == [a.pk]
+    assert esegui(lettore, "elenco_rda", {"sottocluster": ["tutti"]}, OGGI)["totale"] == 2
+    assert "Sottocluster sconosciuti: abc" in errore(u, "elenco_rda", {"sottocluster": ["abc"]})
+    assert "argomento sconosciuto «cluster»" in errore(u, "elenco_rda", {"cluster": ["IT"]})
+
+
+def test_riferimenti_indica_i_sottocluster_propri(ambiente, make_user):
+    from accounts.roles import READER
+
+    lettore = make_user("lettore_beta", role=READER)
+    m.AssegnazioneCluster.objects.create(
+        username="lettore_beta", cluster=ambiente["ict"], sottocluster=ambiente["b"]
+    )
+    dati = esegui(lettore, "riferimenti", {}, OGGI)
+    propri = {s["id"]: s["proprio"] for s in dati["sottocluster"]}
+    assert propri[ambiente["b"].pk] is True and propri[ambiente["a"].pk] is False
+    conti = esegui(lettore, "riferimenti", {"includi": ["conti"], "sottocluster": ["tutti"]}, OGGI)
+    assert conti["sottocluster_filtro"] == "tutti"

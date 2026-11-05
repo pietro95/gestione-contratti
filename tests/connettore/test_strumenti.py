@@ -101,40 +101,40 @@ def test_argomenti_non_validi_come_errore_del_tool(utente_reader, argomenti, mes
     assert esito.esito == "errore_tool"
 
 
-def test_scadenze_di_default_i_cluster_propri(utente_reader, dati):
+def test_scadenze_di_default_i_sottocluster_propri(utente_reader, dati):
     it, tlc = dati
     assegna(utente_reader, "IT")
     righe = esegui(utente_reader, "scadenze")[0]["structuredContent"]["righe"]
     assert [(r["id"], r["alert"]) for r in righe] == [(it.pk, "rosso")]
-    tutti = esegui(utente_reader, "scadenze", {"cluster": ["tutti"]})[0]["structuredContent"]
+    tutti = esegui(utente_reader, "scadenze", {"sottocluster": ["tutti"]})[0]["structuredContent"]
     assert {r["id"]: r["alert"] for r in tutti["righe"]} == {it.pk: "rosso", tlc.pk: "giallo"}
-    assert tutti["filtri"]["cluster"] == "tutti"
+    assert tutti["filtri"]["sottocluster"] == "tutti"
 
 
 def test_scadenze_uguali_al_cruscotto(utente_reader, dati):
-    gruppi = selettori.cruscotto(OGGI, {"area": [], "sottocluster": ""})
+    gruppi = selettori.cruscotto(OGGI, {"sottocluster": ()})
     attese = [r.contratto.pk for colore in gruppi for r in gruppi[colore]]
-    righe = esegui(utente_reader, "scadenze", {"cluster": ["tutti"]})[0]["structuredContent"]
+    righe = esegui(utente_reader, "scadenze", {"sottocluster": ["tutti"]})[0]["structuredContent"]
     assert [r["id"] for r in righe["righe"]] == attese
 
 
 def test_scadenze_filtri_alert_ed_entro(utente_reader, dati):
     it, tlc = dati
-    gialli = esegui(utente_reader, "scadenze", {"cluster": ["tutti"], "alert": ["giallo"]})
+    gialli = esegui(utente_reader, "scadenze", {"sottocluster": ["tutti"], "alert": ["giallo"]})
     assert [r["id"] for r in gialli[0]["structuredContent"]["righe"]] == [tlc.pk]
     # Entro una data prima della data limite del TLC: resta solo l'IT.
-    entro = esegui(utente_reader, "scadenze", {"cluster": ["tutti"], "entro": "2026-01-01"})
+    entro = esegui(utente_reader, "scadenze", {"sottocluster": ["tutti"], "entro": "2026-01-01"})
     assert [r["id"] for r in entro[0]["structuredContent"]["righe"]] == [it.pk]
 
 
 def test_scadenze_paginazione(utente_reader, dati):
-    prima = esegui(utente_reader, "scadenze", {"cluster": ["tutti"], "limite": 1})[0]
+    prima = esegui(utente_reader, "scadenze", {"sottocluster": ["tutti"], "limite": 1})[0]
     p1 = prima["structuredContent"]
     assert (len(p1["righe"]), p1["totale"], p1["troncato"]) == (1, 2, True)
     seconda = esegui(
         utente_reader,
         "scadenze",
-        {"cluster": ["tutti"], "limite": 1, "cursore": p1["cursore_successivo"]},
+        {"sottocluster": ["tutti"], "limite": 1, "cursore": p1["cursore_successivo"]},
     )[0]["structuredContent"]
     assert seconda["troncato"] is False
     assert seconda["righe"][0]["id"] != p1["righe"][0]["id"]
@@ -143,7 +143,7 @@ def test_scadenze_paginazione(utente_reader, dati):
 @pytest.mark.parametrize(
     ("argomenti", "messaggio"),
     [
-        ({"cluster": ["XX"]}, "Cluster sconosciuti: XX"),
+        ({"sottocluster": [99999]}, "Sottocluster sconosciuti: 99999"),
         ({"entro": "31/12/2026"}, "AAAA-MM-GG"),
         ({"cursore": "abc"}, "«cursore» non valido"),
         ({"limite": 1000}, "al massimo 100"),
