@@ -40,6 +40,7 @@ Storico revisioni:
 - Rev32 (28/10/2026): decisione del responsabile del progetto, **approvata** il 28/10/2026. **Febbraio** (§5.2): il limite noto della Rev31 (contratti contigui da 12 mesi con confine in febbraio tra anno bisestile e non non sommavano al canone) è superato: per febbraio si usano sempre **29 posizioni** (i giorni 1–28 e, come ultima, l'ultimo giorno del mese), così il giorno di confine pesa uguale in ogni anno; gli altri mesi non cambiano e i casi DPO restano identici. Resta un solo caso irrisolvibile per costruzione, l'inizio al 28/02 di un anno bisestile (stesso anniversario di un inizio al 29/02, §5.1). **Connettore MCP**: i tool `budget`, `piano_ordini` e `fabbisogno` restituiscono `metodo_competenza` (`SPEC_MCP` Rev12). TC-24 esteso.
 - Rev33 (28/10/2026): richiesta del responsabile del progetto, **approvata** il 28/10/2026. **Numero di contratto** nei testi della lavorazione delle fatture (§5.9): le indicazioni per la validazione iniziano con `Contratto <numero>.` e il commento per PAC (messaggio di trasferimento per il pagamento) con la riga `Contratto: <numero>`; senza contratto o senza numero si scrive `--`. Vale anche per il connettore MCP, che usa lo stesso testo. Nuovo caso TC-25.
 - Rev34 (05/11/2026): richiesta del responsabile del progetto, **approvata** il 05/11/2026. **Budget a una colonna** (§5.2): il budget si legge sul fatturato e stanziato (competenza); la pagina, il PDF e l'export mostrano **di default solo quella vista**, le altre (fatturato per data fattura, ordinato, competenza del contratto) si scelgono con il filtro «Viste». **Budget assegnato per conto (OPEX) e per WBS (CAPEX)** (§4, §5.2): due nuove tabelle, per sottocluster, anno e conto (OPEX) o WBS (CAPEX); le spese CAPEX gravano sulla WBS, non sul conto associato; sulle righe dei conti OPEX e delle WBS CAPEX il budget mostra l'assegnato e lo **stato** (OK / in avvicinamento / superato / non assegnato) rispetto al fatturato e stanziato; soglia in tabella dei parametri (90% provvisorio). Il connettore MCP si allinea (`SPEC_MCP` Rev13). Nessun cambio al calcolo.
+- Rev35 (05/11/2026): richiesta del responsabile del progetto, **approvata** il 05/11/2026 (la modifica della SPEC è autorizzata dal responsabile). **Tutto sul sottocluster** (§4, §8.1): ogni fabbisogno e ogni RDA sta in un **sottocluster, sempre**; la WBS di cluster, l'autorizzazione extra budget e il conto si legano al sottocluster (il conto a uno o più). Il cluster resta come colonna dedotta dal sottocluster (non si inserisce a mano). Dove il dato d'origine non indica il sottocluster (import dell'Excel, dati esistenti) si usa l'unico sottocluster attivo del cluster o, se sono più d'uno, **«Non classificato»**, da riclassificare a mano; «Non classificato» non raggruppa per soglia nel piano ordini (§5.4). Passo 1 di 3: modello dati e permessi; il filtro a tendina per sottocluster nelle viste (passo 2) e l'allineamento del connettore MCP (passo 3, SPEC_MCP) seguono.
 
 ## 1. Obiettivo
 
@@ -107,11 +108,10 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
 - Il codice SAP non è univoco: nei file attuali lo stesso codice è assegnato a più fornitori (§2.2). Il sistema lo ammette e lo segnala.
 
 **Fabbisogno** (servizio ricorrente):
-- descrizione, cluster, categoria (licenze SW, manutenzione HW, connettività, servizi professionali, noleggio, ecc.);
-  - il cluster è una tabella di configurazione (vedi **Cluster**);
+- descrizione, sottocluster (obbligatorio, Rev35: il cluster se ne deduce), categoria (licenze SW, manutenzione HW, connettività, servizi professionali, noleggio, ecc.);
+  - il sottocluster è una tabella di configurazione (vedi **Sottocluster**);
   - la categoria è una tabella di configurazione, modificabile dall'amministrazione;
 - impianto (facoltativo, da tabella; es. un dissalatore);
-- sottocluster (facoltativo, da tabella): sottocategoria del cluster, che deve essere quello del fabbisogno (Rev18);
 - fonte di finanziamento (facoltativa, da tabella, Rev18);
 - referente: testo libero, più un collegamento facoltativo all'utente dell'applicazione;
 - decisione di continuità: `Rinnovare` / `Da valutare` / `Sostituire` / `Dismettere`;
@@ -143,19 +143,19 @@ Analisi del file aggiornato al 02/10/2026 (Rev11). Il file resta on-prem: qui ci
 **Cluster** (tabella): area dell'ufficio che raggruppa più conti (IT, TLC, OT, Sicurezza fisica, Innovazione); codice breve e stabile, nome, note. I cluster IT e TLC hanno lo stesso responsabile e in pratica lo stesso budget: le viste li mostrano insieme ("i miei cluster", §8.1).
 
 **WBS** (tabella): elemento WBS di SAP, su cui si imputano le spese CAPEX. Due tipi:
-- **di cluster**: CAPEX "generico" del cluster, entra nel suo budget CAPEX; il cluster è obbligatorio; ha una fonte di finanziamento facoltativa (Rev18, anche per le WBS a progetto);
+- **di cluster**: CAPEX "generico" del cluster, entra nel suo budget CAPEX; il **sottocluster** è obbligatorio (Rev35; il cluster se ne deduce); ha una fonte di finanziamento facoltativa (Rev18, anche per le WBS a progetto);
 - **a progetto** (es. nuovi dissalatori): fuori dai budget dei cluster; i contratti restano registrati e consultabili per WBS (§5.5). Sostituisce la tabella Progetti; "finanziato" coincide con "su WBS a progetto".
 
-**Autorizzazione extra budget** (tabella, Rev19): attività spot non prevista in fase di stipula del budget ma autorizzata espressamente dall'AD. Codice, descrizione, cluster, protocollo e data dell'autorizzazione AD, **importo autorizzato** (imponibile), documento (percorso), note; archiviabile, con storia. Non è un elemento SAP: è una WBS a progetto "logica", valida per OPEX e CAPEX.
+**Autorizzazione extra budget** (tabella, Rev19): attività spot non prevista in fase di stipula del budget ma autorizzata espressamente dall'AD. Codice, descrizione, sottocluster (Rev35), protocollo e data dell'autorizzazione AD, **importo autorizzato** (imponibile), documento (percorso), note; archiviabile, con storia. Non è un elemento SAP: è una WBS a progetto "logica", valida per OPEX e CAPEX.
 - si collega alla **voce** (facoltativo), non al contratto: un contratto può avere voci a budget e voci extra budget. La voce conserva natura, conto e WBS (CAPEX ⇔ WBS resta);
-- l'autorizzazione deve essere del cluster del fabbisogno;
+- l'autorizzazione deve essere del cluster del fabbisogno (Rev35: il cluster è quello del suo sottocluster);
 - un contratto con almeno una voce extra budget è **una tantum** (§4, Rev11): nessun rinnovo, fuori dalla catena, dagli alert, dai previsti e dal piano ordini (anche in deroga alla Rev18, che vi porta i contratti una tantum registrati). Il contratto si dice «extra budget» (prevale su «finanziato»);
 - **consumato** = somma del massimo (fisso + massimale variabile) delle voci attive collegate; oltre l'importo autorizzato si mostra un **avviso** (non un blocco): il registro descrive ciò che è stato emesso;
 - la marcano Admin ed Editor (modifica della voce); le autorizzazioni si registrano in amministrazione.
 
 **Impianto** (tabella): nome e note.
 
-**Sottocluster** (tabella, Rev18, Rev25): sottocategoria di un cluster; cluster, nome (unico nel cluster), *owner* (testo libero, informativo: è il responsabile del budget indicato nel file della struttura, non dà permessi) e note; si archivia, non si cancella. Raggruppa i fabbisogni nel piano ordini (§5.4).
+**Sottocluster** (tabella, Rev18, Rev25): sottocategoria di un cluster; cluster, nome (unico nel cluster), *owner* (testo libero, informativo: è il responsabile del budget indicato nel file della struttura, non dà permessi) e note; si archivia, non si cancella. Raggruppa i fabbisogni nel piano ordini (§5.4). (Rev35) Ogni fabbisogno e ogni RDA ne ha uno; «Non classificato» è il sottocluster di ripiego di un cluster, creato quando serve.
 
 **Budget del sottocluster** (tabella, Rev23): budget assegnato a un sottocluster per un **anno** e una **natura** (OPEX o CAPEX); importo imponibile, maggiore o uguale a zero, note. Uno solo per sottocluster, anno e natura; si archivia, non si cancella; storia delle modifiche. È un dato deciso, non calcolato. Lo inserisce l'amministrazione (Admin). OPEX e CAPEX restano distinti, mai sommati.
 
@@ -250,7 +250,7 @@ Lo stesso numero di fattura dello stesso fornitore non si registra due volte. La
 **Tabelle di configurazione**:
 - lead time per procedura, in mesi;
 - soglie per l'importo, con validità temporale;
-- piano dei conti con validità temporale, mappatura vecchio→nuovo (sostituisce la colonna "Nuovo codice conto da 01/01/26") e **cluster** del conto (Rev25: ogni conto appartiene a uno o più cluster; i conti generici, come quelli per forniture, lavori e servizi di Digitalizzazione e Innovazione, sono di più cluster). Si carica dall'interfaccia (import del piano dei conti o della struttura, §7) o dall'amministrazione; i conti reali non entrano nel repository;
+- piano dei conti con validità temporale, mappatura vecchio→nuovo (sostituisce la colonna "Nuovo codice conto da 01/01/26") e **sottocluster** del conto (Rev25, Rev35: ogni conto appartiene a uno o più sottocluster, da cui si ricavano i cluster; i conti generici, come quelli per forniture, lavori e servizi di Digitalizzazione e Innovazione, sono di più cluster). Si carica dall'interfaccia (import del piano dei conti o della struttura, §7) o dall'amministrazione; i conti reali non entrano nel repository;
 - cluster, WBS e **assegnazioni dei cluster agli utenti** (§8.1), caricati con l'import della struttura;
 - parametri con validità temporale: giorni di pagamento, pagamento a fine mese, adeguamento dei rinnovi previsti, finestra dell'alert giallo, orizzonte della previsione; (Rev11) giorni oltre i quali una RDA è «ferma» in una fase (§5.7); (Rev13) giorni oltre i quali una fattura è «ferma» da lavorare (§5.7);
 - categorie dei fabbisogni;

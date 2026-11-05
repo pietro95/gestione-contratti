@@ -469,8 +469,9 @@ class ContoCoge(models.Model):
         """
         trovati = []
         for c in cluster:
-            attivi = list(Sottocluster.objects.filter(cluster=c, archiviato=False))
-            trovati += attivi or [Sottocluster.non_classificato(c)]
+            veri = Sottocluster.objects.filter(cluster=c, archiviato=False)
+            veri = list(veri.exclude(nome=NOME_NON_CLASSIFICATO))
+            trovati += veri or [Sottocluster.non_classificato(c)]
         self.sottocluster.set(trovati)
 
     @property

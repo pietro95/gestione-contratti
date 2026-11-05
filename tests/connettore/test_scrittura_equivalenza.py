@@ -202,7 +202,6 @@ def _sottocluster_it(db):
 def _dati_fabbisogno(**kw):
     dati = {
         "descrizione": "Servizio nuovo di prova",
-        "cluster": f.cluster("IT").pk,
         "sottocluster": f.sottocluster().pk,
         "decisione": m.Fabbisogno.Decisione.DA_VALUTARE,
     }
@@ -217,7 +216,6 @@ def test_crea_fabbisogno(client, editor):
         "crea_fabbisogno",
         {
             "descrizione": "Servizio nuovo di prova",
-            "cluster": "IT",
             "sottocluster": f.sottocluster().pk,
         },
     )
@@ -241,7 +239,6 @@ def test_crea_fabbisogno_con_previsto_manuale(client, editor):
         "crea_fabbisogno",
         {
             "descrizione": "Servizio nuovo di prova",
-            "cluster": "IT",
             "sottocluster": f.sottocluster().pk,
             "decisione": "rinnovare",
             "stima_prossimo_importo": "12000.00",
@@ -285,7 +282,6 @@ def test_stessi_errori_del_form(editor):
             "name": "crea_fabbisogno",
             "arguments": {
                 "descrizione": "X",
-                "cluster": "IT",
                 "sottocluster": f.sottocluster().pk,
                 "previsto_data_avvio": "2027-01-01",
             },

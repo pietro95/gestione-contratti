@@ -733,3 +733,17 @@ automatici (esempi, proprietà con `hypothesis`, oracolo indipendente a giorni);
 fattura e ordinato invariati; `ruff`, `pytest`, `makemigrations --check` puliti; limite noto del
 febbraio a 29 posizioni (Rev32): i contratti contigui con confine in febbraio sommano al canone; resta un solo caso irrisolvibile (inizio al 28/02 bisestile), documentato in SPEC §5.2. Connettore MCP: `metodo_competenza` in `budget`, `piano_ordini`, `fabbisogno`.
 
+## F16 — Tutto sul sottocluster (Rev35)
+
+Richiesta del responsabile del progetto, approvata il 05/11/2026 (SPEC Rev35). In tre PR:
+
+1. **Modello e permessi** (SPEC Rev35): sottocluster obbligatorio su fabbisogni e RDA; WBS di
+   cluster, autorizzazioni extra budget e conti legati al sottocluster; cluster dedotto dal
+   sottocluster; «Non classificato» come ripiego; migration 0052–0054 con test su dati d'esempio.
+2. **Filtro a tendina per sottocluster** in tutte le viste web (cluster espandibili in sottocluster,
+   di default tutti i sottocluster dell'utente), al posto del filtro per cluster.
+3. **Connettore MCP**: i tool di lettura filtrano per sottocluster; SPEC_MCP aggiornata.
+
+**Accettazione del passo 1:** `ruff`, `pytest`, `makemigrations --check` puliti; la migration dei dati
+provata su un database con i casi critici (un solo sottocluster, più sottocluster, nessuno, conti
+condivisi); nessun fabbisogno, RDA o autorizzazione senza sottocluster.

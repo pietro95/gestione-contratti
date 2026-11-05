@@ -42,8 +42,10 @@ def porta_al_sottocluster(apps, schema_editor):
 
     for conto in Conto.objects.all():
         for cluster in conto.clusters.all():
-            attivi = list(Sottocluster.objects.filter(cluster=cluster, archiviato=False))
-            conto.sottocluster.add(*(attivi or [_ripiego(Sottocluster, cluster.pk, cache)]))
+            veri = list(
+                Sottocluster.objects.filter(cluster=cluster, archiviato=False).exclude(nome=NOME)
+            )
+            conto.sottocluster.add(*(veri or [_ripiego(Sottocluster, cluster.pk, cache)]))
 
 
 def ripristina(apps, schema_editor):
