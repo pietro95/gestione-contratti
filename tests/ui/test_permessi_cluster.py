@@ -83,7 +83,7 @@ def test_tendine_solo_con_i_propri_cluster(struttura, utente):
     scelti = set(form.fields["fabbisogno"].queryset)
     assert struttura["fab"]["IT"] in scelti and {x.cluster.codice for x in scelti} == {"IT"}
     form = editor.get(reverse("contratti:fabbisogno_nuovo")).context["form"]
-    assert set(form.fields["cluster"].queryset) == {struttura["cluster"]["IT"]}
+    assert {s.cluster.codice for s in form.fields["sottocluster"].queryset} == {"IT"}
     # Accorpare o spostare verso un altro cluster richiede il permesso anche lì.
     altro_it = f.fabbisogno("Altro IT", cluster=struttura["cluster"]["IT"])
     url = reverse("contratti:fabbisogno_accorpa", args=[struttura["fab"]["IT"].pk])

@@ -68,7 +68,7 @@ def test_sposta_i_dati_e_archivia_il_vecchio_cluster(dopo_import):
     assert c["it"].archiviato and c["tlc"].archiviato and not c["inn"].archiviato
     assert dict(r.conteggi) == {
         "fabbisogni_spostati": 2,
-        "fabbisogni_classificati": 1,
+        "fabbisogni_classificati": 0,
         "richieste_spostate": 1,
         "richieste_classificate": 0,
         "wbs_spostate": 1,

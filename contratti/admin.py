@@ -173,7 +173,7 @@ class AutorizzazioneExtraBudgetAdmin(ArchiviabileAdmin):
 
 
 class ContoCogeForm(forms.ModelForm):
-    """Ogni conto appartiene ad almeno un sottocluster (SPEC §4): obbligatorio in amministrazione."""
+    """Ogni conto ha almeno un sottocluster (SPEC §4): obbligatorio in amministrazione."""
 
     class Meta:
         model = m.ContoCoge

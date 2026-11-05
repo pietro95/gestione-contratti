@@ -123,7 +123,7 @@ def test_piano_ordini_uguale_al_report(archivio, utente_reader):
     previsto = next(r for r in righe if r["fabbisogno"]["descrizione"].startswith("Nuovo"))
     assert previsto["contratto_uscente_id"] is None
     assert previsto["importi"]["fisso"] == "50000.00"
-    assert previsto["stato"] == "Previsto" and previsto["sottocluster"] is None
+    assert previsto["stato"] == "Previsto" and previsto["sottocluster"] == "Non classificato"
     assert previsto["fonte_finanziamento"] == "Ordinaria"
     assert set(previsto["normalizzato"]) == {"fisso", "probabile", "massimo"}
     registrato = next(r for r in righe if r["fase"] == "registrato")

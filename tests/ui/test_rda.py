@@ -320,7 +320,7 @@ def test_rda_a_mano_poi_collegata(editor, rinnovo):
     risposta = editor.post(
         reverse("contratti:rda_registra"),
         {
-            "cluster": f.cluster("IT").pk,
+            "sottocluster": f.sottocluster("Licenze software", "IT").pk,
             "descrizione": "RDA già in SAP",
             "referente": "Referente di prova",
             "numero_rda": "5100000077",

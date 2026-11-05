@@ -75,7 +75,7 @@ def test_cruscotto_e_contratti_con_sottocluster_non_valido_non_si_rompono(ambien
         assert "Fabbisogno di Alfa" in html and "Fabbisogno di Beta" in html
 
 
-def test_elenco_rda_anche_per_quelle_senza_sottocluster(ambiente):
+def test_elenco_rda_con_sottocluster_ereditato_dalla_pratica(ambiente):
     ict = ambiente["ict"]
     m.RichiestaAcquisto.objects.create(
         cluster=ict, sottocluster=ambiente["a"], descrizione="RDA di Alfa",
@@ -85,9 +85,7 @@ def test_elenco_rda_anche_per_quelle_senza_sottocluster(ambiente):
         cluster=ict, descrizione="RDA vecchia di Beta", fabbisogno=ambiente["fab_b"],
         origine=m.RichiestaAcquisto.Origine.MANUALE,
     )  # fmt: skip
-    m.RichiestaAcquisto.objects.filter(pk=vecchia.pk).update(
-        sottocluster=None
-    )  # non ancora migrata
+    assert vecchia.sottocluster == ambiente["b"]  # Rev35: lo eredita dal fabbisogno
     html = _pagina(ambiente, "contratti:rda_elenco", ambiente["a"].pk)
     assert "RDA di Alfa" in html and "RDA vecchia di Beta" not in html
     html = _pagina(ambiente, "contratti:rda_elenco", ambiente["b"].pk)

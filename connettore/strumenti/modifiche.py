@@ -110,19 +110,11 @@ def _salva_fornitore(ctx: Contesto, argomenti: dict) -> dict:
     return {"oggetti": [_oggetto_link(form.save())]}
 
 
-def _pk_cluster(codice: str):
-    cluster = m.Cluster.objects.filter(codice=codice).first()
-    if cluster is None:
-        raise ErroreTool(f"Cluster sconosciuto: {codice}. Vedi il tool «riferimenti».")
-    return cluster.pk
-
-
 CAMPI_FABBISOGNO = {
     "descrizione": {"type": "string", "minLength": 1, "maxLength": 250},
-    "cluster": {"type": "string", "maxLength": 10, "description": "Codice del cluster."},
     "sottocluster": {
         **SCHEMA_ID,
-        "description": "id del sottocluster, del cluster del fabbisogno («riferimenti»). "
+        "description": "id del sottocluster («riferimenti»): il cluster se ne ricava. "
         "Obbligatorio alla creazione.",
     },
     "referente_utente": {**SCHEMA_ID, "description": "id dell'utente referente."},
@@ -228,7 +220,7 @@ def _salva_fabbisogno(ctx: Contesto, argomenti: dict) -> dict:
         forms.FabbisognoForm,
         istanza,
         argomenti,
-        {"cluster": _pk_cluster, "previsto_procedura": _pk_procedura},
+        {"previsto_procedura": _pk_procedura},
     )
     if "referente_nome" in argomenti:
         dati["referente_utente"] = _utente_per_nome(argomenti["referente_nome"]).pk
@@ -411,7 +403,7 @@ STRUMENTI = [
         "Per un fabbisogno nuovo, senza contratti, si può dare il previsto manuale: avvio e "
         "durata insieme, CAPEX solo con una WBS. «stima_prossimo_importo» è l'importo "
         "complessivo atteso (fisso e consumo): non si somma il consumo del contratto.",
-        _schema(CAMPI_FABBISOGNO, ["descrizione", "cluster", "sottocluster"]),
+        _schema(CAMPI_FABBISOGNO, ["descrizione", "sottocluster"]),
     ),
     strumento(
         Scrittura(

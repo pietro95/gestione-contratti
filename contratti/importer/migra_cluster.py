@@ -18,6 +18,7 @@ cluster, rimasto vuoto, si archivia.
 import re
 
 from django.db import transaction
+from django.db.models import Q
 
 from contratti import models as m
 from contratti.importer.report import Report
@@ -128,17 +129,23 @@ def _esegui(report: Report, mappa):
 def _sottocluster_della_pratica(rda: m.RichiestaAcquisto) -> m.Sottocluster | None:
     """Il sottocluster del fabbisogno della pratica (già spostato), se c'è: ha la precedenza."""
     fab = rda.fabbisogno_della_pratica()
-    if fab is None or not fab.sottocluster_id:
+    if fab is None:
         return None
     fab.refresh_from_db()
-    return fab.sottocluster
+    return None if _di_ripiego(fab.sottocluster) else fab.sottocluster
+
+
+def _di_ripiego(sottocluster: m.Sottocluster) -> bool:
+    """Il sottocluster «Non classificato» (Rev35): vale come «ancora da classificare»."""
+    return sottocluster.nome == m.NOME_NON_CLASSIFICATO
 
 
 def _classifica(report: Report, cluster: m.Cluster, sotto: m.Sottocluster):
-    for fab in m.Fabbisogno.objects.filter(cluster=cluster, sottocluster__isnull=True):
+    nel_ripiego = Q(sottocluster__nome=m.NOME_NON_CLASSIFICATO)
+    for fab in m.Fabbisogno.objects.filter(nel_ripiego, cluster=cluster):
         _salva(fab, sottocluster=sotto)
         report.conteggi["fabbisogni_classificati"] += 1
-    for rda in m.RichiestaAcquisto.objects.filter(cluster=cluster, sottocluster__isnull=True):
+    for rda in m.RichiestaAcquisto.objects.filter(nel_ripiego, cluster=cluster):
         _salva(rda, sottocluster=_sottocluster_della_pratica(rda) or sotto)
         report.conteggi["richieste_classificate"] += 1
 
@@ -146,7 +153,7 @@ def _classifica(report: Report, cluster: m.Cluster, sotto: m.Sottocluster):
 def _sposta(report: Report, vecchio: m.Cluster, sotto: m.Sottocluster):
     nuovo = sotto.cluster
     for fab in m.Fabbisogno.objects.filter(cluster=vecchio):
-        if fab.sottocluster_id and fab.sottocluster.cluster_id == vecchio.pk:
+        if not _di_ripiego(fab.sottocluster) and fab.sottocluster.cluster_id == vecchio.pk:
             report.anomalia(
                 FOGLIO,
                 fab.pk,
@@ -157,23 +164,23 @@ def _sposta(report: Report, vecchio: m.Cluster, sotto: m.Sottocluster):
                 "spostalo a mano.",
             )
             continue
-        _salva(fab, cluster=nuovo, sottocluster=fab.sottocluster or sotto)
+        _salva(fab, sottocluster=sotto if _di_ripiego(fab.sottocluster) else fab.sottocluster)
         report.conteggi["fabbisogni_spostati"] += 1
     for rda in m.RichiestaAcquisto.objects.filter(cluster=vecchio):
         pratica = rda.fabbisogno_della_pratica()
         if pratica is not None and pratica.cluster_id == vecchio.pk:  # fabbisogno non spostato
             continue
-        _salva(rda, cluster=nuovo, sottocluster=_sottocluster_della_pratica(rda) or sotto)
+        _salva(rda, sottocluster=_sottocluster_della_pratica(rda) or sotto)
         report.conteggi["richieste_spostate"] += 1
     for wbs in m.WBS.objects.filter(cluster=vecchio):
-        _salva(wbs, cluster=nuovo)
+        _salva(wbs, sottocluster=sotto)
         report.conteggi["wbs_spostate"] += 1
     for aut in m.AutorizzazioneExtraBudget.objects.filter(cluster=vecchio):
-        _salva(aut, cluster=nuovo)
+        _salva(aut, sottocluster=sotto)
         report.conteggi["autorizzazioni_spostate"] += 1
-    for conto in m.ContoCoge.objects.filter(clusters=vecchio):
-        conto.clusters.remove(vecchio)
-        conto.clusters.add(nuovo)
+    for conto in m.ContoCoge.objects.filter(sottocluster__cluster=vecchio).distinct():
+        conto.sottocluster.remove(*conto.sottocluster.filter(cluster=vecchio))
+        conto.sottocluster.add(sotto)
         report.conteggi["conti_aggiornati"] += 1
     for a in m.AssegnazioneCluster.objects.filter(cluster=vecchio, sottocluster__isnull=True):
         doppia = m.AssegnazioneCluster.objects.filter(
@@ -188,6 +195,8 @@ def _sposta(report: Report, vecchio: m.Cluster, sotto: m.Sottocluster):
                 _salva(doppia, archiviato=False)
         report.conteggi["assegnazioni_convertite"] += 1
     if not _riferito(vecchio):
+        for ripiego in vecchio.sottocluster.filter(nome=m.NOME_NON_CLASSIFICATO, archiviato=False):
+            _salva(ripiego, archiviato=True)
         _salva(vecchio, archiviato=True)
         report.conteggi["cluster_archiviati"] += 1
 
@@ -200,8 +209,8 @@ def _riferito(cluster: m.Cluster) -> bool:
             cluster.richieste_acquisto.exists(),
             cluster.wbs.exists(),
             cluster.autorizzazioni_extra_budget.exists(),
-            cluster.conti.exists(),
-            cluster.sottocluster.exists(),
+            m.ContoCoge.objects.filter(sottocluster__cluster=cluster).exists(),
+            cluster.sottocluster.exclude(nome=m.NOME_NON_CLASSIFICATO).exists(),
             cluster.assegnazioni.filter(archiviato=False).exists(),
         )
     )

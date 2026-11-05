@@ -194,7 +194,6 @@ def _per_codice(modello, etichetta: str):
 _richiedente = _per_codice(m.RichiedenteSAP, "Richiedente SAP")
 _gruppo_acquisti = _per_codice(m.GruppoAcquisti, "Gruppo acquisti")
 _gruppo_merci = _per_codice(m.GruppoMerci, "Gruppo merci")
-_cluster = _per_codice(m.Cluster, "Cluster")
 
 
 def _form_valore(valore):
@@ -421,15 +420,13 @@ def _dati_sap(ctx: Contesto, argomenti: dict) -> dict:
 
 def _registra_rda(ctx: Contesto, argomenti: dict) -> dict:
     istanza = m.RichiestaAcquisto(origine=m.RichiestaAcquisto.Origine.MANUALE)
-    dati = _dati(fr.RdaManualeForm, istanza, argomenti, {"cluster": _cluster})
+    dati = _dati(fr.RdaManualeForm, istanza, argomenti)
     dati["referente_utente"] = ""
     form = fr.RdaManualeForm(dati, instance=istanza, utente=ctx.utente)
     valida(form)
     _verifica_cluster(
         ctx,
-        m.RichiestaAcquisto(
-            cluster=form.cleaned_data["cluster"], sottocluster=form.cleaned_data["sottocluster"]
-        ),
+        m.RichiestaAcquisto(sottocluster=form.cleaned_data["sottocluster"]),
     )
     return {"oggetti": [_rif(form.save(), nuovo=True)]}
 
@@ -1138,10 +1135,9 @@ STRUMENTI = [
         "collega con «collega_rda». Numero della RDA obbligatorio.",
         _schema(
             {
-                "cluster": {"type": "string", "maxLength": 10, "description": "Codice."},
                 "sottocluster": {
                     **SCHEMA_ID,
-                    "description": "id del sottocluster, del cluster indicato («riferimenti»).",
+                    "description": "id del sottocluster («riferimenti»): il cluster se ne ricava.",
                 },
                 "descrizione": {"type": "string", "minLength": 1, "maxLength": 250},
                 "fornitore_proposto": {**SCHEMA_ID, "description": "id del fornitore."},
@@ -1156,7 +1152,7 @@ STRUMENTI = [
                 "rup": {"type": "string", "maxLength": 150},
                 "cup": {"type": "string", "maxLength": 20},
             },
-            ["cluster", "descrizione", "numero_rda"],
+            ["sottocluster", "descrizione", "numero_rda"],
         ),  # fmt: skip
     ),
     strumento(

@@ -692,6 +692,7 @@ def collega_pratica(
         rda.scopo = ""
     legato = rda.fabbisogno_della_pratica()
     if legato is not None:
+        rda.sottocluster_id = legato.sottocluster_id
         rda.cluster_id = legato.cluster_id
     rda.full_clean()
     _salva(rda, "Collegamento della pratica")

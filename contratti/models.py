@@ -107,6 +107,24 @@ class Archiviabile(models.Model):
         abstract = True
 
 
+class CompletaSottocluster(models.Model):
+    """Prima della validazione e del salvataggio completa sottocluster e cluster (Rev35)."""
+
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        self.completa()
+        super().save(*args, **kwargs)
+
+    def completa(self) -> None:
+        completa_sottocluster(self)
+
+    def clean_fields(self, exclude=None):
+        self.completa()
+        super().clean_fields(exclude=exclude)
+
+
 class ConfigurazioneProvvisoria(models.Model):
     """Parametri con valori iniziali da concordare (SPEC §9)."""
 
@@ -285,7 +303,7 @@ class FonteFinanziamento(models.Model):
         return self.nome
 
 
-class WBS(Archiviabile):
+class WBS(CompletaSottocluster, Archiviabile):
     """Elemento WBS di SAP, su cui si imputano le spese CAPEX (F9.2).
 
     - Di cluster: CAPEX "generico" del cluster, entra nel suo budget CAPEX.
@@ -342,19 +360,18 @@ class WBS(Archiviabile):
     def __str__(self):
         return f"{self.codice_wbs} — {self.descrizione}"
 
-    def save(self, *args, **kwargs):
+    def completa(self) -> None:
         if self.tipo == self.Tipo.PROGETTO and not self.sottocluster_id:
             self.cluster = None
         else:
             completa_sottocluster(self)
-        super().save(*args, **kwargs)
 
     @property
     def a_progetto(self) -> bool:
         return self.tipo == self.Tipo.PROGETTO
 
 
-class AutorizzazioneExtraBudget(Archiviabile):
+class AutorizzazioneExtraBudget(CompletaSottocluster, Archiviabile):
     """Attività spot autorizzata dall'AD fuori dal budget (Rev18).
 
     Come una WBS a progetto, ma logica (non è un elemento SAP) e valida per OPEX e CAPEX: le
@@ -394,10 +411,6 @@ class AutorizzazioneExtraBudget(Archiviabile):
 
     def __str__(self):
         return f"{self.codice} — {self.descrizione}"
-
-    def save(self, *args, **kwargs):
-        completa_sottocluster(self)
-        super().save(*args, **kwargs)
 
     def get_absolute_url(self):
         from django.urls import reverse
@@ -953,7 +966,7 @@ class TipoAcquisto(models.TextChoices):
     FORNITURA = "fornitura", "Forniture"
 
 
-class Fabbisogno(Archiviabile):
+class Fabbisogno(CompletaSottocluster, Archiviabile):
     """Servizio ricorrente che vive per anni; i contratti ne sono le istanze."""
 
     class Decisione(models.TextChoices):
@@ -1118,10 +1131,6 @@ class Fabbisogno(Archiviabile):
         from django.urls import reverse
 
         return reverse("contratti:fabbisogno", args=[self.pk])
-
-    def save(self, *args, **kwargs):
-        completa_sottocluster(self)
-        super().save(*args, **kwargs)
 
     @property
     def area(self) -> str:
@@ -1751,7 +1760,7 @@ class StatoPratica(models.Model):
 # ---------------------------------------------------------------------------
 
 
-class RichiestaAcquisto(Archiviabile):
+class RichiestaAcquisto(CompletaSottocluster, Archiviabile):
     """Richiesta d'acquisto (RDA).
 
     Nasce sul portale come richiesta compilata dal referente a partire dal fabbisogno;
@@ -1896,7 +1905,7 @@ class RichiestaAcquisto(Archiviabile):
     def __str__(self):
         return f"RDA {self.numero_rda}" if self.numero_rda else f"Richiesta di RDA #{self.pk}"
 
-    def save(self, *args, **kwargs):
+    def completa(self) -> None:
         if not self.sottocluster_id:
             pratica = self.fabbisogno_della_pratica()
             if pratica is not None and (
@@ -1904,7 +1913,6 @@ class RichiestaAcquisto(Archiviabile):
             ):
                 self.sottocluster_id = pratica.sottocluster_id
         completa_sottocluster(self)
-        super().save(*args, **kwargs)
 
     @property
     def nome_referente(self) -> str:

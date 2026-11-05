@@ -38,13 +38,10 @@ def test_fabbisogno_senza_sottocluster_non_si_salva():
     assert web_forms.FabbisognoForm(_dati_fabbisogno()).is_valid()
 
 
-def test_fabbisogno_importato_senza_sottocluster_resta_modificabile():
-    legacy = f.fabbisogno("Importato")  # nessun sottocluster
-    form = web_forms.FabbisognoForm(
-        _dati_fabbisogno(descrizione="Importato", sottocluster=""), instance=legacy
-    )
-    assert form.is_valid(), form.errors
-    # Ma uno già classificato non perde il sottocluster.
+def test_fabbisogno_importato_ha_il_sottocluster_di_ripiego():
+    legacy = f.fabbisogno("Importato")  # l'import non indica il sottocluster (Rev35)
+    assert legacy.sottocluster.nome == m.NOME_NON_CLASSIFICATO
+    # Non lo perde nemmeno modificandolo: il sottocluster resta obbligatorio.
     classificato = f.fabbisogno("Classificato", sottocluster=f.sottocluster())
     form = web_forms.FabbisognoForm(
         _dati_fabbisogno(descrizione="Classificato", sottocluster=""), instance=classificato
@@ -89,10 +86,10 @@ def _dati_contratto(fab, **kw):
     return dati | kw
 
 
-def test_contratto_nuovo_richiede_il_sottocluster():
+def test_contratto_nuovo_usa_il_sottocluster_del_fabbisogno_o_quello_scelto():
     fab = f.fabbisogno("Senza sottocluster")
     form = web_forms.ContrattoNuovoForm(_dati_contratto(fab))
-    assert not form.is_valid() and "sottocluster" in form.errors
+    assert form.is_valid(), form.errors  # Rev35: il fabbisogno ha sempre un sottocluster
     form = web_forms.ContrattoNuovoForm(_dati_contratto(fab, sottocluster=f.sottocluster().pk))
     assert form.is_valid(), form.errors
     contratto = form.save()

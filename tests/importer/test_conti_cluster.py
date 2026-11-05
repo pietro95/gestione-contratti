@@ -45,11 +45,11 @@ def test_import_contratti_segnala_conto_senza_cluster():
     assert "CONTO_SENZA_CLUSTER" in codici
 
 
-def test_admin_conto_richiede_il_cluster():
+def test_admin_conto_richiede_il_sottocluster():
     form = admin.site._registry[m.ContoCoge].form(
         data={"codice": "60000001", "descrizione": "x", "valido_dal": "2026-01-01"}
     )
-    assert not form.is_valid() and "clusters" in form.errors
+    assert not form.is_valid() and "sottocluster" in form.errors
 
 
 def test_import_conti_con_piu_cluster_e_modifica_dell_insieme(tmp_path):
