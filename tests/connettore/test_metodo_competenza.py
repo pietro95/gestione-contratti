@@ -33,7 +33,7 @@ def test_budget_competenza_2027_e_il_canone_e_dichiara_il_metodo(dpo, utente_rea
     dati = esegui(
         utente_reader,
         "budget",
-        {"anno": 2027, "cluster": ["tutti"], "previsti": False, "viste": ["competenza"]},
+        {"anno": 2027, "sottocluster": ["tutti"], "previsti": False, "viste": ["competenza"]},
     )
     assert _competenza(dati) == CANONE
     assert dati["metodo_competenza"]["metodo"] == "mesi_frazionati"
@@ -48,7 +48,12 @@ def test_budget_2026_e_2028_quadrano_con_il_2027(dpo, utente_reader):
             esegui(
                 utente_reader,
                 "budget",
-                {"anno": anno, "cluster": ["tutti"], "previsti": False, "viste": ["competenza"]},
+                {
+                    "anno": anno,
+                    "sottocluster": ["tutti"],
+                    "previsti": False,
+                    "viste": ["competenza"],
+                },
             )
         )
         for anno in (2026, 2027, 2028)
@@ -66,7 +71,7 @@ def test_i_tool_dichiarano_il_metodo_nelle_descrizioni(utente_reader):
 
 
 def test_piano_ordini_e_fabbisogno_dichiarano_il_metodo(dpo, utente_reader):
-    piano = esegui(utente_reader, "piano_ordini", {"anno": 2027, "cluster": ["tutti"]})
+    piano = esegui(utente_reader, "piano_ordini", {"anno": 2027, "sottocluster": ["tutti"]})
     assert piano["metodo_competenza"]["metodo"] == "mesi_frazionati"
     dati = esegui(utente_reader, "fabbisogno", {"id": dpo.pk})
     assert dati["metodo_competenza"]["metodo"] == "mesi_frazionati"

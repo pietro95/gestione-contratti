@@ -742,7 +742,7 @@ Richiesta del responsabile del progetto, approvata il 05/11/2026 (SPEC Rev35). I
    sottocluster; «Non classificato» come ripiego; migration 0052–0054 con test su dati d'esempio.
 2. **Filtro a tendina per sottocluster** (SPEC Rev36) in tutte le viste web (cluster espandibili in sottocluster,
    di default tutti i sottocluster dell'utente), al posto del filtro per cluster.
-3. **Connettore MCP**: i tool di lettura filtrano per sottocluster; SPEC_MCP aggiornata.
+3. **Connettore MCP** (SPEC Rev37, SPEC_MCP Rev15): i tool di lettura filtrano per sottocluster (elenco di id, «tutti», di default i propri) al posto di `cluster`; SPEC_MCP aggiornata.
 
 **Accettazione del passo 1:** `ruff`, `pytest`, `makemigrations --check` puliti; la migration dei dati
 provata su un database con i casi critici (un solo sottocluster, più sottocluster, nessuno, conti
@@ -753,3 +753,9 @@ verificare, budget, piano ordini, WBS, extra budget, stato delle RDA, cruscotto 
 chiudere, stanziamenti e anomalie; default = sottocluster dell'utente; nessun controllo annidato
 (axe-core) e uso da tastiera; PDF, XLSX e nomi dei file con i sottocluster; `ruff`, `pytest` (compresi
 i test nel browser) e `makemigrations --check` puliti.
+
+**Accettazione del passo 3:** i tool `scadenze`, `budget`, `piano_ordini`, `spese_wbs`, `piani_da_verificare`,
+`riferimenti`, `elenco_rda`, `cruscotto_acquisti`, `contratti_da_chiudere`, `stanziamenti` e
+`anomalie_esecuzione` accettano `sottocluster` e rifiutano `cluster`; default = sottocluster
+dell'utente; id sconosciuti rifiutati; link alle pagine con i sottocluster scelti; `ruff`, `pytest` e
+`makemigrations --check` puliti.

@@ -40,7 +40,9 @@ def test_spese_wbs_con_quote_separa_il_previsto(utente_reader, lavori):
         m.QuotaPeriodo.objects.create(
             voce=lavori["voce"], dal=D(anno, 1, 1), al=D(anno, 12, 31), importo=Decimal(importo)
         )
-    dati = esegui(utente_reader, "spese_wbs", {"wbs_id": lavori["wbs"].pk, "cluster": ["tutti"]})
+    dati = esegui(
+        utente_reader, "spese_wbs", {"wbs_id": lavori["wbs"].pk, "sottocluster": ["tutti"]}
+    )
     riga = _riga(dati, lavori["voce"])
     assert riga["per_anno"] == {"2025": "1486870.87", "2026": "1144060.62", "2027": "316708.26"}
     assert riga["consuntivo_per_anno"] == {}
@@ -62,19 +64,21 @@ def test_spese_wbs_con_fatture_e_anomalia_di_wbs(utente_reader, lavori):
             fornitore=c.fornitore, contratto=c, voce=lavori["voce"], numero=f"F-{i}", data=data,
             importo_documento=Decimal(importo), valore_base=Decimal(importo), wbs=wbs,
         )  # fmt: skip
-    dati = esegui(utente_reader, "spese_wbs", {"wbs_id": lavori["wbs"].pk, "cluster": ["tutti"]})
+    dati = esegui(
+        utente_reader, "spese_wbs", {"wbs_id": lavori["wbs"].pk, "sottocluster": ["tutti"]}
+    )
     riga = _riga(dati, lavori["voce"])
     assert riga["consuntivo_per_anno"] == {"2025": "1000000.00"}  # la seconda è sull'altra WBS
     assert Decimal(riga["non_pianificato"]) == FISSO - Decimal("1500000.00")
     assert len(dati["anomalie"]) == 1 and "P.0002.01.0001" in dati["anomalie"][0]
     assert any("SAL non pianificato" in a for a in riga["avvisi"])
-    altra_dati = esegui(utente_reader, "spese_wbs", {"wbs_id": altra.pk, "cluster": ["tutti"]})
+    altra_dati = esegui(utente_reader, "spese_wbs", {"wbs_id": altra.pk, "sottocluster": ["tutti"]})
     assert _riga(altra_dati, lavori["voce"])["consuntivo_per_anno"] == {"2026": "500000.00"}
 
 
 def test_budget_segnala_il_sal_non_pianificato(utente_reader, lavori):
     # La WBS a progetto è fuori dal budget dei cluster, salvo richiesta.
-    argomenti = {"anno": 2026, "cluster": ["tutti"], "wbs_a_progetto": "incluse"}
+    argomenti = {"anno": 2026, "sottocluster": ["tutti"], "wbs_a_progetto": "incluse"}
     assert "sal_non_pianificato" not in esegui(utente_reader, "budget", argomenti | {
         "wbs_a_progetto": "escluse"})  # fmt: skip
     dati = esegui(utente_reader, "budget", argomenti)

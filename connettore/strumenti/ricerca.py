@@ -15,13 +15,13 @@ from contratti.engine.tipi import Alert
 from reports.piano_ordini import soglie_valide
 
 from .base import (
-    SCHEMA_CLUSTER,
     SCHEMA_PAGINA,
+    SCHEMA_SOTTOCLUSTER,
     Contesto,
     Strumento,
-    cluster_filtro,
     link,
     pagina,
+    sottocluster_filtro,
 )
 
 # --- riferimenti -------------------------------------------------------------------------
@@ -29,7 +29,7 @@ from .base import (
 
 def _conti_e_wbs(ctx: Contesto, argomenti: dict) -> dict:
     includi = argomenti.get("includi") or []
-    codici = cluster_filtro(ctx.utente, argomenti.get("cluster"))
+    ids = sottocluster_filtro(ctx.utente, argomenti.get("sottocluster"))
     uscita = {}
     if "conti" in includi:
         conti = m.ContoCoge.objects.prefetch_related("sottocluster__cluster").order_by(
@@ -38,21 +38,22 @@ def _conti_e_wbs(ctx: Contesto, argomenti: dict) -> dict:
         conti = conti.filter(valido_dal__lte=ctx.oggi).filter(
             Q(valido_al__isnull=True) | Q(valido_al__gte=ctx.oggi)
         )
-        if codici:
-            conti = conti.filter(sottocluster__cluster__codice__in=codici).distinct()
+        if ids:
+            conti = conti.filter(sottocluster__in=ids).distinct()
         uscita["conti"] = [
             {
                 "id": c.pk,
                 "codice": c.codice,
                 "descrizione": c.descrizione,
                 "cluster": sorted(k.codice for k in c.clusters),
+                "sottocluster": sorted(s.pk for s in c.sottocluster.all()),
             }
             for c in conti
         ]
     if "wbs" in includi:
         wbs = m.WBS.objects.filter(archiviato=False).select_related("cluster")
-        if codici:
-            wbs = wbs.filter(Q(tipo=m.WBS.Tipo.PROGETTO) | Q(cluster__codice__in=codici))
+        if ids:
+            wbs = wbs.filter(Q(tipo=m.WBS.Tipo.PROGETTO) | Q(sottocluster_id__in=ids))
         uscita["wbs"] = [
             {
                 "id": w.pk,
@@ -60,16 +61,18 @@ def _conti_e_wbs(ctx: Contesto, argomenti: dict) -> dict:
                 "descrizione": w.descrizione,
                 "tipo": w.tipo,
                 "cluster": w.cluster.codice if w.cluster_id else None,
+                "sottocluster": w.sottocluster_id,
             }
             for w in wbs.order_by("tipo", "codice_wbs")
         ]
     if uscita:
-        uscita["cluster_filtro"] = codici or "tutti"
+        uscita["sottocluster_filtro"] = list(ids) or "tutti"
     return uscita
 
 
 def riferimenti(ctx: Contesto, argomenti: dict) -> dict:
     propri = {c.codice for c in permessi.cluster_propri(ctx.utente)}
+    sottocluster_propri = {s.pk for s in permessi.sottocluster_propri(ctx.utente)}
     return {
         **_conti_e_wbs(ctx, argomenti),
         "alla_data": ctx.oggi,
@@ -79,7 +82,13 @@ def riferimenti(ctx: Contesto, argomenti: dict) -> dict:
         ],
         "cluster_propri_definiti": bool(propri),
         "sottocluster": [
-            {"id": s.pk, "cluster": s.cluster.codice, "nome": s.nome, "owner": s.owner}
+            {
+                "id": s.pk,
+                "cluster": s.cluster.codice,
+                "nome": s.nome,
+                "owner": s.owner,
+                "proprio": s.pk in sottocluster_propri,
+            }
             for s in m.Sottocluster.objects.filter(archiviato=False).select_related("cluster")
         ],
         "procedure": [
@@ -256,8 +265,8 @@ ALERT_SCADENZE = [Alert.ROSSO.value, Alert.ARANCIONE.value, Alert.GIALLO.value]
 
 
 def scadenze(ctx: Contesto, argomenti: dict) -> dict:
-    codici = cluster_filtro(ctx.utente, argomenti.get("cluster"))
-    filtri = {"area": codici, "sottocluster": argomenti.get("sottocluster") or ""}
+    sottocluster = sottocluster_filtro(ctx.utente, argomenti.get("sottocluster"))
+    filtri = {"sottocluster": sottocluster}
     gruppi = selettori.cruscotto(ctx.oggi, filtri)
     colori = argomenti.get("alert") or ALERT_SCADENZE
     entro = argomenti.get("entro")
@@ -273,10 +282,9 @@ def scadenze(ctx: Contesto, argomenti: dict) -> dict:
     return {
         "alla_data": ctx.oggi,
         "filtri": {
-            "cluster": codici or "tutti",
+            "sottocluster": list(sottocluster) or "tutti",
             "alert": colori,
             "entro": entro,
-            "sottocluster": argomenti.get("sottocluster"),
         },
         "legenda_alert": {
             "rosso": "scaduto senza rinnovo",
@@ -299,7 +307,7 @@ STRUMENTI = [
             "fabbisogni, soglie d'importo valide oggi; per le RDA "
             "richiedenti SAP, gruppi acquisti e gruppi merci (con il predefinito), tipi "
             "d'acquisto e scopi. Con "
-            "«includi» anche i conti COGE validi oggi e le WBS (di default dei cluster "
+            "«includi» anche i conti COGE validi oggi e le WBS (di default dei sottocluster "
             "dell'utente; le WBS a progetto sempre). Da chiamare per conoscere codici e id "
             "da usare nei filtri degli altri tool."
         ),
@@ -310,7 +318,7 @@ STRUMENTI = [
                     "type": "array",
                     "items": {"type": "string", "enum": ["conti", "wbs"]},
                 },
-                "cluster": SCHEMA_CLUSTER,
+                "sottocluster": SCHEMA_SOTTOCLUSTER,
             },
             "additionalProperties": False,
         },
@@ -354,13 +362,12 @@ STRUMENTI = [
         input_schema={
             "type": "object",
             "properties": {
-                "cluster": SCHEMA_CLUSTER,
+                "sottocluster": SCHEMA_SOTTOCLUSTER,
                 "alert": {
                     "type": "array",
                     "items": {"type": "string", "enum": ALERT_SCADENZE},
                 },
                 "entro": {"type": "string", "format": "date"},
-                "sottocluster": {"type": "integer", "minimum": 1},
                 **SCHEMA_PAGINA,
             },
             "additionalProperties": False,

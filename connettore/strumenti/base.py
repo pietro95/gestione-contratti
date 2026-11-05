@@ -94,22 +94,20 @@ def pagina(elementi: list, argomenti: dict) -> tuple[list, dict]:
     return porzione, info
 
 
-def cluster_filtro(utente, valori: list[str] | None) -> list[str]:
-    """Come la tendina «Cluster»: di default i propri, «tutti» per tutti (F9.2)."""
-    codici = permessi.codici_filtro(utente, valori or [])
-    noti = set(m.Cluster.objects.values_list("codice", flat=True))
-    if ignoti := [c for c in codici if c not in noti]:
-        raise ErroreTool(f"Cluster sconosciuti: {', '.join(ignoti)}. Vedi il tool «riferimenti».")
-    return codici
+def sottocluster_filtro(utente, valori: list | None) -> tuple[int, ...]:
+    """Come la tendina «Sottocluster» (Rev36): di default i propri, «tutti» per tutti.
 
-
-def sottocluster_filtro(valore: int | None) -> int | None:
-    """Il filtro «sottocluster» degli strumenti di lettura: id esistente, o ``None`` = tutti."""
-    if not valore:
-        return None
-    if not m.Sottocluster.objects.filter(pk=valore).exists():
-        raise ErroreTool(f"Sottocluster sconosciuto: {valore}. Vedi il tool «riferimenti».")
-    return valore
+    Vuoto = nessuna restrizione (sono scelti tutti i sottocluster attivi).
+    """
+    valori = list(valori or [])
+    ids = [v for v in valori if v != permessi.TUTTI]
+    noti = set(m.Sottocluster.objects.values_list("pk", flat=True))
+    if ignoti := [v for v in ids if v not in noti]:
+        raise ErroreTool(
+            f"Sottocluster sconosciuti: {', '.join(str(v) for v in ignoti)}. "
+            "Vedi il tool «riferimenti»."
+        )
+    return permessi.filtro_sottocluster(utente, valori)
 
 
 def oggetto(queryset, pk, nome: str):
@@ -120,17 +118,13 @@ def oggetto(queryset, pk, nome: str):
         raise ErroreTool(f"Nessun {nome} con id {pk}: cercarlo con il tool «cerca».") from None
 
 
-SCHEMA_CLUSTER = {
-    "type": "array",
-    "items": {"type": "string", "minLength": 1, "maxLength": 10},
-    "description": (
-        "Codici dei cluster (es. IT, TLC). Vuoto o «miei»: i cluster dell'utente; "
-        "«tutti»: tutti i cluster."
-    ),
-}
 SCHEMA_SOTTOCLUSTER = {
-    **{"type": "integer", "minimum": 1},
-    "description": "id del sottocluster («riferimenti»); vuoto: tutti i sottocluster.",
+    "type": "array",
+    "items": {"type": ["integer", "string"], "minimum": 1, "maxLength": 5},
+    "description": (
+        "id dei sottocluster («riferimenti»), anche più d'uno; «tutti» li sceglie tutti. "
+        "Vuoto: i sottocluster dell'utente (tutti, se non ne ha di assegnati)."
+    ),
 }
 SCHEMA_PAGINA = {
     "limite": {"type": "integer", "minimum": 1, "maximum": LIMITE_MASSIMO},

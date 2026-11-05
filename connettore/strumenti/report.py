@@ -30,14 +30,12 @@ from reports.piano_ordini import calcola_piano
 from reports.wbs import elenco_wbs, spese_wbs
 
 from .base import (
-    SCHEMA_CLUSTER,
     SCHEMA_ID,
     SCHEMA_PAGINA,
     SCHEMA_SOTTOCLUSTER,
     Contesto,
     ErroreTool,
     Strumento,
-    cluster_filtro,
     link,
     oggetto,
     pagina,
@@ -122,12 +120,11 @@ def _voce_budget(vb, livello: Livello, viste=VISTE) -> dict:
 
 
 def budget(ctx: Contesto, argomenti: dict) -> dict:
-    codici = cluster_filtro(ctx.utente, argomenti.get("cluster"))
+    sottocluster = sottocluster_filtro(ctx.utente, argomenti.get("sottocluster"))
     livello = _livello(argomenti)
     filtri = Filtri(
         anno=argomenti.get("anno", ctx.oggi.year),
-        area=tuple(codici),
-        sottocluster=sottocluster_filtro(argomenti.get("sottocluster")),
+        sottocluster=sottocluster,
         conto=argomenti.get("conto"),
         fornitore=argomenti.get("fornitore"),
         wbs=argomenti.get("wbs"),
@@ -187,12 +184,12 @@ def budget(ctx: Contesto, argomenti: dict) -> dict:
         }
         sezioni.append(sezione)
     query = [("anno", filtri.anno), ("natura", filtri.natura or "separate")]
-    query += [("area", c) for c in codici] or [("area", "tutti")]
+    query += [("sottocluster", i) for i in sottocluster] or [("sottocluster", "tutti")]
     return {
         "alla_data": ctx.oggi,
         "anno": filtri.anno,
         "filtri": {
-            "cluster": codici or "tutti",
+            "sottocluster": list(sottocluster) or "tutti",
             "natura": filtri.natura or "OPEX e CAPEX, separati",
             "conto": filtri.conto,
             "fornitore": filtri.fornitore,
@@ -289,26 +286,22 @@ def _riga_piano(r) -> dict:
 
 
 def piano_ordini(ctx: Contesto, argomenti: dict) -> dict:
-    codici = cluster_filtro(ctx.utente, argomenti.get("cluster"))
+    sottocluster = sottocluster_filtro(ctx.utente, argomenti.get("sottocluster"))
     anno = argomenti.get("anno", ctx.oggi.year)
     natura = argomenti.get("natura", "")
-    p = calcola_piano(
-        anno,
-        ctx.oggi,
-        area=tuple(codici),
-        sottocluster=argomenti.get("sottocluster"),
-        natura=natura,
-    )
+    p = calcola_piano(anno, ctx.oggi, sottocluster=sottocluster, natura=natura)
     righe = sorted(p.righe, key=lambda r: (r.data_ordinamento, r.fabbisogno.descrizione))
     porzione, info = pagina(righe, argomenti)
     totali = {natura: p.totali(natura)} if natura else p.totali_per_natura()
-    query = [("anno", anno), *([("area", c) for c in codici] or [("area", "tutti")])]
+    query = [
+        ("anno", anno),
+        *([("sottocluster", i) for i in sottocluster] or [("sottocluster", "tutti")]),
+    ]
     return {
         "alla_data": ctx.oggi,
         "anno": anno,
         "filtri": {
-            "cluster": codici or "tutti",
-            "sottocluster": argomenti.get("sottocluster"),
+            "sottocluster": list(sottocluster) or "tutti",
             "natura": natura or "OPEX e CAPEX",
         },
         "metodo_competenza": METODO_COMPETENZA,
@@ -363,19 +356,25 @@ def _wbs(argomenti: dict) -> m.WBS:
 
 def spese_per_wbs(ctx: Contesto, argomenti: dict) -> dict:
     if "wbs_id" not in argomenti and "codice_wbs" not in argomenti:
-        codici = cluster_filtro(ctx.utente, argomenti.get("cluster"))
-        sottocluster = sottocluster_filtro(argomenti.get("sottocluster"))
-        elenco = list(elenco_wbs(codici, argomenti.get("tipo", ""), sottocluster=sottocluster))
+        sottocluster = sottocluster_filtro(ctx.utente, argomenti.get("sottocluster"))
+        elenco = list(
+            elenco_wbs(
+                [],
+                argomenti.get("tipo", ""),
+                sottocluster=sottocluster,
+                tutte_a_progetto=not argomenti.get("sottocluster"),
+            )
+        )
         porzione, info = pagina(elenco, argomenti)
         return {
             "alla_data": ctx.oggi,
             "filtri": {
-                "cluster": codici or "tutti",
-                "sottocluster": sottocluster,
+                "sottocluster": list(sottocluster) or "tutti",
                 "tipo": argomenti.get("tipo") or "tutti",
             },
-            "nota": "Di default le WBS dei cluster dell'utente e tutte le WBS a progetto. "
-            "Con «sottocluster»: solo le WBS con voci di quel sottocluster.",
+            "nota": "Di default le WBS dei sottocluster dell'utente e tutte le WBS a progetto. "
+            "Con «sottocluster»: le WBS di quei sottocluster e quelle con voci dei loro "
+            "fabbisogni.",
             "wbs": [
                 {
                     "id": w.pk,
@@ -458,13 +457,12 @@ def spese_per_wbs(ctx: Contesto, argomenti: dict) -> dict:
 
 
 def piani_da_verificare(ctx: Contesto, argomenti: dict) -> dict:
-    codici = cluster_filtro(ctx.utente, argomenti.get("cluster"))
-    sottocluster = sottocluster_filtro(argomenti.get("sottocluster"))
-    voci = list(selettori.voci_piano_da_verificare(codici, sottocluster))
+    sottocluster = sottocluster_filtro(ctx.utente, argomenti.get("sottocluster"))
+    voci = list(selettori.voci_piano_da_verificare((), sottocluster))
     porzione, info = pagina(voci, argomenti)
     return {
         "alla_data": ctx.oggi,
-        "filtri": {"cluster": codici or "tutti", "sottocluster": sottocluster},
+        "filtri": {"sottocluster": list(sottocluster) or "tutti"},
         "nota": (
             "Voci senza piano di fatturazione reale: il loro fatturato nel budget è una "
             "ripartizione a mesi frazionati. Le più pesanti (fisso + massimale) prima."
@@ -509,7 +507,6 @@ STRUMENTI = [
             "properties": {
                 "anno": SCHEMA_ANNO,
                 "natura": {"type": "string", "enum": list(m.Natura.values)},
-                "cluster": SCHEMA_CLUSTER,
                 "sottocluster": SCHEMA_SOTTOCLUSTER,
                 "conto": {**SCHEMA_ID, "description": "id del conto (tool «riferimenti»)."},
                 "fornitore": {**SCHEMA_ID, "description": "id del fornitore (tool «cerca»)."},
@@ -549,11 +546,7 @@ STRUMENTI = [
             "type": "object",
             "properties": {
                 "anno": SCHEMA_ANNO,
-                "cluster": SCHEMA_CLUSTER,
-                "sottocluster": {
-                    **SCHEMA_ID,
-                    "description": "id del sottocluster («riferimenti»).",
-                },
+                "sottocluster": SCHEMA_SOTTOCLUSTER,
                 "natura": {"type": "string", "enum": list(m.Natura.values)},
                 **SCHEMA_PAGINA,
             },
@@ -579,7 +572,6 @@ STRUMENTI = [
                 "codice_wbs": {"type": "string", "minLength": 1, "maxLength": 40},
                 "vista": {"type": "string", "enum": list(DA_NOME_VISTA)},
                 "livello": SCHEMA_LIVELLO,
-                "cluster": SCHEMA_CLUSTER,
                 "sottocluster": SCHEMA_SOTTOCLUSTER,
                 "tipo": {"type": "string", "enum": list(m.WBS.Tipo.values)},
                 **SCHEMA_PAGINA,
@@ -599,7 +591,6 @@ STRUMENTI = [
         input_schema={
             "type": "object",
             "properties": {
-                "cluster": SCHEMA_CLUSTER,
                 "sottocluster": SCHEMA_SOTTOCLUSTER,
                 **SCHEMA_PAGINA,
             },

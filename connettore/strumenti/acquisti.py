@@ -14,14 +14,12 @@ from contratti.engine import acquisti as motore
 from reports import acquisti as viste
 
 from .base import (
-    SCHEMA_CLUSTER,
     SCHEMA_ID,
     SCHEMA_PAGINA,
     SCHEMA_SOTTOCLUSTER,
     Contesto,
     ErroreTool,
     Strumento,
-    cluster_filtro,
     link,
     oggetto,
     pagina,
@@ -188,10 +186,8 @@ def elenco_rda(ctx: Contesto, argomenti: dict) -> dict:
             referente = int(referente)
         except ValueError:
             raise ErroreTool("«referente»: «me» o l'id di un utente.") from None
-    codici = cluster_filtro(ctx.utente, argomenti.get("cluster"))
-    sottocluster = sottocluster_filtro(argomenti.get("sottocluster"))
+    sottocluster = sottocluster_filtro(ctx.utente, argomenti.get("sottocluster"))
     filtri = viste.FiltriRDA(
-        cluster=tuple(codici),
         sottocluster=sottocluster,
         referente=referente,
         fasi=tuple(argomenti.get("fase") or ()),
@@ -204,8 +200,7 @@ def elenco_rda(ctx: Contesto, argomenti: dict) -> dict:
     porzione, info = pagina(righe, argomenti)
     return {
         "alla_data": ctx.oggi,
-        "cluster_filtro": codici or "tutti",
-        "sottocluster_filtro": sottocluster or "tutti",
+        "sottocluster_filtro": list(sottocluster) or "tutti",
         "righe": [_riga_rda(r) for r in porzione],
         "totale_importo": sum((r.importo for r in righe), acquisti.ZERO),
         "ferme": sum(1 for r in righe if r.ferma),
@@ -377,9 +372,8 @@ def _riga_esecuzione(r: viste.RigaEsecuzione) -> dict:
 
 
 def cruscotto_acquisti(ctx: Contesto, argomenti: dict) -> dict:
-    codici = cluster_filtro(ctx.utente, argomenti.get("cluster"))
-    sottocluster = sottocluster_filtro(argomenti.get("sottocluster"))
-    rda_gruppi = viste.rda_da_processare(tuple(codici), ctx.oggi, sottocluster)
+    sottocluster = sottocluster_filtro(ctx.utente, argomenti.get("sottocluster"))
+    rda_gruppi = viste.rda_da_processare((), ctx.oggi, sottocluster)
     gruppi_fatture = viste.fatture_da_lavorare(ctx.oggi)
 
     def fattura_breve(r: viste.RigaFattura) -> dict:
@@ -392,8 +386,7 @@ def cruscotto_acquisti(ctx: Contesto, argomenti: dict) -> dict:
 
     return {
         "alla_data": ctx.oggi,
-        "cluster_filtro": codici or "tutti",
-        "sottocluster_filtro": sottocluster or "tutti",
+        "sottocluster_filtro": list(sottocluster) or "tutti",
         "rda_da_processare": [
             {"azione": a, "etichetta": e, "rda": [_riga_rda(r) for r in righe]}
             for a, e, righe in rda_gruppi
@@ -407,8 +400,7 @@ def cruscotto_acquisti(ctx: Contesto, argomenti: dict) -> dict:
             for p, righe in gruppi_fatture.items()
         ],  # fmt: skip
         "contratti_da_chiudere": [
-            _riga_esecuzione(r)
-            for r in viste.contratti_da_chiudere(tuple(codici), ctx.oggi, sottocluster)
+            _riga_esecuzione(r) for r in viste.contratti_da_chiudere((), ctx.oggi, sottocluster)
         ],
         "link": link("reports:cruscotto_acquisti"),
     }
@@ -453,17 +445,15 @@ def rilasci_da_fare(ctx: Contesto, argomenti: dict) -> dict:
 
 
 def contratti_da_chiudere(ctx: Contesto, argomenti: dict) -> dict:
-    codici = cluster_filtro(ctx.utente, argomenti.get("cluster"))
-    sottocluster = sottocluster_filtro(argomenti.get("sottocluster"))
-    righe = viste.contratti_da_chiudere(tuple(codici), ctx.oggi, sottocluster)
+    sottocluster = sottocluster_filtro(ctx.utente, argomenti.get("sottocluster"))
+    righe = viste.contratti_da_chiudere((), ctx.oggi, sottocluster)
     porzione, info = pagina(righe, argomenti)
     per_motivo: dict[str, int] = {}
     for r in righe:
         per_motivo[r.motivo_label] = per_motivo.get(r.motivo_label, 0) + 1
     return {
         "alla_data": ctx.oggi,
-        "cluster_filtro": codici or "tutti",
-        "sottocluster_filtro": sottocluster or "tutti",
+        "sottocluster_filtro": list(sottocluster) or "tutti",
         "per_motivo": per_motivo,
         "righe": [_riga_esecuzione(r) for r in porzione],
         **info,
@@ -472,14 +462,12 @@ def contratti_da_chiudere(ctx: Contesto, argomenti: dict) -> dict:
 
 
 def anomalie_esecuzione(ctx: Contesto, argomenti: dict) -> dict:
-    codici = cluster_filtro(ctx.utente, argomenti.get("cluster"))
-    sottocluster = sottocluster_filtro(argomenti.get("sottocluster"))
-    righe = viste.anomalie_esecuzione(tuple(codici), ctx.oggi, sottocluster)
+    sottocluster = sottocluster_filtro(ctx.utente, argomenti.get("sottocluster"))
+    righe = viste.anomalie_esecuzione((), ctx.oggi, sottocluster)
     porzione, info = pagina(righe, argomenti)
     return {
         "alla_data": ctx.oggi,
-        "cluster_filtro": codici or "tutti",
-        "sottocluster_filtro": sottocluster or "tutti",
+        "sottocluster_filtro": list(sottocluster) or "tutti",
         "conteggi": viste.conteggi_anomalie(righe),
         "righe": [_riga_esecuzione(r) for r in porzione],
         **info,
@@ -527,18 +515,15 @@ def stanziamenti(ctx: Contesto, argomenti: dict) -> dict:
         c = oggetto(
             m.Contratto.objects.select_related("fabbisogno"), argomenti["contratto_id"], "contratto"
         )
-    codici = [] if c else cluster_filtro(ctx.utente, argomenti.get("cluster"))
-    sottocluster = None if c else sottocluster_filtro(argomenti.get("sottocluster"))
-    proposte = servizi_stanziamenti.proposte(
-        ctx.oggi, tuple(codici), contratto=c, sottocluster=sottocluster
-    )
+    sottocluster = () if c else sottocluster_filtro(ctx.utente, argomenti.get("sottocluster"))
+    proposte = servizi_stanziamenti.proposte(ctx.oggi, (), contratto=c, sottocluster=sottocluster)
     registrati = m.Stanziamento.objects.filter(archiviato=False, voce__contratto__archiviato=False)
     if c:
         registrati = registrati.filter(voce__contratto=c)
-    elif codici:
-        registrati = registrati.filter(voce__contratto__fabbisogno__cluster__codice__in=codici)
-    if sottocluster:
-        registrati = registrati.filter(voce__contratto__fabbisogno__sottocluster_id=sottocluster)
+    elif sottocluster:
+        registrati = registrati.filter(
+            voce__contratto__fabbisogno__sottocluster_id__in=sottocluster
+        )
     registrati = registrati.select_related(
         "voce__contratto__fabbisogno", "voce__contratto__fornitore", "rata"
     ).order_by("competenza_dal", "pk")
@@ -546,7 +531,7 @@ def stanziamenti(ctx: Contesto, argomenti: dict) -> dict:
     porzione, info = pagina(righe, argomenti)
     return {
         "alla_data": ctx.oggi,
-        "cluster_filtro": codici or "tutti",
+        "sottocluster_filtro": list(sottocluster) or "tutti",
         "giorni_di_tolleranza": servizi_stanziamenti.tolleranza(ctx.oggi),
         "totale_proposto": sum((p.importo for p in proposte), Decimal("0.00")),
         "totale_stanziato": sum((s.importo for s in registrati if not s.chiuso), Decimal("0.00")),
@@ -593,7 +578,6 @@ STRUMENTI = [
         ),
         input_schema=_schema(
             {
-                "cluster": SCHEMA_CLUSTER,
                 "sottocluster": SCHEMA_SOTTOCLUSTER,
                 "fase": {
                     "type": "array",
@@ -670,7 +654,7 @@ STRUMENTI = [
             "sollecitare per il rilascio, da sollecitare al Procurement) con le ferme, fatture "
             "da lavorare per passo (con chi sollecitare per la convalida), contratti da chiudere."
         ),
-        input_schema=_schema({"cluster": SCHEMA_CLUSTER, "sottocluster": SCHEMA_SOTTOCLUSTER}),
+        input_schema=_schema({"sottocluster": SCHEMA_SOTTOCLUSTER}),
         esegui=cruscotto_acquisti,
     ),
     Strumento(
@@ -680,9 +664,7 @@ STRUMENTI = [
             "Contratti non chiusi con la prestazione finita, con il motivo, fatturato e "
             "residui; uguali alla vista e all'export."
         ),
-        input_schema=_schema(
-            {"cluster": SCHEMA_CLUSTER, "sottocluster": SCHEMA_SOTTOCLUSTER, **SCHEMA_PAGINA}
-        ),
+        input_schema=_schema({"sottocluster": SCHEMA_SOTTOCLUSTER, **SCHEMA_PAGINA}),
         esegui=contratti_da_chiudere,
     ),
     Strumento(
@@ -696,7 +678,6 @@ STRUMENTI = [
         ),
         input_schema=_schema(
             {
-                "cluster": SCHEMA_CLUSTER,
                 "sottocluster": SCHEMA_SOTTOCLUSTER,
                 "contratto_id": SCHEMA_ID,
                 **SCHEMA_PAGINA,
@@ -713,9 +694,7 @@ STRUMENTI = [
             "oneri + bollo diverso dal documento), VALORE_BASE_MANCANTE, "
             "COMPETENZA_MANCANTE (fattura senza periodo di competenza); conteggi come la vista."
         ),
-        input_schema=_schema(
-            {"cluster": SCHEMA_CLUSTER, "sottocluster": SCHEMA_SOTTOCLUSTER, **SCHEMA_PAGINA}
-        ),
+        input_schema=_schema({"sottocluster": SCHEMA_SOTTOCLUSTER, **SCHEMA_PAGINA}),
         esegui=anomalie_esecuzione,
     ),
     Strumento(

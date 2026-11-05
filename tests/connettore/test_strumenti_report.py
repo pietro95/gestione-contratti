@@ -41,7 +41,9 @@ def errore(utente, nome, argomenti=None) -> str:
 @pytest.mark.parametrize("anno", [2026, 2027])
 def test_budget_uguale_al_report(archivio, utente_reader, anno):
     dati = esegui(
-        utente_reader, "budget", {"anno": anno, "cluster": ["tutti"], "viste": list(NOMI.values())}
+        utente_reader,
+        "budget",
+        {"anno": anno, "sottocluster": ["tutti"], "viste": list(NOMI.values())},
     )
     assert [s["natura"] for s in dati["sezioni"]] == ["OPEX", "CAPEX"]
     for sezione in dati["sezioni"]:
@@ -56,7 +58,9 @@ def test_budget_uguale_al_report(archivio, utente_reader, anno):
 
 def test_budget_gruppi_sommano_al_totale_della_sezione(archivio, utente_reader):
     dati = esegui(
-        utente_reader, "budget", {"anno": 2027, "cluster": ["tutti"], "viste": list(NOMI.values())}
+        utente_reader,
+        "budget",
+        {"anno": 2027, "sottocluster": ["tutti"], "viste": list(NOMI.values())},
     )
     for sezione in dati["sezioni"]:
         for vista in NOMI.values():
@@ -73,7 +77,7 @@ def test_budget_filtri_e_dettaglio(archivio, utente_reader):
     solo_capex = esegui(
         utente_reader,
         "budget",
-        {"anno": 2026, "natura": "CAPEX", "cluster": ["tutti"], "wbs_a_progetto": "solo"},
+        {"anno": 2026, "natura": "CAPEX", "sottocluster": ["tutti"], "wbs_a_progetto": "solo"},
     )
     (sezione,) = solo_capex["sezioni"]
     etichette = [g["etichetta"] for g in sezione["gruppi"]]
@@ -81,13 +85,13 @@ def test_budget_filtri_e_dettaglio(archivio, utente_reader):
     # Solo WBS a progetto: nessun gruppo di WBS di cluster o CAPEX senza WBS.
     assert all(not e.startswith("(") for e in etichette)
     escluse = esegui(
-        utente_reader, "budget", {"anno": 2026, "natura": "CAPEX", "cluster": ["tutti"]}
+        utente_reader, "budget", {"anno": 2026, "natura": "CAPEX", "sottocluster": ["tutti"]}
     )
     assert "WBS-PROVA — Prova" not in [g["etichetta"] for g in escluse["sezioni"][0]["gruppi"]]
     dettaglio = esegui(
         utente_reader,
         "budget",
-        {"anno": 2026, "natura": "OPEX", "cluster": ["tutti"], "dettaglio_voci": True},
+        {"anno": 2026, "natura": "OPEX", "sottocluster": ["tutti"], "dettaglio_voci": True},
     )
     for g in dettaglio["sezioni"][0]["gruppi"]:
         assert len(g["voci"]) == g["n_voci"]
@@ -95,13 +99,13 @@ def test_budget_filtri_e_dettaglio(archivio, utente_reader):
 
 
 def _tutte_le_righe_piano(utente, anno):
-    dati = esegui(utente, "piano_ordini", {"anno": anno, "cluster": ["tutti"], "limite": 100})
+    dati = esegui(utente, "piano_ordini", {"anno": anno, "sottocluster": ["tutti"], "limite": 100})
     righe = list(dati["righe"])
     while dati.get("cursore_successivo"):
         dati = esegui(
             utente,
             "piano_ordini",
-            {"anno": anno, "cluster": ["tutti"], "cursore": dati["cursore_successivo"]},
+            {"anno": anno, "sottocluster": ["tutti"], "cursore": dati["cursore_successivo"]},
         )
         righe += dati["righe"]
     return righe
@@ -109,7 +113,7 @@ def _tutte_le_righe_piano(utente, anno):
 
 def test_piano_ordini_uguale_al_report(archivio, utente_reader):
     dati = esegui(
-        utente_reader, "piano_ordini", {"anno": 2027, "cluster": ["tutti"], "limite": 100}
+        utente_reader, "piano_ordini", {"anno": 2027, "sottocluster": ["tutti"], "limite": 100}
     )
     piano = calcola_piano(2027, OGGI)
     assert dati["totale"] == len(piano.righe)
@@ -132,7 +136,7 @@ def test_piano_ordini_uguale_al_report(archivio, utente_reader):
 
 
 def test_spese_wbs_elenco_e_dettaglio(archivio, utente_reader):
-    elenco = esegui(utente_reader, "spese_wbs", {"cluster": ["tutti"], "limite": 100})
+    elenco = esegui(utente_reader, "spese_wbs", {"sottocluster": ["tutti"], "limite": 100})
     assert "WBS-PROVA" in [w["codice"] for w in elenco["wbs"]]
     dati = esegui(utente_reader, "spese_wbs", {"codice_wbs": "WBS-PROVA", "vista": "ordinato"})
     atteso = spese_wbs(m.WBS.objects.get(codice_wbs="WBS-PROVA"), "impegno")
@@ -146,7 +150,7 @@ def test_spese_wbs_elenco_e_dettaglio(archivio, utente_reader):
 def test_piani_da_verificare_solo_admin_ed_editor(archivio, utente_reader, make_user):
     assert "riservato ad Admin ed Editor" in errore(utente_reader, "piani_da_verificare")
     editor = make_user("redattore", role=EDITOR)
-    dati = esegui(editor, "piani_da_verificare", {"cluster": ["tutti"], "limite": 100})
+    dati = esegui(editor, "piani_da_verificare", {"sottocluster": ["tutti"], "limite": 100})
     attese = list(selettori.voci_piano_da_verificare([]))
     assert [v["id"] for v in dati["voci"]] == [v.pk for v in attese][: len(dati["voci"])]
     assert dati["totale"] == len(attese)
@@ -156,6 +160,6 @@ def test_piani_da_verificare_solo_admin_ed_editor(archivio, utente_reader, make_
 def test_risposta_troppo_grande(archivio, utente_reader, settings):
     settings.MCP_RISPOSTA_MAX_BYTES = 2000
     testo = errore(
-        utente_reader, "budget", {"anno": 2027, "cluster": ["tutti"], "dettaglio_voci": True}
+        utente_reader, "budget", {"anno": 2027, "sottocluster": ["tutti"], "dettaglio_voci": True}
     )
     assert "Risultato troppo grande" in testo and "limite" in testo
