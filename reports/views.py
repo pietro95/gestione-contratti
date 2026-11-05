@@ -18,8 +18,11 @@ from reports.budget import (
     RAGGRUPPAMENTI,
     VISTA_ASSEGNATO,
     VISTE,
+    assegnati_per_conto,
     budget_assegnato,
     calcola_budget,
+    confronto_conto,
+    soglia_avvicinamento,
 )
 from reports.export import budget_xlsx, descrivi_filtri, piano_xlsx, suffisso_cluster, voci_filtri
 from reports.extra_budget import avviso_sforamento, elenco_autorizzazioni, spese_extra_budget
@@ -60,9 +63,21 @@ def _assegnato(b, livello) -> dict | None:
     }
 
 
-def _sezione(b, criterio, livello, viste) -> dict:
+def _sezione(b, criterio, livello, viste, soglia) -> dict:
     """Una natura del budget (OPEX o CAPEX): riepilogo, gruppi e totali, mai sommati tra loro."""
     totali = b.totali()
+    # Rev34: assegnato e stato per conto, sulle righe dei conti (OPEX per conto, CAPEX per WBS
+    # con il dettaglio per conto).
+    assegnati = assegnati_per_conto(b.filtri)
+    per_conto = criterio in ("conto", "wbs")
+
+    # L'assegnato è del conto, non della WBS: nel dettaglio per conto di una WBS lo stato usa lo
+    # speso del conto su tutte le WBS, così è lo stesso in ogni riga dello stesso conto.
+    totali_conti = {g.chiave: g.totali for g in b.gruppi("conto")}
+
+    def confronto(g):
+        return confronto_conto(assegnati, g.chiave, totali_conti[g.chiave], livello, soglia)
+
     gruppi = []
     for g in b.gruppi(criterio):
         # Solo le voci con importi nelle viste scelte: le altre viste non sporcano l'elenco.
@@ -71,6 +86,7 @@ def _sezione(b, criterio, livello, viste) -> dict:
             gruppi.append((g, voci))
     return {
         "natura": b.filtri.natura,
+        "per_conto": per_conto,
         "assegnato": _assegnato(b, livello),
         "budget": b,
         "criterio": RAGGRUPPAMENTI[criterio],
@@ -82,9 +98,11 @@ def _sezione(b, criterio, livello, viste) -> dict:
             {
                 "etichetta": g.etichetta,
                 "celle": _celle(g.totali, livello, viste),
+                "confronto": confronto(g) if criterio == "conto" else None,
                 # CAPEX per WBS: il dettaglio per conto, come lo legge il Controllo di gestione.
                 "sotto": [
-                    (sg.etichetta, _celle(sg.totali, livello, viste)) for sg in g.sotto("conto")
+                    (sg.etichetta, _celle(sg.totali, livello, viste), confronto(sg))
+                    for sg in g.sotto("conto")
                 ]
                 if criterio == "wbs"
                 else [],
@@ -107,17 +125,21 @@ def budget(request):
     b = calcola_budget(form.filtri(), oggi)
     livello = form.livello_scelto
     viste = form.viste_scelte
+    soglia = soglia_avvicinamento(oggi)
     criteri = {n: form.criterio(n) for n in NATURE}
     if request.GET.get("formato") == "xlsx":
         natura = b.filtri.natura or "OPEX_CAPEX"
         nome = f"{oggi:%Y.%m.%d}_Budget_{b.filtri.anno}_{natura}.xlsx"
-        return xlsx.risposta(budget_xlsx(b, criteri, viste), nome)
+        return xlsx.risposta(budget_xlsx(b, criteri, viste, livello, soglia), nome)
     contesto |= {
         "budget": b,
-        "sezioni": [_sezione(s, criteri[s.filtri.natura], livello, viste) for s in b.sezioni()],
+        "sezioni": [
+            _sezione(s, criteri[s.filtri.natura], livello, viste, soglia) for s in b.sezioni()
+        ],
         "livelli": LIVELLI,
         "viste": [ETICHETTE_VISTE[v] for v in viste],
-        "n_colonne": 1 + 3 * len(viste),
+        "n_colonne": 1 + 3 * len(viste) + 2,
+        "soglia": soglia,
         "n_avvisi": len(b.rinnovi_mancanti) + len(b.avvisi) + (1 if b.senza_data else 0),
         "livello": livello,
     }

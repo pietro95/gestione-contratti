@@ -40,7 +40,9 @@ def errore(utente, nome, argomenti=None) -> str:
 
 @pytest.mark.parametrize("anno", [2026, 2027])
 def test_budget_uguale_al_report(archivio, utente_reader, anno):
-    dati = esegui(utente_reader, "budget", {"anno": anno, "cluster": ["tutti"]})
+    dati = esegui(
+        utente_reader, "budget", {"anno": anno, "cluster": ["tutti"], "viste": list(NOMI.values())}
+    )
     assert [s["natura"] for s in dati["sezioni"]] == ["OPEX", "CAPEX"]
     for sezione in dati["sezioni"]:
         atteso = calcola_budget(Filtri(anno=anno, natura=sezione["natura"]), OGGI).totali()
@@ -53,7 +55,9 @@ def test_budget_uguale_al_report(archivio, utente_reader, anno):
 
 
 def test_budget_gruppi_sommano_al_totale_della_sezione(archivio, utente_reader):
-    dati = esegui(utente_reader, "budget", {"anno": 2027, "cluster": ["tutti"]})
+    dati = esegui(
+        utente_reader, "budget", {"anno": 2027, "cluster": ["tutti"], "viste": list(NOMI.values())}
+    )
     for sezione in dati["sezioni"]:
         for vista in NOMI.values():
             somma = sum(

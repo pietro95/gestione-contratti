@@ -18,9 +18,13 @@ from reports.budget import (
     LIVELLI,
     METODO_COMPETENZA,
     PARTI,
+    VISTA_DEFAULT,
     VISTE,
     Filtri,
+    assegnati_per_conto,
     calcola_budget,
+    confronto_conto,
+    soglia_avvicinamento,
 )
 from reports.piano_ordini import calcola_piano
 from reports.wbs import elenco_wbs, spese_wbs
@@ -66,25 +70,42 @@ def _livello(argomenti: dict) -> Livello:
     return Livello(argomenti.get("livello") or Livello.PROBABILE)
 
 
-def _per_vista(somme, livello: Livello) -> dict:
+def _viste_scelte(argomenti: dict) -> tuple[str, ...]:
+    """Viste richieste (nomi del connettore), nell'ordine canonico; di default solo il
+    fatturato e stanziato a competenza, come la pagina del budget (SPEC Rev34)."""
+    scelte = {DA_NOME_VISTA[n] for n in argomenti.get("viste") or ()}
+    return tuple(v for v in VISTE if v in scelte) or (VISTA_DEFAULT,)
+
+
+def _per_vista(somme, livello: Livello, viste=VISTE) -> dict:
     """{vista: {parte: importo}} al livello dato."""
     return {
         NOMI_VISTE[vista]: {parte: somme[parte][vista][livello] for parte in PARTI}
-        for vista in VISTE
+        for vista in viste
     }
 
 
-def _tutti_i_livelli(somme) -> dict:
+def _tutti_i_livelli(somme, viste=VISTE) -> dict:
     """{vista: {parte: {livello: importo}}}."""
     return {
         NOMI_VISTE[vista]: {
             parte: {liv.value: somme[parte][vista][liv] for liv in LIVELLI} for parte in PARTI
         }
-        for vista in VISTE
+        for vista in viste
     }
 
 
-def _voce_budget(vb, livello: Livello) -> dict:
+def _assegnato_conto(c) -> dict:
+    """Assegnato del conto e stato rispetto al fatturato e stanziato (SPEC Rev34)."""
+    return {
+        "assegnato": c.assegnato,
+        "speso": c.speso,
+        "utilizzo_pct": c.percentuale,
+        "stato": c.stato.value,
+    }
+
+
+def _voce_budget(vb, livello: Livello, viste=VISTE) -> dict:
     return {
         "previsionale": vb.previsionale,
         "numero_previsto": vb.numero_previsto,
@@ -96,7 +117,7 @@ def _voce_budget(vb, livello: Livello) -> dict:
         "wbs": vb.wbs.codice_wbs if vb.wbs else None,
         "inizio": vb.inizio,
         "fine": vb.fine,
-        "importi": {NOMI_VISTE[v]: vb.importi[v][livello] for v in VISTE},
+        "importi": {NOMI_VISTE[v]: vb.importi[v][livello] for v in viste},
     }
 
 
@@ -115,23 +136,35 @@ def budget(ctx: Contesto, argomenti: dict) -> dict:
         natura=argomenti.get("natura", ""),
     )
     b = calcola_budget(filtri, ctx.oggi)
+    viste = _viste_scelte(argomenti)
+    soglia = soglia_avvicinamento(ctx.oggi)
     per = argomenti.get("raggruppa_per")
     sezioni = []
     for s in b.sezioni():
         natura = s.filtri.natura
         criterio = RAGGRUPPAMENTI[per] if per else ("wbs" if natura == m.Natura.CAPEX else "conto")
+        assegnati = assegnati_per_conto(s.filtri) if criterio == "conto" else {}
         sezione = {
             "natura": natura,
-            "totale": _tutti_i_livelli(s.totali()),
+            "totale": _tutti_i_livelli(s.totali(), viste),
             "raggruppato_per": criterio if criterio != "area" else "cluster",
             "gruppi": [
                 {
                     "chiave": g.chiave,
                     "etichetta": g.etichetta,
-                    "importi": _per_vista(g.totali, livello),
+                    "importi": _per_vista(g.totali, livello, viste),
                     "n_voci": len(g.voci),
                     **(
-                        {"voci": [_voce_budget(v, livello) for v in g.voci]}
+                        {
+                            "budget_assegnato": _assegnato_conto(
+                                confronto_conto(assegnati, g.chiave, g.totali, livello, soglia)
+                            )
+                        }
+                        if criterio == "conto"
+                        else {}
+                    ),
+                    **(
+                        {"voci": [_voce_budget(v, livello, viste) for v in g.voci]}
                         if argomenti.get("dettaglio_voci")
                         else {}
                     ),
@@ -168,11 +201,22 @@ def budget(ctx: Contesto, argomenti: dict) -> dict:
             "previsti": filtri.previsionali,
             "livello_dei_gruppi": livello.value,
         },
-        "viste": {NOMI_VISTE[v]: ETICHETTE_VISTE[v] for v in VISTE},
+        "viste": {NOMI_VISTE[v]: ETICHETTE_VISTE[v] for v in viste},
+        "altre_viste_disponibili": [NOMI_VISTE[v] for v in VISTE if v not in viste],
+        "budget_assegnato_per_conto": {
+            "nota": (
+                "Sui gruppi per conto: budget assegnato al conto (sottocluster filtrato, o cluster "
+                "visibili), speso = fatturato e stanziato (competenza) al livello dei gruppi, "
+                "utilizzo in %. Stato: ok, in_avvicinamento (dalla soglia all'assegnato incluso), "
+                "superato (speso oltre l'assegnato), non_assegnato."
+            ),
+            "soglia_avvicinamento_pct": soglia,
+        },
         "metodo_competenza": METODO_COMPETENZA,
         "avvertenza": (
-            "OPEX e CAPEX sono budget distinti: non sommarli. Il fatturato (data fattura) è il "
-            "budget di riferimento. «previsionale» sono i rinnovi previsti, non ancora "
+            "OPEX e CAPEX sono budget distinti: non sommarli. Il fatturato e stanziato "
+            "(competenza) è il budget di riferimento e la vista di default; le altre viste si "
+            "chiedono con «viste». «previsionale» sono i rinnovi previsti, non ancora "
             "contrattualizzati."
         ),
         "sezioni": sezioni,
@@ -449,10 +493,12 @@ STRUMENTI = [
         nome="budget",
         titolo="Budget dell'anno",
         descrizione=(
-            "Budget di un anno nelle tre viste: fatturato (per data fattura, riferimento del "
-            "Controllo di gestione), ordinato (contratti emessi nell'anno), competenza "
-            "(ripartizione a mesi frazionati). Per ogni vista consolidato (contratti registrati), "
-            "previsionale (rinnovi previsti) e totale; livelli fisso, probabile, massimo. OPEX "
+            "Budget di un anno. Di default solo la vista di riferimento, fatturato e stanziato "
+            "(competenza); con «viste» si aggiungono fatturato (data fattura), ordinato (contratti "
+            "emessi nell'anno) e competenza (ripartizione a mesi frazionati). Per ogni vista "
+            "consolidato (contratti registrati), previsionale (rinnovi previsti) e totale; livelli "
+            "fisso, probabile, massimo. Nei gruppi per conto: budget assegnato al conto, "
+            "utilizzo e stato (ok, in_avvicinamento, superato, non_assegnato). OPEX "
             "e CAPEX in sezioni separate, mai sommate. Gruppi di default: conto per l'OPEX, WBS "
             "per il CAPEX. Le voci su WBS a progetto (es. dissalatori) sono escluse se non "
             "richieste. Segnala i rinnovi mancanti."
@@ -472,6 +518,13 @@ STRUMENTI = [
                 "raggruppa_per": {"type": "string", "enum": list(RAGGRUPPAMENTI)},
                 "livello": SCHEMA_LIVELLO,
                 "dettaglio_voci": {"type": "boolean"},
+                "viste": {
+                    "type": "array",
+                    "items": {"type": "string", "enum": list(DA_NOME_VISTA)},
+                    "description": (
+                        "viste da restituire; di default solo fatturato_stanziato_competenza."
+                    ),
+                },
             },
             "additionalProperties": False,
         },

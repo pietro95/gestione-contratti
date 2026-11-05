@@ -231,6 +231,11 @@ class Parametro(ConfigurazioneProvvisoria):
         # Processo d'acquisto (SPEC §5.7, F11).
         RDA_FERMA_GIORNI = "rda_ferma_giorni", "RDA ferma in una fase dell'addetto (giorni)"
         FATTURA_FERMA_GIORNI = "fattura_ferma_giorni", "fattura ferma da lavorare (giorni)"
+        # Budget assegnato per conto (SPEC §5.2, Rev34).
+        BUDGET_SOGLIA_AVVICINAMENTO = (
+            "budget_soglia_avvicinamento",
+            "budget: % dell'assegnato da cui lo stato è «in avvicinamento»",
+        )
         # Stanziamenti (SPEC §5.2, Rev22).
         STANZIAMENTO_GIORNI = (
             "stanziamento_giorni",
@@ -707,6 +712,41 @@ class BudgetSottocluster(Archiviabile):
 
     def __str__(self):
         return f"{self.sottocluster} · {self.anno} · {self.natura}"
+
+
+class BudgetConto(Archiviabile):
+    """Budget assegnato a un conto, nell'ambito di un sottocluster, per un anno e una natura.
+
+    Dato deciso (non derivato), inserito dall'amministrazione: il budget mostra, per ogni conto,
+    l'assegnato e lo stato rispetto al fatturato e stanziato (SPEC §5.2, Rev34).
+    """
+
+    sottocluster = models.ForeignKey(
+        Sottocluster, on_delete=models.PROTECT, related_name="budget_conti"
+    )
+    conto = models.ForeignKey(ContoCoge, on_delete=models.PROTECT, related_name="budget_assegnati")
+    anno = models.PositiveSmallIntegerField(db_index=True)
+    natura = models.CharField(max_length=5, choices=Natura.choices)
+    importo = importo("budget assegnato (imponibile)")
+    note = models.TextField(blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "budget assegnato al conto"
+        verbose_name_plural = "budget assegnati ai conti"
+        ordering = ["-anno", "sottocluster__cluster__codice", "sottocluster__nome", "conto__codice"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["sottocluster", "conto", "anno", "natura"],
+                name="contratti_budget_conto_unico",
+            ),
+            models.CheckConstraint(
+                condition=Q(importo__gte=0), name="contratti_budget_conto_non_negativo"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.sottocluster} · {self.conto.codice} · {self.anno} · {self.natura}"
 
 
 class Fornitore(Archiviabile):

@@ -15,6 +15,7 @@ from contratti import adapters
 from contratti import models as m
 from contratti.engine import budget, sal
 from contratti.engine.importi import ZERO
+from contratti.engine.stato_budget import StatoBudget, percentuale_utilizzo, stato_budget
 from contratti.engine.tipi import Esito, Livello, Voce
 from contratti.selettori import codici_cluster
 
@@ -321,6 +322,55 @@ def budget_assegnato(filtri: Filtri) -> dict[str, Decimal | None]:
         )
     }
     return {natura: assegnati.get(natura) for natura in NATURE}
+
+
+def assegnati_per_conto(filtri: Filtri) -> dict[str, Decimal]:
+    """Budget assegnato per codice di conto nell'anno e nella natura del filtro (Rev34).
+
+    Con il filtro per sottocluster conta quel sottocluster; altrimenti la somma dei
+    sottocluster dei cluster visibili (``filtri.area``, vuoto = tutti).
+    """
+    qs = m.BudgetConto.objects.filter(anno=filtri.anno, archiviato=False)
+    if filtri.natura:
+        qs = qs.filter(natura=filtri.natura)
+    if filtri.sottocluster:
+        qs = qs.filter(sottocluster_id=filtri.sottocluster)
+    else:
+        codici = codici_cluster(filtri.area)
+        if codici:
+            qs = qs.filter(sottocluster__cluster__codice__in=codici)
+    assegnati: dict[str, Decimal] = defaultdict(lambda: ZERO)
+    for codice, importo_ in qs.values_list("conto__codice", "importo"):
+        assegnati[codice] += importo_
+    return dict(assegnati)
+
+
+@dataclass(frozen=True)
+class ConfrontoConto:
+    """Assegnato del conto, speso (vista di riferimento, livello scelto) e stato."""
+
+    assegnato: Decimal | None
+    speso: Decimal
+    stato: StatoBudget
+    percentuale: Decimal | None
+
+
+def confronto_conto(
+    assegnati: dict[str, Decimal], chiave: str, totali: dict[str, Somme], livello: Livello,
+    soglia_pct: Decimal,
+) -> ConfrontoConto:  # fmt: skip
+    """Confronto del gruppo di conto ``chiave`` (codice del conto) con il suo assegnato."""
+    assegnato = assegnati.get(chiave) if chiave else None
+    speso = totali["totale"][VISTA_ASSEGNATO][livello]
+    return ConfrontoConto(
+        assegnato, speso, stato_budget(assegnato, speso, soglia_pct),
+        percentuale_utilizzo(assegnato, speso),
+    )  # fmt: skip
+
+
+def soglia_avvicinamento(oggi: datetime.date) -> Decimal:
+    """Soglia (%) da cui lo stato è «in avvicinamento»: tabella dei parametri (Rev34)."""
+    return adapters.parametro(m.Parametro.Chiave.BUDGET_SOGLIA_AVVICINAMENTO, oggi)
 
 
 def importi_anno(voce: Voce, anno: int) -> tuple[Somme, list[Esito]]:

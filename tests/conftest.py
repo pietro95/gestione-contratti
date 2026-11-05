@@ -126,3 +126,36 @@ def make_user(db, django_user_model):
         return user
 
     return _make
+
+
+@pytest.fixture
+def conti_assegnati(db):
+    """Quattro conti OPEX da 10.000,00 € nel 2026 con assegnato diverso (SPEC Rev34)."""
+    import datetime
+    from decimal import Decimal
+
+    from contratti import models as m
+    from tests import factories as f
+
+    D = datetime.date
+    it = f.cluster("IT")
+    sc = m.Sottocluster.objects.create(cluster=it, nome="Reti")
+    assegnati = {"C-OK": "20000.00", "C-AVV": "10500.00", "C-SUP": "9000.00", "C-NO": None}
+    risultato = {}
+    for codice, importo in assegnati.items():
+        conto = f.conto(codice, f"Conto {codice}", cluster=it)
+        fab = f.fabbisogno(
+            f"Servizio {codice}", cluster=it, sottocluster=sc, decisione="dismettere"
+        )
+        c = f.contratto(fabbisogno=fab, data_inizio=D(2026, 1, 1), durata_mesi=12)
+        f.piano(
+            f.voce(c, importo_fisso=Decimal("10000.00"), conto=conto),
+            modalita="anticipata",
+            periodicita="annuale",
+        )
+        if importo:
+            m.BudgetConto.objects.create(
+                sottocluster=sc, conto=conto, anno=2026, natura="OPEX", importo=Decimal(importo)
+            )
+        risultato[codice] = conto
+    return {"sc": sc, "conti": risultato}

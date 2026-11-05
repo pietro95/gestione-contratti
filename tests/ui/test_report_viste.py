@@ -45,7 +45,7 @@ def test_budget_di_default_solo_fatturato_e_stanziato(reader, dati):
     """Il budget si legge sul fatturato e stanziato: le altre viste si scelgono dal filtro."""
     contesto = reader.get(reverse("reports:budget"), {"anno": 2026}).context
     assert contesto["viste"] == [ETICHETTE_VISTE["consuntivo"]]
-    assert contesto["n_colonne"] == 4
+    assert contesto["n_colonne"] == 6  # conto, 3 importi, assegnato e stato
     contesto = reader.get(
         reverse("reports:budget"), {"anno": 2026, "viste": ["consuntivo", "impegno"]}
     ).context

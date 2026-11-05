@@ -1,0 +1,6 @@
+{% load registro %}
+{# Assegnato e stato del conto (SPEC Rev34): due celle. c = ConfrontoConto o None. #}
+{% if c %}
+<td>{% if c.assegnato is None %}<span class="text-body-secondary">—</span>{% else %}{{ c.assegnato|euro }}{% endif %}</td>
+<td class="text-start text-nowrap">{% if c.stato.value == "ok" %}<span class="stato stato-verde">OK</span>{% elif c.stato.value == "in_avvicinamento" %}<span class="stato stato-giallo">In avvicinamento</span>{% elif c.stato.value == "superato" %}<span class="stato stato-rosso">Superato</span>{% else %}<span class="stato stato-grigio">Non assegnato</span>{% endif %}{% if c.percentuale is not None %} <span class="small text-body-secondary">{{ c.percentuale|floatformat:1 }}%</span>{% endif %}</td>
+{% else %}<td></td><td></td>{% endif %}
