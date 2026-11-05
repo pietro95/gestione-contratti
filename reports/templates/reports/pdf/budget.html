@@ -41,7 +41,7 @@
     <tr class="sotto"><td class="sx">conto {{ etichetta }}</td>{% for c in celle %}<td class="num">{{ c.0|euro }}</td><td class="num">{{ c.1|euro }}</td><td class="num">{{ c.2|euro }}</td>{% endfor %}</tr>
     {% endfor %}
   {% empty %}
-    <tr><td colspan="10" class="vuoto">Nessuna voce con importi nell'anno.</td></tr>
+    <tr><td colspan="{{ n_colonne }}" class="vuoto">Nessuna voce con importi nell'anno.</td></tr>
   {% endfor %}
     <tr class="totale"><td class="sx">Totale {{ s.natura }}</td>{% for c in s.totale_celle %}<td class="num">{{ c.0|euro }}</td><td class="num">{{ c.1|euro }}</td><td class="num">{{ c.2|euro }}</td>{% endfor %}</tr>
   </tbody>

@@ -90,7 +90,7 @@
     {% for etichetta, celle in g.sotto %}
     <tr class="sottogruppo small"><td class="text-start ps-4"><span class="text-body-secondary">conto</span> {{ etichetta }}</td>{% for c in celle %}<td>{{ c.0|euro }}</td><td class="text-body-secondary">{{ c.1|euro }}</td><td>{{ c.2|euro }}</td>{% endfor %}</tr>
     {% endfor %}
-    <tr class="collapse" id="g-{{ s.natura }}-{{ forloop.counter }}"><td colspan="10" class="bg-body-tertiary p-3">
+    <tr class="collapse" id="g-{{ s.natura }}-{{ forloop.counter }}"><td colspan="{{ n_colonne }}" class="bg-body-tertiary p-3">
       <table class="table table-sm mb-0 small">
         <thead><tr><th class="text-start">Tipo</th><th class="text-start">Fabbisogno / voce</th><th class="text-start">Servizio</th>{% for v in viste %}<th>{{ v }}</th>{% endfor %}</tr></thead>
         <tbody>
@@ -106,7 +106,7 @@
       </table>
     </td></tr>
   {% empty %}
-    <tr><td colspan="10" class="text-start"><div class="vuoto py-4">Nessuna voce con importi nell'anno.</div></td></tr>
+    <tr><td colspan="{{ n_colonne }}" class="text-start"><div class="vuoto py-4">Nessuna voce con importi nell'anno.</div></td></tr>
   {% endfor %}
   </tbody>
   <tfoot class="fw-semibold">

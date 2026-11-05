@@ -69,7 +69,7 @@ def suffisso_cluster(codici) -> str:
     return "_" + "-".join(codici) if codici else ""
 
 
-def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):
+def budget_xlsx(budget: Budget, criteri: dict[str, str] | str, viste=VISTE):
     """``criteri``: raggruppamento per natura (es. OPEX per conto, CAPEX per WBS)."""
     if isinstance(criteri, str):
         criteri = dict.fromkeys(m.Natura.values, criteri)
@@ -85,7 +85,7 @@ def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):
     righe = []
     for s in sezioni:
         totali = s.totali()
-        for vista in VISTE:
+        for vista in viste:
             for livello in LIVELLI:
                 righe.append(
                     [s.filtri.natura, ETICHETTE_VISTE[vista], livello.value]
@@ -97,7 +97,7 @@ def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):
     usati = list(dict.fromkeys(criteri[s.filtri.natura] for s in sezioni))
     criterio = usati[0] if len(usati) == 1 else ""
     colonne = ["Natura", RAGGRUPPAMENTI[criterio] if criterio else "Gruppo"]
-    for vista in VISTE:
+    for vista in viste:
         for livello in LIVELLI:
             for parte in PARTI:
                 colonne.append(f"{SIGLE_VISTE[vista]} {livello.value} {parte}")
@@ -105,7 +105,7 @@ def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):
     for s in sezioni:
         for g in s.gruppi(criteri[s.filtri.natura]):
             riga = [s.filtri.natura, g.etichetta]
-            for vista in VISTE:
+            for vista in viste:
                 for livello in LIVELLI:
                     riga += [g.totali[parte][vista][livello] for parte in PARTI]
             righe.append(riga)
@@ -119,7 +119,7 @@ def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):
         for g in capex[0].gruppi("wbs"):
             for sg in g.sotto("conto"):
                 riga = [g.etichetta, sg.etichetta]
-                for vista in VISTE:
+                for vista in viste:
                     for livello in LIVELLI:
                         riga += [sg.totali[parte][vista][livello] for parte in PARTI]
                 righe.append(riga)
@@ -129,7 +129,7 @@ def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):
         "Tipo", "Natura", "Previsto n.", "Cluster", "Fabbisogno", "Contratto", "Voce",
         "Fornitore", "Conto", "WBS", "Finanziamento", "Inizio servizio", "Fine servizio",
     ]  # fmt: skip
-    colonne += [f"{SIGLE_VISTE[vista]} {liv.value}" for vista in VISTE for liv in LIVELLI]
+    colonne += [f"{SIGLE_VISTE[vista]} {liv.value}" for vista in viste for liv in LIVELLI]
     righe = []
     for v in sorted(budget.voci, key=lambda v: v.natura != "OPEX"):
         righe.append(
@@ -150,7 +150,7 @@ def budget_xlsx(budget: Budget, criteri: dict[str, str] | str):
                 v.inizio,
                 v.fine,
             ]
-            + [v.importi[vista][livello] for vista in VISTE for livello in LIVELLI]
+            + [v.importi[vista][livello] for vista in viste for livello in LIVELLI]
         )
     xlsx.foglio(wb, "Dettaglio voci", intestazione, colonne, righe)
 

@@ -9,7 +9,7 @@ import pytest
 from django.urls import reverse
 
 from contratti.engine.tipi import Livello
-from reports.budget import LIVELLI, VISTE, Filtri, calcola_budget
+from reports.budget import ETICHETTE_VISTE, LIVELLI, VISTE, Filtri, calcola_budget
 from reports.piano_ordini import calcola_piano
 from reports.xlsx import TIPO_XLSX
 
@@ -34,11 +34,28 @@ def test_reader_vede_i_report(reader, dati, nome):
 
 def test_pagina_budget(reader, dati):
     html = reader.get(
-        reverse("reports:budget"), {"anno": 2026, "per": "fornitore"}
+        reverse("reports:budget"), {"anno": 2026, "per": "fornitore", "viste": list(VISTE)}
     ).content.decode()
     assert "Budget 2026" in html and "IVA esclusa" in html
     assert "10.000,00 €" in html  # impegno, cassa e competenza del contratto annuale
     assert str(dati["fornitore"]) in html
+
+
+def test_budget_di_default_solo_fatturato_e_stanziato(reader, dati):
+    """Il budget si legge sul fatturato e stanziato: le altre viste si scelgono dal filtro."""
+    contesto = reader.get(reverse("reports:budget"), {"anno": 2026}).context
+    assert contesto["viste"] == [ETICHETTE_VISTE["consuntivo"]]
+    assert contesto["n_colonne"] == 4
+    contesto = reader.get(
+        reverse("reports:budget"), {"anno": 2026, "viste": ["consuntivo", "impegno"]}
+    ).context
+    assert contesto["viste"] == [ETICHETTE_VISTE["consuntivo"], ETICHETTE_VISTE["impegno"]]
+
+
+def test_export_budget_di_default_solo_fatturato_e_stanziato(reader, dati):
+    risposta = reader.get(reverse("reports:budget"), {"anno": 2027, "formato": "xlsx"})
+    wb = openpyxl.load_workbook(io.BytesIO(risposta.content))
+    assert len(_righe(wb["Riepilogo"])) == len(LIVELLI)
 
 
 def test_anno_non_valido(reader, dati):
@@ -52,7 +69,9 @@ def _righe(foglio, da=7):
 
 
 def test_export_budget_coincide_con_il_calcolo(reader, dati):
-    risposta = reader.get(reverse("reports:budget"), {"anno": 2027, "formato": "xlsx"})
+    risposta = reader.get(
+        reverse("reports:budget"), {"anno": 2027, "formato": "xlsx", "viste": list(VISTE)}
+    )
     # Senza filtro la pagina mostra l'OPEX: OPEX e CAPEX sono budget distinti.
     assert "_Budget_2027_OPEX.xlsx" in risposta["Content-Disposition"]
     wb = openpyxl.load_workbook(io.BytesIO(risposta.content))
@@ -144,5 +163,12 @@ def test_budget_opex_di_default_e_nature_separate(reader, dati):
     html = reader.get(url, {"anno": 2026, "natura": "separate"}).content.decode()
     assert "Budget OPEX 2026" in html and "Budget CAPEX 2026" in html
     assert "i totali non si sommano" in html
-    # Il fatturato è la prima vista.
-    assert html.index("Fatturato (data fattura)") < html.index("Ordinato (contratti emessi)")
+    # Di default solo il riferimento del budget; scegliendole tutte, il fatturato e stanziato
+    # resta la prima vista.
+    assert (
+        "Fatturato e stanziato (competenza)" in html and "Ordinato (contratti emessi)" not in html
+    )
+    html = reader.get(url, {"anno": 2026, "viste": list(VISTE)}).content.decode()
+    assert html.index("Fatturato e stanziato (competenza)") < html.index(
+        "Ordinato (contratti emessi)"
+    )

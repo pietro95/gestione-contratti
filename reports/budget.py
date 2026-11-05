@@ -61,6 +61,21 @@ METODO_COMPETENZA = {
 # Vista con cui si confronta il budget assegnato al sottocluster: il riferimento del budget
 # (SPEC Rev23, §5.2).
 VISTA_ASSEGNATO = "consuntivo"
+# Vista mostrata di default nel budget: le altre si scelgono dal filtro «Viste».
+VISTA_DEFAULT = "consuntivo"
+# Nomi per la tendina «Viste» (le etichette complete sono nelle intestazioni).
+_NOMI_VISTE = {
+    "consuntivo": "Fatturato e stanziato (competenza)",
+    "cassa": "Fatturato (data fattura)",
+    "impegno": "Ordinato",
+    "competenza": "Competenza del contratto",
+}
+
+
+def nomi_viste() -> dict[str, str]:
+    return dict(_NOMI_VISTE)
+
+
 # Nomi brevi per le intestazioni delle colonne dell'export.
 SIGLE_VISTE = {
     "consuntivo": "fatt+stanz competenza",

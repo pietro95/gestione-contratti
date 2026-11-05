@@ -30,9 +30,9 @@ from reports.wbs import elenco_wbs, spese_wbs
 VISTA_SEMPLIFICATA = "semplificata"
 
 
-def _celle(totali, livello) -> list:
-    """Per ogni vista: consolidato, previsionale e totale al livello scelto."""
-    return [[totali[parte][vista][livello] for parte in PARTI] for vista in VISTE]
+def _celle(totali, livello, viste) -> list:
+    """Per ogni vista scelta: consolidato, previsionale e totale al livello scelto."""
+    return [[totali[parte][vista][livello] for parte in PARTI] for vista in viste]
 
 
 def _assegnato(b, livello) -> dict | None:
@@ -60,9 +60,15 @@ def _assegnato(b, livello) -> dict | None:
     }
 
 
-def _sezione(b, criterio, livello) -> dict:
+def _sezione(b, criterio, livello, viste) -> dict:
     """Una natura del budget (OPEX o CAPEX): riepilogo, gruppi e totali, mai sommati tra loro."""
     totali = b.totali()
+    gruppi = []
+    for g in b.gruppi(criterio):
+        # Solo le voci con importi nelle viste scelte: le altre viste non sporcano l'elenco.
+        voci = [v for v in g.voci if any(v.importi[x][liv] for x in viste for liv in LIVELLI)]
+        if voci:
+            gruppi.append((g, voci))
     return {
         "natura": b.filtri.natura,
         "assegnato": _assegnato(b, livello),
@@ -70,22 +76,24 @@ def _sezione(b, criterio, livello) -> dict:
         "criterio": RAGGRUPPAMENTI[criterio],
         "riepilogo": [
             (ETICHETTE_VISTE[vista], [[totali[p][vista][liv] for p in PARTI] for liv in LIVELLI])
-            for vista in VISTE
+            for vista in viste
         ],
         "gruppi": [
             {
                 "etichetta": g.etichetta,
-                "celle": _celle(g.totali, livello),
+                "celle": _celle(g.totali, livello, viste),
                 # CAPEX per WBS: il dettaglio per conto, come lo legge il Controllo di gestione.
-                "sotto": [(sg.etichetta, _celle(sg.totali, livello)) for sg in g.sotto("conto")]
+                "sotto": [
+                    (sg.etichetta, _celle(sg.totali, livello, viste)) for sg in g.sotto("conto")
+                ]
                 if criterio == "wbs"
                 else [],
-                "voci": [(v, [v.importi[vista][livello] for vista in VISTE]) for v in g.voci],
+                "voci": [(v, [v.importi[vista][livello] for vista in viste]) for v in voci],
             }
-            for g in b.gruppi(criterio)
+            for g, voci in gruppi
         ],
-        "totale_celle": _celle(totali, livello),
-        "kpi": [(ETICHETTE_VISTE[v], *[totali[p][v][livello] for p in PARTI]) for v in VISTE],
+        "totale_celle": _celle(totali, livello, viste),
+        "kpi": [(ETICHETTE_VISTE[v], *[totali[p][v][livello] for p in PARTI]) for v in viste],
     }
 
 
@@ -98,15 +106,18 @@ def budget(request):
         return render(request, "reports/budget.html", contesto)
     b = calcola_budget(form.filtri(), oggi)
     livello = form.livello_scelto
+    viste = form.viste_scelte
     criteri = {n: form.criterio(n) for n in NATURE}
     if request.GET.get("formato") == "xlsx":
         natura = b.filtri.natura or "OPEX_CAPEX"
         nome = f"{oggi:%Y.%m.%d}_Budget_{b.filtri.anno}_{natura}.xlsx"
-        return xlsx.risposta(budget_xlsx(b, criteri), nome)
+        return xlsx.risposta(budget_xlsx(b, criteri, viste), nome)
     contesto |= {
         "budget": b,
-        "sezioni": [_sezione(s, criteri[s.filtri.natura], livello) for s in b.sezioni()],
+        "sezioni": [_sezione(s, criteri[s.filtri.natura], livello, viste) for s in b.sezioni()],
         "livelli": LIVELLI,
+        "viste": [ETICHETTE_VISTE[v] for v in viste],
+        "n_colonne": 1 + 3 * len(viste),
         "n_avvisi": len(b.rinnovi_mancanti) + len(b.avvisi) + (1 if b.senza_data else 0),
         "livello": livello,
     }
