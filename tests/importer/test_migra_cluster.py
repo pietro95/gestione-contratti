@@ -59,7 +59,7 @@ def test_sposta_i_dati_e_archivia_il_vecchio_cluster(dopo_import):
     wbs.refresh_from_db()
     rda.refresh_from_db()
     assert wbs.cluster == c["ict"] and rda.cluster == c["ict"] and rda.sottocluster == c["sc_tlc"]
-    assert {x.codice for x in conto.clusters.all()} == {"ICT"}
+    assert {x.codice for x in conto.clusters} == {"ICT"}
     ass.refresh_from_db()
     assert (ass.cluster, ass.sottocluster) == (c["ict"], c["sc_it"])
     c["it"].refresh_from_db()

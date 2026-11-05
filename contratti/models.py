@@ -449,6 +449,17 @@ class ContoCoge(models.Model):
     def __str__(self):
         return f"{self.codice} {self.descrizione}"
 
+    def imposta_cluster(self, cluster) -> None:
+        """Assegna il conto a tutti i sottocluster attivi dei cluster dati (Rev35).
+
+        Per i file che indicano solo il cluster: l'amministrazione restringe poi i sottocluster.
+        """
+        trovati = []
+        for c in cluster:
+            attivi = list(Sottocluster.objects.filter(cluster=c, archiviato=False))
+            trovati += attivi or [Sottocluster.non_classificato(c)]
+        self.sottocluster.set(trovati)
+
     @property
     def clusters(self) -> list["Cluster"]:
         """I cluster dei suoi sottocluster (in sola lettura: il dato è il sottocluster)."""
@@ -1568,11 +1579,11 @@ class VoceContratto(Archiviabile):
                         "voci extra budget: non ha rinnovi."
                     }
                 )
-            if self.contratto.fabbisogno.sottocluster_id != aut.sottocluster_id:
+            if self.contratto.fabbisogno.cluster_id != aut.cluster_id:
                 raise ValidationError(
                     {
                         "autorizzazione_extra_budget": f"L'autorizzazione {aut.codice} è del "
-                        f"sottocluster {aut.sottocluster}."
+                        f"cluster {aut.cluster.codice}."
                     }
                 )
 

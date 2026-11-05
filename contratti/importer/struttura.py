@@ -192,7 +192,7 @@ class _Struttura:
                 conto = m.ContoCoge(codice=codice, valido_dal=dal)
                 esito = "conti_creati"
             elif (conto.descrizione, conto.valido_al) == (descrizione, al) and set(
-                conto.clusters.all()
+                conto.clusters
             ) == set(cluster):
                 esito = None
             else:
@@ -201,7 +201,7 @@ class _Struttura:
                 conto.descrizione, conto.valido_al = descrizione, al
                 conto._change_reason = "Import struttura"
                 conto.save()
-                conto.clusters.set(cluster)
+                conto.imposta_cluster(cluster)
                 self.report.conteggi[esito] += 1
             if sostituto := tabelle.codice(r.get("sostituito_da")):
                 if sostituto == codice:
@@ -291,7 +291,7 @@ class _Struttura:
                 "WBS", None, "WBS_NON_IN_STRUTTURA", "codice_wbs", codice,
                 f"{n} voci hanno questa WBS (testo importato) che non è nel foglio WBS.",
             )  # fmt: skip
-        senza = m.ContoCoge.objects.filter(clusters__isnull=True).count()
+        senza = m.ContoCoge.objects.filter(sottocluster__isnull=True).count()
         if senza:
             self.report.anomalia(
                 "Conti", None, "CONTO_SENZA_CLUSTER", "cluster", str(senza),

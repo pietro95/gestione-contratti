@@ -59,7 +59,7 @@ def rata(piano_=None, **kw):
 
 
 def conto(codice, descrizione="Conto di prova", valido_dal=None, cluster=None, **kw):
-    """Conto COGE di prova; ``cluster`` (uno o più) va sulla relazione ``clusters`` (Rev25)."""
+    """Conto COGE di prova; ``cluster`` (uno o più): il conto va nei loro sottocluster (Rev35)."""
     import datetime
 
     c = m.ContoCoge.objects.create(
@@ -69,5 +69,5 @@ def conto(codice, descrizione="Conto di prova", valido_dal=None, cluster=None, *
         **kw,
     )
     if cluster is not None:
-        c.clusters.add(*(cluster if isinstance(cluster, list | tuple) else [cluster]))
+        c.imposta_cluster(cluster if isinstance(cluster, list | tuple) else [cluster])
     return c

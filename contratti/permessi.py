@@ -61,8 +61,8 @@ def struttura_caricata() -> bool:
 
 
 def conti_per_cluster() -> bool:
-    """Il piano dei conti ha i cluster (struttura caricata): da qui il cluster è obbligatorio."""
-    return m.ContoCoge.objects.filter(clusters__isnull=False).exists()
+    """Il piano dei conti ha i sottocluster (struttura caricata): da qui sono obbligatori."""
+    return m.ContoCoge.objects.filter(sottocluster__isnull=False).exists()
 
 
 def cluster_modificabili(user) -> frozenset[int] | None:
