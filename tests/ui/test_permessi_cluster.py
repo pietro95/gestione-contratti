@@ -255,3 +255,17 @@ def test_piu_sottocluster_nel_filtro(struttura, utente):
     assert form.is_valid() and form.filtri().sottocluster == tuple(sorted((it, ot)))
     assert permessi.descrivi_sottocluster_scelti([]) == "Sottocluster: tutti"
     assert permessi.descrivi_sottocluster_scelti([it, ot]) == "Sottocluster: IT (tutti), OT (tutti)"
+
+
+def test_albero_con_id_a_quattro_cifre(struttura, utente):
+    """Gli id sopra 999 non devono diventare «1.074» con la localizzazione italiana."""
+    from django.db import connection
+
+    with connection.cursor() as cur:
+        cur.execute("SELECT setval(pg_get_serial_sequence('contratti_sottocluster', 'id'), 2000)")
+    alto = f.sottocluster("Sala controllo", "OT")
+    assert alto.pk > 1999
+    editor = utente("e.alto", EDITOR)
+    html = editor.get(reverse("contratti:contratti") + f"?sottocluster={alto.pk}").content.decode()
+    assert f'value="{alto.pk}"' in html and re.search(rf'value="{alto.pk}"[^>]*checked', html)
+    assert "." not in re.search(r'name="sottocluster" value="([^"]+)"', html).group(1)

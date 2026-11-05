@@ -18,7 +18,7 @@
       </div>
       <div class="albero-figli" id="{{ identificativo }}-{{ nodo.cluster.codice }}"{% if not nodo.alcuni %} hidden{% endif %}>
         {% for s in nodo.sottocluster %}
-        <label class="albero-figlio"><input type="checkbox" class="form-check-input" name="{{ nome }}" value="{{ s.pk }}" data-propri="{% if s.pk in filtro.propri_ids %}1{% endif %}"{% if s.scelto %} checked{% endif %}> <span>{{ s.nome }}</span></label>
+        <label class="albero-figlio"><input type="checkbox" class="form-check-input" name="{{ nome }}" value="{{ s.pk|stringformat:"d" }}" data-propri="{% if s.pk in filtro.propri_ids %}1{% endif %}"{% if s.scelto %} checked{% endif %}> <span>{{ s.nome }}</span></label>
         {% endfor %}
       </div>
     </div>
