@@ -1,0 +1,17 @@
+{% load registro %}
+    <section class="card mb-4" aria-labelledby="t-pac"><div class="card-body">
+      <h2 class="h6 text-uppercase text-body-secondary" id="t-pac">Trasferimento per il pagamento</h2>
+      <label class="form-label" for="commento-pac">Commento per PAC</label>
+      <textarea id="commento-pac" class="form-control font-monospace small" rows="9" readonly>{{ commento_pac }}</textarea>
+      <button type="button" class="btn btn-sm btn-outline-primary mt-2 mb-3" data-copia="commento-pac"><i class="bi bi-clipboard" aria-hidden="true"></i> Copia il commento per PAC</button>
+      {% if f.data_trasferimento %}
+        <p class="mb-2">Trasferita il {{ f.data_trasferimento|date:"d/m/Y" }}{% if f.trasferita_da %} da {{ f.trasferita_da }}{% endif %}.</p>
+        {% if puo_lavorare %}<form method="post" action="{% url 'contratti:fattura_trasferisci' f.pk %}" data-conferma="La fattura torna da trasferire." data-conferma-etichetta="Annulla il trasferimento">{% csrf_token %}<button class="btn btn-sm btn-outline-danger" type="submit" name="annulla" value="1">Annulla il trasferimento</button></form>{% endif %}
+      {% elif puo_lavorare and f.contratto %}
+      <form method="post" action="{% url 'contratti:fattura_trasferisci' f.pk %}" class="row g-2" novalidate>
+        {% csrf_token %}
+        <div class="col-sm-6"><label class="form-label" for="{{ form_trasferimento.data.id_for_label }}">Trasferita il</label>{{ form_trasferimento.data }}</div>
+        <div class="col-12"><button class="btn btn-primary" type="submit">Registra il trasferimento</button></div>
+      </form>
+      {% endif %}
+    </div></section>

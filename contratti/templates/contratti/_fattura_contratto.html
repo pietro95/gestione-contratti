@@ -1,0 +1,31 @@
+{% load registro %}
+    <section class="card mb-4" aria-labelledby="t-contratto"><div class="card-body">
+      <h2 class="h6 text-uppercase text-body-secondary" id="t-contratto">1 · Contratto</h2>
+      {% if f.contratto %}
+        <p class="mb-2"><a href="{% url 'contratti:contratto' f.contratto.pk %}">{% include "contratti/_contratto_breve.html" with x=f.contratto %}</a>{% if f.voce %}<br><span class="small text-body-secondary">voce: {{ f.voce.descrizione }}</span>{% endif %}</p>
+      {% elif proposto %}<p class="small">Contratto proposto: {% include "contratti/_contratto_breve.html" with x=proposto %} (l'unico del fornitore in servizio alla data della fattura). Va confermato.</p>
+      {% else %}<p class="small text-body-secondary">Nessun contratto proposto: il fornitore non ha contratti in servizio alla data della fattura, o ne ha più di uno.</p>{% endif %}
+      {% if puo_lavorare %}
+      <form method="post" action="{% url 'contratti:fattura_contratto' f.pk %}" class="row g-2">
+        {% csrf_token %}
+        <div class="col-12"><label class="form-label" for="{{ form_contratto.contratto.id_for_label }}">{% if f.contratto %}Cambia contratto{% else %}Contratto{% endif %}</label>{{ form_contratto.contratto }}</div>
+        <div class="col-12"><label class="form-label" for="{{ form_contratto.voce.id_for_label }}">Voce</label>{{ form_contratto.voce }}<div class="form-text">{{ form_contratto.voce.help_text }}</div></div>
+        <div class="col-12 d-flex gap-2"><button class="btn btn-primary" type="submit">{% if f.contratto %}Aggiorna{% else %}Assegna al contratto{% endif %}</button>
+        {% if f.contratto and not documenti %}<button class="btn btn-outline-danger" type="submit" name="scollega" value="1" formnovalidate>Togli il contratto</button>{% endif %}</div>
+      </form>
+      {% elif not f.referente %}<p class="small text-body-secondary mb-0">Si assegna dopo la presa in carico.</p>{% endif %}
+          <hr class="my-3">
+      <h3 class="h6 text-body-secondary mb-2" id="t-fornitore"><i class="bi bi-lock" aria-hidden="true"></i> Fornitore</h3>
+      <p class="mb-2"><a href="{% url 'contratti:fornitore' f.fornitore.pk %}">{{ f.fornitore }}</a></p>
+      {% if puo_lavorare and not f.contratto %}
+      <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#cambia-fornitore" aria-expanded="false" aria-controls="cambia-fornitore"><i class="bi bi-unlock" aria-hidden="true"></i> Cambia fornitore</button>
+      <div class="collapse mt-2" id="cambia-fornitore">
+        <form method="post" action="{% url 'contratti:fattura_fornitore' f.pk %}" class="row g-2">
+          {% csrf_token %}
+          <div class="col-12"><label class="form-label" for="{{ form_fornitore.fornitore.id_for_label }}">Fornitore della fattura</label>{{ form_fornitore.fornitore }}<div class="form-text">In caso di abbinamento errato (es. l'import ha creato un fornitore con il nome di SAP): scegli quello in anagrafica.</div></div>
+          <div class="col-12"><button class="btn btn-outline-primary" type="submit">Salva il fornitore</button></div>
+        </form>
+      </div>
+      {% elif f.contratto %}<p class="small text-body-secondary mb-0">Bloccato: con il contratto abbinato il fornitore è quello del contratto. Per cambiarlo togli prima il contratto.</p>
+      {% endif %}
+    </div></section>

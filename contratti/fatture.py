@@ -830,6 +830,35 @@ def dati_pac(fattura: m.Fattura) -> motore.DatiPAC:
     )
 
 
+def campi_addetto(fattura: m.Fattura) -> list[tuple[str, str]]:
+    """Campi della fattura pronti da copiare uno per uno (scheda dell'addetto). Vuoti se non
+    ancora valorizzati; il commento per PAC è un messaggio unico (``commento_pac``)."""
+    d = dati_pac(fattura)
+
+    def importo(v):
+        return motore.formato_numero(v) if v is not None else ""
+
+    return [
+        ("Numero fattura", fattura.numero),
+        ("Fornitore", str(fattura.fornitore)),
+        ("Importo del documento", importo(fattura.importo_documento)),
+        ("Contratto", d.numero_contratto or ""),
+        ("Numero RdC (ODA)", d.numero_rdc or ""),
+        (f"Numero {d.accettazione}", d.numero_accettazione or ""),
+        ("Centro di costo", d.centro_costo or ""),
+        ("Conto COGE", d.conto or ""),
+        ("WBS", d.wbs or ""),
+        ("Valore base", importo(d.valore_base)),
+        ("Oneri previdenziali", importo(d.oneri) if d.oneri else ""),
+        ("Bollo", importo(d.bollo) if d.bollo else ""),
+    ]
+
+
+def e_addetto_fatture(utente) -> bool:
+    """Addetto amministrativo o addetto al rilascio: vede la scheda dell'addetto."""
+    return scrive(utente) and (permessi.e_addetto(utente) or permessi.e_addetto_rilascio(utente))
+
+
 def commento_pac(fattura: m.Fattura) -> str:
     return motore.commento_pac(dati_pac(fattura))
 

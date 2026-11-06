@@ -17,154 +17,48 @@
 {% if scrive %}<form method="post" action="{% url 'contratti:fattura_fuori_registro' f.pk %}" class="m-0">{% csrf_token %}<input type="hidden" name="valore" value="{% if f.fuori_registro %}0{% else %}1{% endif %}"><button class="btn btn-outline-secondary" type="submit"><i class="bi bi-slash-circle" aria-hidden="true"></i> {% if f.fuori_registro %}Rimetti nel registro{% else %}Fuori registro{% endif %}</button></form>{% endif %}
 {% endblock %}
 {% block content %}
-{% for a in r.anomalie %}<div class="alert alert-warning small"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> {% if a == "IMPORTO_NON_QUADRA" %}Valore base + oneri + bollo + IVA + altri importi ({{ f.valore_base|euro }} + {{ f.oneri|euro }} + {{ f.bollo|euro }} + {{ f.iva|euro }} + {{ f.altri_importi|euro }}) diverso dall'importo del documento ({{ f.importo_documento|euro }}).{% elif a == "COMPETENZA_MANCANTE" %}Manca il periodo di competenza: nel budget la fattura è imputata all'anno della data fattura.{% elif a == "VALORE_BASE_MANCANTE" %}Manca il valore base prelevato dal contratto: la fattura non conta nel fatturato del contratto.{% else %}{{ a }}{% endif %}</div>{% endfor %}
+{% if mostra_validatore %}{% for a in r.anomalie %}<div class="alert alert-warning small"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> {% if a == "IMPORTO_NON_QUADRA" %}Valore base + oneri + bollo + IVA + altri importi ({{ f.valore_base|euro }} + {{ f.oneri|euro }} + {{ f.bollo|euro }} + {{ f.iva|euro }} + {{ f.altri_importi|euro }}) diverso dall'importo del documento ({{ f.importo_documento|euro }}).{% elif a == "COMPETENZA_MANCANTE" %}Manca il periodo di competenza: nel budget la fattura è imputata all'anno della data fattura.{% elif a == "VALORE_BASE_MANCANTE" %}Manca il valore base prelevato dal contratto: la fattura non conta nel fatturato del contratto.{% else %}{{ a }}{% endif %}</div>{% endfor %}{% endif %}
 
 <div class="row g-3 mb-4">
   <div class="col-sm-6 col-xl-3"><div class="card kpi blu"><div class="card-body"><div class="kpi-etichetta">Passo da fare</div><div class="kpi-valore fs-5">{{ r.passo_label }}</div><div class="kpi-nota">{% if f.data_trasferimento %}trasferita il {{ f.data_trasferimento|date:"d/m/Y" }}{% endif %}</div></div></div></div>
   <div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">Importo del documento</div><div class="kpi-valore">{{ f.importo_documento|euro }}</div><div class="kpi-nota">Importo SAP</div></div></div></div>
   <div class="col-sm-6 col-xl-3"><div class="card kpi verde"><div class="card-body"><div class="kpi-etichetta">Valore base dal contratto</div><div class="kpi-valore">{{ f.valore_base|euro }}</div><div class="kpi-nota">{% if f.oneri %}oneri {{ f.oneri|euro }}{% endif %}{% if f.bollo %} · bollo {{ f.bollo|euro }}{% endif %}{% if f.altri_importi %} · altri importi {{ f.altri_importi|euro }}{% endif %}</div></div></div></div>
-  <div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body"><div class="kpi-etichetta">In carico a</div><div class="kpi-valore fs-6">{% if f.referente %}{{ f.referente }}{% else %}nessuno{% endif %}</div><div class="kpi-nota">{% if f.data_presa_in_carico %}dal {{ f.data_presa_in_carico|date:"d/m/Y" }}{% elif referente_proposto %}proposto: {{ referente_proposto }}{% else %}nessun referente proposto{% endif %}</div></div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card kpi"><div class="card-body">
+    <div class="kpi-etichetta">In carico a</div>
+    <div class="d-flex align-items-center justify-content-between gap-2"><div class="kpi-valore fs-6">{% if f.referente %}{{ f.referente }}{% else %}nessuno{% endif %}</div>{% if gestisce and not f.fuori_registro %}<button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#cambia-referente" aria-expanded="false" aria-controls="cambia-referente">{% if f.referente %}Cambia{% else %}Assegna{% endif %}</button>{% endif %}</div>
+    <div class="kpi-nota">{% if f.data_presa_in_carico %}dal {{ f.data_presa_in_carico|date:"d/m/Y" }}{% elif referente_proposto %}proposto: {{ referente_proposto }}{% else %}nessun referente proposto{% endif %}</div>
+    {% if gestisce and not f.fuori_registro %}<div class="collapse mt-2" id="cambia-referente">
+      <form method="post" action="{% url 'contratti:fattura_riassegna' f.pk %}" class="row g-2">
+        {% csrf_token %}
+        <div class="col-12"><label class="form-label small" for="{{ form_riassegna.utente.id_for_label }}">Assegna a</label>{{ form_riassegna.utente }}{% if referente_proposto %}<div class="form-text">Proposto: {{ referente_proposto }}.</div>{% endif %}</div>
+        <div class="col-12"><button class="btn btn-sm btn-outline-primary" type="submit">Conferma</button></div>
+      </form>
+    </div>{% endif %}
+  </div></div></div>
 </div>
 
 <div class="row g-4">
   <div class="col-xl-6">
-    <section class="card mb-4" aria-labelledby="t-contratto"><div class="card-body">
-      <h2 class="h6 text-uppercase text-body-secondary" id="t-contratto">1 · Contratto</h2>
-      {% if f.contratto %}
-        <p class="mb-2"><a href="{% url 'contratti:contratto' f.contratto.pk %}">{% include "contratti/_contratto_breve.html" with x=f.contratto %}</a>{% if f.voce %}<br><span class="small text-body-secondary">voce: {{ f.voce.descrizione }}</span>{% endif %}</p>
-      {% elif proposto %}<p class="small">Contratto proposto: {% include "contratti/_contratto_breve.html" with x=proposto %} (l'unico del fornitore in servizio alla data della fattura). Va confermato.</p>
-      {% else %}<p class="small text-body-secondary">Nessun contratto proposto: il fornitore non ha contratti in servizio alla data della fattura, o ne ha più di uno.</p>{% endif %}
-      {% if puo_lavorare %}
-      <form method="post" action="{% url 'contratti:fattura_contratto' f.pk %}" class="row g-2">
-        {% csrf_token %}
-        <div class="col-12"><label class="form-label" for="{{ form_contratto.contratto.id_for_label }}">{% if f.contratto %}Cambia contratto{% else %}Contratto{% endif %}</label>{{ form_contratto.contratto }}</div>
-        <div class="col-12"><label class="form-label" for="{{ form_contratto.voce.id_for_label }}">Voce</label>{{ form_contratto.voce }}<div class="form-text">{{ form_contratto.voce.help_text }}</div></div>
-        <div class="col-12 d-flex gap-2"><button class="btn btn-primary" type="submit">{% if f.contratto %}Aggiorna{% else %}Assegna al contratto{% endif %}</button>
-        {% if f.contratto and not documenti %}<button class="btn btn-outline-danger" type="submit" name="scollega" value="1" formnovalidate>Togli il contratto</button>{% endif %}</div>
-      </form>
-      {% elif not f.referente %}<p class="small text-body-secondary mb-0">Si assegna dopo la presa in carico.</p>{% endif %}
-    </div></section>
-
-    {% if puo_lavorare and not f.contratto %}
-    <section class="card mb-4" aria-labelledby="t-fornitore"><div class="card-body">
-      <h2 class="h6 text-uppercase text-body-secondary" id="t-fornitore">Fornitore</h2>
-      <form method="post" action="{% url 'contratti:fattura_fornitore' f.pk %}" class="row g-2">
-        {% csrf_token %}
-        <div class="col-12"><label class="form-label" for="{{ form_fornitore.fornitore.id_for_label }}">Fornitore della fattura</label>{{ form_fornitore.fornitore }}<div class="form-text">Se l'import ha creato un fornitore con il nome di SAP, scegli quello già in anagrafica. Con il contratto abbinato il fornitore è quello del contratto.</div></div>
-        <div class="col-12"><button class="btn btn-outline-primary" type="submit">Cambia fornitore</button></div>
-      </form>
-    </div></section>
-    {% endif %}
-
-    <section class="card mb-4" aria-labelledby="t-convalida"><div class="card-body">
-      <h2 class="h6 text-uppercase text-body-secondary" id="t-convalida">2 · Convalida del referente</h2>
-      <dl class="dati mb-2"><dt>Esito</dt><dd>{{ f.get_esito_convalida_display }}{% if f.data_convalida %} · {{ f.data_convalida|date:"d/m/Y" }}{% endif %}</dd>{% if f.nota_convalida %}<dt>Nota</dt><dd>{{ f.nota_convalida }}</dd>{% endif %}{% if f.bloccata_fino_al %}<dt>Bloccata fino al</dt><dd>{{ f.bloccata_fino_al|date:"d/m/Y" }}</dd>{% endif %}</dl>
-      {% if puo_convalidare %}
-      <form method="post" action="{% url 'contratti:fattura_convalida' f.pk %}" class="row g-2" novalidate>
-        {% csrf_token %}
-        <div class="col-sm-6"><label class="form-label" for="{{ form_convalida.esito_convalida.id_for_label }}">Esito</label>{{ form_convalida.esito_convalida }}</div>
-        <div class="col-sm-6"><label class="form-label" for="{{ form_convalida.bloccata_fino_al.id_for_label }}">Bloccata fino al</label>{{ form_convalida.bloccata_fino_al }}</div>
-        <div class="col-12"><label class="form-label" for="{{ form_convalida.nota_convalida.id_for_label }}">Nota</label>{{ form_convalida.nota_convalida }}<div class="form-text">{{ form_convalida.nota_convalida.help_text }}</div></div>
-        <div class="col-12"><button class="btn btn-primary" type="submit">Registra l'esito</button></div>
-      </form>
-      {% elif f.referente %}<p class="small text-body-secondary mb-0">La convalida la registra {{ f.referente }}, che ha in carico la fattura.</p>{% endif %}
-    </div></section>
-
-    <section class="card mb-4" aria-labelledby="t-importi"><div class="card-body">
-      <h2 class="h6 text-uppercase text-body-secondary" id="t-importi">Importi e rata</h2>
-      {% if puo_lavorare %}
-      <form method="post" action="{% url 'contratti:fattura_importi' f.pk %}" class="row g-2" novalidate>
-        {% csrf_token %}
-        <div class="col-sm-6 col-lg-3"><label class="form-label" for="{{ form_importi.valore_base.id_for_label }}">Valore base</label>{{ form_importi.valore_base }}</div>
-        <div class="col-sm-6 col-lg-3"><label class="form-label" for="{{ form_importi.oneri.id_for_label }}">Oneri previdenziali</label>{{ form_importi.oneri }}</div>
-        <div class="col-sm-6 col-lg-3"><label class="form-label" for="{{ form_importi.bollo.id_for_label }}">Bollo</label>{{ form_importi.bollo }}</div>
-        <div class="col-sm-6 col-lg-3"><label class="form-label" for="{{ form_importi.iva.id_for_label }}">IVA</label>{{ form_importi.iva }}</div>
-        <div class="col-12"><label class="form-label" for="{{ form_importi.altri_importi.id_for_label }}">{{ form_importi.altri_importi.label }}</label>{{ form_importi.altri_importi }}<div class="form-text">{{ form_importi.altri_importi.help_text }}</div></div>
-        <div class="col-12 form-text">Valore base + oneri + bollo + IVA + altri importi = importo del documento ({{ f.importo_documento|euro }}). {{ form_importi.iva.help_text }}{% if f.valore_base is None %} Proposto: importo del documento meno oneri, bollo e altri importi; si salva solo confermando.{% endif %}</div>
-        <div class="col-sm-6 col-lg-3"><label class="form-label" for="{{ form_importi.competenza_dal.id_for_label }}">Competenza dal</label>{{ form_importi.competenza_dal }}</div>
-        <div class="col-sm-6 col-lg-3"><label class="form-label" for="{{ form_importi.competenza_al.id_for_label }}">Competenza al</label>{{ form_importi.competenza_al }}</div>
-        <div class="col-12 col-lg-6 form-text align-self-end">{{ form_importi.competenza_dal.help_text }}</div>
-        {% if form_importi.voce %}<div class="col-sm-6"><label class="form-label" for="{{ form_importi.voce.id_for_label }}">Voce</label>{{ form_importi.voce }}</div>
-        <div class="col-sm-6"><label class="form-label" for="{{ form_importi.rata.id_for_label }}">Rata dello scadenzario</label>{{ form_importi.rata }}<div class="form-text">{{ form_importi.rata.help_text }}</div></div>{% endif %}
-        <fieldset class="col-12 border rounded p-2 mt-2"><legend class="fs-6 float-none w-auto px-1 mb-0">Imputazione della fattura, se diversa dalla voce</legend>
-          <div class="row g-2">
-            <div class="col-md-4"><label class="form-label" for="{{ form_importi.conto.id_for_label }}">Conto COGE</label>{{ form_importi.conto }}</div>
-            <div class="col-md-4"><label class="form-label" for="{{ form_importi.centro_costo.id_for_label }}">Centro di costo</label>{{ form_importi.centro_costo }}</div>
-            <div class="col-md-4"><label class="form-label" for="{{ form_importi.wbs.id_for_label }}">WBS</label>{{ form_importi.wbs }}</div>
-            <div class="col-12 form-text">Es. acquisti vari sullo stesso contratto: vale per le indicazioni di validazione e il commento per PAC. Vuoto: quello della voce.</div>
-          </div>
-        </fieldset>
-        <div class="col-12 d-flex flex-wrap gap-2"><button class="btn btn-primary" type="submit">Salva gli importi</button>
-          {% for a in aliquote_iva %}<button class="btn btn-outline-secondary" type="submit" name="scorporo" value="{{ a|stringformat:"s" }}" title="Valore base e IVA dall'importo del documento, tolti oneri, bollo e altri importi indicati">Scorpora IVA {{ a|floatformat:"-2" }}%</button>{% endfor %}</div>
-      </form>
-      {% else %}
-      <dl class="dati mb-0"><dt>Valore base</dt><dd>{{ f.valore_base|euro }}</dd><dt>Oneri</dt><dd>{{ f.oneri|euro }}</dd><dt>Bollo</dt><dd>{{ f.bollo|euro }}</dd><dt>IVA</dt><dd>{{ f.iva|euro }}</dd><dt>Altri importi non imputabili all'ufficio</dt><dd>{{ f.altri_importi|euro }}</dd>{% if f.conto or f.centro_costo or f.wbs %}<dt>Imputazione della fattura</dt><dd>COGE {{ f.conto.codice|default:"--" }}, CDC {{ f.centro_costo|default:"--" }}, WBS {{ f.wbs.codice_wbs|default:"--" }}</dd>{% endif %}<dt>Competenza</dt><dd>{% if f.competenza_dal %}dal {{ f.competenza_dal|date:"d/m/Y" }} al {{ f.competenza_al|date:"d/m/Y" }}{% else %}—{% endif %}</dd><dt>Rata</dt><dd>{{ f.rata|default:"—" }}</dd></dl>
-      {% endif %}
-    </div></section>
-
-    {% if gestisce %}
-    <section class="card mb-4" aria-labelledby="t-riassegna"><div class="card-body">
-      <h2 class="h6 text-uppercase text-body-secondary" id="t-riassegna">Assegna a un referente</h2>
-      <form method="post" action="{% url 'contratti:fattura_riassegna' f.pk %}" class="row g-2">
-        {% csrf_token %}
-        <div class="col-12"><label class="form-label" for="{{ form_riassegna.utente.id_for_label }}">Assegna a</label>{{ form_riassegna.utente }}{% if referente_proposto %}<div class="form-text">Proposto: {{ referente_proposto }}.</div>{% endif %}</div>
-        <div class="col-12"><button class="btn btn-outline-primary" type="submit">Assegna</button></div>
-      </form>
-    </div></section>
-    {% endif %}
+{% if mostra_validatore %}
+{% include "contratti/_fattura_contratto.html" %}
+{% include "contratti/_fattura_importi.html" %}
+{% include "contratti/_fattura_convalida.html" %}
+{% else %}
+{% include "contratti/_fattura_rdc.html" %}
+{% include "contratti/_fattura_campi.html" %}
+{% endif %}
   </div>
 
   <div class="col-xl-6">
-    <section class="card mb-4" aria-labelledby="t-sap"><div class="card-body">
-      <h2 class="h6 text-uppercase text-body-secondary" id="t-sap">3 · RdC e {{ documento_proposto }}</h2>
-      <div class="mb-3">
-        <label class="form-label" for="indicazioni">Indicazioni per la validazione</label>
-        <div class="input-group"><input id="indicazioni" class="form-control small" value="{{ indicazioni }}" readonly><button type="button" class="btn btn-outline-secondary" data-copia="indicazioni"><i class="bi bi-clipboard" aria-hidden="true"></i> Copia</button></div>
-      </div>
-      <div class="tabella-card mb-3"><div class="table-responsive"><table class="table table-sm align-middle scheda-sap">
-        <thead><tr><th>Documento</th><th>Numero</th><th>Data</th><th>Rilascio SAP</th>{% if puo_lavorare %}<th><span class="visually-hidden">Azioni</span></th>{% endif %}</tr></thead>
-        <tbody>{% for d in documenti %}<tr><td>{{ d.get_tipo_display }}</td><td>{{ d.numero|default:"—" }}</td><td>{{ d.data|date:"d/m/Y" }}</td><td>{% if d.data_rilascio %}<span class="stato stato-verde">rilasciato il {{ d.data_rilascio|date:"d/m/Y" }}</span>{% if d.rilasciato_da %} <span class="small text-body-secondary">({{ d.rilasciato_da }})</span>{% endif %}{% if puo_rilasciare and not f.data_trasferimento %}
-          <form method="post" action="{% url 'contratti:rilascio_annulla' d.pk %}" class="d-inline">{% csrf_token %}<button type="submit" class="btn btn-sm btn-link">Annulla</button></form>{% endif %}{% elif puo_rilasciare and not f.data_trasferimento %}
-          <form method="post" action="{% url 'contratti:rilasci_azione' %}" class="d-inline">{% csrf_token %}<input type="hidden" name="documento" value="{{ d.pk }}"><input type="hidden" name="fattura" value="{{ f.pk }}"><button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-patch-check" aria-hidden="true"></i> Rilascia</button></form>{% else %}<span class="small text-body-secondary">da rilasciare</span>{% endif %}</td>{% if puo_lavorare %}<td class="text-end text-nowrap">{% if not f.data_trasferimento and not d.data_rilascio %}
-          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#doc-{{ d.pk }}" aria-expanded="false" aria-controls="doc-{{ d.pk }}"><i class="bi bi-pencil" aria-hidden="true"></i> Modifica</button>
-          <form method="post" action="{% url 'contratti:fattura_documento_rimuovi' f.pk d.pk %}" class="d-inline" data-conferma="Il documento {{ d.get_tipo_display }} {{ d.numero }} viene tolto dalla fattura (resta nello storico)." data-conferma-etichetta="Rimuovi">{% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash" aria-hidden="true"></i> Rimuovi</button></form>{% elif f.data_trasferimento %}<span class="small text-body-secondary">annulla il trasferimento per modificarlo</span>{% else %}<span class="small text-body-secondary">annulla il rilascio per modificarlo</span>{% endif %}</td>{% endif %}</tr>
-        {% if puo_lavorare and not f.data_trasferimento and not d.data_rilascio %}<tr class="collapse" id="doc-{{ d.pk }}"><td colspan="5">
-          <form method="post" action="{% url 'contratti:fattura_documento_modifica' f.pk d.pk %}" class="row g-2" novalidate>{% csrf_token %}
-            <div class="col-sm-4"><label class="form-label" for="dt-{{ d.pk }}">Documento</label><select id="dt-{{ d.pk }}" name="tipo" class="form-select">{% for v, n in form_documento.fields.tipo.choices %}<option value="{{ v }}" {% if v == d.tipo %}selected{% endif %}>{{ n }}</option>{% endfor %}</select></div>
-            <div class="col-sm-4"><label class="form-label" for="dn-{{ d.pk }}">Numero</label><input id="dn-{{ d.pk }}" name="numero" class="form-control" maxlength="40" value="{{ d.numero }}"></div>
-            <div class="col-sm-4"><label class="form-label" for="dd-{{ d.pk }}">Data</label><input id="dd-{{ d.pk }}" name="data" class="form-control js-data" value="{{ d.data|date:'d/m/Y' }}" autocomplete="off"></div>
-            <div class="col-12"><button class="btn btn-primary btn-sm" type="submit">Salva la correzione</button></div>
-          </form></td></tr>{% endif %}
-        {% empty %}<tr><td colspan="4" class="text-body-secondary small">Nessun documento SAP registrato.</td></tr>{% endfor %}</tbody>
-      </table></div></div>
-      {% if puo_lavorare and f.contratto %}
-      <form method="post" action="{% url 'contratti:fattura_documento' f.pk %}" class="row g-2" novalidate>
-        {% csrf_token %}
-        <div class="col-sm-4"><label class="form-label" for="{{ form_documento.tipo.id_for_label }}">Documento</label>{{ form_documento.tipo }}</div>
-        <div class="col-sm-4"><label class="form-label" for="{{ form_documento.numero.id_for_label }}">Numero</label>{{ form_documento.numero }}</div>
-        <div class="col-sm-4"><label class="form-label" for="{{ form_documento.data.id_for_label }}">Data</label>{{ form_documento.data }}</div>
-        <div class="col-12"><button class="btn btn-primary" type="submit">Registra il documento</button></div>
-      </form>
-      {% elif not f.contratto %}<p class="small text-body-secondary mb-0">I documenti SAP si registrano dopo l'assegnazione al contratto.</p>{% endif %}
-    </div></section>
-
-    <section class="card mb-4" aria-labelledby="t-pac"><div class="card-body">
-      <h2 class="h6 text-uppercase text-body-secondary" id="t-pac">4 · Trasferimento per il pagamento</h2>
-      <label class="form-label" for="commento-pac">Commento per PAC</label>
-      <textarea id="commento-pac" class="form-control font-monospace small" rows="9" readonly>{{ commento_pac }}</textarea>
-      <button type="button" class="btn btn-sm btn-outline-primary mt-2 mb-3" data-copia="commento-pac"><i class="bi bi-clipboard" aria-hidden="true"></i> Copia il commento per PAC</button>
-      {% if f.data_trasferimento %}
-        <p class="mb-2">Trasferita il {{ f.data_trasferimento|date:"d/m/Y" }}{% if f.trasferita_da %} da {{ f.trasferita_da }}{% endif %}.</p>
-        {% if puo_lavorare %}<form method="post" action="{% url 'contratti:fattura_trasferisci' f.pk %}" data-conferma="La fattura torna da trasferire." data-conferma-etichetta="Annulla il trasferimento">{% csrf_token %}<button class="btn btn-sm btn-outline-danger" type="submit" name="annulla" value="1">Annulla il trasferimento</button></form>{% endif %}
-      {% elif puo_lavorare and f.contratto %}
-      <form method="post" action="{% url 'contratti:fattura_trasferisci' f.pk %}" class="row g-2" novalidate>
-        {% csrf_token %}
-        <div class="col-sm-6"><label class="form-label" for="{{ form_trasferimento.data.id_for_label }}">Trasferita il</label>{{ form_trasferimento.data }}</div>
-        <div class="col-12"><button class="btn btn-primary" type="submit">Registra il trasferimento</button></div>
-      </form>
-      {% endif %}
-    </div></section>
-
+{% if mostra_validatore and mostra_addetto %}
+{% include "contratti/_fattura_rdc.html" %}
+{% include "contratti/_fattura_campi.html" %}
+{% include "contratti/_fattura_pac.html" %}
+{% elif mostra_validatore %}
+{% include "contratti/_fattura_avanzamento.html" %}
+{% else %}
+{% include "contratti/_fattura_pac.html" %}
+{% endif %}
     <section class="card mb-4" aria-labelledby="t-storico"><div class="card-body">
       <h2 class="h6 text-uppercase text-body-secondary" id="t-storico">Storico modifiche</h2>
       {% include "contratti/_storico.html" %}

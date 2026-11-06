@@ -1,0 +1,14 @@
+{% load registro %}
+    <section class="card mb-4" aria-labelledby="t-convalida"><div class="card-body">
+      <h2 class="h6 text-uppercase text-body-secondary" id="t-convalida">3 · Convalida del referente</h2>
+      <dl class="dati mb-2"><dt>Esito</dt><dd>{{ f.get_esito_convalida_display }}{% if f.data_convalida %} · {{ f.data_convalida|date:"d/m/Y" }}{% endif %}</dd>{% if f.nota_convalida %}<dt>Nota</dt><dd>{{ f.nota_convalida }}</dd>{% endif %}{% if f.bloccata_fino_al %}<dt>Bloccata fino al</dt><dd>{{ f.bloccata_fino_al|date:"d/m/Y" }}</dd>{% endif %}</dl>
+      {% if puo_convalidare %}
+      <form method="post" action="{% url 'contratti:fattura_convalida' f.pk %}" class="row g-2" novalidate>
+        {% csrf_token %}
+        <div class="col-sm-6"><label class="form-label" for="{{ form_convalida.esito_convalida.id_for_label }}">Esito</label>{{ form_convalida.esito_convalida }}</div>
+        <div class="col-sm-6"><label class="form-label" for="{{ form_convalida.bloccata_fino_al.id_for_label }}">Bloccata fino al</label>{{ form_convalida.bloccata_fino_al }}</div>
+        <div class="col-12"><label class="form-label" for="{{ form_convalida.nota_convalida.id_for_label }}">Nota</label>{{ form_convalida.nota_convalida }}<div class="form-text">{{ form_convalida.nota_convalida.help_text }}</div></div>
+        <div class="col-12"><button class="btn btn-primary" type="submit">Registra l'esito</button></div>
+      </form>
+      {% elif f.referente %}<p class="small text-body-secondary mb-0">La convalida la registra {{ f.referente }}, che ha in carico la fattura.</p>{% endif %}
+    </div></section>
