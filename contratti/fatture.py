@@ -269,7 +269,7 @@ def puo_lavorare(utente, fattura: m.Fattura) -> bool:
 
 
 def puo_rilasciare(utente) -> bool:
-    """Rilascia su SAP RDA, RdC, MAP e MIGO (``permessi.puo_rilasciare``)."""
+    """Rilascia su SAP RDA, RdC e MAP (``permessi.puo_rilasciare``)."""
     return permessi.puo_rilasciare(utente)
 
 
@@ -691,13 +691,14 @@ def rimuovi_documento(fattura: m.Fattura, doc: m.DocumentoEsecuzione) -> None:
     doc.save(update_fields=["archiviato"])
 
 
-# --- Rilascio su SAP di RdC, MAP e MIGO ------------------------------------------------------
+# --- Rilascio su SAP di RdC e MAP ------------------------------------------------------
 
-TIPI_DA_RILASCIARE = (Tipo.ODA, Tipo.MAP, Tipo.MIGO)
+# Il MIGO non si rilascia: vale appena registrato.
+TIPI_DA_RILASCIARE = (Tipo.ODA, Tipo.MAP)
 
 
 def documenti_da_rilasciare(tipo: str = "") -> list[m.DocumentoEsecuzione]:
-    """RdC, MAP e MIGO registrati e non ancora rilasciati, di fatture da lavorare (non
+    """RdC e MAP registrati e non ancora rilasciati, di fatture da lavorare (non
     trasferite, non fuori registro): la coda dell'addetto al rilascio."""
     qs = m.DocumentoEsecuzione.objects.filter(
         archiviato=False,

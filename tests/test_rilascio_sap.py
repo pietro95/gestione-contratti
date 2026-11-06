@@ -1,4 +1,4 @@
-"""Rilascio su SAP di RdC, MAP e MIGO: servizi, passi sul database, maschera, permessi."""
+"""Rilascio su SAP di RdC e MAP (il MIGO non si rilascia): servizi, maschera, permessi."""
 
 import datetime
 from decimal import Decimal
@@ -61,6 +61,17 @@ def test_flusso_completo_con_i_rilasci(scenario):
     assert _passo(fa) == PassoFattura.MAP_MIGO_RILASCIO
     fatture.rilascia_documenti([map_.pk], addetto, D(2026, 10, 5))
     assert _passo(fa) == PassoFattura.TRASFERIMENTO
+
+
+def test_migo_registrato_non_serve_rilasciarlo(scenario):
+    fa, addetto = scenario["fattura"], scenario["addetto"]
+    rdc = fatture.registra_documento(fa, Tipo.ODA, "4600000001", D(2026, 10, 2))
+    fatture.rilascia_documenti([rdc.pk], addetto, D(2026, 10, 3))
+    migo = fatture.registra_documento(fa, Tipo.MIGO, "5000000001", D(2026, 10, 4))
+    assert _passo(fa) == PassoFattura.TRASFERIMENTO
+    assert migo not in fatture.documenti_da_rilasciare()
+    esito = fatture.rilascia_documenti([migo.pk], addetto, D(2026, 10, 5))
+    assert esito.rifiutate and not esito.fatte
 
 
 def test_rilascio_non_ripetibile_e_annullabile(scenario):

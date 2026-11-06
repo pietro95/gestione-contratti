@@ -659,7 +659,7 @@ def _multipla(esegui):
     return applica
 
 
-# --- Rilascio su SAP (RDA, RdC, MAP, MIGO): solo l'addetto al rilascio ----------------------------
+# --- Rilascio su SAP (RDA, RdC, MAP): solo l'addetto al rilascio ----------------------------
 
 
 def _permesso_rilascio(ctx: Contesto, oggetti: list) -> None:
@@ -1212,9 +1212,9 @@ STRUMENTI = [
     ),
     strumento(
         _scrittura_rilascio("rilascia", _oggetti_rilascio, _rilascia),
-        "Rilascia su SAP RDA, RdC, MAP e MIGO",
-        "Registra il rilascio su SAP (data di oggi e utente) di RDA inserite in SAP e di RdC, "
-        "MAP e MIGO delle fatture da lavorare; la coda è in «rilasci_da_fare». Solo gli "
+        "Rilascia su SAP RDA, RdC e MAP",
+        "Registra il rilascio su SAP (data di oggi e utente) di RDA inserite in SAP e di RdC "
+        "e MAP delle fatture da lavorare; la coda è in «rilasci_da_fare». Solo gli "
         "utenti con la funzione «Addetto al rilascio» (nemmeno l'Admin senza). Dopo il rilascio "
         "la fattura passa al passo successivo. Al massimo 50 elementi: l'anteprima elenca per "
         "ognuno se passa o è rifiutato e perché; la conferma applica solo quelli che passano. "
@@ -1225,7 +1225,7 @@ STRUMENTI = [
                     "type": "array",
                     "items": SCHEMA_ID,
                     "maxItems": MASSIMO_FATTURE,
-                    "description": "id dei documenti di esecuzione (RdC, MAP, MIGO).",
+                    "description": "id dei documenti di esecuzione (RdC, MAP).",
                 },
                 "rda_ids": {
                     "type": "array",
@@ -1242,7 +1242,7 @@ STRUMENTI = [
         ),
         "Annulla un rilascio su SAP",
         "Toglie il rilascio a una RDA (solo se non ha ancora un contratto) o a un documento "
-        "(RdC, MAP, MIGO) di una fattura non trasferita. Solo gli addetti al rilascio.",
+        "(RdC, MAP) di una fattura non trasferita. Solo gli addetti al rilascio.",
         _schema(
             {"tipo": {"type": "string", "enum": ["rda", "documento"]}, "id": SCHEMA_ID},
             ["tipo", "id"],

@@ -113,7 +113,7 @@ def test_flusso_della_fattura(pagina, tmp_path):
         pagina.click("button:has-text('Registra il documento')")
     expect(pagina.locator(".sottotitolo .stato").first).to_have_text("RdC da rilasciare")
     pagina.locator("button:has-text('Rilascia')").first.click()
-    expect(pagina.locator(".sottotitolo .stato").first).to_have_text("MAP/MIGO da rilasciare")
+    expect(pagina.locator(".sottotitolo .stato").first).to_have_text("MAP da rilasciare")
     pagina.locator("button:has-text('Rilascia')").first.click()
     expect(pagina.locator(".sottotitolo .stato").first).to_have_text("Da trasferire")
     assert violazioni_axe(pagina) == []
