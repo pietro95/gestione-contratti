@@ -119,7 +119,7 @@ PASSO_FATTURA = {
     "rdc": ("blu", "RdC da fare"),
     "rdc_rilascio": ("blu", "RdC da rilasciare"),
     "map_migo": ("blu", "MAP/MIGO da fare"),
-    "map_migo_rilascio": ("blu", "MAP/MIGO da rilasciare"),
+    "map_migo_rilascio": ("blu", "MAP da rilasciare"),
     "trasferimento": ("blu", "Da trasferire"),
     "None": ("verde", "Trasferita"),
 }

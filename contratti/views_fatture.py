@@ -177,7 +177,7 @@ def fatture_azione(request):
 
 @login_required
 def rilasci(request):
-    """Maschera dell'addetto al rilascio: RDA, RdC, MAP e MIGO registrati e da rilasciare su
+    """Maschera dell'addetto al rilascio: RDA, RdC e MAP registrati e da rilasciare su
     SAP. La vedono tutti; rilasciano solo gli addetti al rilascio."""
     oggi = oggi_richiesta(request)
     tipo = request.GET.get("tipo", "")

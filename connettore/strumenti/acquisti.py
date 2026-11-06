@@ -407,7 +407,7 @@ def cruscotto_acquisti(ctx: Contesto, argomenti: dict) -> dict:
 
 
 def rilasci_da_fare(ctx: Contesto, argomenti: dict) -> dict:
-    """La coda dell'addetto al rilascio: RDA inserite in SAP, RdC, MAP e MIGO da rilasciare."""
+    """La coda dell'addetto al rilascio: RDA inserite in SAP, RdC e MAP da rilasciare."""
     documenti = fatture.documenti_da_rilasciare(argomenti.get("tipo", ""))
     rda = acquisti.rda_da_rilasciare() if argomenti.get("tipo", "") in ("", "RDA") else []
     if argomenti.get("tipo") == "RDA":
@@ -701,13 +701,11 @@ STRUMENTI = [
         nome="rilasci_da_fare",
         titolo="Rilasci SAP da fare",
         descrizione=(
-            "La coda della pagina «Rilasci SAP»: RDA inserite in SAP e RdC, MAP e MIGO delle "
+            "La coda della pagina «Rilasci SAP»: RDA inserite in SAP e RdC e MAP delle "
             "fatture da lavorare ancora da rilasciare. Visibile a tutti; rilascia solo "
             "l'addetto al rilascio (tool «rilascia»)."
         ),
-        input_schema=_schema(
-            {"tipo": {"type": "string", "enum": ["RDA", "ODA_RDC", "MAP", "MIGO"]}}
-        ),
+        input_schema=_schema({"tipo": {"type": "string", "enum": ["RDA", "ODA_RDC", "MAP"]}}),
         esegui=rilasci_da_fare,
     ),
 ]

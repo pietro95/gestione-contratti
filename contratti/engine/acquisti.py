@@ -236,8 +236,8 @@ def rda_ferma(d: DatiRDA, oggi: datetime.date, giorni: int) -> bool:
 
 
 # Lavorazione della fattura (Rev14, Rev15): presa in carico → assegnazione al contratto →
-# convalida del referente → RdC → rilascio della RdC → MAP o MIGO → rilascio del MAP o MIGO →
-# trasferimento per il pagamento.
+# convalida del referente → RdC → rilascio della RdC → MAP o MIGO → rilascio del MAP (il MIGO
+# non si rilascia) → trasferimento per il pagamento.
 class PassoFattura(StrEnum):
     PRESA_IN_CARICO = "presa_in_carico"
     ASSEGNAZIONE = "assegnazione"
@@ -258,7 +258,7 @@ ETICHETTE_PASSO = {
     PassoFattura.RDC: "RdC da fare",
     PassoFattura.RDC_RILASCIO: "RdC da rilasciare",
     PassoFattura.MAP_MIGO: "MAP/MIGO da fare",
-    PassoFattura.MAP_MIGO_RILASCIO: "MAP/MIGO da rilasciare",
+    PassoFattura.MAP_MIGO_RILASCIO: "MAP da rilasciare",
     PassoFattura.TRASFERIMENTO: "Da trasferire",
 }
 TIPI_ACCETTAZIONE = frozenset({"MAP", "MIGO"})
@@ -334,7 +334,8 @@ def passo_fattura(
     accettazione = [d for d in presenti if d[0] in TIPI_ACCETTAZIONE]
     if not accettazione:
         return PassoFattura.MAP_MIGO
-    if not any(_rilasciato(d) for d in accettazione):
+    # Il MIGO non ha bisogno del rilascio: basta che sia registrato. Il MAP sì.
+    if not any(d[0] == "MIGO" or _rilasciato(d) for d in accettazione):
         return PassoFattura.MAP_MIGO_RILASCIO
     return PassoFattura.TRASFERIMENTO
 

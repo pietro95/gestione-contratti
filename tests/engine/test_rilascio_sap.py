@@ -1,4 +1,4 @@
-"""Rilascio su SAP di RdC, MAP e MIGO: passi della fattura (motore puro)."""
+"""Rilascio su SAP di RdC e MAP (il MIGO non si rilascia): passi della fattura (motore puro)."""
 
 import datetime
 
@@ -27,9 +27,9 @@ def test_map_non_rilasciato_va_rilasciato():
     assert passo(*documenti) == Passo.MAP_MIGO_RILASCIO
 
 
-def test_migo_non_rilasciato_va_rilasciato():
+def test_migo_non_ha_bisogno_del_rilascio():
     documenti = [(ODA, D(2026, 10, 1), True), (MIGO, D(2026, 10, 2), False)]
-    assert passo(*documenti) == Passo.MAP_MIGO_RILASCIO
+    assert passo(*documenti) == Passo.TRASFERIMENTO
 
 
 def test_tutto_rilasciato_da_trasferire():

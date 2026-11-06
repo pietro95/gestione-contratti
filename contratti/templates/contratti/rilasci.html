@@ -2,7 +2,7 @@
 {% load registro %}
 {% block title %}Rilasci SAP{% endblock %}
 {% block titolo_pagina %}Rilasci SAP{% endblock %}
-{% block sottotitolo %}<div class="sottotitolo">RDA inserite in SAP e RdC, MAP e MIGO delle fatture da lavorare, ancora da rilasciare su SAP. Dopo il rilascio la fattura passa al passo successivo.</div>{% endblock %}
+{% block sottotitolo %}<div class="sottotitolo">RDA inserite in SAP e RdC e MAP delle fatture da lavorare, ancora da rilasciare su SAP. Dopo il rilascio la fattura passa al passo successivo.</div>{% endblock %}
 {% block content %}
 <form method="get" class="filtri">
   <div class="row g-3 align-items-end">
@@ -27,7 +27,7 @@
   </table></div></div>
   {% endif %}
   {% if righe %}
-  <h2 class="h6 text-uppercase text-body-secondary">RdC, MAP e MIGO delle fatture</h2>
+  <h2 class="h6 text-uppercase text-body-secondary">RdC e MAP delle fatture</h2>
   <div class="tabella-card mb-3"><div class="table-responsive"><table class="table table-sm align-middle">
     <thead><tr>{% if puo_rilasciare %}<th><span class="visually-hidden">Selezione</span></th>{% endif %}<th>Documento</th><th>Numero</th><th>Data</th><th>Fattura</th><th>Fornitore</th><th>Contratto</th><th class="text-end">Giorni</th></tr></thead>
     <tbody>{% for r in righe %}{% with d=r.d %}<tr>
