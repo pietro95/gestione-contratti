@@ -1,0 +1,8 @@
+{% load registro %}
+    <section class="card mb-4" aria-labelledby="t-campi"><div class="card-body">
+      <h2 class="h6 text-uppercase text-body-secondary" id="t-campi">Campi da copiare</h2>
+      <div class="tabella-card"><div class="table-responsive"><table class="table table-sm align-middle scheda-sap">
+        <thead><tr><th>Campo</th><th>Valore</th><th><span class="visually-hidden">Copia</span></th></tr></thead>
+        <tbody>{% for etichetta, valore in campi_addetto %}{% include "contratti/_riga_sap.html" with sap=True %}{% endfor %}</tbody>
+      </table></div></div>
+    </div></section>

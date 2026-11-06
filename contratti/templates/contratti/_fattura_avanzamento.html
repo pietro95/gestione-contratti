@@ -1,0 +1,12 @@
+{% load registro %}
+    <section class="card mb-4" aria-labelledby="t-avanzamento"><div class="card-body">
+      <h2 class="h6 text-uppercase text-body-secondary" id="t-avanzamento">Avanzamento amministrativo</h2>
+      <p class="small text-body-secondary">Compilato dall'addetto amministrativo: sola lettura.</p>
+      <dl class="dati mb-3"><dt>Stato</dt><dd>{{ r.passo|passo_badge }} {{ r.passo_label }}{% if r.ferma %} <span class="stato stato-rosso">ferma</span>{% endif %}</dd></dl>
+      <div class="tabella-card mb-3"><div class="table-responsive"><table class="table table-sm align-middle">
+        <thead><tr><th>Documento</th><th>Numero</th><th>Data</th><th>Rilascio SAP</th></tr></thead>
+        <tbody>{% for d in documenti %}<tr><td>{{ d.get_tipo_display }}</td><td>{{ d.numero|default:"—" }}</td><td>{{ d.data|date:"d/m/Y" }}</td><td>{% if d.data_rilascio %}<span class="stato stato-verde">rilasciato il {{ d.data_rilascio|date:"d/m/Y" }}</span>{% else %}<span class="small text-body-secondary">da rilasciare</span>{% endif %}</td></tr>
+        {% empty %}<tr><td colspan="4" class="text-body-secondary small">Nessun documento SAP registrato.</td></tr>{% endfor %}</tbody>
+      </table></div></div>
+      <dl class="dati mb-0"><dt>Trasferimento per il pagamento</dt><dd>{% if f.data_trasferimento %}trasferita il {{ f.data_trasferimento|date:"d/m/Y" }}{% if f.trasferita_da %} da {{ f.trasferita_da }}{% endif %}{% else %}non ancora trasferita{% endif %}</dd></dl>
+    </div></section>

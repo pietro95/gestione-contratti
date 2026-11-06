@@ -143,7 +143,7 @@ def test_presa_in_carico_multipla_e_proposte(scenario, editor, make_user):
     assert "14/2026" in pagina
 
 
-def test_lavorazione_completa(scenario):
+def test_lavorazione_completa(scenario, make_user):
     fa, c, rossi = scenario["fattura"], scenario["contratto"], scenario["referente"]
     m.AssegnazioneCluster.objects.create(username="rossi", cluster=f.cluster("IT"))
     client = Client()
@@ -187,12 +187,24 @@ def test_lavorazione_completa(scenario):
     m.DocumentoEsecuzione.objects.filter(fattura=fa).update(data_rilascio=OGGI)
     fa = fatture.QS_FATTURE.get(pk=fa.pk)
     assert fatture.passo_fattura(fa) == PassoFattura.TRASFERIMENTO
+    # Il validatore non vede RdC/MAP né il trasferimento: li vede l'addetto.
+    assert PAC_ATTESO.replace("5800000013", "5800000077") not in html.unescape(
+        client.get(url).content.decode()
+    )
+    make_user("addetto", role=EDITOR)
+    m.FunzioneUtente.objects.create(
+        username="addetto", funzione=m.FunzioneUtente.Funzione.AMMINISTRAZIONE_ACQUISTI
+    )
+    client.logout()
+    client.login(username="addetto", password=PASSWORD)
     pagina = html.unescape(client.get(url).content.decode())
     assert PAC_ATTESO.replace("5800000013", "5800000077") in pagina
     assert (
         "Contratto 5800000077. Valore base da prelevare € 1.504,17. COGE: 600010, CDC: C0001"
         in pagina
     )
+    client.logout()
+    client.login(username="rossi", password=PASSWORD)
     client.post(
         reverse("contratti:fattura_trasferisci", args=[fa.pk]),
         {"data": OGGI.strftime("%d/%m/%Y")},
@@ -422,3 +434,47 @@ def test_cambio_fornitore_non_ammesso_con_il_contratto(scenario):
     fatture.assegna_contratto(fa, c)
     with pytest.raises(fatture.OperazioneNonAmmessa):
         fatture.cambia_fornitore(fa, f.fornitore("Altro Fornitore"))
+
+
+def test_schede_per_ruolo(scenario, make_user):
+    """Validatore: contratto, importi, convalida e riepilogo in sola lettura. Addetto: solo
+    RdC/MAP, campi da copiare e trasferimento. Admin: tutto. Il referente si cambia in alto."""
+    fa = scenario["fattura"]
+    fa.contratto, fa.voce = scenario["contratto"], scenario["voce"]
+    fa.save()
+    fatture.registra_documento(fa, "MAP", "5100000009", D(2026, 10, 4))
+    url = reverse("contratti:fattura", args=[fa.pk])
+    make_user("addetto", role=EDITOR)
+    m.FunzioneUtente.objects.create(
+        username="addetto", funzione=m.FunzioneUtente.Funzione.AMMINISTRAZIONE_ACQUISTI
+    )
+    make_user("validatore", role=EDITOR)
+
+    def pagina(nome):
+        c = Client()
+        assert c.login(username=nome, password=PASSWORD)
+        return c.get(url).content.decode()
+
+    v = pagina("validatore")
+    assert "Convalida del referente" in v and "Importi e rata" in v
+    assert v.index("Importi e rata") < v.index("Convalida del referente")
+    assert "Bloccato: con il contratto" in v and "cambia-fornitore" not in v
+    assert "Avanzamento amministrativo" in v and "5100000009" in v
+    assert "Commento per PAC" not in v and "Campi da copiare" not in v
+    assert "Cambia</button>" not in v  # il validatore non riassegna (Admin e addetto)
+
+    a = pagina("addetto")
+    assert "Commento per PAC" in a and "Campi da copiare" in a and "data-copia-testo" in a
+    assert "Convalida del referente" not in a and "Importi e rata" not in a
+    assert "Cambia fornitore" not in a and "cambia-referente" in a
+
+
+def test_cambio_fornitore_sbloccabile_senza_contratto(scenario, make_user):
+    """Senza contratto il fornitore è bloccato e si sblocca con «Cambia fornitore»."""
+    fa = scenario["fattura"]
+    fa.referente = scenario["referente"]
+    fa.save()
+    c = Client()
+    assert c.login(username="rossi", password=PASSWORD)
+    pagina = c.get(reverse("contratti:fattura", args=[fa.pk])).content.decode()
+    assert "Cambia fornitore" in pagina and 'id="cambia-fornitore"' in pagina

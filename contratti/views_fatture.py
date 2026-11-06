@@ -17,6 +17,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from accounts.permissions import editor_required
+from accounts.roles import ADMIN, role_of
 from contratti import acquisti, fatture, permessi, stanziamenti
 from contratti import forms_fatture as forms
 from contratti import models as m
@@ -330,6 +331,12 @@ def fattura_dettaglio(request, pk):
     r = _riga(f, oggi, proposto, referente)
     puo_lavorare = fatture.puo_lavorare(request.user, f)
     documenti = list(f.documenti.all())
+    # Due schede: l'addetto vede solo RdC/MAP e trasferimento, il validatore il resto (con
+    # un riepilogo in sola lettura di quanto compila l'addetto). L'Admin vede tutto.
+    addetto = fatture.e_addetto_fatture(request.user)
+    admin = role_of(request.user) == ADMIN
+    mostra_validatore = admin or not addetto or fatture.puo_convalidare(request.user, f)
+    mostra_addetto = admin or addetto
     iniziali_importi = {
         "valore_base": f.valore_base,
         "oneri": f.oneri,
@@ -363,6 +370,9 @@ def fattura_dettaglio(request, pk):
             "scrive": fatture.scrive(request.user),
             "gestisce": fatture.gestisce(request.user),
             "puo_rilasciare": fatture.puo_rilasciare(request.user),
+            "mostra_validatore": mostra_validatore,
+            "mostra_addetto": mostra_addetto,
+            "campi_addetto": fatture.campi_addetto(f) if mostra_addetto else [],
             "documento_proposto": fatture.documento_proposto(f),
             "indicazioni": fatture.indicazioni_validazione(f),
             "commento_pac": fatture.commento_pac(f),
