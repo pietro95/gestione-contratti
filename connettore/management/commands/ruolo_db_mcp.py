@@ -25,6 +25,8 @@ SCRITTURA = {
     ("oauth2_provider", "IDToken"): "INSERT, UPDATE, DELETE",
     ("connettore", "RegistroChiamata"): "INSERT",
     ("connettore", "OperazioneMCP"): "INSERT, UPDATE",
+    # Registro delle email di avviso partite dalle azioni del connettore (SPEC §5.10).
+    ("contratti", "InvioEmail"): "INSERT",
 }
 # Dominio scritto dai tool del connettore (F10.1, F12.2): con la storia di ciascuno.
 DOMINIO = {

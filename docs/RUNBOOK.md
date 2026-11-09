@@ -103,6 +103,8 @@ Modifica `config/.env` (`nano config/.env`). Valori da impostare:
 | `POSTGRES_PASSWORD` e la password dentro `DATABASE_URL` | la password generata, identica nei due punti |
 | `LDAP_*` | i parametri di Active Directory (vedi i commenti nel file) |
 | `LDAP_GROUP_ADMIN/EDITOR/READER` | i DN dei gruppi AD dei ruoli |
+| `LDAP_GROUP_ADDETTO_AMMINISTRATIVO/RILASCIO` | (facoltativi, §13) i DN dei gruppi AD delle funzioni dell'addetto |
+| `EMAIL_HOST`, `EMAIL_FROM`, `APP_URL` | (facoltativi, §13) server SMTP interno, mittente e URL dei link nelle email |
 | `BACKUP_ORA`, `BACKUP_GIORNI` | ora del dump giornaliero e giorni di conservazione |
 
 ### 3.1 Certificato della CA interna e verifica di LDAPS
@@ -956,3 +958,29 @@ con il cruscotto dell'app.
 | 403 con «Utente senza un ruolo» | l'utente non è più in un gruppo `GG_Contratti_*` o è disattivato |
 | 429 | più di 60 richieste al minuto dallo stesso collegamento |
 | `compose logs mcp`: `permission denied` | privilegi dell'utente PostgreSQL non allineati: `./manage.sh ruolo_db_mcp`, poi `compose restart mcp` |
+
+
+## 13. Gruppi AD degli addetti ed email di avviso (Rev39)
+
+### 13.1 Gruppi AD delle funzioni
+
+1. In AD crea due gruppi di sicurezza (i nomi sono liberi; qui i suggeriti) e aggiungi gli utenti:
+   - `GG_Contratti_Addetto_Amministrativo`: l'addetto amministrativo (funzione «Amministrazione acquisti»);
+   - `GG_Contratti_Addetto_Rilascio`: l'addetto al rilascio su SAP.
+2. Nel `.env` imposta `LDAP_GROUP_ADDETTO_AMMINISTRATIVO` e `LDAP_GROUP_ADDETTO_RILASCIO` con i DN completi e riavvia: `source comune.sh && compose restart web`.
+3. Chi è in un gruppo di funzione **entra anche senza il gruppo Editor** e, se era solo Reader, lavora come Editor. L'addetto amministrativo vede e lavora su **tutti i cluster**: non serve più l'assegnazione `TUTTI`.
+4. Le funzioni si leggono a ogni login: dopo aver aggiunto o tolto un utente, vale dal login successivo (la sessione dura al massimo 8 ore). I gruppi sono visibili in Amministrazione → Gruppi (`Addetto amministrativo`, `Addetto al rilascio`), non vanno modificati a mano.
+5. Con LDAP attivo le assegnazioni locali in Amministrazione → «Funzioni degli utenti» continuano a valere, in aggiunta ai gruppi: dopo il passaggio ai gruppi si possono archiviare.
+
+### 13.2 Email di avviso
+
+1. Serve un server SMTP interno raggiungibile dal container e una casella mittente dedicata. Nel `.env`: `EMAIL_HOST`, `EMAIL_PORT`, se serve `EMAIL_HOST_USER`/`EMAIL_HOST_PASSWORD` e `EMAIL_USE_TLS`/`EMAIL_USE_SSL`, `EMAIL_FROM` e `APP_URL` (l'indirizzo che gli utenti usano per aprire l'interfaccia, senza `/` finale: compare nei link). Senza `EMAIL_HOST` non parte nessuna email.
+2. Gli indirizzi vengono dall'attributo `mail` di AD, aggiornato a ogni login: un utente che non è mai entrato, o senza `mail`, non riceve niente.
+3. Gli avvisi legati a un'azione partono subito. I promemoria (rilasci in attesa, contratti in scadenza) li lancia il container `notifiche` ogni giorno all'ora `NOTIFICHE_ORA` (default 08:30); sabato e domenica non parte nulla; i rilasci si ripetono ogni giorno lavorativo finché ce ne sono, le scadenze una volta a settimana.
+4. Prova a mano, senza spedire e poi spedendo:
+   ```bash
+   ./manage.sh invia_promemoria --dry-run
+   ./manage.sh invia_promemoria --tipo rilasci
+   ```
+5. Registro: Amministrazione → «Email di notifica» (a chi, quando, esito e errore). Un errore SMTP non blocca il lavoro degli utenti: si vede lì e nel log (`compose logs web`).
+6. Per spegnere tutto: togli `EMAIL_HOST` (o `NOTIFICHE_EMAIL_ATTIVE=false`) e riavvia `web` e `notifiche`. L'avviso delle nuove fatture si può togliere volta per volta con la spunta nella pagina dell'anteprima dell'import.

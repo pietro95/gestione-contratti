@@ -15,7 +15,13 @@ from . import factories as f
 pytestmark = pytest.mark.django_db
 
 D = datetime.date
-MODELLI = [model for model in admin.site._registry if model._meta.app_label == "contratti"]
+# Il registro delle email (Rev39) è un log in sola lettura, come i tentativi di accesso: senza
+# storia delle modifiche e senza dati di dominio, ha un test suo in test_notifiche.py.
+MODELLI = [
+    model
+    for model in admin.site._registry
+    if model._meta.app_label == "contratti" and model is not m.InvioEmail
+]
 
 
 def _richiesta_admin():

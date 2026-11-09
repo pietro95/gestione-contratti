@@ -142,3 +142,17 @@ def test_indicazioni_per_la_validazione():
 def test_primo_referente():
     assert primo_referente([None, "bianchi", "verdi"]) == "bianchi"
     assert primo_referente([None, None]) is None
+
+
+def test_commento_pac_con_altri_importi_non_imputabili():
+    """Rev39 (TC-26): gli «altri importi» (es. more) entrano nello scorporo, in coda a oneri e
+    bollo; senza altri importi il testo resta quello di TC-25."""
+    from dataclasses import replace
+
+    assert "Altri importi" not in commento_pac(DATI_13)
+    con_more = replace(DATI_13, altri_importi=Decimal("12.34"))
+    assert commento_pac(con_more) == (
+        PAC_ATTESO + "\nAltri importi non imputabili all'ufficio (es. more): € 12,34"
+    )
+    # Zero e vuoto non producono la riga.
+    assert commento_pac(replace(DATI_13, altri_importi=Decimal("0"))) == PAC_ATTESO

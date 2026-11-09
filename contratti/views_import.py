@@ -1,6 +1,7 @@
 """Import dall'interfaccia (F9.1): elenco, caricamento con anteprima, conferma, modelli."""
 
 from django import forms as dj_forms
+from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpResponse
@@ -10,6 +11,7 @@ from django.views.decorators.http import require_POST
 from accounts.permissions import editor_required
 from contratti import importazioni as imp_svc
 from contratti import models as m
+from contratti import notifiche
 from contratti.forms import FormBase
 from reports import xlsx
 
@@ -120,8 +122,20 @@ def importazione(request, pk):
             "puo_confermare": imp.stato == m.Importazione.Stato.ANTEPRIMA
             and imp_svc.puo_confermare(request.user, imp),
             "gia_importato": imp_svc.gia_importato(imp),
+            "avviso_fatture": _avviso_fatture(imp),
         },
     )
+
+
+def _avviso_fatture(imp):
+    """Email «nuove fatture da prendere in carico» a conferma avvenuta (SPEC §5.10): solo per
+    l'import settimanale, se le notifiche sono attive e l'anteprima ha fatture nuove."""
+    if imp.tipo != "fatture" or not settings.NOTIFICHE_EMAIL_ATTIVE:
+        return None
+    nuove = int((imp.anteprima or {}).get("conteggi", {}).get("create", 0))
+    if nuove <= 0:
+        return None
+    return {"nuove": nuove, "destinatari": len(notifiche.utenti_operativi())}
 
 
 @editor_required
@@ -135,6 +149,12 @@ def importazione_conferma(request, pk):
         messages.error(request, str(exc))
     else:
         messages.success(request, f"Import di «{imp.nome_file}» eseguito.")
+        if imp.tipo == "fatture" and request.POST.get("avvisa"):
+            nuove = int((imp.esito or {}).get("conteggi", {}).get("create", 0))
+            if nuove:
+                inviate = notifiche.fatture_nuove(nuove, request.user)
+                if inviate:
+                    messages.info(request, f"Avviso per email inviato a {inviate} utenti.")
     return redirect("contratti:importazione", pk=pk)
 
 

@@ -759,3 +759,14 @@ i test nel browser) e `makemigrations --check` puliti.
 `anomalie_esecuzione` accettano `sottocluster` e rifiutano `cluster`; default = sottocluster
 dell'utente; id sconosciuti rifiutati; link alle pagine con i sottocluster scelti; `ruff`, `pytest` e
 `makemigrations --check` puliti.
+
+## F17 — Addetti, gruppi AD ed email di avviso (Rev39)
+
+Richiesta del responsabile del progetto del 09/11/2026 (SPEC Rev39, bozza da approvare):
+
+- **Commento per PAC**: scorporo con gli altri importi non imputabili (more), oltre a oneri e bollo (§5.9, TC-26 a).
+- **Vista dell'addetto**: «Da gestire (dopo la convalida)» nelle fatture, di apertura per chi ha una funzione dell'addetto (§5.7).
+- **Gruppi AD** `LDAP_GROUP_ADDETTO_AMMINISTRATIVO` e `LDAP_GROUP_ADDETTO_RILASCIO` per le funzioni; l'addetto amministrativo lavora su tutti i cluster (§8.1, TC-26 e). L'assegnazione locale resta per lo sviluppo.
+- **Email di avviso** (§5.10): RDA inviata, RDA da rilasciare, RdC e MAP da rilasciare, promemoria dei rilasci e dei contratti in scadenza, nuove fatture con spunta all'import, e altri tre avvisi (RDA rimandata, fattura assegnata, fattura convalidata). Registro `InvioEmail`, comando `invia_promemoria`, container `notifiche`, variabili `EMAIL_*`, `APP_URL`.
+
+**Accettazione:** TC-26 con test automatici; senza `EMAIL_HOST` nessuna email e nessun errore; Reader 403 invariato; `ruff`, `pytest`, `makemigrations --check` puliti. Da fare prima del rilascio: creare i due gruppi in AD, impostare SMTP e `APP_URL` nel `.env` (RUNBOOK §3 e §13).

@@ -79,6 +79,19 @@ services:
       db:
         condition: service_healthy
 
+  # Promemoria per email (SPEC §5.10): rilasci in attesa e contratti in scadenza, un lancio al
+  # giorno lavorativo. Stessa immagine dell'applicazione; senza EMAIL_HOST nel .env il comando
+  # termina con un avviso e riprova il giorno dopo.
+  notifiche:
+    <<: *app
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "/scripts/notifiche_pianificate.sh"]
+    volumes:
+      - ./notifiche_pianificate.sh:/scripts/notifiche_pianificate.sh:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
   backup:
     image: postgres:16
     restart: unless-stopped

@@ -617,8 +617,9 @@ STRUMENTI = [
         descrizione=(
             "Le viste delle fatture: «da_prendere» (senza referente, visibili a tutti, con "
             "contratto e referente proposti; «proposte_a_me» attivo di default per chi ne ha), "
-            "«mie» (in carico all'utente, non trasferite), «tutte». Filtri per passo e testo "
-            "(numero, fornitore, n. contratto, RdC, MAP, MIGO)."
+            "«mie» (in carico all'utente, non trasferite), «addetto» (già convalidate dal "
+            "referente e non trasferite: RdC, MAP/MIGO e trasferimento da gestire), «tutte». "
+            "Filtri per passo e testo (numero, fornitore, n. contratto, RdC, MAP, MIGO)."
         ),
         input_schema=_schema(
             {

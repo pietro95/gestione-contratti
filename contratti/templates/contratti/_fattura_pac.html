@@ -2,7 +2,7 @@
     <section class="card mb-4" aria-labelledby="t-pac"><div class="card-body">
       <h2 class="h6 text-uppercase text-body-secondary" id="t-pac">Trasferimento per il pagamento</h2>
       <label class="form-label" for="commento-pac">Commento per PAC</label>
-      <textarea id="commento-pac" class="form-control font-monospace small" rows="9" readonly>{{ commento_pac }}</textarea>
+      <textarea id="commento-pac" class="form-control font-monospace small" rows="10" readonly>{{ commento_pac }}</textarea>
       <button type="button" class="btn btn-sm btn-outline-primary mt-2 mb-3" data-copia="commento-pac"><i class="bi bi-clipboard" aria-hidden="true"></i> Copia il commento per PAC</button>
       {% if f.data_trasferimento %}
         <p class="mb-2">Trasferita il {{ f.data_trasferimento|date:"d/m/Y" }}{% if f.trasferita_da %} da {{ f.trasferita_da }}{% endif %}.</p>

@@ -28,6 +28,7 @@ Passo = motore.PassoFattura
 VISTE = {
     "da_prendere": "Da prendere in carico",
     "mie": "Le mie fatture",
+    "addetto": "Da gestire (dopo la convalida)",
     "tutte": "Tutte le fatture",
 }
 
@@ -79,7 +80,7 @@ def conteggio_da_prendere() -> int:
 def fatture_elenco(request):
     oggi = oggi_richiesta(request)
     g = request.GET
-    from reports.acquisti import elenco_fatture
+    from reports.acquisti import PASSI_ADDETTO, elenco_fatture
 
     proposte = {"1": True, "0": False}.get(g.get("proposte"))
 
@@ -95,7 +96,11 @@ def fatture_elenco(request):
             archiviate=bool(g.get("archiviate")),
         )
 
-    if not g.get("vista") and not conteggio_da_prendere():
+    addetto = fatture.e_addetto_fatture(request.user)
+    if not g.get("vista") and addetto:
+        # L'addetto (amministrativo o al rilascio) apre le fatture già convalidate (Rev39).
+        elenco = carica("addetto")
+    elif not g.get("vista") and not conteggio_da_prendere():
         # Vista di default: con tutte le fatture prese in carico si apre «Le mie fatture».
         # Se ce ne sono da prendere in carico (anche non proposte a me) si apre quella vista.
         elenco = carica("mie")
@@ -113,11 +118,16 @@ def fatture_elenco(request):
             "vista": vista,
             "viste": VISTE,
             "titolo_vista": VISTE[vista],
+            "per_addetto": addetto,
+            "passi_vista": (
+                [(p.value, motore.ETICHETTE_PASSO[p]) for p in PASSI_ADDETTO]
+                if vista == "addetto"
+                else [*motore.ETICHETTE_PASSO.items(), ("trasferita", "Trasferita")]
+            ),
             "filtri": g,
             "oggi": oggi,
             "solo_proposte": solo_proposte,
             "proposte_a_me": proposte_a_me,
-            "passi": [*motore.ETICHETTE_PASSO.items(), ("trasferita", "Trasferita")],
             "attivi": filtri_attivi(
                 g,
                 {
@@ -514,7 +524,8 @@ def fattura_convalida(request, pk):
     return _azione(
         request, pk,
         lambda x: fatture.convalida(
-            x, d["esito_convalida"], d["nota_convalida"], d["bloccata_fino_al"]
+            x, d["esito_convalida"], d["nota_convalida"], d["bloccata_fino_al"],
+            utente=request.user,
         ),
         "Convalida registrata.",
         controllo=fatture.puo_convalidare,
@@ -558,7 +569,9 @@ def fattura_documento(request, pk):
     d = form.cleaned_data
     return _azione(
         request, pk,
-        lambda x: fatture.registra_documento(x, d["tipo"], d["numero"], d["data"]),
+        lambda x: fatture.registra_documento(
+            x, d["tipo"], d["numero"], d["data"], utente=request.user
+        ),
         "Documento registrato.",
     )  # fmt: skip
 

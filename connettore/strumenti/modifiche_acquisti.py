@@ -408,7 +408,7 @@ def _dati_sap(ctx: Contesto, argomenti: dict) -> dict:
     form = fr.DatiSapForm(_dati(fr.DatiSapForm, rda, argomenti), instance=rda)
     valida(form)
     d = form.cleaned_data
-    acquisti.aggiorna_dati_sap(rda, d["numero_rda"], d["data_inserimento"])
+    acquisti.aggiorna_dati_sap(rda, d["numero_rda"], d["data_inserimento"], ctx.utente)
     risultato = {"oggetti": [_rif(rda)], "pratiche": _pratiche(rda)}
     if proposti := acquisti.contratti_proposti(rda):
         risultato["avvisi"] = [
@@ -789,7 +789,9 @@ def _convalida(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:
     form = ff.ConvalidaForm(_dati(ff.ConvalidaForm, istanza, argomenti), instance=istanza)
     valida(form)
     d = form.cleaned_data
-    fatture.convalida(f, d["esito_convalida"], d["nota_convalida"], d["bloccata_fino_al"])
+    fatture.convalida(
+        f, d["esito_convalida"], d["nota_convalida"], d["bloccata_fino_al"], utente=ctx.utente
+    )
 
 
 def _importi(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:
@@ -837,7 +839,7 @@ def _documento(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:
     )
     valida(form)
     d = form.cleaned_data
-    fatture.registra_documento(f, d["tipo"], d["numero"], d["data"])
+    fatture.registra_documento(f, d["tipo"], d["numero"], d["data"], utente=ctx.utente)
 
 
 def _trasferisci(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:

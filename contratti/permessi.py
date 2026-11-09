@@ -15,7 +15,14 @@
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 
-from accounts.roles import ADMIN, WRITE_ROLES, role_of
+from accounts.roles import (
+    ADDETTO_AMMINISTRATIVO,
+    ADDETTO_RILASCIO,
+    ADMIN,
+    WRITE_ROLES,
+    ha_funzione,
+    role_of,
+)
 from contratti import models as m
 
 # Valori speciali del parametro ``area`` nei filtri.
@@ -37,7 +44,10 @@ def _assegnazioni(user) -> list[m.AssegnazioneCluster]:
 
 
 def cluster_assegnati(user) -> frozenset[int] | None:
-    """Pk dei cluster assegnati all'utente; ``None`` = tutti (assegnazione TUTTI)."""
+    """Pk dei cluster assegnati all'utente; ``None`` = tutti (assegnazione TUTTI, o funzione
+    «Amministrazione acquisti», Rev39)."""
+    if e_addetto(user):
+        return None
     assegnazioni = _assegnazioni(user)
     if any(a.cluster_id is None for a in assegnazioni):
         return None
@@ -369,25 +379,40 @@ def scelte_filtro(user) -> list[tuple[str, str]]:
     return scelte + m.scelte_cluster()
 
 
-def _ha_funzione(user, funzione: str, cache_attr: str) -> bool:
+def _ha_funzione(user, funzione: str, gruppo: str, cache_attr: str) -> bool:
+    """La funzione viene dal gruppo AD (gruppo Django omonimo, Rev39) oppure dall'assegnazione
+    locale in amministrazione (sviluppo, senza AD)."""
     cache = getattr(user, cache_attr, None)
     if cache is None:
         nome = (getattr(user, "username", "") or "").strip().lower()
-        cache = m.FunzioneUtente.objects.filter(
-            username__iexact=nome, funzione=funzione, archiviato=False
-        ).exists()
+        cache = ha_funzione(user, gruppo) or (
+            bool(nome)
+            and m.FunzioneUtente.objects.filter(
+                username__iexact=nome, funzione=funzione, archiviato=False
+            ).exists()
+        )
         setattr(user, cache_attr, cache)
     return cache
 
 
 def e_addetto(user) -> bool:
-    """Ha la funzione «Amministrazione acquisti» (SPEC §8.1, Rev13)? Non dà permessi da sola."""
-    return _ha_funzione(user, m.FunzioneUtente.Funzione.AMMINISTRAZIONE_ACQUISTI, "_e_addetto")
+    """Ha la funzione «Amministrazione acquisti» (SPEC §8.1, Rev13, Rev39)? Dal gruppo AD
+    «Addetto amministrativo» o dall'assegnazione locale. Non dà il ruolo di scrittura da sola
+    (lo dà il login con il gruppo AD), ma vale come assegnazione a tutti i cluster."""
+    return _ha_funzione(
+        user,
+        m.FunzioneUtente.Funzione.AMMINISTRAZIONE_ACQUISTI,
+        ADDETTO_AMMINISTRATIVO,
+        "_e_addetto",
+    )
 
 
 def e_addetto_rilascio(user) -> bool:
-    """Ha la funzione «Addetto al rilascio» (RdC e MAP su SAP)? Non dà permessi da sola."""
-    return _ha_funzione(user, m.FunzioneUtente.Funzione.RILASCIO_SAP, "_e_addetto_rilascio")
+    """Ha la funzione «Addetto al rilascio» (RdC e MAP su SAP)? Dal gruppo AD o
+    dall'assegnazione locale. Non dà permessi da sola."""
+    return _ha_funzione(
+        user, m.FunzioneUtente.Funzione.RILASCIO_SAP, ADDETTO_RILASCIO, "_e_addetto_rilascio"
+    )
 
 
 def puo_rilasciare(user) -> bool:

@@ -80,9 +80,40 @@ dn: cn=GG_Contratti_Reader,ou=Gruppi,dc=esempio,dc=test
 objectClass: group
 cn: GG_Contratti_Reader
 member: cn=Luca Bianchi,ou=Utenti,dc=esempio,dc=test
+member: cn=Rita Rilascio,ou=Utenti,dc=esempio,dc=test
 
 # nnessuno appartiene solo a un gruppo non applicativo.
 dn: cn=GG_Altro,ou=Gruppi,dc=esempio,dc=test
 objectClass: group
 cn: GG_Altro
 member: cn=Nino Nessuno,ou=Utenti,dc=esempio,dc=test
+
+# Funzioni dell'addetto (Rev39): aamm solo nel gruppo dell'addetto amministrativo (nessun gruppo di
+# ruolo), rril è Reader e addetto al rilascio.
+dn: cn=Anna Amministrativa,ou=Utenti,dc=esempio,dc=test
+objectClass: user
+cn: Anna Amministrativa
+givenName: Anna
+sn: Amministrativa
+mail: aamm@esempio.test
+sAMAccountName: aamm
+userPassword: password-aamm
+
+dn: cn=Rita Rilascio,ou=Utenti,dc=esempio,dc=test
+objectClass: user
+cn: Rita Rilascio
+givenName: Rita
+sn: Rilascio
+mail: rril@esempio.test
+sAMAccountName: rril
+userPassword: password-rril
+
+dn: cn=GG_Contratti_Addetto_Amm,ou=Gruppi,dc=esempio,dc=test
+objectClass: group
+cn: GG_Contratti_Addetto_Amm
+member: cn=Anna Amministrativa,ou=Utenti,dc=esempio,dc=test
+
+dn: cn=GG_Contratti_Addetto_Rilascio,ou=Gruppi,dc=esempio,dc=test
+objectClass: group
+cn: GG_Contratti_Addetto_Rilascio
+member: cn=Rita Rilascio,ou=Utenti,dc=esempio,dc=test

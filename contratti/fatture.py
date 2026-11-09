@@ -18,7 +18,7 @@ from django.db.models import Prefetch
 from django.utils import timezone
 
 from accounts.roles import ADMIN, WRITE_ROLES, role_of
-from contratti import adapters, permessi
+from contratti import adapters, notifiche, permessi
 from contratti import models as m
 from contratti.acquisti import OperazioneNonAmmessa, _salva
 from contratti.engine import acquisti as motore
@@ -334,6 +334,7 @@ def assegna_ai_proposti(pks: Iterable[int], utente, data=None) -> EsitoMultiplo:
             esito.rifiutate.append((f, "senza referente proposto"))
         else:
             _incarica(f, proposto, data, f"Assegnata a {proposto}")
+            notifiche.dopo_commit(lambda f=f, p=proposto: notifiche.fattura_assegnata(f, p, utente))
             esito.fatte.append(f)
     return esito
 
@@ -355,6 +356,7 @@ def riassegna(fattura: m.Fattura, nuovo, utente, data=None) -> None:
     if role_of(nuovo) not in WRITE_ROLES:
         raise OperazioneNonAmmessa("Si assegna solo a un Admin o a un Editor.")
     _incarica(fattura, nuovo, data or timezone.localdate(), f"Riassegnata a {nuovo}")
+    notifiche.dopo_commit(lambda: notifiche.fattura_assegnata(fattura, nuovo, utente))
 
 
 @transaction.atomic
@@ -440,6 +442,7 @@ def convalida(
     nota: str = "",
     bloccata_fino_al: datetime.date | None = None,
     data=None,
+    utente=None,
 ) -> None:
     if esito not in Esito.values:
         raise OperazioneNonAmmessa("Esito non valido.")
@@ -447,6 +450,9 @@ def convalida(
         raise OperazioneNonAmmessa(
             "Indica nella nota perché non è convalidabile o cosa si attende."
         )
+    prima = (
+        m.Fattura.objects.filter(pk=fattura.pk).values_list("esito_convalida", flat=True).first()
+    )
     fattura.esito_convalida = esito
     fattura.nota_convalida = nota.strip()
     fattura.bloccata_fino_al = bloccata_fino_al
@@ -456,6 +462,9 @@ def convalida(
         f"Convalida: {Esito(esito).label}",
         update_fields=["esito_convalida", "nota_convalida", "bloccata_fino_al", "data_convalida"],
     )
+    if esito == Esito.CONVALIDABILE and prima != Esito.CONVALIDABILE:
+        # Tocca all'amministrazione: RdC e MAP/MIGO (SPEC §5.10).
+        notifiche.dopo_commit(lambda: notifiche.fattura_convalidata(fattura, utente))
 
 
 def aliquote_iva() -> list[Decimal]:
@@ -619,7 +628,7 @@ def registra(
 
 
 def registra_documento(
-    fattura: m.Fattura, tipo: str, numero: str, data: datetime.date, importo=None
+    fattura: m.Fattura, tipo: str, numero: str, data: datetime.date, importo=None, utente=None
 ) -> m.DocumentoEsecuzione:
     """RdC, MAP o MIGO della fattura: il documento è del contratto della fattura."""
     if tipo not in (Tipo.ODA, Tipo.MAP, Tipo.MIGO):
@@ -644,6 +653,8 @@ def registra_documento(
     doc.full_clean()
     doc._change_reason = f"Registrato dalla fattura {fattura.numero}"[:100]
     doc.save()
+    if tipo in TIPI_DA_RILASCIARE:
+        notifiche.dopo_commit(lambda: notifiche.documento_da_rilasciare(doc, utente))
     return doc
 
 
@@ -827,6 +838,7 @@ def dati_pac(fattura: m.Fattura) -> motore.DatiPAC:
         valore_base=fattura.valore_base,
         oneri=fattura.oneri,
         bollo=fattura.bollo,
+        altri_importi=fattura.altri_importi,
         numero_contratto=fattura.contratto.numero_contratto if fattura.contratto_id else None,
     )
 
@@ -852,6 +864,7 @@ def campi_addetto(fattura: m.Fattura) -> list[tuple[str, str]]:
         ("Valore base", importo(d.valore_base)),
         ("Oneri previdenziali", importo(d.oneri) if d.oneri else ""),
         ("Bollo", importo(d.bollo) if d.bollo else ""),
+        ("Altri importi non imputabili", importo(d.altri_importi) if d.altri_importi else ""),
     ]
 
 

@@ -738,6 +738,7 @@ class DatiPAC:
     valore_base: Decimal | None
     oneri: Decimal | None = None
     bollo: Decimal | None = None
+    altri_importi: Decimal | None = None
     numero_contratto: str | None = None
 
 
@@ -770,4 +771,8 @@ def commento_pac(d: DatiPAC) -> str:
         righe.append(f"Oneri previdenziali: {_euro(d.oneri)}")
     if d.bollo:
         righe.append(f"Bollo: {_euro(d.bollo)}")
+    if d.altri_importi:
+        righe.append(
+            f"Altri importi non imputabili all'ufficio (es. more): {_euro(d.altri_importi)}"
+        )
     return "\n".join(righe)

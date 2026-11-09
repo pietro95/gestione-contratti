@@ -22,3 +22,8 @@ DATABASES["default"]["CONN_MAX_AGE"] = 0
 # WhiteNoise senza collectstatic: file letti dalle cartelle sorgente a ogni richiesta.
 WHITENOISE_AUTOREFRESH = True
 WHITENOISE_USE_FINDERS = True
+
+# Notifiche per email (Rev39): acquisite in memoria, mai spedite.
+EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+NOTIFICHE_EMAIL_ATTIVE = True
+APP_URL = "https://contratti.esempio.test"

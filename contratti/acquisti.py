@@ -14,7 +14,7 @@ from django.db import transaction
 from django.db.models import Min, Prefetch, Q
 from django.utils import timezone
 
-from contratti import adapters, permessi
+from contratti import adapters, notifiche, permessi
 from contratti import models as m
 from contratti.engine import acquisti as motore
 from contratti.engine import previsioni, scadenze
@@ -133,7 +133,9 @@ def invia(rda: m.RichiestaAcquisto, utente=None, data=None) -> m.EventoRDA:
         raise OperazioneNonAmmessa("Si invia solo una richiesta in bozza o da correggere.")
     if not rda.posizioni.exists():
         raise OperazioneNonAmmessa("La richiesta non ha posizioni.")
-    return _evento(rda, m.EventoRDA.Tipo.INVIO, data, utente)
+    evento = _evento(rda, m.EventoRDA.Tipo.INVIO, data, utente)
+    notifiche.dopo_commit(lambda: notifiche.rda_inviata(rda, utente))
+    return evento
 
 
 def rimanda(rda: m.RichiestaAcquisto, nota: str, utente=None, data=None) -> m.EventoRDA:
@@ -142,7 +144,9 @@ def rimanda(rda: m.RichiestaAcquisto, nota: str, utente=None, data=None) -> m.Ev
         raise OperazioneNonAmmessa("Si rimanda solo una richiesta inviata e non ancora in SAP.")
     if not nota.strip():
         raise OperazioneNonAmmessa("Scrivi cosa correggere.")
-    return _evento(rda, m.EventoRDA.Tipo.RIMANDO, data, utente, nota)
+    evento = _evento(rda, m.EventoRDA.Tipo.RIMANDO, data, utente, nota)
+    notifiche.dopo_commit(lambda: notifiche.rda_rimandata(rda, nota, utente))
+    return evento
 
 
 def annulla(rda: m.RichiestaAcquisto, motivo: str, utente=None, data=None) -> m.EventoRDA:
@@ -579,11 +583,15 @@ def salva_richiesta(rda: m.RichiestaAcquisto, posizioni: list[dict]) -> m.Richie
 
 
 @transaction.atomic
-def aggiorna_dati_sap(rda, numero_rda, data_inserimento) -> None:
+def aggiorna_dati_sap(rda, numero_rda, data_inserimento, utente=None) -> None:
     """Numero e data di inserimento che SAP restituisce: li riporta l'addetto (o il referente).
     Il rilascio non si scrive qui: lo registra solo l'addetto al rilascio (``rilascia_rda``)."""
     if fase(rda) == motore.Fase.ANNULLATA:
         raise OperazioneNonAmmessa("La RDA è annullata.")
+    # Dal database: il form può aver già riportato il nuovo valore sull'istanza.
+    prima = (
+        m.RichiestaAcquisto.objects.filter(pk=rda.pk).values_list("numero_rda", flat=True).first()
+    )
     rda.numero_rda = (numero_rda or "").strip() or None
     rda.data_inserimento = data_inserimento
     if rda.numero_rda and rda.data_inserimento is None:
@@ -592,6 +600,9 @@ def aggiorna_dati_sap(rda, numero_rda, data_inserimento) -> None:
         raise OperazioneNonAmmessa("La RDA è rilasciata: prima si annulla il rilascio.")
     rda.full_clean()
     _salva(rda, "Dati da SAP")
+    if not prima and rda.numero_rda and fase(rda) == motore.Fase.INSERITA:
+        # Inserita in SAP: ora aspetta il rilascio (SPEC §5.10).
+        notifiche.dopo_commit(lambda: notifiche.rda_da_rilasciare(rda, utente))
 
 
 def rda_da_rilasciare() -> list[m.RichiestaAcquisto]:
