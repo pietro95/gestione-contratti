@@ -356,7 +356,7 @@ def fattura_dettaglio(request, pk):
         "competenza_dal": f.competenza_dal,
         "competenza_al": f.competenza_al,
         "voce": f.voce_id,
-        "rata": f.rata_id,
+        "rate": [r.pk for r in f.rate.all()],
         "conto": f.conto_id,
         "centro_costo": f.centro_costo,
         "wbs": f.wbs_id,

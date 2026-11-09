@@ -10,6 +10,7 @@ from django.db.models import Q
 from accounts.roles import WRITE_ROLES
 from contratti import models as m
 from contratti import permessi
+from contratti.engine.acquisti import formato_euro
 from contratti.forms import (
     FormBase,
     ImportoField,
@@ -125,6 +126,16 @@ class ConvalidaForm(ModelFormBootstrap):
         self.fields["bloccata_fino_al"].help_text = "Stanziata e bloccata fino a questa data."
 
 
+class RateFatturaField(forms.ModelMultipleChoiceField):
+    """Rate dello scadenzario coperte dalla fattura (una o più: unica fattura del fornitore)."""
+
+    def label_from_instance(self, rata):
+        return (
+            f"{rata.piano.voce.descrizione} · rata {rata.numero} · fatturabile il "
+            f"{rata.data_fattura:%d/%m/%Y} · {formato_euro(rata.importo)}"
+        )
+
+
 class ImportiForm(FormBase):
     valore_base = ImportoField(
         max_digits=14, decimal_places=2, min_value=0, required=False,
@@ -152,11 +163,16 @@ class ImportiForm(FormBase):
     )
     competenza_al = forms.DateField(required=False, label="Competenza al")
     voce = forms.ModelChoiceField(queryset=m.VoceContratto.objects.none(), required=False)
-    rata = forms.ModelChoiceField(
+    rate = RateFatturaField(
         queryset=m.Rata.objects.none(),
         required=False,
-        label="Rata dello scadenzario",
-        help_text="La rata diventa consuntivo e riceve il numero di fattura.",
+        label="Rate dello scadenzario",
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
+        help_text=(
+            "Spunta la rata coperta dalla fattura; se il fornitore ha emesso un'unica fattura "
+            "per più rate, spuntale tutte (della stessa voce). Ogni rata diventa consuntivo e "
+            "riceve il numero di fattura."
+        ),
     )
 
     conto = forms.ModelChoiceField(
@@ -182,15 +198,15 @@ class ImportiForm(FormBase):
         tendina_centro_costo(self, attuale=fattura.centro_costo)
         if fattura.contratto_id:
             self.fields["voce"].queryset = fattura.contratto.voci.filter(archiviato=False)
-            self.fields["rata"].queryset = (
+            self.fields["rate"].queryset = (
                 m.Rata.objects.filter(piano__voce__contratto_id=fattura.contratto_id)
                 .filter(Q(fattura__isnull=True) | Q(fattura=fattura))
                 .select_related("piano__voce")
-                .order_by("data_fattura", "pk")
+                .order_by("piano__voce_id", "numero")
             )
         else:
             del self.fields["voce"]
-            del self.fields["rata"]
+            del self.fields["rate"]
 
     def clean(self):
         dati = super().clean()
@@ -207,6 +223,8 @@ class ImportiForm(FormBase):
                 "competenza_dal" if not dal else "competenza_al",
                 "Indica sia l'inizio sia la fine della competenza.",
             )
+        if len({r.piano.voce_id for r in dati.get("rate") or ()}) > 1:
+            self.add_error("rate", "Le rate di una fattura devono essere della stessa voce.")
         return dati
 
 

@@ -387,8 +387,10 @@ def assegna_contratto(
     if contratto is None:
         if fattura.documenti.filter(archiviato=False).exists():
             raise OperazioneNonAmmessa("La fattura ha documenti SAP: non si scollega.")
-        fattura.contratto = fattura.voce = fattura.rata = None
-        _salva(fattura, "Scollegata dal contratto", update_fields=["contratto", "voce", "rata"])
+        with transaction.atomic():
+            _libera_rate(fattura)
+            fattura.contratto = fattura.voce = None
+            _salva(fattura, "Scollegata dal contratto", update_fields=["contratto", "voce"])
         return
     if contratto.fornitore_id != fattura.fornitore_id:
         raise OperazioneNonAmmessa("Il contratto è di un altro fornitore.")
@@ -408,12 +410,12 @@ def assegna_contratto(
         voci = [v for v in contratto.voci.all() if not v.archiviato]
         voce = voci[0] if len(voci) == 1 else None
     cambia = fattura.contratto_id != contratto.pk
-    fattura.contratto = contratto
-    fattura.voce = voce
-    if cambia:
-        fattura.rata = None
-    _salva(fattura, f"Assegnata al contratto {contratto}", update_fields=["contratto", "voce",
-                                                                         "rata"])  # fmt: skip
+    with transaction.atomic():
+        if cambia:
+            _libera_rate(fattura)
+        fattura.contratto = contratto
+        fattura.voce = voce
+        _salva(fattura, f"Assegnata al contratto {contratto}", update_fields=["contratto", "voce"])
 
 
 def cambia_fornitore(fattura: m.Fattura, fornitore: m.Fornitore) -> None:
@@ -472,21 +474,63 @@ def aliquote_iva() -> list[Decimal]:
     return list(m.AliquotaIVA.objects.filter(attiva=True).values_list("aliquota", flat=True))
 
 
+def _rate_abbinabili(fattura: m.Fattura, rate: Iterable[m.Rata]) -> list[m.Rata]:
+    """Le rate che la fattura può coprire: senza doppioni, tutte del contratto e di una stessa
+    voce, nessuna già abbinata a un'altra fattura."""
+    scelte = list({r.pk: r for r in rate}.values())
+    scelte.sort(key=lambda r: (r.piano.voce_id, r.numero))
+    for rata in scelte:
+        if rata.piano.voce.contratto_id != fattura.contratto_id:
+            raise OperazioneNonAmmessa("La rata è di un altro contratto.")
+    if len({r.piano.voce_id for r in scelte}) > 1:
+        raise OperazioneNonAmmessa("Le rate di una fattura devono essere della stessa voce.")
+    for rata in scelte:
+        attuale = m.Rata.objects.filter(pk=rata.pk).values_list("fattura_id", flat=True).first()
+        if attuale is not None and attuale != fattura.pk:
+            raise OperazioneNonAmmessa(f"La rata {rata.numero} è già abbinata a un'altra fattura.")
+    return scelte
+
+
+def _abbina_rata(rata: m.Rata, fattura: m.Fattura) -> None:
+    """La rata diventa consuntivo e riceve il numero di fattura (l'importo non cambia)."""
+    rata.fattura = fattura
+    rata.consuntivo, rata.numero_fattura = True, fattura.numero[:40]
+    _salva(rata, f"Fattura {fattura.numero}",
+           update_fields=["fattura", "consuntivo", "numero_fattura"])  # fmt: skip
+
+
+def _libera_rata(rata: m.Rata, fattura: m.Fattura) -> None:
+    """Toglie la fattura dalla rata: torna alla previsione (se il numero è quello della
+    fattura; un consuntivo segnato a mano con un altro numero non si tocca)."""
+    rata.fattura = None
+    campi = ["fattura"]
+    if rata.numero_fattura == fattura.numero[:40]:
+        rata.consuntivo, rata.numero_fattura = False, ""
+        campi += ["consuntivo", "numero_fattura"]
+    _salva(rata, f"Tolta la fattura {fattura.numero}", update_fields=campi)
+
+
+def _libera_rate(fattura: m.Fattura) -> None:
+    for rata in fattura.rate.all():
+        _libera_rata(rata, fattura)
+
+
 def aggiorna_importi(
     fattura: m.Fattura,
     valore_base: Decimal | None,
     oneri: Decimal | None,
     bollo: Decimal | None,
     voce: m.VoceContratto | None = None,
-    rata: m.Rata | None = None,
+    rate: Iterable[m.Rata] = (),
     *,
     iva: Decimal | None = None,
     altri_importi: Decimal | None = None,
     competenza: tuple[datetime.date | None, datetime.date | None] | None = None,
 ) -> None:
     """Valore base, oneri, bollo, IVA e altri importi (e, se indicata, la competenza: dal, al);
-    con il contratto anche voce e rata abbinata (la rata diventa consuntivo e riceve il numero
-    di fattura; il suo importo non cambia).
+    con il contratto anche voce e rate abbinate: una fattura può coprire più rate (il fornitore
+    emette un'unica fattura), tutte della stessa voce; ogni rata diventa consuntivo e riceve il
+    numero di fattura, il suo importo non cambia. Le rate non più indicate tornano libere.
 
     Senza IVA indicata: se la differenza dall'importo del documento è l'IVA di un'aliquota
     della tabella (SAP riporta spesso l'importo con l'IVA), l'IVA si registra da sola."""
@@ -497,10 +541,7 @@ def aggiorna_importi(
         iva = riconosciuta[1] if riconosciuta else None
     if voce is not None and voce.contratto_id != fattura.contratto_id:
         raise OperazioneNonAmmessa("La voce è di un altro contratto.")
-    if rata is not None and rata.piano.voce.contratto_id != fattura.contratto_id:
-        raise OperazioneNonAmmessa("La rata è di un altro contratto.")
-    if rata is not None and m.Fattura.objects.filter(rata=rata).exclude(pk=fattura.pk).exists():
-        raise OperazioneNonAmmessa("La rata è già abbinata a un'altra fattura.")
+    rate = _rate_abbinabili(fattura, rate)
     fattura.valore_base, fattura.oneri, fattura.bollo = valore_base, oneri, bollo
     fattura.iva = iva
     fattura.altri_importi = altri_importi
@@ -509,21 +550,19 @@ def aggiorna_importi(
         fattura.competenza_dal, fattura.competenza_al = competenza
         campi += ["competenza_dal", "competenza_al"]
     if fattura.contratto_id:
-        precedente = fattura.rata if fattura.rata_id and fattura.rata_id != getattr(
-            rata, "pk", None
-        ) else None  # fmt: skip
-        fattura.voce, fattura.rata = voce, rata
-        campi += ["voce", "rata"]
+        fattura.voce = voce
+        campi.append("voce")
         with transaction.atomic():
-            if precedente is not None and precedente.numero_fattura == fattura.numero:
-                precedente.consuntivo, precedente.numero_fattura = False, ""
-                _salva(precedente, f"Tolta la fattura {fattura.numero}",
-                       update_fields=["consuntivo", "numero_fattura"])  # fmt: skip
             _salva(fattura, "Importi", update_fields=campi)
-            if rata is not None and (not rata.consuntivo or rata.numero_fattura != fattura.numero):
-                rata.consuntivo, rata.numero_fattura = True, fattura.numero[:40]
-                _salva(rata, f"Fattura {fattura.numero}",
-                       update_fields=["consuntivo", "numero_fattura"])  # fmt: skip
+            scelte = {r.pk for r in rate}
+            for precedente in fattura.rate.all():
+                if precedente.pk not in scelte:
+                    _libera_rata(precedente, fattura)
+            for rata in rate:
+                if rata.fattura_id != fattura.pk or not rata.consuntivo or (
+                    rata.numero_fattura != fattura.numero[:40]
+                ):  # fmt: skip
+                    _abbina_rata(rata, fattura)
         return
     _salva(fattura, "Importi", update_fields=campi)
 
@@ -549,7 +588,7 @@ def scorpora_iva(
     oneri: Decimal | None,
     bollo: Decimal | None,
     voce: m.VoceContratto | None = None,
-    rata: m.Rata | None = None,
+    rate: Iterable[m.Rata] = (),
     altri_importi: Decimal | None = None,
     competenza: tuple[datetime.date | None, datetime.date | None] | None = None,
 ) -> None:
@@ -563,14 +602,14 @@ def scorpora_iva(
     if valore_base < 0:
         raise OperazioneNonAmmessa("Oneri, bollo e altri importi superano l'importo senza IVA.")
     aggiorna_importi(
-        fattura, valore_base, oneri, bollo, voce, rata, iva=iva, altri_importi=altri_importi,
+        fattura, valore_base, oneri, bollo, voce, rate, iva=iva, altri_importi=altri_importi,
         competenza=competenza,
     )  # fmt: skip
 
 
 @transaction.atomic
 def salva_importi(fattura: m.Fattura, dati: dict, aliquota_scorporo: Decimal | None = None):
-    """Il pannello «Importi» (dati del form): importi o scorporo dell'IVA, voce e rata,
+    """Il pannello «Importi» (dati del form): importi o scorporo dell'IVA, voce e rate,
     imputazione propria della fattura."""
     competenza = (dati.get("competenza_dal"), dati.get("competenza_al"))
     if (aliquota_scorporo is not None or dati.get("valore_base") is not None) and not all(
@@ -581,12 +620,12 @@ def salva_importi(fattura: m.Fattura, dati: dict, aliquota_scorporo: Decimal | N
         )
     if aliquota_scorporo is not None:
         scorpora_iva(fattura, aliquota_scorporo, dati.get("oneri"), dati.get("bollo"),
-                     dati.get("voce"), dati.get("rata"), dati.get("altri_importi"),
+                     dati.get("voce"), dati.get("rate") or (), dati.get("altri_importi"),
                      competenza)  # fmt: skip
     else:
         aggiorna_importi(
             fattura, dati.get("valore_base"), dati.get("oneri"), dati.get("bollo"),
-            dati.get("voce"), dati.get("rata"), iva=dati.get("iva"),
+            dati.get("voce"), dati.get("rate") or (), iva=dati.get("iva"),
             altri_importi=dati.get("altri_importi"), competenza=competenza,
         )  # fmt: skip
     imputa(fattura, dati.get("conto"), dati.get("centro_costo") or "", dati.get("wbs"))

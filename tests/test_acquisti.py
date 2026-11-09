@@ -321,8 +321,8 @@ def test_tc16_esecuzione_e_chiusura(f1, referente):
         data=D(2026, 4, 20),
         importo_documento=5000,
         valore_base=5000,
-        rata=rata,
     )
+    m.Rata.objects.filter(pk=rata.pk).update(fattura=fa2)
     fa2.full_clean()
     riepilogo = acquisti.riepilogo_esecuzione(c, D(2026, 4, 25))
     assert riepilogo.esecuzione.fatturato == Decimal("9000.00")

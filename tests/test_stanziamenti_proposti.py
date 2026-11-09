@@ -82,10 +82,11 @@ def test_rate_scadute_senza_fattura_sono_proposte(mensile):
 
 def test_fattura_stanziamento_e_chiusura_escludono_la_proposta(mensile):
     r1, r2, r3 = mensile["rate"][:3]
-    m.Fattura.objects.create(
+    fa = m.Fattura.objects.create(
         fornitore=mensile["contratto"].fornitore, contratto=mensile["contratto"],
-        numero="F1", data=D(2026, 2, 3), importo_documento=Decimal("1000.00"), rata=r1,
+        numero="F1", data=D(2026, 2, 3), importo_documento=Decimal("1000.00"),
     )  # fmt: skip
+    m.Rata.objects.filter(pk=r1.pk).update(fattura=fa)
     assert _numeri(stanziamenti.proposte(OGGI)) == [2, 3]
     s = m.Stanziamento.objects.create(
         voce=mensile["voce"], rata=r2, importo=Decimal("900.00"),
