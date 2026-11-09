@@ -253,8 +253,18 @@ def mie_fatture(utente, oggi: datetime.date) -> list[RigaFattura]:
 VISTE_FATTURE = {
     "da_prendere": "Da prendere in carico",
     "mie": "Le mie fatture",
+    "addetto": "Da gestire (dopo la convalida)",
     "tutte": "Tutte le fatture",
 }
+
+# Rev39: i passi che toccano all'amministrazione, dopo la convalida del referente.
+PASSI_ADDETTO = (
+    Passo.RDC,
+    Passo.RDC_RILASCIO,
+    Passo.MAP_MIGO,
+    Passo.MAP_MIGO_RILASCIO,
+    Passo.TRASFERIMENTO,
+)
 
 
 def riga_fattura(f: m.Fattura, oggi, contratto_proposto=None, referente_proposto=None) -> dict:
@@ -301,6 +311,8 @@ def elenco_fatture(
             referente=utente, fuori_registro=False, archiviato=False,
             data_trasferimento__isnull=True,
         )  # fmt: skip
+    elif vista == "addetto":
+        qs = qs.filter(fuori_registro=False, archiviato=False, data_trasferimento__isnull=True)
     else:
         if not archiviate:
             qs = qs.filter(archiviato=False)
@@ -322,6 +334,10 @@ def elenco_fatture(
     righe = [riga_fattura(f, oggi, contratti.get(f.pk), referenti.get(f.pk)) for f in lista]
     if solo:
         righe = [r for r in righe if r["referente_proposto"] == utente]
+    if vista == "addetto":
+        # Solo le fatture già convalidate: ferme e più vecchie in cima.
+        righe = [r for r in righe if r["passo"] in PASSI_ADDETTO]
+        righe.sort(key=lambda r: (not r["ferma"], -r["giorni"], r["f"].pk))
     if passo:
         righe = [r for r in righe if (r["passo"] or "trasferita") == passo]
     return ElencoFatture(vista, righe, proposte_a_me, solo)

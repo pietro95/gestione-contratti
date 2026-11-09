@@ -6,9 +6,9 @@
 {% block azioni %}{% if scrive %}<a class="btn btn-outline-primary" href="{% url 'contratti:fattura_nuova' %}"><i class="bi bi-receipt" aria-hidden="true"></i> Registra una fattura</a>{% endif %}{% endblock %}
 {% block content %}
 <ul class="nav nav-pills mb-3" aria-label="Viste">
-  {% for chiave, titolo in viste.items %}
+  {% for chiave, titolo in viste.items %}{% if chiave != "addetto" or per_addetto or vista == "addetto" %}
   <li class="nav-item"><a class="nav-link{% if chiave == vista %} active{% endif %}" {% if chiave == vista %}aria-current="page"{% endif %} href="?vista={{ chiave }}">{{ titolo }}{% if chiave == "da_prendere" and da_prendere %} <span class="badge text-bg-light">{{ da_prendere }}</span>{% endif %}</a></li>
-  {% endfor %}
+  {% endif %}{% endfor %}
 </ul>
 
 {% if form_import %}
@@ -38,7 +38,7 @@
       <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="proposte" value="1" id="f-proposte" {% if solo_proposte %}checked{% endif %}><label class="form-check-label" for="f-proposte">Solo le proposte a me{% if proposte_a_me %} ({{ proposte_a_me }}){% endif %}</label></div>
     </div>
     {% else %}
-    <div class="col-sm-4 col-xl-3"><label class="form-label" for="f-passo">Passo</label><select id="f-passo" name="passo" class="form-select"><option value="">Tutti</option>{% for v, t in passi %}<option value="{{ v }}" {% if filtri.passo == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
+    <div class="col-sm-4 col-xl-3"><label class="form-label" for="f-passo">Passo</label><select id="f-passo" name="passo" class="form-select"><option value="">Tutti</option>{% for v, t in passi_vista %}<option value="{{ v }}" {% if filtri.passo == v %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></div>
     {% if vista == "tutte" %}
     <div class="col-sm-4 col-xl-3">
       <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="fuori_registro" value="1" id="f-fuori" {% if filtri.fuori_registro %}checked{% endif %}><label class="form-check-label" for="f-fuori">Includi le fuori registro</label></div>
@@ -51,6 +51,7 @@
 </form>
 {% include "contratti/_filtri_attivi.html" %}
 
+{% if vista == "addetto" %}<p class="small text-body-secondary">Le fatture già convalidate dal referente e non ancora trasferite: RdC, MAP o MIGO da fare o da rilasciare, trasferimento per il pagamento. Le più ferme sono in cima.</p>{% endif %}
 {% if vista == "da_prendere" and solo_proposte %}<p class="small text-body-secondary">Sono mostrate solo le fatture proposte a te ({{ totale }}). Togli «Solo le proposte a me» per vederle tutte.</p>{% endif %}
 
 <form method="post" action="{% url 'contratti:fatture_azione' %}">
@@ -86,7 +87,7 @@
       <td>{% if vista == "da_prendere" %}{% if r.referente_proposto %}{{ r.referente_proposto }}{% if r.referente_proposto == user %} <span class="stato stato-blu">tu</span>{% endif %}{% else %}<span class="text-body-secondary">senza referente proposto</span>{% endif %}{% else %}{{ r.passo|passo_badge }}{% if r.f.referente %}<div class="small text-body-secondary">{{ r.f.referente }}</div>{% endif %}{% endif %}</td>
       <td class="text-nowrap">{{ r.f.data_registrazione|date:"d/m/Y" }}<div class="small {% if r.ferma %}text-danger fw-semibold{% else %}text-body-secondary{% endif %}">{{ r.giorni }} giorni{% if r.ferma %} · ferma{% endif %}</div></td>
     </tr>
-  {% empty %}<tr><td colspan="7"><div class="vuoto"><i class="bi bi-inbox" aria-hidden="true"></i>{% if vista == "da_prendere" %}Nessuna fattura da prendere in carico.{% elif vista == "mie" %}Nessuna fattura in carico a te da lavorare.{% else %}Nessuna fattura con questi filtri.{% endif %}</div></td></tr>{% endfor %}
+  {% empty %}<tr><td colspan="7"><div class="vuoto"><i class="bi bi-inbox" aria-hidden="true"></i>{% if vista == "da_prendere" %}Nessuna fattura da prendere in carico.{% elif vista == "mie" %}Nessuna fattura in carico a te da lavorare.{% elif vista == "addetto" %}Nessuna fattura convalidata da gestire.{% else %}Nessuna fattura con questi filtri.{% endif %}</div></td></tr>{% endfor %}
   </tbody>
 </table>
 </div>

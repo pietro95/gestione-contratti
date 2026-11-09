@@ -22,7 +22,7 @@ from django_auth_ldap.config import (
 )
 
 from accounts.ldap_groups import ADMatchingRuleGroupType
-from accounts.roles import ADMIN, EDITOR, READER
+from accounts.roles import ADDETTO_AMMINISTRATIVO, ADDETTO_RILASCIO, ADMIN, EDITOR, READER
 
 LDAP_BACKEND = "accounts.backends.RoleLDAPBackend"
 BREAKGLASS_BACKEND = "accounts.backends.BreakGlassBackend"
@@ -77,7 +77,7 @@ def _int(environ: Mapping[str, str], name: str, default: int) -> int:
 
 
 def build_ldap_settings(environ: Mapping[str, str]) -> dict[str, Any]:
-    """Settings ``AUTH_LDAP_*`` e ``ACCOUNTS_LDAP_ROLE_GROUPS``; ``{}`` se LDAP è spento."""
+    """Settings ``AUTH_LDAP_*``, gruppi dei ruoli e delle funzioni; ``{}`` se LDAP è spento."""
     uri = _get(environ, "LDAP_SERVER_URI")
     if not uri:
         return {}
@@ -104,6 +104,16 @@ def build_ldap_settings(environ: Mapping[str, str]) -> dict[str, Any]:
         ADMIN: _require(environ, "LDAP_GROUP_ADMIN"),
         EDITOR: _require(environ, "LDAP_GROUP_EDITOR"),
         READER: _require(environ, "LDAP_GROUP_READER"),
+    }
+
+    # Gruppi delle funzioni (Rev39): facoltativi, un gruppo non configurato non dà la funzione.
+    function_groups = {
+        funzione: valore
+        for funzione, nome in (
+            (ADDETTO_AMMINISTRATIVO, "LDAP_GROUP_ADDETTO_AMMINISTRATIVO"),
+            (ADDETTO_RILASCIO, "LDAP_GROUP_ADDETTO_RILASCIO"),
+        )
+        if (valore := _get(environ, nome))
     }
 
     timeout = _int(environ, "LDAP_TIMEOUT", 5)
@@ -143,6 +153,7 @@ def build_ldap_settings(environ: Mapping[str, str]) -> dict[str, Any]:
         "AUTH_LDAP_GROUP_TYPE": NESTED_STRATEGIES[nested](),
         "AUTH_LDAP_CACHE_TIMEOUT": 0,
         "ACCOUNTS_LDAP_ROLE_GROUPS": role_groups,
+        "ACCOUNTS_LDAP_FUNCTION_GROUPS": function_groups,
     }
 
 

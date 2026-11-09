@@ -121,6 +121,29 @@ STORAGES = {
 }
 WHITENOISE_MAX_AGE = 3600
 
+# --- Notifiche per email (Rev39, docs/SPEC.md §5.10) ---------------------------------
+# Senza EMAIL_HOST le notifiche sono spente (in sviluppo si stampano sulla console). Il server
+# SMTP è quello interno dell'azienda; nessun servizio esterno.
+EMAIL_HOST = env("EMAIL_HOST", default="")
+EMAIL_PORT = env.int("EMAIL_PORT", default=25)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=False)
+EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
+EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=10)
+EMAIL_BACKEND = (
+    "django.core.mail.backends.smtp.EmailBackend"
+    if EMAIL_HOST
+    else "django.core.mail.backends.console.EmailBackend"
+)
+DEFAULT_FROM_EMAIL = env("EMAIL_FROM", default="Registro contratti <noreply@localhost>")
+NOTIFICHE_EMAIL_ATTIVE = env.bool("NOTIFICHE_EMAIL_ATTIVE", default=bool(EMAIL_HOST))
+# Modalità di prova: con un indirizzo qui, tutte le email partono (davvero) solo a quell'indirizzo,
+# con scritto a chi sarebbero andate. Vuoto = invio normale.
+NOTIFICHE_PROVA_A = env("NOTIFICHE_PROVA_A", default="")
+# URL con cui l'interfaccia è raggiunta dagli utenti: serve ai link nelle email.
+APP_URL = env("APP_URL", default="").rstrip("/")
+
 # --- Connettore MCP (F10, docs/SPEC_MCP.md) ------------------------------------------
 # URL pubblico dell'host dedicato al connettore (es. https://mcp-contratti.esempio.it) e URL
 # interno dell'applicazione, dove l'utente fa login e autorizza (SPEC_MCP §2.1). Con

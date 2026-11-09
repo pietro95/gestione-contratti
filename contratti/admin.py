@@ -732,3 +732,19 @@ class ImportazioneAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(m.InvioEmail)
+class InvioEmailAdmin(SenzaCancellazione, admin.ModelAdmin):
+    """Registro delle email di notifica (Rev39): sola lettura."""
+
+    list_display = ("creata_il", "tipo", "destinatario", "oggetto", "esito")
+    list_filter = ("tipo", "esito")
+    search_fields = ("destinatario", "oggetto")
+    date_hierarchy = "creata_il"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

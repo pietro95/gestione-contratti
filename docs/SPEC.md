@@ -44,6 +44,7 @@ Storico revisioni:
 - Rev36 (05/11/2026): richiesta del responsabile del progetto, **approvata** il 05/11/2026. **Filtro «Sottocluster» a tendina ad albero** (§5.2, §5.4, §8.1), passo 2 di 3: in tutte le viste il filtro per cluster sparisce e resta quello per sottocluster, a **selezione multipla**. Ogni elemento è un **cluster espandibile** nei suoi sottocluster: si sceglie il cluster (tutti i suoi sottocluster, casella «parziale» se ne mancano) o i singoli sottocluster; «Tutti» e «I miei» li scelgono in blocco; resta sempre almeno un sottocluster scelto. **Di default** sono scelti **tutti i sottocluster dell'utente** (assegnazione al cluster intero: tutti quelli del cluster; limitata a un sottocluster: solo quello; nessuna assegnazione o TUTTI: tutti). Parametro `sottocluster` ripetuto (`?sottocluster=3&sottocluster=7`), `sottocluster=tutti` per tutti; il vecchio parametro `area` non esiste più. Con tutti i sottocluster scelti non si filtra niente (restano visibili anche le WBS a progetto). Elenco delle WBS e delle autorizzazioni extra budget: quelle dei sottocluster scelti più quelle con voci dei loro fabbisogni (nella vista di default, anche tutte le WBS a progetto). Budget assegnato: con più sottocluster il box somma gli assegnati. PDF, export e nomi dei file riportano i sottocluster. Il connettore MCP segue nel passo 3.
 - Rev37 (05/11/2026): richiesta del responsabile del progetto, **approvata** il 05/11/2026. **Connettore MCP sul sottocluster** (SPEC_MCP Rev15), passo 3 di 3: i tool di lettura filtrano per `sottocluster` (elenco di id, «tutti», di default i propri) al posto di `cluster`, come la tendina della GUI; `crea_fabbisogno`, `modifica_fabbisogno` e `registra_rda` indicano il sottocluster (Rev35). Con questo il filtro per cluster non esiste più né nella GUI né nel connettore.
 - Rev38 (06/11/2026): richiesta del responsabile del progetto, **approvata** il 06/11/2026 (la modifica della SPEC è autorizzata dal responsabile). **Il MIGO non si rilascia** (§5.9): nella lavorazione della fattura il rilascio su SAP vale per la RdC e per il MAP; il MIGO conta appena è registrato e non compare nella coda dei rilasci. Il passo `MAP/MIGO da rilasciare` diventa `MAP da rilasciare`.
+- Rev39 (09/11/2026): richiesta del responsabile del progetto, **bozza da approvare**. **Commento per PAC** (§5.9): lo scorporo dell'importo del documento comprende anche gli **altri importi non imputabili all'ufficio** (es. more), oltre a oneri e bollo. **Vista «Da gestire (dopo la convalida)»** per l'addetto amministrativo (§5.7): le sole fatture convalidate dal referente e non ancora trasferite. **Gruppi AD per le funzioni** (§8.1): «Addetto amministrativo» e «Addetto al rilascio» si leggono da due gruppi AD, come i ruoli; supera la scelta di Rev13 di assegnarle solo nell'applicazione e di Rev25 sui cluster «non con gruppi AD» limitatamente all'addetto amministrativo, che vale su tutti i cluster. **Notifiche per email** (§5.10): il portale invia email di avviso, che Rev13 escludeva («nessuna mail dal portale»); serve un server SMTP interno. Nuovo caso TC-26.
 
 ## 1. Obiettivo
 
@@ -425,6 +426,8 @@ Una RDA è **ferma** se è in `Inviata`, `Inserita` o `Rilasciata` da più dei g
 
 **Fatture da prendere in carico** (Rev15, per tutti i ruoli e su tutti i cluster, nel menu e in cima al cruscotto di ogni Admin ed Editor): fornitore, numero, data, importo, contratto proposto, **referente proposto**, giorni dalla registrazione; filtro «proposte a me», attivo di default per chi ha almeno una proposta; casella di selezione per riga e azioni sulle selezionate: «Prendi in carico» e «Fuori registro» (Admin ed Editor), «Assegna ai referenti proposti» (Admin e addetto: le fatture senza proposta restano nell'elenco e sono indicate). Nel cruscotto di ogni utente, le fatture **proposte a lui** sono in evidenza. L'elenco di tutte le fatture, con filtri per passo, referente, fornitore, contratto, è visibile a tutti. (Rev20) Senza una vista scelta, la pagina delle fatture si apre su «Da prendere in carico»; solo se tutte le fatture sono state prese in carico (nessuna da prendere in carico, né proposta a me né ad altri) si apre su **«Le mie fatture»**: le fatture da prendere in carico non proposte a me restano visibili, perché possono interessare. Per l'amministrazione acquisti (Admin e addetto) la pagina riporta anche il modulo dell'**import settimanale** delle fatture (§7), con anteprima e conferma come in Gestione → Import.
 
+**Fatture da gestire** (Rev39, vista «Da gestire (dopo la convalida)» nell'elenco delle fatture; è la vista di apertura per chi ha una funzione dell'addetto, amministrativo o al rilascio, e si apre da tutti): le fatture non trasferite, non fuori registro e **già convalidate dal referente**, cioè con il passo da fare `RdC da fare`, `RdC da rilasciare`, `MAP/MIGO da fare`, `MAP da rilasciare` o `Da trasferire`. Escluse quelle ancora da prendere in carico, da assegnare, da convalidare o bloccate. In cima le ferme, poi le più vecchie; filtro per passo e ricerca come le altre viste. Sola lettura per il Reader.
+
 **Le mie RDA** (ogni utente, sulle RDA di cui è referente; anche come scheda del cruscotto): fase, data della fase, giorni, numero SAP, contratto generato; in evidenza quelle in `Bozza` e `Da correggere`, che aspettano il referente. Accanto, le **mie fatture** (Rev15): quelle che l'utente ha in carico e non sono trasferite, con il passo da fare; in evidenza quelle da assegnare e da convalidare, che aspettano lui (le `Bloccate` no: aspettano la data del blocco).
 
 La vista **Stato delle RDA** (tutte le RDA, filtri per sottocluster, referente, fase, anno, fornitore, WBS) resta per tutti i ruoli.
@@ -484,13 +487,39 @@ WBS: <WBS, oppure -->
 Valore base prelevato da contratto: € <valore base>
 Oneri previdenziali: € <oneri>   (solo se ci sono)
 Bollo: € <bollo>                 (solo se c'è)
+Altri importi non imputabili all'ufficio (es. more): € <altri importi>   (solo se ci sono; Rev39)
 ```
+
+Lo scorporo dell'importo del documento è quindi: valore base (nostra competenza), oneri previdenziali, bollo e altri importi (more e simili) non imputabili all'ufficio; l'IVA non è nel commento.
 
 Conto, centro di costo e WBS sono quelli della voce della fattura, o dell'unica voce del contratto; con più voci e nessuna scelta si scrive `--`. Un numero non ancora registrato si scrive `(da registrare)`.
 
 I nomi dei campi SAP sono quelli dell'estrazione e del commento per PAC usati oggi; se ne mancano si aggiungono dopo (§9).
 
 I casi di verifica sono in `docs/TEST_CASES.md`, TC-17, TC-18 e TC-25.
+
+### 5.10 Notifiche per email (Rev39)
+
+Il portale invia email **di avviso**, mai a nome di un utente e sempre con il link alla pagina da cui lavorare. Non sostituiscono lo stato nel portale (le viste e i cruscotti restano il riferimento): servono a non dover controllare. Ogni messaggio parte da `no-reply`, è in sola lettura, **uno per destinatario**, ed è registrato (a chi, quando, esito) in «Email di notifica» nell'amministrazione. Chi ha fatto l'azione non riceve l'email che la riguarda. Gli **indirizzi si leggono da LDAP** (attributo `mail`, con l'account di servizio del login) al momento dell'invio, quindi anche per chi non ha mai fatto accesso; se LDAP è spento o non risponde vale l'indirizzo salvato nell'utente. Gli utenti senza indirizzo sono saltati. Un errore di spedizione non blocca mai l'operazione. Senza server SMTP configurato (`EMAIL_HOST`) le notifiche sono spente. **Modalità di prova**: con `NOTIFICHE_PROVA_A` le email partono davvero ma solo a quell'indirizzo, con l'oggetto `[PROVA → destinatario]` e il nome del destinatario vero nel testo.
+
+| Evento | Destinatari |
+|---|---|
+| Richiesta di RDA inviata dal referente (anche dopo un rimando) | addetto amministrativo |
+| RDA inserita in SAP (numero riportato), in attesa di rilascio | addetto al rilascio |
+| RdC o MAP di una fattura registrato, da rilasciare (il MIGO non si rilascia) | addetto al rilascio |
+| **Promemoria dei rilasci in attesa** (RDA, RdC, MAP), ogni giorno lavorativo e solo se ce ne sono | addetto al rilascio |
+| **Promemoria dei contratti in scadenza** (alert rosso, arancione, giallo del cruscotto), una volta a settimana, un messaggio per referente con i suoi contratti | referente (utente) del fabbisogno |
+| **Nuove fatture da prendere in carico**, a ogni caricamento che ne genera (§7) | Admin ed Editor con un indirizzo |
+| Richiesta di RDA rimandata dall'addetto, con la nota | referente della RDA |
+| Fattura assegnata o riassegnata a un referente | quel referente |
+| Fattura convalidata dal referente (RdC e MAP/MIGO da fare) | addetto amministrativo |
+
+- **Caricamento delle fatture** (§7): nella pagina dell'anteprima, accanto a «Conferma l'import», una spunta «Avvisa per email gli utenti» attiva di default, con il numero di fatture nuove e di destinatari; togliendola non parte nessun avviso. L'email parte solo se la conferma ha creato fatture nuove. L'avviso va a **Admin ed Editor**, gli utenti che possono prendere in carico una fattura: il Reader non può agire e non lo riceve (deviazione dalla lettera «a tutti gli utenti», da confermare).
+- **Promemoria periodici**: li prepara `manage.py invia_promemoria` (`--dry-run` mostra i messaggi senza spedirli), lanciato ogni giorno lavorativo dal container `notifiche`. Ogni promemoria ha un periodo: rilasci, un messaggio al giorno; scadenze, uno a settimana; rilanciare il comando nello stesso periodo non rimanda niente. I contratti il cui fabbisogno ha solo il referente scritto a testo (senza utente) non hanno destinatario.
+- **Destinatari per funzione**: gli utenti con la funzione (§8.1), Admin ed Editor.
+- Il connettore MCP usa gli stessi servizi: le azioni fatte da Claude (invio, dati SAP, convalida, documenti, riassegnazione) producono le stesse email; gli import non passano dal connettore.
+
+I casi di verifica sono in `docs/TEST_CASES.md`, TC-26 e `tests/test_notifiche.py`.
 
 ## 6. Perimetro funzionale
 
@@ -584,6 +613,8 @@ Import dall'interfaccia (Gestione → Import), con lo stesso codice dei comandi 
     - `GG_Contratti_Editor` → scrittura;
     - `GG_Contratti_Reader` → sola lettura (Procurement, Controllo di gestione).
 
+    (Rev39) Due gruppi facoltativi danno le **funzioni** dell'addetto, non sono ruoli: `GG_Contratti_Addetto_Amministrativo` → funzione «Amministrazione acquisti»; `GG_Contratti_Addetto_Rilascio` → funzione «Addetto al rilascio». Chi è in uno di questi gruppi entra anche senza il gruppo Editor e, se era solo Reader, lavora con il ruolo Editor (altrimenti non potrebbe scrivere); i gruppi si leggono a ogni login e, tolti, la funzione si perde al login successivo.
+
     I nomi dei gruppi sono configurabili.
   - Un utente che non appartiene a nessuno dei tre gruppi non entra; se aveva già un utente, perde ruolo e privilegi.
   - Con più gruppi vale il ruolo più alto (Admin > Editor > Reader). L'annidamento dei gruppi è configurabile (matching rule AD, ricorsivo, nessuno).
@@ -593,7 +624,7 @@ Import dall'interfaccia (Gestione → Import), con lo stesso codice dei comandi 
   - (Rev25) un'assegnazione può essere **limitata a un sottocluster**: senza sottocluster vale per tutto il cluster; con il sottocluster, solo per i fabbisogni, i contratti e le RDA di quel sottocluster (le RDA hanno il sottocluster, di norma quello del fabbisogno della pratica). La visibilità resta per cluster;
   - l'Editor modifica solo i fabbisogni e i contratti dei cluster assegnati; spostare o accorpare tra cluster diversi richiede il permesso su entrambi. I fornitori sono in comune;
   - ogni utente vede di default i propri **sottocluster** (cruscotto, elenchi, budget, piano ordini, Spese per WBS); gli altri a richiesta, in lettura, dalla tendina ad albero (Rev36, che sostituisce il filtro per cluster del Rev26). Chi non ha assegnazioni vede tutto;
-  - **funzione «Amministrazione acquisti»** (Rev13): si assegna per nome utente di dominio, come i cluster (amministrazione o import della struttura); un'assegnazione tolta si archivia. Non è un ruolo e non dà permessi: chi la ha è di norma Editor con cluster `TUTTI`. Decide il cruscotto e le viste di default (RDA da processare, fatture da lavorare). I campi da SAP della RDA, le fatture e i documenti di esecuzione li può scrivere ogni Editor del cluster, quindi anche il referente;
+  - **funzione «Amministrazione acquisti»** (Rev13, rivista in Rev39): arriva dal gruppo AD dell'addetto amministrativo (sopra); in assenza di AD (sviluppo) e per prove si può ancora assegnare per nome utente di dominio dall'amministrazione, un'assegnazione tolta si archivia. Chi la ha lavora su **tutti i cluster** senza una assegnazione `TUTTI` a parte (Rev39), ma non è un ruolo e non dà permessi da sola: serve il ruolo Editor, che il gruppo AD della funzione dà al login. Lo stesso per la funzione «Addetto al rilascio», che non estende i cluster. Decide il cruscotto e le viste di default (RDA da processare, fatture da lavorare). I campi da SAP della RDA, le fatture e i documenti di esecuzione li può scrivere ogni Editor del cluster, quindi anche il referente;
   - **transizione**: finché non è mai stata registrata un'assegnazione, gli Editor modificano tutti i cluster; dalla prima assegnazione valgono le regole per cluster, anche se in seguito le assegnazioni si archiviano.
   - Un solo account locale di emergenza (break-glass), con password lunga (almeno 24 caratteri) custodita fuori dall'applicazione.
   - Tutti i parametri LDAP arrivano da variabili d'ambiente. Senza server LDAP configurato vale solo il login locale (sviluppo).

@@ -7,7 +7,7 @@ from django.contrib.auth.models import Group
 from django_auth_ldap.backend import LDAPBackend
 
 from accounts.models import LoginAttempt
-from accounts.roles import ADMIN, ROLES, highest_role
+from accounts.roles import ADMIN, EDITOR, FUNZIONI, ROLES, highest_role
 
 # Attributo della request in cui i backend lasciano il motivo di un rifiuto,
 # letto dal gestore di ``user_login_failed`` per il log.
@@ -38,9 +38,20 @@ class RoleLDAPBackend(LDAPBackend):
         role_groups = settings.ACCOUNTS_LDAP_ROLE_GROUPS
         return highest_role(role for role in ROLES if groups.is_member_of(role_groups[role]))
 
+    def resolve_functions(self, ldap_user):
+        """Funzioni (Addetto amministrativo, Addetto al rilascio) dai gruppi AD, se configurati."""
+        groups = ldap_user._get_groups()
+        configurati = getattr(settings, "ACCOUNTS_LDAP_FUNCTION_GROUPS", {})
+        return {f for f, dn in configurati.items() if groups.is_member_of(dn)}
+
     def get_or_build_user(self, username, ldap_user):
         # Qui le credenziali sono già verificate e l'utente Django non è ancora salvato.
         role = self.resolve_role(ldap_user)
+        funzioni = self.resolve_functions(ldap_user)
+        if funzioni and role not in (ADMIN, EDITOR):
+            # Le funzioni dell'addetto servono a scrivere: il gruppo AD della funzione basta
+            # per entrare con il ruolo Editor (Rev39), senza il gruppo Editor in più.
+            role = EDITOR
         if role is None:
             set_failure_reason(ldap_user._request, LoginAttempt.Esito.NESSUN_GRUPPO)
             _revoke_role(username)
@@ -50,12 +61,14 @@ class RoleLDAPBackend(LDAPBackend):
             # L'account di emergenza è solo locale: un omonimo in AD non lo tocca.
             raise ldap_user.AuthenticationFailed("omonimo dell'account break-glass")
         ldap_user.accounts_role = role
+        ldap_user.accounts_functions = funzioni
         return user, built
 
     def authenticate_ldap_user(self, ldap_user, password):
         user = super().authenticate_ldap_user(ldap_user, password)
         if user is not None:
             _apply_role(user, ldap_user.accounts_role)
+            _apply_functions(user, getattr(ldap_user, "accounts_functions", set()))
         return user
 
 
@@ -70,11 +83,22 @@ def _apply_role(user, role):
     user.groups.add(Group.objects.get(name=role))
 
 
+def _apply_functions(user, funzioni):
+    """Allinea i gruppi Django delle funzioni a quelli AD: toglie quelle che non ci sono più."""
+    for nome in FUNZIONI:
+        gruppo, _ = Group.objects.get_or_create(name=nome)
+        if nome in funzioni:
+            user.groups.add(gruppo)
+        else:
+            user.groups.remove(gruppo)
+    user._funzioni_gruppi_cache = None
+
+
 def _revoke_role(username):
     user = get_user_model().objects.filter(username__iexact=username, is_breakglass=False).first()
     if user is None:
         return
-    user.groups.remove(*Group.objects.filter(name__in=ROLES))
+    user.groups.remove(*Group.objects.filter(name__in=[*ROLES, *FUNZIONI]))
     if user.is_staff or user.is_superuser:
         user.is_staff = user.is_superuser = False
         user.save(update_fields=["is_staff", "is_superuser"])

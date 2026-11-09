@@ -743,3 +743,36 @@ Bollo: € 2,00
 ```
 
 **Senza contratto o senza numero di contratto**: `Contratto --.` nelle indicazioni, `Contratto: --` nella prima riga del commento.
+
+
+---
+
+## TC-26 — Altri importi nel commento per PAC e notifiche per email
+
+SPEC §5.9 e §5.10 (Rev39, bozza da approvare). Aggiunge un caso a TC-18 e TC-25 senza cambiarli; i test sono `tests/engine/test_tc18_fatture.py`, `tests/test_tc18_fatture.py` e `tests/test_notifiche.py`.
+
+**(a) Altri importi nel commento per PAC.** Stessi dati di TC-25 con altri importi (es. more) di 12,34: il commento è quello di TC-25 con in coda
+
+```
+Altri importi non imputabili all'ufficio (es. more): € 12,34
+```
+
+Con altri importi assenti o a zero il commento è identico a TC-25.
+
+**(b) Destinatari.** Con un addetto amministrativo (gruppo AD), un addetto al rilascio (assegnazione locale), un referente, un altro Editor, un Reader e un Editor senza indirizzo: l'addetto amministrativo è uno solo anche se ha gruppo e assegnazione; «tutti» sono i quattro Admin/Editor con indirizzo.
+
+**(c) Eventi.**
+| Azione | Email |
+|---|---|
+| il referente invia la RDA | all'addetto amministrativo |
+| l'addetto la rimanda con la nota «Manca il CIG» | al referente, con la nota |
+| l'addetto riporta il numero SAP | all'addetto al rilascio; una correzione successiva non ne manda un'altra |
+| la fattura diventa convalidabile | all'addetto amministrativo, una sola volta |
+| si registra una RdC o un MAP | all'addetto al rilascio; per un MIGO nessuna |
+| la fattura è riassegnata | al nuovo referente |
+| conferma dell'import con 3 fatture nuove e spunta | agli Admin/Editor con indirizzo, tranne chi ha caricato |
+| conferma senza spunta, o senza fatture nuove | nessuna |
+
+**(d) Promemoria.** Rilasci in attesa: un messaggio al giorno all'addetto al rilascio, solo se c'è qualcosa; rilanciato lo stesso giorno non rimanda niente, il giorno dopo sì; nessun invio di sabato e domenica. Contratti in scadenza: un messaggio a settimana per referente (utente) con i soli suoi contratti rossi, arancioni e gialli; il contratto con il referente solo a testo non genera niente.
+
+**(e) Funzioni dai gruppi AD.** Un utente solo nel gruppo dell'addetto amministrativo entra come Editor, ha la funzione e lavora su tutti i cluster; un utente Reader e nel gruppo dell'addetto al rilascio diventa Editor e rilascia; tolto il gruppo, al login successivo perde funzione e ruolo.

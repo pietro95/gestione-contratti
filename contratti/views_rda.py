@@ -377,7 +377,9 @@ def rda_dati_sap(request, pk):
     return _azione(
         request,
         pk,
-        lambda r: acquisti.aggiorna_dati_sap(r, d["numero_rda"], d["data_inserimento"]),
+        lambda r: acquisti.aggiorna_dati_sap(
+            r, d["numero_rda"], d["data_inserimento"], request.user
+        ),
         "Dati SAP registrati.",
     )
 

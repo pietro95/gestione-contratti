@@ -340,3 +340,20 @@ def test_form_fornitore_alias_in_conflitto(tmp_path):
         instance=altro,
     )
     assert form.is_valid() and form.cleaned_data["alias_sap"] == "TIM SPA"
+
+
+def test_pac_dalla_fattura_con_altri_importi(registro, tmp_path):
+    """Rev39 (TC-26): l'importo registrato come «altri importi» arriva nel commento per PAC e
+    nei campi dell'addetto."""
+    importa_fatture(file_tc18(tmp_path), oggi=OGGI)
+    f13 = _fattura("13/2026")
+    fatture.assegna_contratto(f13, registro["cs"])
+    f13 = _fattura("13/2026")
+    f13.valore_base, f13.oneri, f13.bollo = Decimal("1504.17"), Decimal("173.66"), Decimal("2.00")
+    f13.altri_importi = Decimal("0.00")
+    assert fatture.commento_pac(f13).splitlines()[-1] == "Bollo: € 2,00"
+    f13.altri_importi = Decimal("12.34")
+    assert fatture.commento_pac(f13).splitlines()[-1] == (
+        "Altri importi non imputabili all'ufficio (es. more): € 12,34"
+    )
+    assert ("Altri importi non imputabili", "12,34") in fatture.campi_addetto(f13)

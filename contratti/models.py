@@ -2505,3 +2505,31 @@ class Importazione(models.Model):
 
     def __str__(self):
         return f"{self.nome_file} ({self.caricata_il:%d/%m/%Y %H:%M})"
+
+
+class InvioEmail(models.Model):
+    """Registro delle email di notifica (Rev39): una riga per destinatario.
+
+    Serve a vedere cosa è partito, a chi e con quale esito, e a non ripetere i promemoria
+    periodici (la ``chiave`` identifica il promemoria di un periodo). Nessuna cancellazione.
+    """
+
+    class Esito(models.TextChoices):
+        INVIATA = "inviata", "inviata"
+        ERRORE = "errore", "errore"
+
+    creata_il = models.DateTimeField(auto_now_add=True, db_index=True)
+    tipo = models.CharField(max_length=40, db_index=True)
+    destinatario = models.EmailField()
+    oggetto = models.CharField(max_length=250)
+    esito = models.CharField(max_length=10, choices=Esito.choices)
+    errore = models.TextField(blank=True)
+    chiave = models.CharField(max_length=120, blank=True, db_index=True)
+
+    class Meta:
+        verbose_name = "email di notifica"
+        verbose_name_plural = "email di notifica"
+        ordering = ["-creata_il", "-pk"]
+
+    def __str__(self):
+        return f"{self.creata_il:%d/%m/%Y %H:%M} {self.tipo} → {self.destinatario}"
