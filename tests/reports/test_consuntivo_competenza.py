@@ -32,11 +32,14 @@ def _consuntivo(anno):
     return budget.totali()["totale"]["consuntivo"][Livello.FISSO]
 
 
-def _fattura(c, **kw):
+def _fattura(c, rata=None, rate=(), **kw):
     kw.setdefault("numero", "F1")
     kw.setdefault("data", D(2026, 1, 15))
     kw.setdefault("importo_documento", Decimal("1220.00"))
-    return m.Fattura.objects.create(fornitore=c.fornitore, contratto=c, **kw)
+    fattura = m.Fattura.objects.create(fornitore=c.fornitore, contratto=c, **kw)
+    for r in [rata, *rate] if rata else rate:
+        m.Rata.objects.filter(pk=r.pk).update(fattura=fattura)
+    return fattura
 
 
 def test_senza_fatture_il_consuntivo_e_la_rata(scenario):

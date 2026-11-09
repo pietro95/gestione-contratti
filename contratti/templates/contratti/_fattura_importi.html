@@ -1,6 +1,6 @@
 {% load registro %}
     <section class="card mb-4" aria-labelledby="t-importi"><div class="card-body">
-      <h2 class="h6 text-uppercase text-body-secondary" id="t-importi">2 · Importi e rata</h2>
+      <h2 class="h6 text-uppercase text-body-secondary" id="t-importi">2 · Importi e rate</h2>
       {% if puo_lavorare %}
       <form method="post" action="{% url 'contratti:fattura_importi' f.pk %}" class="row g-2" novalidate>
         {% csrf_token %}
@@ -15,7 +15,10 @@
         <div class="col-sm-6 col-lg-3"><label class="form-label" for="{{ form_importi.competenza_al.id_for_label }}">Competenza al</label>{{ form_importi.competenza_al }}</div>
         <div class="col-12 col-lg-6 form-text align-self-end">{{ form_importi.competenza_dal.help_text }}</div>
         {% if form_importi.voce %}<div class="col-sm-6"><label class="form-label" for="{{ form_importi.voce.id_for_label }}">Voce</label>{{ form_importi.voce }}</div>
-        <div class="col-sm-6"><label class="form-label" for="{{ form_importi.rata.id_for_label }}">Rata dello scadenzario</label>{{ form_importi.rata }}<div class="form-text">{{ form_importi.rata.help_text }}</div></div>{% endif %}
+        <fieldset class="col-12"><legend class="form-label fs-6 mb-1">{{ form_importi.rate.label }}</legend>
+          {% if form_importi.rate.field.queryset %}<div class="border rounded p-2 rate-fattura" style="max-height:12rem;overflow:auto">{% for opzione in form_importi.rate %}<div class="form-check"><input type="checkbox" class="form-check-input" name="{{ opzione.data.name }}" value="{{ opzione.data.value }}" id="{{ opzione.id_for_label }}"{% if opzione.data.selected %} checked{% endif %}><label class="form-check-label" for="{{ opzione.id_for_label }}">{{ opzione.choice_label }}</label></div>{% endfor %}</div>
+          {% else %}<p class="text-body-secondary mb-0">Nessuna rata libera nello scadenzario del contratto.</p>{% endif %}
+          <div class="form-text">{{ form_importi.rate.help_text }}</div></fieldset>{% endif %}
         <fieldset class="col-12 border rounded p-2 mt-2"><legend class="fs-6 float-none w-auto px-1 mb-0">Imputazione della fattura, se diversa dalla voce</legend>
           <div class="row g-2">
             <div class="col-md-4"><label class="form-label" for="{{ form_importi.conto.id_for_label }}">Conto COGE</label>{{ form_importi.conto }}</div>
@@ -28,6 +31,6 @@
           {% for a in aliquote_iva %}<button class="btn btn-outline-secondary" type="submit" name="scorporo" value="{{ a|stringformat:"s" }}" title="Valore base e IVA dall'importo del documento, tolti oneri, bollo e altri importi indicati">Scorpora IVA {{ a|floatformat:"-2" }}%</button>{% endfor %}</div>
       </form>
       {% else %}
-      <dl class="dati mb-0"><dt>Valore base</dt><dd>{{ f.valore_base|euro }}</dd><dt>Oneri</dt><dd>{{ f.oneri|euro }}</dd><dt>Bollo</dt><dd>{{ f.bollo|euro }}</dd><dt>IVA</dt><dd>{{ f.iva|euro }}</dd>{% if f.imponibile_senza_iva %}<dt>Di cui a IVA 0 (inversione contabile)</dt><dd>{{ f.imponibile_senza_iva|euro }}</dd>{% endif %}<dt>Altri importi non imputabili all'ufficio</dt><dd>{{ f.altri_importi|euro }}</dd>{% if f.conto or f.centro_costo or f.wbs %}<dt>Imputazione della fattura</dt><dd>COGE {{ f.conto.codice|default:"--" }}, CDC {{ f.centro_costo|default:"--" }}, WBS {{ f.wbs.codice_wbs|default:"--" }}</dd>{% endif %}<dt>Competenza</dt><dd>{% if f.competenza_dal %}dal {{ f.competenza_dal|date:"d/m/Y" }} al {{ f.competenza_al|date:"d/m/Y" }}{% else %}—{% endif %}</dd><dt>Rata</dt><dd>{{ f.rata|default:"—" }}</dd></dl>
+      <dl class="dati mb-0"><dt>Valore base</dt><dd>{{ f.valore_base|euro }}</dd><dt>Oneri</dt><dd>{{ f.oneri|euro }}</dd><dt>Bollo</dt><dd>{{ f.bollo|euro }}</dd><dt>IVA</dt><dd>{{ f.iva|euro }}</dd>{% if f.imponibile_senza_iva %}<dt>Di cui a IVA 0 (inversione contabile)</dt><dd>{{ f.imponibile_senza_iva|euro }}</dd>{% endif %}<dt>Altri importi non imputabili all'ufficio</dt><dd>{{ f.altri_importi|euro }}</dd>{% if f.conto or f.centro_costo or f.wbs %}<dt>Imputazione della fattura</dt><dd>COGE {{ f.conto.codice|default:"--" }}, CDC {{ f.centro_costo|default:"--" }}, WBS {{ f.wbs.codice_wbs|default:"--" }}</dd>{% endif %}<dt>Competenza</dt><dd>{% if f.competenza_dal %}dal {{ f.competenza_dal|date:"d/m/Y" }} al {{ f.competenza_al|date:"d/m/Y" }}{% else %}—{% endif %}</dd><dt>Rate</dt><dd>{% for r in f.rate.all %}{{ r }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</dd></dl>
       {% endif %}
     </div></section>

@@ -123,9 +123,12 @@ def invia(
     *,
     escludi=None,
     chiave: str = "",
+    conoscenza: Iterable = (),
 ) -> int:
     """Spedisce l'email a ciascun destinatario e la registra; restituisce quante sono partite.
 
+    ``conoscenza`` sono gli utenti che ricevono lo stesso messaggio per conoscenza (il referente
+    della fattura): se sono già destinatari non ricevono un secondo messaggio.
     ``escludi`` è l'utente che ha fatto l'azione. Con una ``chiave`` il messaggio non si
     rimanda allo stesso destinatario (promemoria dello stesso giorno o della stessa settimana).
     """
@@ -135,6 +138,13 @@ def invia(
     candidati = [
         u for u in _attivi(destinatari) if escludi is None or u.pk != getattr(escludi, "pk", None)
     ]
+    principali = {u.pk for u in candidati}
+    per_conoscenza = {
+        u.pk
+        for u in _attivi(conoscenza)
+        if u.pk not in principali and (escludi is None or u.pk != getattr(escludi, "pk", None))
+    }
+    candidati += [u for u in _attivi(conoscenza) if u.pk in per_conoscenza]
     if not candidati:
         # Nessun destinatario (nessuno con la funzione, o c'è solo chi ha agito): si vede nel log.
         log.warning("Email %s non inviata: nessun destinatario (%s)", tipo, oggetto)
@@ -145,6 +155,11 @@ def invia(
     visti: set[str] = set()
     for utente in candidati:
         email = indirizzi.get(utente.pk, "")
+        cc = utente.pk in per_conoscenza
+        testo_base = (
+            f"Per conoscenza: sei il referente di questa fattura.\n\n{corpo}" if cc else corpo
+        )
+        oggetto_inviato = f"{oggetto} (per conoscenza)" if cc else oggetto
         if prova:
             # Modalità di prova: l'email parte davvero, ma solo all'indirizzo di prova, con
             # scritto a chi sarebbe andata. Nessuna chiave: non consuma i promemoria veri.
@@ -152,8 +167,10 @@ def invia(
                 continue
             visti.add(utente.pk)
             a_chi = email or "nessun indirizzo, non partirebbe"
-            soggetto = f"[PROVA → {a_chi}] {PREFISSO_OGGETTO} {oggetto}"
-            testo = f"[PROVA] Questa email sarebbe andata a: {utente} ({a_chi}).\n\n{corpo}{FIRMA}"
+            soggetto = f"[PROVA → {a_chi}] {PREFISSO_OGGETTO} {oggetto_inviato}"
+            testo = (
+                f"[PROVA] Questa email sarebbe andata a: {utente} ({a_chi}).\n\n{testo_base}{FIRMA}"
+            )
             destinatario, chiave_invio = prova, ""
         else:
             if not email:
@@ -162,7 +179,7 @@ def invia(
                 m.InvioEmail.objects.create(
                     tipo=tipo,
                     destinatario=f"{utente.get_username()} (nessun indirizzo)",
-                    oggetto=f"{PREFISSO_OGGETTO} {oggetto}"[:250],
+                    oggetto=f"{PREFISSO_OGGETTO} {oggetto_inviato}"[:250],
                     esito=m.InvioEmail.Esito.ERRORE,
                     errore="Nessun indirizzo in LDAP né salvato per questo utente.",
                     chiave=chiave,
@@ -178,8 +195,8 @@ def invia(
                 ).exists()
             ):
                 continue
-            soggetto = f"{PREFISSO_OGGETTO} {oggetto}"
-            testo = corpo + FIRMA
+            soggetto = f"{PREFISSO_OGGETTO} {oggetto_inviato}"
+            testo = testo_base + FIRMA
             destinatario, chiave_invio = email, chiave
         registro = m.InvioEmail(
             tipo=tipo, destinatario=destinatario, oggetto=soggetto[:250], chiave=chiave_invio
@@ -293,6 +310,7 @@ def documento_da_rilasciare(documento: m.DocumentoEsecuzione, utente=None) -> in
         f"{documento.get_tipo_display()} {documento.numero} da rilasciare",
         corpo,
         escludi=utente,
+        conoscenza=[fattura.referente] if fattura.referente_id else [],
     )
 
 
@@ -348,4 +366,5 @@ def fattura_convalidata(fattura: m.Fattura, utente=None) -> int:
         f"Fattura {fattura.numero} convalidata: RdC da fare",
         corpo,
         escludi=utente,
+        conoscenza=[fattura.referente] if fattura.referente_id else [],
     )

@@ -268,9 +268,10 @@ def fattura(ctx: Contesto, argomenti: dict) -> dict:
         if f.valore_base is None
         else None,
         "voce": {"id": f.voce.pk, "descrizione": f.voce.descrizione} if f.voce_id else None,
-        "rata": {"id": f.rata.pk, "numero": f.rata.numero, "data_fattura": f.rata.data_fattura}
-        if f.rata_id
-        else None,
+        "rate": [
+            {"id": r.pk, "numero": r.numero, "data_fattura": r.data_fattura}
+            for r in sorted(f.rate.all(), key=lambda r: (r.piano.voce_id, r.numero))
+        ],
         "presa_in_carico_il": f.data_presa_in_carico,
         "convalida": {
             "esito": f.get_esito_convalida_display(),

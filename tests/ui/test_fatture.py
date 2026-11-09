@@ -457,8 +457,8 @@ def test_schede_per_ruolo(scenario, make_user):
         return c.get(url).content.decode()
 
     v = pagina("validatore")
-    assert "Convalida del referente" in v and "Importi e rata" in v
-    assert v.index("Importi e rata") < v.index("Convalida del referente")
+    assert "Convalida del referente" in v and "Importi e rate" in v
+    assert v.index("Importi e rate") < v.index("Convalida del referente")
     assert "Bloccato: con il contratto" in v and "cambia-fornitore" not in v
     assert "Avanzamento amministrativo" in v and "5100000009" in v
     assert "Commento per PAC" not in v and "Campi da copiare" not in v
@@ -466,7 +466,7 @@ def test_schede_per_ruolo(scenario, make_user):
 
     a = pagina("addetto")
     assert "Commento per PAC" in a and "Campi da copiare" in a and "data-copia-testo" in a
-    assert "Convalida del referente" not in a and "Importi e rata" not in a
+    assert "Convalida del referente" not in a and "Importi e rate" not in a
     assert "Cambia fornitore" not in a and "cambia-referente" in a
 
 

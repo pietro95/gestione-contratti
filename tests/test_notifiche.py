@@ -172,7 +172,10 @@ def test_documento_da_rilasciare_avvisa_l_addetto_al_rilascio(
     fa = fattura_in_lavorazione
     with django_capture_on_commit_callbacks(execute=True):
         fatture.registra_documento(fa, Tipo.ODA, "4600000001", D(2026, 11, 3), utente=utenti["amm"])
-    assert destinatari() == ["ril@esempio.test"]
+    # All'addetto al rilascio, e per conoscenza al referente della fattura.
+    assert destinatari() == ["ref@esempio.test", "ril@esempio.test"]
+    cc = next(msg for msg in mail.outbox if msg.to == ["ref@esempio.test"])
+    assert cc.subject.endswith("(per conoscenza)") and "Per conoscenza" in cc.body
     mail.outbox.clear()
     with django_capture_on_commit_callbacks(execute=True):
         fatture.registra_documento(
@@ -250,16 +253,19 @@ def test_promemoria_rilasci_solo_se_ce_qualcosa(utenti, fattura_in_lavorazione):
     oggi = D(2026, 11, 9)
     assert promemoria.messaggi_rilasci(oggi) == []
     fatture.registra_documento(fattura_in_lavorazione, Tipo.ODA, "4600000001", D(2026, 11, 2))
-    [msg] = promemoria.messaggi_rilasci(oggi)
+    msg, per_conoscenza = promemoria.messaggi_rilasci(oggi)
     assert "4600000001" in msg.corpo and msg.chiave == "2026-11-09"
+    assert [u.username for u in per_conoscenza.destinatari] == ["ref"]
+    assert "Per conoscenza" in per_conoscenza.corpo and "4600000001" in per_conoscenza.corpo
     out = StringIO()
     call_command("invia_promemoria", "--tipo", "rilasci", "--oggi", "2026-11-09", stdout=out)
-    assert destinatari() == ["ril@esempio.test"]
+    # All'addetto al rilascio e, per conoscenza, al referente della fattura.
+    assert destinatari() == ["ref@esempio.test", "ril@esempio.test"]
     # Stesso giorno: non si rimanda. Il giorno dopo sì.
     call_command("invia_promemoria", "--tipo", "rilasci", "--oggi", "2026-11-09", stdout=out)
-    assert len(mail.outbox) == 1
-    call_command("invia_promemoria", "--tipo", "rilasci", "--oggi", "2026-11-10", stdout=out)
     assert len(mail.outbox) == 2
+    call_command("invia_promemoria", "--tipo", "rilasci", "--oggi", "2026-11-10", stdout=out)
+    assert len(mail.outbox) == 4
 
 
 def test_promemoria_nel_fine_settimana_e_dry_run(utenti, fattura_in_lavorazione):
@@ -350,11 +356,13 @@ def test_prova_non_consuma_i_promemoria_veri(utenti, settings, fattura_in_lavora
     settings.NOTIFICHE_PROVA_A = "pietro@esempio.test"
     call_command("invia_promemoria", "--tipo", "rilasci", "--oggi", "2026-11-09", stdout=StringIO())
     call_command("invia_promemoria", "--tipo", "rilasci", "--oggi", "2026-11-09", stdout=StringIO())
-    assert destinatari() == ["pietro@esempio.test"] * 2  # in prova si ripete
+    # In prova si ripete, e ogni lancio manda due messaggi (addetto al rilascio e referente).
+    assert destinatari() == ["pietro@esempio.test"] * 4
     settings.NOTIFICHE_PROVA_A = ""
     mail.outbox.clear()
     call_command("invia_promemoria", "--tipo", "rilasci", "--oggi", "2026-11-09", stdout=StringIO())
-    assert destinatari() == ["ril@esempio.test"]  # il promemoria vero parte comunque
+    # Il promemoria vero parte comunque: all'addetto e, per conoscenza, al referente.
+    assert destinatari() == ["ref@esempio.test", "ril@esempio.test"]
 
 
 def test_comando_con_prova_a(utenti, settings, fattura_in_lavorazione):
@@ -364,7 +372,7 @@ def test_comando_con_prova_a(utenti, settings, fattura_in_lavorazione):
         "invia_promemoria", "--tipo", "rilasci", "--oggi", "2026-11-09",
         "--prova-a", "io@esempio.test", stdout=out,
     )  # fmt: skip
-    assert destinatari() == ["io@esempio.test"] and "PROVA" in out.getvalue()
+    assert destinatari() == ["io@esempio.test"] * 2 and "PROVA" in out.getvalue()
 
 
 def test_destinatario_senza_indirizzo_lascia_traccia(utenti, caplog):
@@ -395,3 +403,38 @@ def test_comando_destinatari(utenti):
     testo = out.getvalue()
     assert "Addetti amministrativi (1)" in testo and "amm → amm@esempio.test" in testo
     assert "senzamail → NESSUN INDIRIZZO" in testo
+
+
+def test_convalida_di_un_admin_avvisa_addetto_e_referente_per_conoscenza(
+    utenti, fattura_in_lavorazione, make_user, django_capture_on_commit_callbacks
+):
+    """Rev39: tutte le email del processo di fattura vanno anche al referente, per conoscenza.
+    Chi agisce non riceve la propria: se convalida il referente, non gli si riscrive."""
+    admin = make_user("admin", role="Admin", email="admin@esempio.test")
+    with django_capture_on_commit_callbacks(execute=True):
+        fatture.convalida(fattura_in_lavorazione, "convalidabile", utente=admin)
+    assert destinatari() == ["amm@esempio.test", "ref@esempio.test"]
+    cc = next(msg for msg in mail.outbox if msg.to == ["ref@esempio.test"])
+    assert cc.subject.endswith("(per conoscenza)")
+    assert "sei il referente di questa fattura" in cc.body
+    principale = next(msg for msg in mail.outbox if msg.to == ["amm@esempio.test"])
+    assert "per conoscenza" not in principale.subject
+
+
+def test_referente_che_e_anche_destinatario_riceve_un_solo_messaggio(utenti):
+    """Il referente che è già tra i destinatari non riceve un secondo messaggio per conoscenza."""
+    assert (
+        notifiche.invia(
+            "prova", [utenti["ref"], utenti["amm"]], "Oggetto", "Corpo", conoscenza=[utenti["ref"]]
+        )
+        == 2
+    )
+    assert destinatari() == ["amm@esempio.test", "ref@esempio.test"]
+    assert not any("per conoscenza" in msg.subject for msg in mail.outbox)
+
+
+def test_per_conoscenza_in_modalita_di_prova(utenti, settings):
+    settings.NOTIFICHE_PROVA_A = "pietro@esempio.test"
+    notifiche.invia("prova", [utenti["amm"]], "Oggetto", "Corpo", conoscenza=[utenti["ref"]])
+    assert destinatari() == ["pietro@esempio.test"] * 2
+    assert any("[PROVA → ref@esempio.test]" in msg.subject for msg in mail.outbox)

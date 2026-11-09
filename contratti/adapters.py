@@ -209,13 +209,26 @@ def _consuntivi_contratto(
     per_voce: dict[int, list[Consuntivo]] = {v.pk: [] for v in voci}
     principale = next((v for v in voci if not v.proroga_id), voci[0] if voci else None)
     fatture = list(contratto.fatture.all())
-    con_fattura = {f.rata_id for f in fatture if f.rata_id and not f.archiviato}
+    # Rate coperte da ogni fattura (Rev41): una fattura può coprirne più d'una. Dalle rate già
+    # caricate con le voci, nessuna query in più.
+    rate_di_fattura: dict[int, list[m.Rata]] = {}
+    for v in voci:
+        piano = getattr(v, "piano_fatturazione", None)
+        for r in sorted(piano.rate.all(), key=lambda r: r.numero) if piano else ():
+            if r.fattura_id:
+                rate_di_fattura.setdefault(r.fattura_id, []).append(r)
+    con_fattura = {r.pk for f in fatture if not f.archiviato for r in rate_di_fattura.get(f.pk, ())}
     for f in fatture:
         c = _consuntivo_fattura(f)
         if c is None:
             continue
-        if f.rata_id:
-            per_rata[f.rata_id] = c
+        rate = rate_di_fattura.get(f.pk)
+        if rate:
+            # Il costo della fattura prende il posto della prima rata; le altre rate che copre
+            # restano coperte (consuntivo a zero), senza contare due volte lo stesso costo.
+            per_rata[rate[0].pk] = c
+            for r in rate[1:]:
+                per_rata[r.pk] = replace(c, importo=Decimal("0.00"))
         elif f.voce_id in per_voce:
             per_voce[f.voce_id].append(c)
         elif principale is not None:

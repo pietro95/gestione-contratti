@@ -1687,6 +1687,16 @@ class Rata(models.Model):
     modificata_manualmente = models.BooleanField(default=False)
     consuntivo = models.BooleanField(default=False, help_text="Rata effettivamente fatturata.")
     numero_fattura = models.CharField(max_length=40, blank=True)
+    # Fattura a cui la rata è abbinata (Rev41). Una fattura può coprire più rate (il fornitore
+    # emette un'unica fattura); ogni rata ha al più una fattura.
+    fattura = models.ForeignKey(
+        "Fattura",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="rate",
+        help_text="Fattura abbinata alla rata.",
+    )
     # Rev22: periodo di competenza della rata, salvato alla generazione dello scadenzario
     # (es. fattura bimestrale posticipata di un contratto che parte l'01/12: 01/12-31/01).
     periodo_dal = models.DateField("periodo dal", null=True, blank=True)
@@ -1713,6 +1723,11 @@ class Rata(models.Model):
 
     def __str__(self):
         return f"Rata {self.numero} del {self.data_fattura:%d/%m/%Y}"
+
+    def clean(self):
+        super().clean()
+        if self.fattura_id and self.piano.voce.contratto_id != self.fattura.contratto_id:
+            raise ValidationError({"fattura": "La fattura è di un altro contratto."})
 
 
 class StatoPratica(models.Model):
@@ -2124,14 +2139,7 @@ class Fattura(Archiviabile):
     voce = models.ForeignKey(
         VoceContratto, on_delete=models.PROTECT, null=True, blank=True, related_name="fatture"
     )
-    rata = models.OneToOneField(
-        Rata,
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name="fattura",
-        help_text="Rata dello scadenzario a cui corrisponde.",
-    )
+    # Rate dello scadenzario coperte dalla fattura: ``self.rate`` (Rev41, vedi ``Rata.fattura``).
     # Presa in carico (Rev15): chi la lavora come referente.
     referente = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -2220,8 +2228,6 @@ class Fattura(Archiviabile):
             raise ValidationError({"contratto": "Il contratto è di un altro fornitore."})
         if self.voce_id and self.voce.contratto_id != self.contratto_id:
             raise ValidationError({"voce": "La voce deve essere dello stesso contratto."})
-        if self.rata_id and self.rata.piano.voce.contratto_id != self.contratto_id:
-            raise ValidationError({"rata": "La rata deve essere dello stesso contratto."})
         if (self.competenza_dal is None) != (self.competenza_al is None):
             raise ValidationError("La competenza va indicata con data di inizio e di fine.")
         if self.competenza_dal and self.competenza_al < self.competenza_dal:
@@ -2287,7 +2293,7 @@ class Stanziamento(Archiviabile):
         """Chiuso da una fattura: indicata qui o abbinata alla stessa rata."""
         if self.fattura_id:
             return True
-        return bool(self.rata_id and hasattr(self.rata, "fattura"))
+        return bool(self.rata_id and self.rata.fattura_id)
 
     def clean(self):
         super().clean()

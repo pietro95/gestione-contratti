@@ -808,7 +808,7 @@ def _importi(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:
         "competenza_dal": f.competenza_dal,
         "competenza_al": f.competenza_al,
         "voce": f.voce_id,
-        "rata": f.rata_id,
+        "rate": [r.pk for r in f.rate.all()],
         "conto": f.conto_id,
         "centro_costo": f.centro_costo,
         "wbs": f.wbs_id,
@@ -816,11 +816,18 @@ def _importi(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:
     for campo, chiave in (("valore_base",) * 2, ("oneri",) * 2, ("bollo",) * 2, ("iva",) * 2,
                           ("altri_importi",) * 2, ("imponibile_senza_iva",) * 2,
                           ("competenza_dal",) * 2, ("competenza_al",) * 2,
-                          ("voce", "voce_id"), ("rata", "rata_id"), ("conto", "conto_id"),
+                          ("voce", "voce_id"), ("conto", "conto_id"),
                           ("centro_costo",) * 2, ("wbs", "wbs_id")):  # fmt: skip
         if chiave in argomenti:
             dati[campo] = argomenti[chiave]
-    form = ff.ImportiForm({k: _form_valore(v) for k, v in dati.items()}, fattura=f)
+    # Più rate: «rata_ids»; «rata_id» (una sola) resta per i client esistenti.
+    if "rata_ids" in argomenti:
+        dati["rate"] = list(argomenti["rata_ids"])
+    elif "rata_id" in argomenti:
+        dati["rate"] = [argomenti["rata_id"]] if argomenti["rata_id"] else []
+    form = ff.ImportiForm(
+        {k: v if isinstance(v, list) else _form_valore(v) for k, v in dati.items()}, fattura=f
+    )
     valida(form)
     aliquota = None
     if "scorpora_iva" in argomenti:  # come il pulsante «Scorpora IVA» dell'interfaccia
@@ -1371,9 +1378,10 @@ STRUMENTI = [
         "Valore base prelevato dal contratto (di default quello proposto), oneri, bollo, IVA, "
         "altri importi (more, danni: non imputabili all'ufficio, tolti dal valore base); "
         "imputazione propria della fattura (conto, centro di costo, WBS) se diversa dalla voce; "
-        "con il contratto anche voce e rata dello scadenzario, che diventa consuntivo con il "
-        "numero di fattura. L'anteprima riporta anomalie (importo che non quadra), fatturato, "
-        "residuo e il commento per PAC risultante.",
+        "con il contratto anche voce e rate dello scadenzario, che diventano consuntivo con il "
+        "numero di fattura: una fattura può coprire più rate (unica fattura del fornitore), "
+        "tutte della stessa voce, con «rata_ids». L'anteprima riporta anomalie (importo che "
+        "non quadra), fatturato, residuo e il commento per PAC risultante.",
         _schema(
             {
                 "id": SCHEMA_ID,
@@ -1411,7 +1419,18 @@ STRUMENTI = [
                 },
                 "competenza_al": {**SCHEMA_DATA, "description": "Fine della competenza."},
                 "voce_id": SCHEMA_ID,
-                "rata_id": SCHEMA_ID,
+                "rata_id": {
+                    **SCHEMA_ID,
+                    "description": "Una sola rata coperta dalla fattura; con «rata_ids» "
+                    "vale quest'ultimo.",
+                },
+                "rata_ids": {
+                    "type": "array",
+                    "items": SCHEMA_ID,
+                    "maxItems": 60,
+                    "description": "Rate dello scadenzario coperte dalla fattura (della stessa "
+                    "voce): sostituisce l'elenco attuale; vuoto = nessuna rata.",
+                },
                 "conto_id": {
                     **SCHEMA_ID,
                     "description": "Imputazione propria della fattura, "

@@ -466,7 +466,7 @@ def test_convalida_importi_documenti_trasferimento(client, editor, registro_fatt
         client, editor,
         lambda cl: cl.post(f"/fatture/{fa.pk}/importi/", {
             "valore_base": "300,00", "oneri": "", "bollo": "", "voce": voce.pk,
-            "rata": rata.pk, "competenza_dal": "01/01/2026", "competenza_al": "31/12/2026"}),
+            "rate": rata.pk, "competenza_dal": "01/01/2026", "competenza_al": "31/12/2026"}),
         "importi_fattura", {"id": fa.pk, "rata_id": rata.pk,
                             "competenza_dal": "2026-01-01", "competenza_al": "2026-12-31"},
     )  # fmt: skip
@@ -489,6 +489,30 @@ def test_convalida_importi_documenti_trasferimento(client, editor, registro_fatt
         lambda cl: cl.post(f"/fatture/{fa.pk}/trasferimento/", {"annulla": "1"}),
         "trasferisci_fattura", {"id": fa.pk, "annulla": True},
     )  # fmt: skip
+
+
+def test_importi_fattura_su_piu_rate(client, editor, registro_fatture):
+    """Una fattura che copre più rate (Rev41): «rata_ids» come le rate spuntate nel form."""
+    c, voce = registro_fatture["c"], registro_fatture["voce"]
+    fa = _in_carico(registro_fatture["fatture"][1], editor, c)
+    rate = list(m.Rata.objects.filter(piano__voce=voce).order_by("numero")[:2])
+    assert len(rate) == 2
+    uguale(
+        client, editor,
+        lambda cl: cl.post(f"/fatture/{fa.pk}/importi/", {
+            "valore_base": "600,00", "voce": voce.pk, "rate": [r.pk for r in rate],
+            "competenza_dal": "01/01/2026", "competenza_al": "30/06/2026"}),
+        "importi_fattura", {"id": fa.pk, "valore_base": "600.00", "voce_id": voce.pk,
+                            "rata_ids": [r.pk for r in rate],
+                            "competenza_dal": "2026-01-01", "competenza_al": "2026-06-30"},
+    )  # fmt: skip
+    assert sorted(r.numero for r in m.Fattura.objects.get(pk=fa.pk).rate.all()) == [
+        r.numero for r in rate
+    ]
+    # La stessa rata non può andare a un'altra fattura.
+    altra = _in_carico(registro_fatture["fatture"][2], editor, c)
+    testo = errore(editor, "importi_fattura", {"id": altra.pk, "rata_ids": [rate[0].pk]})
+    assert "rate: Scegli un'opzione valida" in testo and "non è tra quelle disponibili" in testo
 
 
 def test_permessi_sulle_fatture(make_user, editor, registro_fatture):
