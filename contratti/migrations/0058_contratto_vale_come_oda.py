@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("contratti", "0056_fattura_imponibile_senza_iva"),
+        ("contratti", "0057_fattura_su_piu_rate"),
     ]
 
     operations = [
