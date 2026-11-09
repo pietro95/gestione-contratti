@@ -151,3 +151,119 @@ def test_dal_connettore(make_user, fattura):
     assert not risposta["result"].get("isError")
     risposta, _ = protocollo.gestisci(chiama("fattura", {"id": fattura.pk}), ctx)
     assert risposta["result"]["structuredContent"]["iva"] == "220.00"
+
+
+# --- IVA mista: parte a IVA 0 per inversione contabile (es. acquisti Amazon) ---------------
+# Imponibile 1.000,00 = 600,00 al 22% (IVA 132,00) + 400,00 a IVA 0; documento 1.132,00.
+
+
+def test_iva_mista_riconosciuta():
+    args = (D("1132.00"), D("1000.00"), None, None, ALIQUOTE)
+    assert motore.iva_riconosciuta(*args) is None  # senza la parte a IVA 0 non c'è aliquota
+    assert motore.iva_riconosciuta(*args, senza_iva=D("400.00")) == (D("22"), D("132.00"))
+    # oneri e bollo: l'aliquota vale sulla parte tassata di valore base + oneri
+    assert motore.iva_riconosciuta(
+        D("1182.80"), D("1000.00"), D("40.00"), D("2.00"), ALIQUOTE, senza_iva=D("400.00")
+    ) == (D("22"), D("140.80"))
+    # tutto a IVA 0: niente da riconoscere
+    assert motore.iva_riconosciuta(*args, senza_iva=D("1000.00")) is None
+
+
+@pytest.mark.parametrize(
+    ("importo", "oneri", "bollo", "senza_iva", "base", "iva"),
+    [
+        ("1132.00", None, None, "400.00", "1000.00", "132.00"),
+        ("1182.80", "40.00", "2.00", "400.00", "1000.00", "140.80"),
+        ("1220.00", None, None, None, "1000.00", "220.00"),  # senza parte a IVA 0: come prima
+        ("100.00", None, None, "100.00", "100.00", "0.00"),  # tutto in inversione contabile
+    ],
+)  # fmt: skip
+def test_scorporo_iva_mista(importo, oneri, bollo, senza_iva, base, iva):
+    o, b, z = oneri and D(oneri), bollo and D(bollo), senza_iva and D(senza_iva)
+    valore_base, valore_iva = motore.scorporo_iva(D(importo), o, b, D("22"), None, z)
+    assert (valore_base, valore_iva) == (D(base), D(iva))
+    assert motore.importo_quadra(D(importo), valore_base, o, b, valore_iva)
+
+
+@pytest.fixture
+def fattura_mista(db):
+    c = f.contratto()
+    return m.Fattura.objects.create(
+        fornitore=c.fornitore, contratto=c, numero="AMZ-1", data=datetime.date(2026, 10, 1),
+        importo_documento=D("1132.00"),
+    )  # fmt: skip
+
+
+def test_iva_mista_al_salvataggio(fattura_mista):
+    # Senza l'indicazione della parte a IVA 0 la fattura non quadra...
+    fatture.aggiorna_importi(fattura_mista, D("1000.00"), None, None, competenza=COMPETENZA)
+    assert "IMPORTO_NON_QUADRA" in fatture.anomalie(_ricarica(fattura_mista))
+    # ...con l'imponibile a IVA 0 l'IVA si riconosce da sola e l'importo quadra.
+    fatture.aggiorna_importi(
+        fattura_mista, D("1000.00"), None, None, imponibile_senza_iva=D("400.00"),
+        competenza=COMPETENZA,
+    )  # fmt: skip
+    x = _ricarica(fattura_mista)
+    assert (x.iva, x.imponibile_senza_iva) == (D("132.00"), D("400.00"))
+    assert fatture.anomalie(x) == []
+
+
+def test_scorporo_iva_mista_e_limiti(fattura_mista):
+    fatture.scorpora_iva(
+        fattura_mista, D("22"), None, None, competenza=COMPETENZA,
+        imponibile_senza_iva=D("400.00"),
+    )  # fmt: skip
+    x = _ricarica(fattura_mista)
+    assert (x.valore_base, x.iva, x.imponibile_senza_iva) == (
+        D("1000.00"), D("132.00"), D("400.00")
+    )  # fmt: skip
+    assert fatture.anomalie(x) == []
+    with pytest.raises(fatture.OperazioneNonAmmessa, match="supera l'importo del documento"):
+        fatture.scorpora_iva(x, D("22"), None, None, imponibile_senza_iva=D("2000.00"))
+    with pytest.raises(fatture.OperazioneNonAmmessa, match="supera valore base e oneri"):
+        fatture.aggiorna_importi(
+            x, D("1000.00"), None, None, iva=D("132.00"), imponibile_senza_iva=D("1500.00")
+        )
+
+
+def test_pulsante_scorpora_iva_mista(client, make_user, fattura_mista):
+    client.force_login(make_user("redattore", role=EDITOR))
+    pagina = client.get(reverse("contratti:fattura", args=[fattura_mista.pk])).content.decode()
+    assert "Di cui a IVA 0 (inversione contabile)" in pagina
+    client.post(
+        reverse("contratti:fattura_importi", args=[fattura_mista.pk]),
+        {"scorporo": "22", "valore_base": "", "oneri": "", "bollo": "", "iva": "",
+         "imponibile_senza_iva": "400,00", "competenza_dal": "01/01/2026",
+         "competenza_al": "31/12/2026"},
+    )  # fmt: skip
+    x = _ricarica(fattura_mista)
+    assert (x.valore_base, x.iva, x.imponibile_senza_iva) == (
+        D("1000.00"), D("132.00"), D("400.00")
+    )  # fmt: skip
+
+
+def test_iva_mista_dal_connettore(make_user, fattura_mista):
+    editor = make_user("redattore", role=EDITOR)
+    ctx = Contesto(editor, datetime.date(2026, 10, 12), scrittura=True, client_id="prova")
+    risposta, _ = protocollo.gestisci(
+        chiama(
+            "importi_fattura",
+            {
+                "id": fattura_mista.pk,
+                "scorpora_iva": "22",
+                "imponibile_senza_iva": "400.00",
+                "competenza_dal": "2026-01-01",
+                "competenza_al": "2026-12-31",
+            },
+        ),
+        ctx,
+    )
+    anteprima = risposta["result"]["structuredContent"]
+    assert anteprima["effetti"]["processo_acquisto"]["dopo"]["fatture"][0]["anomalie"] == []
+    risposta, _ = protocollo.gestisci(
+        chiama("conferma_operazione", {"id_operazione": anteprima["id_operazione"]}), ctx
+    )
+    assert not risposta["result"].get("isError")
+    risposta, _ = protocollo.gestisci(chiama("fattura", {"id": fattura_mista.pk}), ctx)
+    letta = risposta["result"]["structuredContent"]
+    assert (letta["iva"], letta["imponibile_senza_iva"]) == ("132.00", "400.00")

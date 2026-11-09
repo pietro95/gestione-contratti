@@ -1679,7 +1679,7 @@ class Rata(models.Model):
     modificata_manualmente = models.BooleanField(default=False)
     consuntivo = models.BooleanField(default=False, help_text="Rata effettivamente fatturata.")
     numero_fattura = models.CharField(max_length=40, blank=True)
-    # Fattura a cui la rata è abbinata (Rev39). Una fattura può coprire più rate (il fornitore
+    # Fattura a cui la rata è abbinata (Rev41). Una fattura può coprire più rate (il fornitore
     # emette un'unica fattura); ogni rata ha al più una fattura.
     fattura = models.ForeignKey(
         "Fattura",
@@ -2096,6 +2096,15 @@ class Fattura(Archiviabile):
     bollo = importo("bollo", null=True, blank=True)
     # IVA nell'importo del documento (SAP lo riporta spesso con l'IVA).
     iva = importo("IVA", null=True, blank=True)
+    # Fattura con IVA mista: parte di valore base + oneri senza IVA in fattura (inversione
+    # contabile, es. alcuni acquisti Amazon); l'aliquota vale solo sul resto.
+    imponibile_senza_iva = importo(
+        "imponibile a IVA 0 (inversione contabile)",
+        null=True,
+        blank=True,
+        help_text="Parte di valore base e oneri senza IVA in fattura (inversione contabile): "
+        "l'IVA si calcola solo sul resto.",
+    )
     # More, danni e simili presenti in fattura ma non imputabili all'ufficio: si tolgono
     # dall'importo che conta per il contratto.
     altri_importi = importo(
@@ -2122,7 +2131,7 @@ class Fattura(Archiviabile):
     voce = models.ForeignKey(
         VoceContratto, on_delete=models.PROTECT, null=True, blank=True, related_name="fatture"
     )
-    # Rate dello scadenzario coperte dalla fattura: ``self.rate`` (Rev39, vedi ``Rata.fattura``).
+    # Rate dello scadenzario coperte dalla fattura: ``self.rate`` (Rev41, vedi ``Rata.fattura``).
     # Presa in carico (Rev15): chi la lavora come referente.
     referente = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -2169,6 +2178,7 @@ class Fattura(Archiviabile):
                 & (Q(oneri__isnull=True) | Q(oneri__gte=0))
                 & (Q(bollo__isnull=True) | Q(bollo__gte=0))
                 & (Q(iva__isnull=True) | Q(iva__gte=0))
+                & (Q(imponibile_senza_iva__isnull=True) | Q(imponibile_senza_iva__gte=0))
                 & (Q(altri_importi__isnull=True) | Q(altri_importi__gte=0)),
                 name="contratti_fattura_importi_non_negativi",
             ),

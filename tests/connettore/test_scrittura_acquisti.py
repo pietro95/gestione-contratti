@@ -492,7 +492,7 @@ def test_convalida_importi_documenti_trasferimento(client, editor, registro_fatt
 
 
 def test_importi_fattura_su_piu_rate(client, editor, registro_fatture):
-    """Una fattura che copre più rate (Rev39): «rata_ids» come le rate spuntate nel form."""
+    """Una fattura che copre più rate (Rev41): «rata_ids» come le rate spuntate nel form."""
     c, voce = registro_fatture["c"], registro_fatture["voce"]
     fa = _in_carico(registro_fatture["fatture"][1], editor, c)
     rate = list(m.Rata.objects.filter(piano__voce=voce).order_by("numero")[:2])

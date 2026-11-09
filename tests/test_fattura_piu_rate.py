@@ -1,4 +1,4 @@
-"""Una fattura che copre più rate dello scadenzario (Rev39): il fornitore emette un'unica
+"""Una fattura che copre più rate dello scadenzario (Rev41): il fornitore emette un'unica
 fattura per più periodi."""
 
 import datetime

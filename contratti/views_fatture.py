@@ -353,6 +353,7 @@ def fattura_dettaglio(request, pk):
         "bollo": f.bollo,
         "iva": f.iva,
         "altri_importi": f.altri_importi,
+        "imponibile_senza_iva": f.imponibile_senza_iva,
         "competenza_dal": f.competenza_dal,
         "competenza_al": f.competenza_al,
         "voce": f.voce_id,

@@ -1,4 +1,4 @@
-"""Rev39: la migration sposta il legame fattura-rata sulla rata e non perde gli abbinamenti."""
+"""Rev41: la migration sposta il legame fattura-rata sulla rata e non perde gli abbinamenti."""
 
 import datetime
 from decimal import Decimal
@@ -7,8 +7,8 @@ import pytest
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
-PRIMA = [("contratti", "0055_invio_email")]
-DOPO = [("contratti", "0056_fattura_su_piu_rate")]
+PRIMA = [("contratti", "0056_fattura_imponibile_senza_iva")]
+DOPO = [("contratti", "0057_fattura_su_piu_rate")]
 
 
 def _storico(apps):

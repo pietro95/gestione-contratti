@@ -776,3 +776,13 @@ Con altri importi assenti o a zero il commento è identico a TC-25.
 **(d) Promemoria.** Rilasci in attesa: un messaggio al giorno all'addetto al rilascio, solo se c'è qualcosa; rilanciato lo stesso giorno non rimanda niente, il giorno dopo sì; nessun invio di sabato e domenica. Contratti in scadenza: un messaggio a settimana per referente (utente) con i soli suoi contratti rossi, arancioni e gialli; il contratto con il referente solo a testo non genera niente.
 
 **(e) Funzioni dai gruppi AD.** Un utente solo nel gruppo dell'addetto amministrativo entra come Editor, ha la funzione e lavora su tutti i cluster; un utente Reader e nel gruppo dell'addetto al rilascio diventa Editor e rilascia; tolto il gruppo, al login successivo perde funzione e ruolo.
+
+## TC-27 — IVA mista: parte a IVA 0 per inversione contabile
+
+SPEC §4 (Fattura, Rev40). Aliquote: 22, 10, 5, 4.
+
+**(a) Riconoscimento.** Valore base 1.000,00, di cui 400,00 a IVA 0; importo del documento 1.132,00. Senza l'imponibile a IVA 0 nessuna aliquota spiega la differenza (132,00) e la fattura è `IMPORTO_NON_QUADRA`. Con 400,00 a IVA 0: aliquota 22% sulla parte tassata di 600,00, IVA 132,00, nessuna anomalia. Con oneri 40,00, bollo 2,00 e 400,00 a IVA 0: documento 1.182,80, IVA 140,80 (22% su 640,00).
+
+**(b) Scorporo.** Documento 1.132,00, aliquota 22%, 400,00 a IVA 0: valore base 1.000,00, IVA 132,00. Con oneri 40,00 e bollo 2,00 (documento 1.182,80): valore base 1.000,00, IVA 140,80. Tutto a IVA 0 (100,00 su 100,00): valore base 100,00, IVA 0,00. Senza imponibile a IVA 0 il risultato è quello di prima (1.220,00 → 1.000,00 e 220,00).
+
+**(c) Limiti.** Un imponibile a IVA 0 oltre valore base + oneri, o oltre l'importo del documento nello scorporo, è rifiutato. Il valore base resta l'importo che conta per fatturato e budget; l'IVA non entra nel fatturato.

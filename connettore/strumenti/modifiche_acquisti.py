@@ -804,6 +804,7 @@ def _importi(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:
         "bollo": f.bollo,
         "iva": f.iva,
         "altri_importi": f.altri_importi,
+        "imponibile_senza_iva": f.imponibile_senza_iva,
         "competenza_dal": f.competenza_dal,
         "competenza_al": f.competenza_al,
         "voce": f.voce_id,
@@ -813,7 +814,8 @@ def _importi(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:
         "wbs": f.wbs_id,
     }
     for campo, chiave in (("valore_base",) * 2, ("oneri",) * 2, ("bollo",) * 2, ("iva",) * 2,
-                          ("altri_importi",) * 2, ("competenza_dal",) * 2, ("competenza_al",) * 2,
+                          ("altri_importi",) * 2, ("imponibile_senza_iva",) * 2,
+                          ("competenza_dal",) * 2, ("competenza_al",) * 2,
                           ("voce", "voce_id"), ("conto", "conto_id"),
                           ("centro_costo",) * 2, ("wbs", "wbs_id")):  # fmt: skip
         if chiave in argomenti:
@@ -1390,6 +1392,12 @@ STRUMENTI = [
                     **SCHEMA_IMPORTO,
                     "description": "IVA nell'importo del "
                     "documento; omessa: riconosciuta se è l'IVA di un'aliquota.",
+                },
+                "imponibile_senza_iva": {
+                    **SCHEMA_IMPORTO,
+                    "description": "Fattura con IVA mista: parte di valore base e oneri a "
+                    "IVA 0 (inversione contabile). L'aliquota di riconoscimento e di "
+                    "«scorpora_iva» vale solo sul resto.",
                 },
                 "altri_importi": {
                     **SCHEMA_IMPORTO,

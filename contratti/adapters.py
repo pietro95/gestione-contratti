@@ -209,7 +209,7 @@ def _consuntivi_contratto(
     per_voce: dict[int, list[Consuntivo]] = {v.pk: [] for v in voci}
     principale = next((v for v in voci if not v.proroga_id), voci[0] if voci else None)
     fatture = list(contratto.fatture.all())
-    # Rate coperte da ogni fattura (Rev39): una fattura può coprirne più d'una. Dalle rate già
+    # Rate coperte da ogni fattura (Rev41): una fattura può coprirne più d'una. Dalle rate già
     # caricate con le voci, nessuna query in più.
     rate_di_fattura: dict[int, list[m.Rata]] = {}
     for v in voci:

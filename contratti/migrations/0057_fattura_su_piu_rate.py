@@ -1,4 +1,4 @@
-"""Rev39: una fattura può coprire più rate dello scadenzario.
+"""Rev41: una fattura può coprire più rate dello scadenzario.
 
 Il legame passa da ``Fattura.rata`` (uno a uno) a ``Rata.fattura`` (molte rate, una fattura).
 I legami esistenti si copiano prima di togliere il vecchio campo.
@@ -29,7 +29,7 @@ def fattura_sulla_rata(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("contratti", "0055_invio_email"),
+        ("contratti", "0056_fattura_imponibile_senza_iva"),
     ]
 
     operations = [
