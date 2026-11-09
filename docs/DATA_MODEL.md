@@ -58,7 +58,7 @@ Gli importi monetari usano `Decimal` e i valori derivati sono calcolati dal moto
 - **RDA**: richiesta d'acquisto con fase, dati SAP e collegamenti alla pratica.
 - **Posizione RDA**: riga economica e contabile della richiesta.
 - **Evento RDA**: avanzamenti e storia del processo.
-- **Fattura**: documento importato o registrato e sottoposto a presa in carico, assegnazione, convalida e trasferimento.
+- **Fattura**: documento importato o registrato e sottoposto a presa in carico, assegnazione, convalida e trasferimento. Può coprire **più rate** dello scadenzario (il fornitore emette un'unica fattura), tutte della stessa voce; ogni rata ha al più una fattura (Rev41).
 - **Stanziamento** (Rev21): costo di competenza non ancora fatturato, su una voce e, se c'è, sulla rata che sostituisce; conta nel budget a competenza finché non arriva la fattura. La fattura porta il proprio **periodo di competenza**.
 - **Documento di esecuzione**: evidenza operativa, ad esempio DDT, MIGO, MAP o attestazione.
 

@@ -374,10 +374,10 @@ class StatoPraticaContrattoInline(InlineSenzaCancellazione):
 class FatturaInline(InlineSenzaCancellazione):
     model = m.Fattura
     fields = (
-        "numero", "data", "importo_documento", "valore_base", "voce", "rata",
+        "numero", "data", "importo_documento", "valore_base", "voce",
         "data_registrazione", "data_trasferimento", "archiviato",
     )  # fmt: skip
-    raw_id_fields = ("voce", "rata")
+    raw_id_fields = ("voce",)
 
 
 class DocumentoEsecuzioneInline(InlineSenzaCancellazione):
@@ -523,7 +523,7 @@ class FatturaAdmin(ArchiviabileAdmin):
     list_filter = ("esito_convalida", "fuori_registro", "archiviato")
     search_fields = ("numero", "contratto__numero_contratto", "fornitore__ragione_sociale")
     autocomplete_fields = ("contratto", "fornitore", "referente")
-    raw_id_fields = ("voce", "rata")
+    raw_id_fields = ("voce",)
     date_hierarchy = "data"
 
 
