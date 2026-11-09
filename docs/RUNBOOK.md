@@ -969,7 +969,7 @@ con il cruscotto dell'app.
    - `GG_Contratti_Addetto_Rilascio`: l'addetto al rilascio su SAP.
 2. Nel `.env` imposta `LDAP_GROUP_ADDETTO_AMMINISTRATIVO` e `LDAP_GROUP_ADDETTO_RILASCIO` con i DN completi e riavvia: `source comune.sh && compose restart web`.
 3. Chi è in un gruppo di funzione **entra anche senza il gruppo Editor** e, se era solo Reader, lavora come Editor. L'addetto amministrativo vede e lavora su **tutti i cluster**: non serve più l'assegnazione `TUTTI`.
-4. Le funzioni si leggono a ogni login: dopo aver aggiunto o tolto un utente, vale dal login successivo (la sessione dura al massimo 8 ore). I gruppi sono visibili in Amministrazione → Gruppi (`Addetto amministrativo`, `Addetto al rilascio`), non vanno modificati a mano.
+4. Per gli avvisi per email l'appartenenza ai gruppi si legge **anche direttamente da AD al momento dell'invio**, quindi basta che l'utente esista nell'app con il ruolo Editor o Admin (non serve un nuovo login). Per i permessi (cluster, rilasci) le funzioni si leggono invece a ogni login, e un login con la variabile del gruppo non configurata **non** le toglie. Le funzioni si leggono a ogni login: dopo aver aggiunto o tolto un utente, vale dal login successivo (la sessione dura al massimo 8 ore). I gruppi sono visibili in Amministrazione → Gruppi (`Addetto amministrativo`, `Addetto al rilascio`), non vanno modificati a mano.
 5. Con LDAP attivo le assegnazioni locali in Amministrazione → «Funzioni degli utenti» continuano a valere, in aggiunta ai gruppi: dopo il passaggio ai gruppi si possono archiviare.
 
 ### 13.2 Email di avviso
@@ -982,6 +982,7 @@ con il cruscotto dell'app.
    ./manage.sh invia_promemoria --dry-run
    ./manage.sh invia_promemoria --tipo rilasci
    ```
-5. Registro: Amministrazione → «Email di notifica» (a chi, quando, esito e errore). Un errore SMTP non blocca il lavoro degli utenti: si vede lì e nel log (`compose logs web`).
-6. **Prova prima del rilascio**: con `NOTIFICHE_PROVA_A=<tuo indirizzo>` nel `.env` (o `--prova-a <indirizzo>` sul comando dei promemoria) le email partono davvero, ma tutte a quell'indirizzo, con l'oggetto `[PROVA → destinatario vero]` e la riga «Questa email sarebbe andata a…». Nel registro compare l'indirizzo di prova; i promemoria di prova non consumano quelli veri. Togli la variabile per passare all'invio reale.
-7. Per spegnere tutto: togli `EMAIL_HOST` (o `NOTIFICHE_EMAIL_ATTIVE=false`) e riavvia `web` e `notifiche`. L'avviso delle nuove fatture si può togliere volta per volta con la spunta nella pagina dell'anteprima dell'import.
+5. **Un avviso non parte?** `./manage.sh destinatari_notifiche` mostra se le notifiche sono attive, se c'è la modalità di prova e chi sono addetti e utenti operativi con l'indirizzo che risulta da LDAP (`NESSUN INDIRIZZO` o «nessuno» spiegano quasi tutti i casi). Ricorda che chi ha fatto l'azione non riceve l'avviso: se sei tu l'unico addetto, non ti arriva. Chi non ha indirizzo, o la mancanza di destinatari, è registrato in «Email di notifica» (esito errore) e nel log (`compose logs web | grep notifiche`).
+6. Registro: Amministrazione → «Email di notifica» (a chi, quando, esito e errore). Un errore SMTP non blocca il lavoro degli utenti: si vede lì e nel log (`compose logs web`).
+7. **Prova prima del rilascio**: con `NOTIFICHE_PROVA_A=<tuo indirizzo>` nel `.env` (o `--prova-a <indirizzo>` sul comando dei promemoria) le email partono davvero, ma tutte a quell'indirizzo, con l'oggetto `[PROVA → destinatario vero]` e la riga «Questa email sarebbe andata a…». Nel registro compare l'indirizzo di prova; i promemoria di prova non consumano quelli veri. Togli la variabile per passare all'invio reale.
+8. Per spegnere tutto: togli `EMAIL_HOST` (o `NOTIFICHE_EMAIL_ATTIVE=false`) e riavvia `web` e `notifiche`. L'avviso delle nuove fatture si può togliere volta per volta con la spunta nella pagina dell'anteprima dell'import.

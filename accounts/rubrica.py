@@ -71,3 +71,28 @@ def indirizzi(utenti: Iterable) -> dict[int, str]:
         if scelto := (letto or salvato):
             risultato[u.pk] = scelto
     return risultato
+
+
+def funzioni_ldap(utenti: Iterable) -> dict[int, set[str]]:
+    """``{pk dell'utente: funzioni}`` dai gruppi AD configurati, lette ora da LDAP.
+
+    Serve a sapere chi è addetto senza aspettare che l'utente rifaccia login (le funzioni si
+    sincronizzano nei gruppi Django solo al login). Vuoto se LDAP è spento, se nessun gruppo di
+    funzione è configurato o se LDAP non risponde: allora valgono i gruppi già salvati.
+    """
+    configurati = getattr(settings, "ACCOUNTS_LDAP_FUNCTION_GROUPS", {})
+    if not configurati or not getattr(settings, "ACCOUNTS_LDAP_ENABLED", False):
+        return {}
+    from django_auth_ldap.backend import _LDAPUser
+
+    from accounts.backends import RoleLDAPBackend
+
+    backend = RoleLDAPBackend()
+    trovate: dict[int, set[str]] = {}
+    for u in utenti:
+        try:
+            ldap_user = _LDAPUser(backend, username=u.get_username().strip().lower())
+            trovate[u.pk] = backend.resolve_functions(ldap_user)
+        except Exception:  # noqa: BLE001 - LDAP giù o utente non in AD: si ripiega sul salvato
+            log.exception("Funzioni di %s non lette da LDAP", u.get_username())
+    return trovate

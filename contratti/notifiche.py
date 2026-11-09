@@ -74,21 +74,29 @@ def utenti_operativi() -> list:
 
 
 def _con_funzione(funzione: str, gruppo: str) -> list:
+    """Utenti Admin/Editor con la funzione: dal gruppo Django (sincronizzato al login), dalla
+    assegnazione locale, oppure dal gruppo AD letto ora da LDAP (così non serve un nuovo
+    login dopo l'aggiunta al gruppo)."""
     nomi = [
         n.strip().lower()
         for n in m.FunzioneUtente.objects.filter(funzione=funzione, archiviato=False).values_list(
             "username", flat=True
         )
     ]
-    utenti = (
+    attivi = [
+        u
+        for u in get_user_model().objects.filter(is_active=True).order_by("pk")
+        if role_of(u) in WRITE_ROLES
+    ]
+    gia = set(
         get_user_model()
-        .objects.filter(is_active=True)
-        .annotate(nome_minuscolo=Lower("username"))
+        .objects.annotate(nome_minuscolo=Lower("username"))
         .filter(Q(groups__name=gruppo) | Q(nome_minuscolo__in=nomi))
-        .distinct()
-        .order_by("pk")
+        .values_list("pk", flat=True)
     )
-    return _attivi(u for u in utenti if role_of(u) in WRITE_ROLES)
+    da_ldap = rubrica.funzioni_ldap([u for u in attivi if u.pk not in gia])
+    trovati = gia | {pk for pk, funzioni in da_ldap.items() if gruppo in funzioni}
+    return _attivi(u for u in attivi if u.pk in trovati)
 
 
 def addetti_amministrativi() -> list:
@@ -127,6 +135,10 @@ def invia(
     candidati = [
         u for u in _attivi(destinatari) if escludi is None or u.pk != getattr(escludi, "pk", None)
     ]
+    if not candidati:
+        # Nessun destinatario (nessuno con la funzione, o c'è solo chi ha agito): si vede nel log.
+        log.warning("Email %s non inviata: nessun destinatario (%s)", tipo, oggetto)
+        return 0
     # Indirizzi da LDAP (con ripiego su quello salvato); chi non ne ha non riceve niente.
     indirizzi = rubrica.indirizzi(candidati)
     prova = (getattr(settings, "NOTIFICHE_PROVA_A", "") or "").strip()
@@ -144,7 +156,19 @@ def invia(
             testo = f"[PROVA] Questa email sarebbe andata a: {utente} ({a_chi}).\n\n{corpo}{FIRMA}"
             destinatario, chiave_invio = prova, ""
         else:
-            if not email or email.lower() in visti:
+            if not email:
+                # Si registra e si segnala: altrimenti l'avviso sparirebbe senza traccia.
+                log.warning("Email %s: nessun indirizzo per %s", tipo, utente.get_username())
+                m.InvioEmail.objects.create(
+                    tipo=tipo,
+                    destinatario=f"{utente.get_username()} (nessun indirizzo)",
+                    oggetto=f"{PREFISSO_OGGETTO} {oggetto}"[:250],
+                    esito=m.InvioEmail.Esito.ERRORE,
+                    errore="Nessun indirizzo in LDAP né salvato per questo utente.",
+                    chiave=chiave,
+                )
+                continue
+            if email.lower() in visti:
                 continue
             visti.add(email.lower())
             if (
