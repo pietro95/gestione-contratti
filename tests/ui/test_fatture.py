@@ -60,6 +60,7 @@ def _viste_di_modifica(fa, c):
         ("post", reverse("contratti:fattura_contratto", args=[fa.pk])),
         ("post", reverse("contratti:fattura_fornitore", args=[fa.pk])),
         ("post", reverse("contratti:fattura_convalida", args=[fa.pk])),
+        ("post", reverse("contratti:fattura_oda", args=[fa.pk])),
         ("post", reverse("contratti:fattura_importi", args=[fa.pk])),
         ("post", reverse("contratti:fattura_documento", args=[fa.pk])),
         ("post", reverse("contratti:fattura_trasferisci", args=[fa.pk])),

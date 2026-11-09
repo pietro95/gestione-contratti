@@ -1,6 +1,7 @@
 {% load registro %}
     <section class="card mb-4" aria-labelledby="t-sap"><div class="card-body">
       <h2 class="h6 text-uppercase text-body-secondary" id="t-sap">RdC e {{ documento_proposto }}</h2>
+      {% if not mostra_validatore %}{% include "contratti/_fattura_oda.html" %}{% elif vale_come_oda %}<p class="small mb-3"><span class="stato stato-blu">vale come ODA</span> La RdC non serve: si passa a {{ documento_proposto }}.</p>{% endif %}
       <div class="mb-3">
         <label class="form-label" for="indicazioni">Indicazioni per la validazione</label>
         <div class="input-group"><input id="indicazioni" class="form-control small" value="{{ indicazioni }}" readonly><button type="button" class="btn btn-outline-secondary" data-copia="indicazioni"><i class="bi bi-clipboard" aria-hidden="true"></i> Copia</button></div>

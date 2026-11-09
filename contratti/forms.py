@@ -371,6 +371,7 @@ CAMPI_CONTRATTO = [
     "descrizione",
     "tipo_acquisto",
     "senza_contratto",
+    "vale_come_oda",
     "numero_contratto",
     "data_emissione",
     "numero_rda",
@@ -392,7 +393,14 @@ class ContrattoForm(ModelFormBootstrap):
     sezioni = [
         (
             "Oggetto e fornitore",
-            ["fabbisogno", "fornitore", "descrizione", "tipo_acquisto", "senza_contratto"],
+            [
+                "fabbisogno",
+                "fornitore",
+                "descrizione",
+                "tipo_acquisto",
+                "senza_contratto",
+                "vale_come_oda",
+            ],
         ),
         (
             "Ordine e procedura",
@@ -457,6 +465,7 @@ class ContrattoNuovoForm(ContrattoForm):
                 "descrizione",
                 "tipo_acquisto",
                 "senza_contratto",
+                "vale_come_oda",
             ],
         ),
         (

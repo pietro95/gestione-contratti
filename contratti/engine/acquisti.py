@@ -278,6 +278,8 @@ class LavorazioneFattura:
     convalidata_il: datetime.date | None = datetime.date.min
     bloccata_fino_al: datetime.date | None = None
     fuori_registro: bool = False
+    # Il contratto vale come ODA (Rev41): niente RdC né rilascio della RdC.
+    contratto_oda: bool = False
 
 
 GIA_CONVALIDATA = LavorazioneFattura()
@@ -326,11 +328,12 @@ def passo_fattura(
     if not convalidata(lavorazione, oggi):
         return PassoFattura.CONVALIDA
     presenti = [d for d in documenti if d[1] <= oggi]
-    rdc = [d for d in presenti if d[0] == "ODA_RDC"]
-    if not rdc:
-        return PassoFattura.RDC
-    if not any(_rilasciato(d) for d in rdc):
-        return PassoFattura.RDC_RILASCIO
+    if not lavorazione.contratto_oda:
+        rdc = [d for d in presenti if d[0] == "ODA_RDC"]
+        if not rdc:
+            return PassoFattura.RDC
+        if not any(_rilasciato(d) for d in rdc):
+            return PassoFattura.RDC_RILASCIO
     accettazione = [d for d in presenti if d[0] in TIPI_ACCETTAZIONE]
     if not accettazione:
         return PassoFattura.MAP_MIGO
@@ -747,6 +750,7 @@ class DatiPAC:
     bollo: Decimal | None = None
     altri_importi: Decimal | None = None
     numero_contratto: str | None = None
+    contratto_oda: bool = False  # Rev41: il numero dell'ODA è quello del contratto
 
 
 def _euro(valore: Decimal | None) -> str:
@@ -762,11 +766,18 @@ def indicazioni_validazione(d: DatiPAC) -> str:
     )
 
 
+def _numero_oda(d: DatiPAC) -> str:
+    """Numero della RdC; se il contratto vale come ODA, il numero del contratto (Rev41)."""
+    if d.contratto_oda:
+        return d.numero_contratto or NESSUNO
+    return d.numero_rdc or DA_REGISTRARE
+
+
 def commento_pac(d: DatiPAC) -> str:
     """Il commento per PAC nel formato usato finora (TC-18)."""
     righe = [
         f"Contratto: {d.numero_contratto or NESSUNO}",
-        f"ODA : {d.numero_rdc or DA_REGISTRARE}",
+        f"ODA : {_numero_oda(d)}",
         f"{d.accettazione}: {d.numero_accettazione or DA_REGISTRARE}",
         f"CDC: {d.centro_costo or NESSUNO}",
         f"COGE: {d.conto or NESSUNO}",

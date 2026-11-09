@@ -316,6 +316,10 @@ SCHEMA_VOCE_NUOVA = {
 CAMPI_CONTRATTO = {
     "fornitore": {**SCHEMA_ID, "description": "id del fornitore («cerca»)."},
     "descrizione": {"type": "string", "maxLength": 250},
+    "vale_come_oda": {
+        "type": "boolean",
+        "description": "Il contratto è già un ordine d'acquisto: le sue fatture non hanno RdC.",
+    },
     "numero_contratto": {"type": "string", "maxLength": 20},
     "data_emissione": SCHEMA_DATA,
     "numero_rda": {"type": "string", "maxLength": 20},

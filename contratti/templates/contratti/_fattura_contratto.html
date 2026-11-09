@@ -14,6 +14,7 @@
         {% if f.contratto and not documenti %}<button class="btn btn-outline-danger" type="submit" name="scollega" value="1" formnovalidate>Togli il contratto</button>{% endif %}</div>
       </form>
       {% elif not f.referente %}<p class="small text-body-secondary mb-0">Si assegna dopo la presa in carico.</p>{% endif %}
+      {% include "contratti/_fattura_oda.html" %}
           <hr class="my-3">
       <h3 class="h6 text-body-secondary mb-2" id="t-fornitore"><i class="bi bi-lock" aria-hidden="true"></i> Fornitore</h3>
       <p class="mb-2"><a href="{% url 'contratti:fornitore' f.fornitore.pk %}">{{ f.fornitore }}</a></p>

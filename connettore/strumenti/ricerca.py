@@ -160,6 +160,7 @@ def contratto_breve(riga: selettori.RigaContratto) -> dict:
         "numero_contratto": c.numero_contratto,
         "cig": c.cig,
         "senza_contratto": c.senza_contratto,
+        "vale_come_oda": c.vale_come_oda,
         "data_inizio": c.data_inizio,
         "data_fine": riga.fine,
         "stato": riga.stato,

@@ -58,6 +58,11 @@ def documenti_fattura(fattura: m.Fattura) -> list[motore.Documento]:
     ]
 
 
+def vale_come_oda(fattura: m.Fattura) -> bool:
+    """Il contratto della fattura è già un ordine d'acquisto (Rev41)."""
+    return fattura.contratto_id is not None and fattura.contratto.vale_come_oda
+
+
 def lavorazione(fattura: m.Fattura) -> motore.LavorazioneFattura:
     return motore.LavorazioneFattura(
         in_carico_dal=fattura.data_presa_in_carico if fattura.referente_id else None,
@@ -66,6 +71,7 @@ def lavorazione(fattura: m.Fattura) -> motore.LavorazioneFattura:
         convalidata_il=fattura.data_convalida,
         bloccata_fino_al=fattura.bloccata_fino_al,
         fuori_registro=fattura.fuori_registro,
+        contratto_oda=vale_come_oda(fattura),
     )
 
 
@@ -277,6 +283,33 @@ def puo_rilasciare(utente) -> bool:
 
 def puo_convalidare(utente, fattura: m.Fattura) -> bool:
     return scrive(utente) and (fattura.referente_id == utente.pk or role_of(utente) == ADMIN)
+
+
+def puo_segnare_oda(utente, fattura: m.Fattura) -> bool:
+    """Spunta «vale come ODA» sul contratto della fattura (Rev41): chi ha la fattura in carico,
+    chi modifica nel cluster del contratto, l'Admin e l'addetto amministrativo."""
+    return (
+        scrive(utente)
+        and fattura.contratto_id is not None
+        and (puo_convalidare(utente, fattura) or puo_lavorare(utente, fattura) or gestisce(utente))
+    )
+
+
+def segna_vale_come_oda(fattura: m.Fattura, valore: bool) -> None:
+    """Imposta il campo sul contratto della fattura: vale per tutte le sue fatture."""
+    if not fattura.contratto_id:
+        raise OperazioneNonAmmessa("Prima si assegna la fattura al contratto.")
+    contratto = fattura.contratto
+    if contratto.archiviato:
+        raise OperazioneNonAmmessa("Il contratto è archiviato.")
+    if contratto.vale_come_oda == valore:
+        return
+    contratto.vale_come_oda = valore
+    _salva(
+        contratto,
+        f"{'Vale' if valore else 'Non vale'} come ODA (dalla fattura {fattura.numero})",
+        update_fields=["vale_come_oda"],
+    )
 
 
 # --- Presa in carico ------------------------------------------------------------------------
@@ -858,6 +891,7 @@ def dati_pac(fattura: m.Fattura) -> motore.DatiPAC:
         bollo=fattura.bollo,
         altri_importi=fattura.altri_importi,
         numero_contratto=fattura.contratto.numero_contratto if fattura.contratto_id else None,
+        contratto_oda=vale_come_oda(fattura),
     )
 
 
@@ -874,7 +908,7 @@ def campi_addetto(fattura: m.Fattura) -> list[tuple[str, str]]:
         ("Fornitore", str(fattura.fornitore)),
         ("Importo del documento", importo(fattura.importo_documento)),
         ("Contratto", d.numero_contratto or ""),
-        ("Numero RdC (ODA)", d.numero_rdc or ""),
+        ("Numero RdC (ODA)", (d.numero_contratto if d.contratto_oda else d.numero_rdc) or ""),
         (f"Numero {d.accettazione}", d.numero_accettazione or ""),
         ("Centro di costo", d.centro_costo or ""),
         ("Conto COGE", d.conto or ""),
