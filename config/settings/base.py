@@ -138,6 +138,9 @@ EMAIL_BACKEND = (
 )
 DEFAULT_FROM_EMAIL = env("EMAIL_FROM", default="Registro contratti <noreply@localhost>")
 NOTIFICHE_EMAIL_ATTIVE = env.bool("NOTIFICHE_EMAIL_ATTIVE", default=bool(EMAIL_HOST))
+# Modalità di prova: con un indirizzo qui, tutte le email partono (davvero) solo a quell'indirizzo,
+# con scritto a chi sarebbero andate. Vuoto = invio normale.
+NOTIFICHE_PROVA_A = env("NOTIFICHE_PROVA_A", default="")
 # URL con cui l'interfaccia è raggiunta dagli utenti: serve ai link nelle email.
 APP_URL = env("APP_URL", default="").rstrip("/")
 

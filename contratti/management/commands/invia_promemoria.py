@@ -5,6 +5,7 @@ import datetime
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.test import override_settings
 from django.utils import timezone
 
 from contratti import promemoria
@@ -22,6 +23,10 @@ class Command(BaseCommand):
         parser.add_argument(
             "--dry-run", action="store_true", help="Mostra i messaggi senza spedirli."
         )
+        parser.add_argument(
+            "--prova-a", metavar="EMAIL",
+            help="Prova: spedisce davvero, ma tutto a questo indirizzo (vale NOTIFICHE_PROVA_A).",
+        )  # fmt: skip
         parser.add_argument(
             "--anche-weekend", action="store_true", help="Invia anche di sabato e domenica."
         )
@@ -43,6 +48,16 @@ class Command(BaseCommand):
             raise CommandError(
                 "Notifiche spente: configurare EMAIL_HOST (o NOTIFICHE_EMAIL_ATTIVE=true)."
             )
+        if opzioni["prova_a"]:
+            # Solo per questo lancio: l'impostazione torna com'era alla fine.
+            with override_settings(NOTIFICHE_PROVA_A=opzioni["prova_a"]):
+                return self._invia(oggi, opzioni)
+        return self._invia(oggi, opzioni)
+
+    def _invia(self, oggi, opzioni):
+        simula = opzioni["dry_run"]
+        if settings.NOTIFICHE_PROVA_A:
+            self.stdout.write(f"PROVA: tutte le email vanno a {settings.NOTIFICHE_PROVA_A}.")
         tipi = ("rilasci", "scadenze") if opzioni["tipo"] == "tutti" else (opzioni["tipo"],)
         messaggi, partite = promemoria.invia_promemoria(oggi, tipi, simula)
         for msg in messaggi:

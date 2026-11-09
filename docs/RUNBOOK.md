@@ -983,4 +983,5 @@ con il cruscotto dell'app.
    ./manage.sh invia_promemoria --tipo rilasci
    ```
 5. Registro: Amministrazione → «Email di notifica» (a chi, quando, esito e errore). Un errore SMTP non blocca il lavoro degli utenti: si vede lì e nel log (`compose logs web`).
-6. Per spegnere tutto: togli `EMAIL_HOST` (o `NOTIFICHE_EMAIL_ATTIVE=false`) e riavvia `web` e `notifiche`. L'avviso delle nuove fatture si può togliere volta per volta con la spunta nella pagina dell'anteprima dell'import.
+6. **Prova prima del rilascio**: con `NOTIFICHE_PROVA_A=<tuo indirizzo>` nel `.env` (o `--prova-a <indirizzo>` sul comando dei promemoria) le email partono davvero, ma tutte a quell'indirizzo, con l'oggetto `[PROVA → destinatario vero]` e la riga «Questa email sarebbe andata a…». Nel registro compare l'indirizzo di prova; i promemoria di prova non consumano quelli veri. Togli la variabile per passare all'invio reale.
+7. Per spegnere tutto: togli `EMAIL_HOST` (o `NOTIFICHE_EMAIL_ATTIVE=false`) e riavvia `web` e `notifiche`. L'avviso delle nuove fatture si può togliere volta per volta con la spunta nella pagina dell'anteprima dell'import.

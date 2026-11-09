@@ -7,7 +7,9 @@ con il link alla pagina da cui lavorare. Regole:
 - chi ha fatto l'azione non riceve l'email che ne parla;
 - un errore di spedizione non blocca mai l'operazione: si registra e si scrive nel log;
 - gli avvisi legati a un'azione partono dopo il commit della transazione;
-- con ``NOTIFICHE_EMAIL_ATTIVE`` falso (nessun server SMTP) non parte niente.
+- con ``NOTIFICHE_EMAIL_ATTIVE`` falso (nessun server SMTP) non parte niente;
+- con ``NOTIFICHE_PROVA_A`` valorizzato le email partono tutte a quell'indirizzo, con scritto a chi
+  sarebbero andate (prova prima del rilascio).
 
 Destinatari: l'addetto amministrativo e l'addetto al rilascio sono gli utenti con la funzione
 (gruppo AD o assegnazione locale, ``contratti.permessi``); i referenti sono gli utenti dei
@@ -127,27 +129,41 @@ def invia(
     ]
     # Indirizzi da LDAP (con ripiego su quello salvato); chi non ne ha non riceve niente.
     indirizzi = rubrica.indirizzi(candidati)
+    prova = (getattr(settings, "NOTIFICHE_PROVA_A", "") or "").strip()
     visti: set[str] = set()
     for utente in candidati:
         email = indirizzi.get(utente.pk, "")
-        if not email or email.lower() in visti:
-            continue
-        visti.add(email.lower())
-        if (
-            chiave
-            and m.InvioEmail.objects.filter(
-                tipo=tipo, destinatario__iexact=email, chiave=chiave, esito="inviata"
-            ).exists()
-        ):
-            continue
-        soggetto = f"{PREFISSO_OGGETTO} {oggetto}"
+        if prova:
+            # Modalità di prova: l'email parte davvero, ma solo all'indirizzo di prova, con
+            # scritto a chi sarebbe andata. Nessuna chiave: non consuma i promemoria veri.
+            if utente.pk in visti:
+                continue
+            visti.add(utente.pk)
+            a_chi = email or "nessun indirizzo, non partirebbe"
+            soggetto = f"[PROVA → {a_chi}] {PREFISSO_OGGETTO} {oggetto}"
+            testo = f"[PROVA] Questa email sarebbe andata a: {utente} ({a_chi}).\n\n{corpo}{FIRMA}"
+            destinatario, chiave_invio = prova, ""
+        else:
+            if not email or email.lower() in visti:
+                continue
+            visti.add(email.lower())
+            if (
+                chiave
+                and m.InvioEmail.objects.filter(
+                    tipo=tipo, destinatario__iexact=email, chiave=chiave, esito="inviata"
+                ).exists()
+            ):
+                continue
+            soggetto = f"{PREFISSO_OGGETTO} {oggetto}"
+            testo = corpo + FIRMA
+            destinatario, chiave_invio = email, chiave
         registro = m.InvioEmail(
-            tipo=tipo, destinatario=email, oggetto=soggetto[:250], chiave=chiave
+            tipo=tipo, destinatario=destinatario, oggetto=soggetto[:250], chiave=chiave_invio
         )
         try:
-            EmailMessage(subject=soggetto, body=corpo + FIRMA, to=[email]).send(fail_silently=False)
+            EmailMessage(subject=soggetto, body=testo, to=[destinatario]).send(fail_silently=False)
         except Exception as exc:  # noqa: BLE001 - la notifica non deve mai bloccare il lavoro
-            log.exception("Email %s a %s non spedita", tipo, email)
+            log.exception("Email %s a %s non spedita", tipo, destinatario)
             registro.esito, registro.errore = m.InvioEmail.Esito.ERRORE, str(exc)[:1000]
         else:
             registro.esito = m.InvioEmail.Esito.INVIATA

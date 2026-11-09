@@ -327,3 +327,38 @@ def test_registro_email_in_sola_lettura_nell_admin(admin_client, utenti):
 def test_senza_indirizzo_non_riceve_niente(utenti):
     assert notifiche.fatture_nuove(1) == 4
     assert "senzamail" not in {r.destinatario for r in m.InvioEmail.objects.all()}
+
+
+def test_modalita_di_prova_tutto_all_indirizzo_di_prova(utenti, settings):
+    settings.NOTIFICHE_PROVA_A = "pietro@esempio.test"
+    assert (
+        notifiche.fatture_nuove(2, utente=utenti["amm"]) == 4
+    )  # tutti tranne chi agisce, e senzamail
+    assert destinatari() == ["pietro@esempio.test"] * 4
+    oggetti = " ".join(msg.subject for msg in mail.outbox)
+    assert "[PROVA → ref@esempio.test]" in oggetti
+    assert "[PROVA → nessun indirizzo, non partirebbe]" in oggetti
+    assert any("sarebbe andata a: ref" in msg.body for msg in mail.outbox)
+    assert {r.destinatario for r in m.InvioEmail.objects.all()} == {"pietro@esempio.test"}
+
+
+def test_prova_non_consuma_i_promemoria_veri(utenti, settings, fattura_in_lavorazione):
+    fatture.registra_documento(fattura_in_lavorazione, Tipo.ODA, "4600000001", D(2026, 11, 2))
+    settings.NOTIFICHE_PROVA_A = "pietro@esempio.test"
+    call_command("invia_promemoria", "--tipo", "rilasci", "--oggi", "2026-11-09", stdout=StringIO())
+    call_command("invia_promemoria", "--tipo", "rilasci", "--oggi", "2026-11-09", stdout=StringIO())
+    assert destinatari() == ["pietro@esempio.test"] * 2  # in prova si ripete
+    settings.NOTIFICHE_PROVA_A = ""
+    mail.outbox.clear()
+    call_command("invia_promemoria", "--tipo", "rilasci", "--oggi", "2026-11-09", stdout=StringIO())
+    assert destinatari() == ["ril@esempio.test"]  # il promemoria vero parte comunque
+
+
+def test_comando_con_prova_a(utenti, settings, fattura_in_lavorazione):
+    fatture.registra_documento(fattura_in_lavorazione, Tipo.ODA, "4600000001", D(2026, 11, 2))
+    out = StringIO()
+    call_command(
+        "invia_promemoria", "--tipo", "rilasci", "--oggi", "2026-11-09",
+        "--prova-a", "io@esempio.test", stdout=out,
+    )  # fmt: skip
+    assert destinatari() == ["io@esempio.test"] and "PROVA" in out.getvalue()
