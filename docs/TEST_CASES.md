@@ -786,3 +786,5 @@ SPEC §4 (Fattura, Rev40). Aliquote: 22, 10, 5, 4.
 **(b) Scorporo.** Documento 1.132,00, aliquota 22%, 400,00 a IVA 0: valore base 1.000,00, IVA 132,00. Con oneri 40,00 e bollo 2,00 (documento 1.182,80): valore base 1.000,00, IVA 140,80. Tutto a IVA 0 (100,00 su 100,00): valore base 100,00, IVA 0,00. Senza imponibile a IVA 0 il risultato è quello di prima (1.220,00 → 1.000,00 e 220,00).
 
 **(c) Limiti.** Un imponibile a IVA 0 oltre valore base + oneri, o oltre l'importo del documento nello scorporo, è rifiutato. Il valore base resta l'importo che conta per fatturato e budget; l'IVA non entra nel fatturato.
+
+**(f) Per conoscenza al referente della fattura.** Convalida fatta da un Admin su una fattura in carico al referente: email all'addetto amministrativo e, per conoscenza, al referente («(per conoscenza)» nell'oggetto, «sei il referente di questa fattura» in testa); se convalida il referente non ne riceve. Registrazione di una RdC: all'addetto al rilascio e al referente. Promemoria dei rilasci: all'addetto al rilascio l'elenco completo, a ogni referente solo i documenti delle sue fatture. Un referente già destinatario riceve un solo messaggio.
