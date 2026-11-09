@@ -74,21 +74,29 @@ def utenti_operativi() -> list:
 
 
 def _con_funzione(funzione: str, gruppo: str) -> list:
+    """Utenti Admin/Editor con la funzione: dal gruppo Django (sincronizzato al login), dalla
+    assegnazione locale, oppure dal gruppo AD letto ora da LDAP (così non serve un nuovo
+    login dopo l'aggiunta al gruppo)."""
     nomi = [
         n.strip().lower()
         for n in m.FunzioneUtente.objects.filter(funzione=funzione, archiviato=False).values_list(
             "username", flat=True
         )
     ]
-    utenti = (
+    attivi = [
+        u
+        for u in get_user_model().objects.filter(is_active=True).order_by("pk")
+        if role_of(u) in WRITE_ROLES
+    ]
+    gia = set(
         get_user_model()
-        .objects.filter(is_active=True)
-        .annotate(nome_minuscolo=Lower("username"))
+        .objects.annotate(nome_minuscolo=Lower("username"))
         .filter(Q(groups__name=gruppo) | Q(nome_minuscolo__in=nomi))
-        .distinct()
-        .order_by("pk")
+        .values_list("pk", flat=True)
     )
-    return _attivi(u for u in utenti if role_of(u) in WRITE_ROLES)
+    da_ldap = rubrica.funzioni_ldap([u for u in attivi if u.pk not in gia])
+    trovati = gia | {pk for pk, funzioni in da_ldap.items() if gruppo in funzioni}
+    return _attivi(u for u in attivi if u.pk in trovati)
 
 
 def addetti_amministrativi() -> list:

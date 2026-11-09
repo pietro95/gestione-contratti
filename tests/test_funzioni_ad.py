@@ -134,3 +134,46 @@ def test_senza_ldap_vale_l_indirizzo_salvato(make_user):
     utente = make_user("x", role=EDITOR, email="x@esempio.test")
     senza = make_user("y", role=EDITOR)
     assert rubrica.indirizzi([utente, senza]) == {utente.pk: "x@esempio.test"}
+
+
+def test_login_senza_gruppo_configurato_non_toglie_la_funzione(
+    client, ldap_env, settings, make_user
+):
+    """Difetto corretto: un login con le variabili dei gruppi di funzione assenti (es. .env
+    rigenerato) non deve azzerare la funzione già assegnata."""
+    from django.contrib.auth.models import Group
+
+    apply_auth_settings(settings, ldap_env)  # nessun gruppo di funzione configurato
+    utente = make_user("mrossi", role=EDITOR)
+    utente.groups.add(Group.objects.get(name=ADDETTO_AMMINISTRATIVO))
+    assert accedi(client, "mrossi").status_code == 302
+    utente = get_user_model().objects.get(username="mrossi")
+    assert utente.groups.filter(name=ADDETTO_AMMINISTRATIVO).exists()
+
+
+def test_login_con_gruppo_configurato_toglie_la_funzione_non_piu_in_ad(
+    client, ldap_funzioni, make_user
+):
+    """Con il gruppo configurato, chi non è più nel gruppo AD perde la funzione al login."""
+    from django.contrib.auth.models import Group
+
+    utente = make_user("mrossi", role=EDITOR)  # mrossi non è nel gruppo dell'addetto
+    utente.groups.add(Group.objects.get(name=ADDETTO_AMMINISTRATIVO))
+    assert accedi(client, "mrossi").status_code == 302
+    utente = get_user_model().objects.get(username="mrossi")
+    assert not utente.groups.filter(name=ADDETTO_AMMINISTRATIVO).exists()
+
+
+def test_addetto_riconosciuto_da_ad_senza_nuovo_login(ldap_funzioni, make_user):
+    """L'addetto è nel gruppo AD ma non ha ancora il gruppo Django: gli avvisi lo trovano."""
+    from django.contrib.auth.models import Group
+
+    from contratti import notifiche
+
+    utente = make_user("aamm", role=EDITOR)  # esiste nell'app, senza il gruppo della funzione
+    altro = make_user("mrossi", role=EDITOR)
+    assert not ha_funzione(utente, ADDETTO_AMMINISTRATIVO)
+    assert [u.username for u in notifiche.addetti_amministrativi()] == ["aamm"]
+    assert notifiche.addetti_al_rilascio() == []
+    assert Group.objects.filter(name=ADDETTO_AMMINISTRATIVO).exists()
+    assert altro.pk not in {u.pk for u in notifiche.addetti_amministrativi()}

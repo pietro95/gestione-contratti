@@ -84,8 +84,15 @@ def _apply_role(user, role):
 
 
 def _apply_functions(user, funzioni):
-    """Allinea i gruppi Django delle funzioni a quelli AD: toglie quelle che non ci sono più."""
+    """Allinea i gruppi Django delle funzioni ai gruppi AD, solo per le funzioni configurate.
+
+    Una funzione il cui gruppo AD non è configurato (variabile assente o vuota) non si tocca:
+    altrimenti un login con la configurazione incompleta toglierebbe la funzione a tutti.
+    """
+    configurate = getattr(settings, "ACCOUNTS_LDAP_FUNCTION_GROUPS", {})
     for nome in FUNZIONI:
+        if nome not in configurate:
+            continue
         gruppo, _ = Group.objects.get_or_create(name=nome)
         if nome in funzioni:
             user.groups.add(gruppo)

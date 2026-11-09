@@ -969,7 +969,7 @@ con il cruscotto dell'app.
    - `GG_Contratti_Addetto_Rilascio`: l'addetto al rilascio su SAP.
 2. Nel `.env` imposta `LDAP_GROUP_ADDETTO_AMMINISTRATIVO` e `LDAP_GROUP_ADDETTO_RILASCIO` con i DN completi e riavvia: `source comune.sh && compose restart web`.
 3. Chi è in un gruppo di funzione **entra anche senza il gruppo Editor** e, se era solo Reader, lavora come Editor. L'addetto amministrativo vede e lavora su **tutti i cluster**: non serve più l'assegnazione `TUTTI`.
-4. Le funzioni si leggono a ogni login: dopo aver aggiunto o tolto un utente, vale dal login successivo (la sessione dura al massimo 8 ore). I gruppi sono visibili in Amministrazione → Gruppi (`Addetto amministrativo`, `Addetto al rilascio`), non vanno modificati a mano.
+4. Per gli avvisi per email l'appartenenza ai gruppi si legge **anche direttamente da AD al momento dell'invio**, quindi basta che l'utente esista nell'app con il ruolo Editor o Admin (non serve un nuovo login). Per i permessi (cluster, rilasci) le funzioni si leggono invece a ogni login, e un login con la variabile del gruppo non configurata **non** le toglie. Le funzioni si leggono a ogni login: dopo aver aggiunto o tolto un utente, vale dal login successivo (la sessione dura al massimo 8 ore). I gruppi sono visibili in Amministrazione → Gruppi (`Addetto amministrativo`, `Addetto al rilascio`), non vanno modificati a mano.
 5. Con LDAP attivo le assegnazioni locali in Amministrazione → «Funzioni degli utenti» continuano a valere, in aggiunta ai gruppi: dopo il passaggio ai gruppi si possono archiviare.
 
 ### 13.2 Email di avviso
