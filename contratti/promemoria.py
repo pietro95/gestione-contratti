@@ -29,7 +29,8 @@ class Messaggio:
 
 
 def messaggi_rilasci(oggi: datetime.date) -> list[Messaggio]:
-    """RDA, RdC e MAP in attesa di rilascio su SAP → addetto al rilascio (se c'è qualcosa)."""
+    """RDA, RdC e MAP in attesa di rilascio su SAP → addetto al rilascio (se c'è qualcosa);
+    per conoscenza, a ogni referente di fattura, i soli documenti delle sue fatture."""
     rda = acquisti.rda_da_rilasciare()
     documenti = fatture.documenti_da_rilasciare()
     if not rda and not documenti:
@@ -44,15 +45,11 @@ def messaggi_rilasci(oggi: datetime.date) -> list[Messaggio]:
     if documenti:
         righe.append(f"RdC e MAP da rilasciare ({len(documenti)}):")
         for d in documenti:
-            giorni = (oggi - d.data).days
-            righe.append(
-                f"- {d.get_tipo_display()} {d.numero} — fattura {d.fattura.numero} "
-                f"di {d.fattura.fornitore} (da {giorni} giorni)"
-            )
+            righe.append(_riga_documento(d, oggi))
         righe.append("")
     righe.append(f"Maschera dei rilasci: {notifiche.link('rilasci')}")
     totale = len(rda) + len(documenti)
-    return [
+    messaggi = [
         Messaggio(
             notifiche.Tipo.RILASCI_IN_ATTESA,
             notifiche.addetti_al_rilascio(),
@@ -61,6 +58,41 @@ def messaggi_rilasci(oggi: datetime.date) -> list[Messaggio]:
             chiave=f"{oggi:%Y-%m-%d}",
         )
     ]
+    per_referente: dict[int, dict] = defaultdict(lambda: {"utente": None, "documenti": []})
+    for d in documenti:
+        referente = d.fattura.referente
+        if referente is not None:
+            voce = per_referente[referente.pk]
+            voce["utente"] = referente
+            voce["documenti"].append(d)
+    for voce in per_referente.values():
+        elenco = voce["documenti"]
+        corpo = [
+            "Per conoscenza: sei il referente di queste fatture, con RdC o MAP in attesa di "
+            "rilascio su SAP.",
+            "",
+            *(_riga_documento(d, oggi) for d in elenco),
+            "",
+            f"Le tue fatture: {notifiche.link('fatture')}?vista=mie",
+        ]
+        messaggi.append(
+            Messaggio(
+                notifiche.Tipo.RILASCI_IN_ATTESA,
+                [voce["utente"]],
+                f"{len(elenco)} documenti delle tue fatture in attesa di rilascio (per conoscenza)",
+                "\n".join(corpo),
+                chiave=f"{oggi:%Y-%m-%d}",
+            )
+        )
+    return messaggi
+
+
+def _riga_documento(d, oggi: datetime.date) -> str:
+    giorni = (oggi - d.data).days
+    return (
+        f"- {d.get_tipo_display()} {d.numero} — fattura {d.fattura.numero} "
+        f"di {d.fattura.fornitore} (da {giorni} giorni)"
+    )
 
 
 def messaggi_scadenze(oggi: datetime.date) -> list[Messaggio]:

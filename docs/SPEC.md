@@ -508,15 +508,16 @@ Il portale invia email **di avviso**, mai a nome di un utente e sempre con il li
 |---|---|
 | Richiesta di RDA inviata dal referente (anche dopo un rimando) | addetto amministrativo |
 | RDA inserita in SAP (numero riportato), in attesa di rilascio | addetto al rilascio |
-| RdC o MAP di una fattura registrato, da rilasciare (il MIGO non si rilascia) | addetto al rilascio |
-| **Promemoria dei rilasci in attesa** (RDA, RdC, MAP), ogni giorno lavorativo e solo se ce ne sono | addetto al rilascio |
+| RdC o MAP di una fattura registrato, da rilasciare (il MIGO non si rilascia) | addetto al rilascio; il referente della fattura per conoscenza |
+| **Promemoria dei rilasci in attesa** (RDA, RdC, MAP), ogni giorno lavorativo e solo se ce ne sono | addetto al rilascio; ai referenti di fattura, per conoscenza, i soli documenti delle loro fatture |
 | **Promemoria dei contratti in scadenza** (alert rosso, arancione, giallo del cruscotto), una volta a settimana, un messaggio per referente con i suoi contratti | referente (utente) del fabbisogno |
 | **Nuove fatture da prendere in carico**, a ogni caricamento che ne genera (§7) | Admin ed Editor con un indirizzo |
 | Richiesta di RDA rimandata dall'addetto, con la nota | referente della RDA |
 | Fattura assegnata o riassegnata a un referente | quel referente |
-| Fattura convalidata dal referente (RdC e MAP/MIGO da fare) | addetto amministrativo |
+| Fattura convalidata dal referente (RdC e MAP/MIGO da fare) | addetto amministrativo; il referente per conoscenza |
 
 - **Caricamento delle fatture** (§7): nella pagina dell'anteprima, accanto a «Conferma l'import», una spunta «Avvisa per email gli utenti» attiva di default, con il numero di fatture nuove e di destinatari; togliendola non parte nessun avviso. L'email parte solo se la conferma ha creato fatture nuove. L'avviso va a **Admin ed Editor**, gli utenti che possono prendere in carico una fattura: il Reader non può agire e non lo riceve (deviazione dalla lettera «a tutti gli utenti», da confermare).
+- **Per conoscenza al referente della fattura** (Rev39): le email del processo di fattura (fattura convalidata, RdC e MAP da rilasciare, promemoria dei rilasci) vanno anche al referente che ha in carico la fattura, con «(per conoscenza)» nell'oggetto e una riga in testa; se è già tra i destinatari riceve un solo messaggio, e chi ha fatto l'azione non riceve l'email che la riguarda (quindi la convalida del referente non gli torna indietro). L'assegnazione e la riassegnazione vanno già al referente; le «nuove fatture» non hanno ancora un referente.
 - **Promemoria periodici**: li prepara `manage.py invia_promemoria` (`--dry-run` mostra i messaggi senza spedirli), lanciato ogni giorno lavorativo dal container `notifiche`. Ogni promemoria ha un periodo: rilasci, un messaggio al giorno; scadenze, uno a settimana; rilanciare il comando nello stesso periodo non rimanda niente. I contratti il cui fabbisogno ha solo il referente scritto a testo (senza utente) non hanno destinatario.
 - **Destinatari per funzione**: gli utenti con la funzione (§8.1), Admin ed Editor.
 - Il connettore MCP usa gli stessi servizi: le azioni fatte da Claude (invio, dati SAP, convalida, documenti, riassegnazione) producono le stesse email; gli import non passano dal connettore.
