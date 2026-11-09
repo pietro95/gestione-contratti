@@ -98,3 +98,39 @@ def test_gruppi_delle_funzioni_facoltativi_in_configurazione():
         ADDETTO_AMMINISTRATIVO: "CN=Amm,DC=esempio,DC=test",
         ADDETTO_RILASCIO: "CN=Ril,DC=esempio,DC=test",
     }
+
+
+def test_indirizzi_letti_da_ldap_anche_senza_login(ldap_funzioni, make_user):
+    """Rev39: l'indirizzo viene dall'attributo mail dell'AD, non da quanto salvato al login."""
+    from accounts import rubrica
+
+    mai_entrata = make_user("aamm", role=EDITOR)  # nessun indirizzo salvato
+    obsoleto = make_user("mrossi", role=EDITOR, email="vecchio@esempio.test")
+    fuori_ad = make_user("locale", role=EDITOR, email="locale@esempio.test")
+    assert rubrica.indirizzi_ldap(["AAMM", "mrossi", "sconosciuto"]) == {
+        "aamm": "aamm@esempio.test",
+        "mrossi": "mrossi@esempio.test",
+    }
+    risolti = rubrica.indirizzi([mai_entrata, obsoleto, fuori_ad])
+    assert risolti == {
+        mai_entrata.pk: "aamm@esempio.test",
+        obsoleto.pk: "mrossi@esempio.test",
+        fuori_ad.pk: "locale@esempio.test",  # non è in AD: vale quello salvato
+    }
+    obsoleto.refresh_from_db()
+    assert obsoleto.email == "mrossi@esempio.test"  # salvato per i prossimi invii
+
+
+def test_ldap_non_raggiungibile_ripiega_sull_indirizzo_salvato(ldap_down, make_user):
+    from accounts import rubrica
+
+    utente = make_user("mrossi", role=EDITOR, email="salvato@esempio.test")
+    assert rubrica.indirizzi([utente]) == {utente.pk: "salvato@esempio.test"}
+
+
+def test_senza_ldap_vale_l_indirizzo_salvato(make_user):
+    from accounts import rubrica
+
+    utente = make_user("x", role=EDITOR, email="x@esempio.test")
+    senza = make_user("y", role=EDITOR)
+    assert rubrica.indirizzi([utente, senza]) == {utente.pk: "x@esempio.test"}

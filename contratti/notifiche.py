@@ -12,7 +12,7 @@ con il link alla pagina da cui lavorare. Regole:
 Destinatari: l'addetto amministrativo e l'addetto al rilascio sono gli utenti con la funzione
 (gruppo AD o assegnazione locale, ``contratti.permessi``); i referenti sono gli utenti dei
 fabbisogni e delle RDA; «tutti» sono gli utenti che possono lavorare le fatture (Admin ed
-Editor). Gli utenti senza indirizzo email nell'AD sono saltati.
+Editor). Gli indirizzi si leggono da LDAP (``mail``) al momento dell'invio; chi non ne ha è saltato.
 """
 
 import logging
@@ -26,6 +26,7 @@ from django.db.models import Q
 from django.db.models.functions import Lower
 from django.urls import reverse
 
+from accounts import rubrica
 from accounts.roles import ADDETTO_AMMINISTRATIVO, ADDETTO_RILASCIO, WRITE_ROLES, role_of
 from contratti import models as m
 from contratti.engine.acquisti import formato_euro
@@ -51,23 +52,23 @@ class Tipo:
 # --- Destinatari ----------------------------------------------------------------------------
 
 
-def _con_email(utenti: Iterable) -> list:
-    """Utenti attivi con un indirizzo, senza doppioni, nell'ordine di arrivo."""
-    visti: set[str] = set()
+def _attivi(utenti: Iterable) -> list:
+    """Utenti attivi, senza doppioni, nell'ordine di arrivo. L'indirizzo si legge da LDAP
+    solo all'invio (``accounts.rubrica``): qui non si scarta nessuno."""
+    visti: set[int] = set()
     risultato = []
     for u in utenti:
-        email = (getattr(u, "email", "") or "").strip().lower()
-        if not u.is_active or not email or email in visti:
+        if not u.is_active or u.pk in visti:
             continue
-        visti.add(email)
+        visti.add(u.pk)
         risultato.append(u)
     return risultato
 
 
 def utenti_operativi() -> list:
-    """Chi può lavorare le fatture: Admin ed Editor attivi con un indirizzo email."""
-    qs = get_user_model().objects.filter(is_active=True).exclude(email="").order_by("pk")
-    return _con_email(u for u in qs if role_of(u) in WRITE_ROLES)
+    """Chi può lavorare le fatture: Admin ed Editor attivi."""
+    qs = get_user_model().objects.filter(is_active=True).order_by("pk")
+    return _attivi(u for u in qs if role_of(u) in WRITE_ROLES)
 
 
 def _con_funzione(funzione: str, gruppo: str) -> list:
@@ -80,13 +81,12 @@ def _con_funzione(funzione: str, gruppo: str) -> list:
     utenti = (
         get_user_model()
         .objects.filter(is_active=True)
-        .exclude(email="")
         .annotate(nome_minuscolo=Lower("username"))
         .filter(Q(groups__name=gruppo) | Q(nome_minuscolo__in=nomi))
         .distinct()
         .order_by("pk")
     )
-    return _con_email(u for u in utenti if role_of(u) in WRITE_ROLES)
+    return _attivi(u for u in utenti if role_of(u) in WRITE_ROLES)
 
 
 def addetti_amministrativi() -> list:
@@ -122,10 +122,17 @@ def invia(
     if not settings.NOTIFICHE_EMAIL_ATTIVE:
         return 0
     partite = 0
-    for utente in _con_email(destinatari):
-        if escludi is not None and utente.pk == getattr(escludi, "pk", None):
+    candidati = [
+        u for u in _attivi(destinatari) if escludi is None or u.pk != getattr(escludi, "pk", None)
+    ]
+    # Indirizzi da LDAP (con ripiego su quello salvato); chi non ne ha non riceve niente.
+    indirizzi = rubrica.indirizzi(candidati)
+    visti: set[str] = set()
+    for utente in candidati:
+        email = indirizzi.get(utente.pk, "")
+        if not email or email.lower() in visti:
             continue
-        email = utente.email.strip()
+        visti.add(email.lower())
         if (
             chiave
             and m.InvioEmail.objects.filter(

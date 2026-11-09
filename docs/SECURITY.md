@@ -84,7 +84,7 @@ La segnalazione dovrebbe includere:
 
 - Partono solo dal server SMTP **interno** indicato in `EMAIL_HOST`; nessun servizio di posta esterno. Senza `EMAIL_HOST` sono spente.
 - Il testo contiene numeri, descrizioni, fornitori e importi del registro e il link all'interfaccia (raggiungibile solo dalla rete interna): niente allegati, niente password, nessun link con credenziali.
-- Gli indirizzi sono quelli dell'attributo `mail` di AD; il mittente è una casella dedicata. Ogni invio è registrato in `InvioEmail` (destinatario, oggetto, esito), mai il corpo.
+- Gli indirizzi si leggono da LDAP (attributo `mail`) all'invio, con l'account di servizio in sola lettura già usato per il login; il mittente è una casella dedicata. Ogni invio è registrato in `InvioEmail` (destinatario, oggetto, esito), mai il corpo.
 - Il container `mcp` (esposto su Internet) può solo inserire righe in `InvioEmail` (`ruolo_db_mcp`); le azioni di Claude producono le stesse email dell'interfaccia.
 
 ## Checklist minima per una modifica

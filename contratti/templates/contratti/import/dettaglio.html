@@ -55,7 +55,7 @@
 <div class="form-azioni">
   <form method="post" action="{% url 'contratti:importazione_conferma' imp.pk %}" data-conferma="Confermi l'import di «{{ imp.nome_file }}»? I dati verranno scritti nel registro." data-conferma-etichetta="Importa">
     {% csrf_token %}
-    {% if avviso_fatture %}<div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="avvisa" value="1" id="avvisa-fatture" checked><label class="form-check-label" for="avvisa-fatture">Avvisa per email gli utenti delle {{ avviso_fatture.nuove }} nuove fatture da prendere in carico ({{ avviso_fatture.destinatari }} destinatari). Togli la spunta per non inviare l'avviso.</label></div>{% endif %}
+    {% if avviso_fatture %}<div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="avvisa" value="1" id="avvisa-fatture" checked><label class="form-check-label" for="avvisa-fatture">Avvisa per email gli utenti delle {{ avviso_fatture.nuove }} nuove fatture da prendere in carico ({{ avviso_fatture.destinatari }} utenti; gli indirizzi si leggono da LDAP). Togli la spunta per non inviare l'avviso.</label></div>{% endif %}
     <button class="btn btn-primary" type="submit"><i class="bi bi-check-lg" aria-hidden="true"></i> Conferma l'import</button>
   </form>
   <form method="post" action="{% url 'contratti:importazione_annulla' imp.pk %}">

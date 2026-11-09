@@ -975,7 +975,7 @@ con il cruscotto dell'app.
 ### 13.2 Email di avviso
 
 1. Serve un server SMTP interno raggiungibile dal container e una casella mittente dedicata. Nel `.env`: `EMAIL_HOST`, `EMAIL_PORT`, se serve `EMAIL_HOST_USER`/`EMAIL_HOST_PASSWORD` e `EMAIL_USE_TLS`/`EMAIL_USE_SSL`, `EMAIL_FROM` e `APP_URL` (l'indirizzo che gli utenti usano per aprire l'interfaccia, senza `/` finale: compare nei link). Senza `EMAIL_HOST` non parte nessuna email.
-2. Gli indirizzi vengono dall'attributo `mail` di AD, aggiornato a ogni login: un utente che non è mai entrato, o senza `mail`, non riceve niente.
+2. Gli indirizzi si leggono da LDAP (attributo `mail`) al momento dell'invio, con l'account di servizio già usato per il login, quindi anche per chi non è mai entrato (basta che l'utente esista nell'app, o abbia la funzione assegnata). Un utente senza `mail` in AD non riceve niente. Se LDAP non risponde vale l'ultimo indirizzo salvato.
 3. Gli avvisi legati a un'azione partono subito. I promemoria (rilasci in attesa, contratti in scadenza) li lancia il container `notifiche` ogni giorno all'ora `NOTIFICHE_ORA` (default 08:30); sabato e domenica non parte nulla; i rilasci si ripetono ogni giorno lavorativo finché ce ne sono, le scadenze una volta a settimana.
 4. Prova a mano, senza spedire e poi spedendo:
    ```bash

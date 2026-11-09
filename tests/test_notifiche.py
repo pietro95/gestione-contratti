@@ -47,8 +47,10 @@ def destinatari():
 def test_destinatari_per_funzione(utenti):
     assert [x.username for x in notifiche.addetti_amministrativi()] == ["amm"]
     assert [x.username for x in notifiche.addetti_al_rilascio()] == ["ril"]
-    # «Tutti»: Admin ed Editor con un indirizzo; non il Reader né chi non ha la mail.
-    assert {x.username for x in notifiche.utenti_operativi()} == {"amm", "ril", "ref", "altro"}
+    # «Tutti»: Admin ed Editor, non il Reader; l'indirizzo si risolve all'invio.
+    assert {x.username for x in notifiche.utenti_operativi()} == {
+        "amm", "ril", "ref", "altro", "senzamail",
+    }  # fmt: skip
     assert ADDETTO_RILASCIO != ADDETTO_AMMINISTRATIVO
 
 
@@ -320,3 +322,8 @@ def test_registro_email_in_sola_lettura_nell_admin(admin_client, utenti):
         == 403
     )
     assert not ammin.has_change_permission(None)
+
+
+def test_senza_indirizzo_non_riceve_niente(utenti):
+    assert notifiche.fatture_nuove(1) == 4
+    assert "senzamail" not in {r.destinatario for r in m.InvioEmail.objects.all()}
