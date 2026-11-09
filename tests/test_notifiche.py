@@ -71,7 +71,8 @@ def test_errore_di_spedizione_registrato_e_non_blocca(utenti, monkeypatch):
 
     monkeypatch.setattr("django.core.mail.EmailMessage.send", guasto)
     assert notifiche.fatture_nuove(2) == 0
-    righe = m.InvioEmail.objects.all()
+    # Le righe con un indirizzo falliscono per l'SMTP; chi non ha indirizzo è registrato a parte.
+    righe = m.InvioEmail.objects.filter(destinatario__contains="@")
     assert righe and all(r.esito == "errore" and "SMTP" in r.errore for r in righe)
 
 
@@ -326,7 +327,9 @@ def test_registro_email_in_sola_lettura_nell_admin(admin_client, utenti):
 
 def test_senza_indirizzo_non_riceve_niente(utenti):
     assert notifiche.fatture_nuove(1) == 4
-    assert "senzamail" not in {r.destinatario for r in m.InvioEmail.objects.all()}
+    inviate = m.InvioEmail.objects.filter(esito="inviata")
+    assert "senzamail" not in {r.destinatario for r in inviate}
+    assert m.InvioEmail.objects.get(esito="errore").destinatario.startswith("senzamail")
 
 
 def test_modalita_di_prova_tutto_all_indirizzo_di_prova(utenti, settings):
@@ -362,3 +365,33 @@ def test_comando_con_prova_a(utenti, settings, fattura_in_lavorazione):
         "--prova-a", "io@esempio.test", stdout=out,
     )  # fmt: skip
     assert destinatari() == ["io@esempio.test"] and "PROVA" in out.getvalue()
+
+
+def test_destinatario_senza_indirizzo_lascia_traccia(utenti, caplog):
+    """Un avviso che non può partire non sparisce in silenzio: registro e log."""
+    from django.contrib.auth.models import Group
+
+    sola = utenti["senza_mail"]
+    sola.groups.add(Group.objects.get(name=ADDETTO_AMMINISTRATIVO))
+    utenti["amm"].groups.clear()
+    utenti["amm"].groups.add(Group.objects.get(name=EDITOR))
+    assert [u.username for u in notifiche.addetti_amministrativi()] == ["senzamail"]
+    with caplog.at_level("WARNING", logger="contratti.notifiche"):
+        assert notifiche.invia("prova", [sola], "Oggetto", "Corpo") == 0
+    riga = m.InvioEmail.objects.get()
+    assert riga.esito == "errore" and "senzamail" in riga.destinatario
+    assert "nessun indirizzo per senzamail" in caplog.text
+
+
+def test_nessun_destinatario_va_nel_log(utenti, caplog):
+    with caplog.at_level("WARNING", logger="contratti.notifiche"):
+        assert notifiche.invia("prova", [], "Oggetto", "Corpo") == 0
+    assert "nessun destinatario" in caplog.text
+
+
+def test_comando_destinatari(utenti):
+    out = StringIO()
+    call_command("destinatari_notifiche", stdout=out)
+    testo = out.getvalue()
+    assert "Addetti amministrativi (1)" in testo and "amm → amm@esempio.test" in testo
+    assert "senzamail → NESSUN INDIRIZZO" in testo
