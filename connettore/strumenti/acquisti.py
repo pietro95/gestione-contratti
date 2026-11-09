@@ -252,6 +252,7 @@ def fattura(ctx: Contesto, argomenti: dict) -> dict:
         "bollo": f.bollo,
         "iva": f.iva,
         "altri_importi": f.altri_importi,
+        "imponibile_senza_iva": f.imponibile_senza_iva,
         "competenza_dal": f.competenza_dal,
         "competenza_al": f.competenza_al,
         "imputazione_della_fattura": {

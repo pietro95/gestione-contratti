@@ -2081,6 +2081,15 @@ class Fattura(Archiviabile):
     bollo = importo("bollo", null=True, blank=True)
     # IVA nell'importo del documento (SAP lo riporta spesso con l'IVA).
     iva = importo("IVA", null=True, blank=True)
+    # Fattura con IVA mista: parte di valore base + oneri senza IVA in fattura (inversione
+    # contabile, es. alcuni acquisti Amazon); l'aliquota vale solo sul resto.
+    imponibile_senza_iva = importo(
+        "imponibile a IVA 0 (inversione contabile)",
+        null=True,
+        blank=True,
+        help_text="Parte di valore base e oneri senza IVA in fattura (inversione contabile): "
+        "l'IVA si calcola solo sul resto.",
+    )
     # More, danni e simili presenti in fattura ma non imputabili all'ufficio: si tolgono
     # dall'importo che conta per il contratto.
     altri_importi = importo(
@@ -2161,6 +2170,7 @@ class Fattura(Archiviabile):
                 & (Q(oneri__isnull=True) | Q(oneri__gte=0))
                 & (Q(bollo__isnull=True) | Q(bollo__gte=0))
                 & (Q(iva__isnull=True) | Q(iva__gte=0))
+                & (Q(imponibile_senza_iva__isnull=True) | Q(imponibile_senza_iva__gte=0))
                 & (Q(altri_importi__isnull=True) | Q(altri_importi__gte=0)),
                 name="contratti_fattura_importi_non_negativi",
             ),

@@ -24,6 +24,8 @@ from contratti.acquisti import OperazioneNonAmmessa, _salva
 from contratti.engine import acquisti as motore
 from contratti.engine.date import mese_precedente
 
+ZERO = Decimal("0")
+
 Esito = m.Fattura.Esito
 Passo = motore.PassoFattura
 Tipo = m.DocumentoEsecuzione.Tipo
@@ -482,6 +484,7 @@ def aggiorna_importi(
     *,
     iva: Decimal | None = None,
     altri_importi: Decimal | None = None,
+    imponibile_senza_iva: Decimal | None = None,
     competenza: tuple[datetime.date | None, datetime.date | None] | None = None,
 ) -> None:
     """Valore base, oneri, bollo, IVA e altri importi (e, se indicata, la competenza: dal, al);
@@ -489,11 +492,18 @@ def aggiorna_importi(
     di fattura; il suo importo non cambia).
 
     Senza IVA indicata: se la differenza dall'importo del documento è l'IVA di un'aliquota
-    della tabella (SAP riporta spesso l'importo con l'IVA), l'IVA si registra da sola."""
+    della tabella (SAP riporta spesso l'importo con l'IVA), l'IVA si registra da sola. In una
+    fattura con IVA mista l'aliquota vale sulla sola parte tassata: l'«imponibile a IVA 0»
+    (inversione contabile) è dentro valore base e oneri e non porta IVA."""
+    if imponibile_senza_iva is not None and imponibile_senza_iva > (valore_base or ZERO) + (
+        oneri or ZERO
+    ):
+        raise OperazioneNonAmmessa("L'imponibile a IVA 0 supera valore base e oneri.")
     if iva is None:
         riconosciuta = motore.iva_riconosciuta(
-            fattura.importo_documento, valore_base, oneri, bollo, aliquote_iva(), altri_importi
-        )
+            fattura.importo_documento, valore_base, oneri, bollo, aliquote_iva(), altri_importi,
+            imponibile_senza_iva,
+        )  # fmt: skip
         iva = riconosciuta[1] if riconosciuta else None
     if voce is not None and voce.contratto_id != fattura.contratto_id:
         raise OperazioneNonAmmessa("La voce è di un altro contratto.")
@@ -504,7 +514,8 @@ def aggiorna_importi(
     fattura.valore_base, fattura.oneri, fattura.bollo = valore_base, oneri, bollo
     fattura.iva = iva
     fattura.altri_importi = altri_importi
-    campi = ["valore_base", "oneri", "bollo", "iva", "altri_importi"]
+    fattura.imponibile_senza_iva = imponibile_senza_iva
+    campi = ["valore_base", "oneri", "bollo", "iva", "altri_importi", "imponibile_senza_iva"]
     if competenza is not None:
         fattura.competenza_dal, fattura.competenza_al = competenza
         campi += ["competenza_dal", "competenza_al"]
@@ -552,19 +563,25 @@ def scorpora_iva(
     rata: m.Rata | None = None,
     altri_importi: Decimal | None = None,
     competenza: tuple[datetime.date | None, datetime.date | None] | None = None,
+    imponibile_senza_iva: Decimal | None = None,
 ) -> None:
     """Importo del documento con l'IVA: valore base e IVA dallo scorporo dell'aliquota, tolti
-    oneri, bollo e altri importi."""
+    oneri, bollo e altri importi. Con una parte a IVA 0 (inversione contabile) l'aliquota vale
+    solo sul resto dell'importo."""
     if aliquota not in aliquote_iva():
         raise OperazioneNonAmmessa("Aliquota IVA non prevista dalla tabella.")
     valore_base, iva = motore.scorporo_iva(
-        fattura.importo_documento, oneri, bollo, aliquota, altri_importi
+        fattura.importo_documento, oneri, bollo, aliquota, altri_importi, imponibile_senza_iva
     )
     if valore_base < 0:
         raise OperazioneNonAmmessa("Oneri, bollo e altri importi superano l'importo senza IVA.")
+    if imponibile_senza_iva is not None and (
+        fattura.importo_documento - (bollo or ZERO) - (altri_importi or ZERO) < imponibile_senza_iva
+    ):
+        raise OperazioneNonAmmessa("L'imponibile a IVA 0 supera l'importo del documento.")
     aggiorna_importi(
         fattura, valore_base, oneri, bollo, voce, rata, iva=iva, altri_importi=altri_importi,
-        competenza=competenza,
+        imponibile_senza_iva=imponibile_senza_iva, competenza=competenza,
     )  # fmt: skip
 
 
@@ -582,12 +599,13 @@ def salva_importi(fattura: m.Fattura, dati: dict, aliquota_scorporo: Decimal | N
     if aliquota_scorporo is not None:
         scorpora_iva(fattura, aliquota_scorporo, dati.get("oneri"), dati.get("bollo"),
                      dati.get("voce"), dati.get("rata"), dati.get("altri_importi"),
-                     competenza)  # fmt: skip
+                     competenza, dati.get("imponibile_senza_iva"))  # fmt: skip
     else:
         aggiorna_importi(
             fattura, dati.get("valore_base"), dati.get("oneri"), dati.get("bollo"),
             dati.get("voce"), dati.get("rata"), iva=dati.get("iva"),
-            altri_importi=dati.get("altri_importi"), competenza=competenza,
+            altri_importi=dati.get("altri_importi"),
+            imponibile_senza_iva=dati.get("imponibile_senza_iva"), competenza=competenza,
         )  # fmt: skip
     imputa(fattura, dati.get("conto"), dati.get("centro_costo") or "", dati.get("wbs"))
 
