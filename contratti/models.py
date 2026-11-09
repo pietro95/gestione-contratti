@@ -1217,6 +1217,14 @@ class Contratto(Archiviabile):
         "fuori dal piano ordini.",
     )
 
+    # Il contratto è già un ordine d'acquisto: le sue fatture non hanno bisogno della RdC (né
+    # del suo rilascio) e passano da convalida a MAP/MIGO (SPEC §5.7, Rev41).
+    vale_come_oda = models.BooleanField(
+        "vale come ODA",
+        default=False,
+        help_text="Il contratto è già un ordine d'acquisto: le sue fatture non richiedono la RdC.",
+    )
+
     # Riferimenti SAP e ANAC: conservati come arrivano, le anomalie vanno nel report d'import.
     # NULL e non stringa vuota: TC-08 normalizza n/a, n/d, vuoto a NULL.
     numero_contratto = models.CharField("numero contratto", max_length=20, null=True, blank=True)  # noqa: DJ001

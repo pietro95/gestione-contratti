@@ -131,6 +131,7 @@ def iniziali_rinnovo(predecessore: m.Contratto, senza_contratto: bool = False) -
             "durata_mesi",
             "tacito_rinnovo",
             "preavviso_disdetta_giorni",
+            "vale_come_oda",
         )
     }
     fine = adapters.data_fine_effettiva(predecessore)

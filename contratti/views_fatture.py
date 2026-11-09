@@ -378,6 +378,8 @@ def fattura_dettaglio(request, pk):
             "referente_proposto": referente,
             "puo_lavorare": puo_lavorare,
             "puo_convalidare": fatture.puo_convalidare(request.user, f),
+            "puo_segnare_oda": fatture.puo_segnare_oda(request.user, f),
+            "vale_come_oda": fatture.vale_come_oda(f),
             "scrive": fatture.scrive(request.user),
             "gestisce": fatture.gestisce(request.user),
             "puo_rilasciare": fatture.puo_rilasciare(request.user),
@@ -530,6 +532,19 @@ def fattura_convalida(request, pk):
         ),
         "Convalida registrata.",
         controllo=fatture.puo_convalidare,
+    )  # fmt: skip
+
+
+@editor_required
+@require_POST
+def fattura_oda(request, pk):
+    valore = request.POST.get("vale_come_oda") == "1"
+    return _azione(
+        request, pk,
+        lambda x: fatture.segna_vale_come_oda(x, valore),
+        "Il contratto vale come ODA: le sue fatture non richiedono la RdC." if valore
+        else "Il contratto non vale più come ODA: le sue fatture richiedono la RdC.",
+        controllo=fatture.puo_segnare_oda,
     )  # fmt: skip
 
 

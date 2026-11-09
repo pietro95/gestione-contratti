@@ -1,0 +1,12 @@
+{% if f.contratto %}
+      <div class="mb-3" id="oda-contratto">
+        {% if vale_come_oda %}<p class="small mb-1"><span class="stato stato-blu">vale come ODA</span> Il contratto è già un ordine d'acquisto: per le sue fatture non serve la RdC.</p>{% endif %}
+        {% if puo_segnare_oda %}
+        <form method="post" action="{% url 'contratti:fattura_oda' f.pk %}" class="d-inline">{% csrf_token %}
+          <input type="hidden" name="vale_come_oda" value="{% if vale_come_oda %}0{% else %}1{% endif %}">
+          <button type="submit" class="btn btn-sm btn-outline-secondary"{% if not vale_come_oda %} data-bs-toggle="tooltip"{% endif %}>{% if vale_come_oda %}<i class="bi bi-x-circle" aria-hidden="true"></i> Il contratto non vale come ODA{% else %}<i class="bi bi-check2-square" aria-hidden="true"></i> Il contratto vale come ODA (niente RdC){% endif %}</button>
+        </form>
+        <div class="form-text">Vale per tutte le fatture del contratto ed è registrato nel suo storico.</div>
+        {% endif %}
+      </div>
+{% endif %}
