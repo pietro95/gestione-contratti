@@ -414,18 +414,22 @@ def iva_riconosciuta(
     bollo: Decimal | None,
     aliquote: list[Decimal],
     altri: Decimal | None = None,
+    senza_iva: Decimal | None = None,
 ) -> tuple[Decimal, Decimal] | None:
     """(aliquota, IVA) se la differenza tra l'importo del documento e valore base + oneri +
-    bollo è l'IVA di una delle aliquote su valore base + oneri, a meno di un centesimo.
-    L'IVA restituita è la differenza esatta, così l'importo quadra."""
+    bollo è l'IVA di una delle aliquote sulla parte tassata di valore base + oneri, a meno di
+    un centesimo. La parte a IVA 0 (``senza_iva``: inversione contabile) è dentro valore base
+    e oneri, ma non porta IVA: in una fattura mista si toglie dall'imponibile su cui si
+    calcola l'aliquota. L'IVA restituita è la differenza esatta, così l'importo quadra."""
     if valore_base is None:
         return None
     imponibile = valore_base + (oneri or ZERO)
+    tassabile = imponibile - (senza_iva or ZERO)
     differenza = importo_documento - imponibile - (bollo or ZERO) - (altri or ZERO)
-    if differenza <= ZERO:
+    if differenza <= ZERO or tassabile <= ZERO:
         return None
     for aliquota in sorted(aliquote, reverse=True):
-        if abs(differenza - arrotonda(imponibile * aliquota / 100)) <= TOLLERANZA_IVA:
+        if abs(differenza - arrotonda(tassabile * aliquota / 100)) <= TOLLERANZA_IVA:
             return aliquota, differenza
     return None
 
@@ -436,12 +440,15 @@ def scorporo_iva(
     bollo: Decimal | None,
     aliquota: Decimal,
     altri: Decimal | None = None,
+    senza_iva: Decimal | None = None,
 ) -> tuple[Decimal, Decimal]:
-    """(valore base, IVA) di un importo con l'IVA: imponibile = (importo − bollo − altri
-    importi) / (1 + aliquota), arrotondato al centesimo; IVA = il resto, così l'importo
-    quadra."""
+    """(valore base, IVA) di un importo con l'IVA: la parte tassata = (importo − bollo −
+    altri importi − parte a IVA 0) / (1 + aliquota), arrotondata al centesimo; imponibile =
+    parte tassata + parte a IVA 0 (inversione contabile, ``senza_iva``); IVA = il resto, così
+    l'importo quadra. Senza parte a IVA 0 l'aliquota vale su tutto l'importo."""
     lordo = importo_documento - (bollo or ZERO) - (altri or ZERO)
-    imponibile = arrotonda(lordo * 100 / (100 + aliquota))
+    tassabile = arrotonda((lordo - (senza_iva or ZERO)) * 100 / (100 + aliquota))
+    imponibile = tassabile + (senza_iva or ZERO)
     return imponibile - (oneri or ZERO), lordo - imponibile
 
 

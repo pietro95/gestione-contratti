@@ -139,6 +139,12 @@ class ImportiForm(FormBase):
         label="IVA",
         help_text="Vuota: si riconosce da sola se la differenza è l'IVA di un'aliquota.",
     )  # fmt: skip
+    imponibile_senza_iva = ImportoField(
+        max_digits=14, decimal_places=2, min_value=0, required=False,
+        label="Di cui a IVA 0 (inversione contabile)",
+        help_text="Fattura con IVA mista: parte di valore base e oneri senza IVA in fattura; "
+        "l'aliquota si applica solo al resto.",
+    )  # fmt: skip
     altri_importi = ImportoField(
         max_digits=14, decimal_places=2, min_value=0, required=False,
         label="Altri importi (es. more/danni) in fattura, non imputabili al nostro ufficio",
