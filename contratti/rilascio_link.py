@@ -1,4 +1,4 @@
-"""Link «Rilascia ora» delle email di rilascio (SPEC §5.10, Rev42).
+"""Link «Rilascia ora» delle email di rilascio (SPEC §5.10, Rev43).
 
 Il link porta un token firmato (``django.core.signing``, chiave ``SECRET_KEY``) che dice quale RDA
 o quale documento (RdC, MAP) rilasciare, con scadenza (``RILASCIO_LINK_GIORNI``). Il token non dà

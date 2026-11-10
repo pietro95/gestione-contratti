@@ -1,4 +1,4 @@
-"""Link «Rilascia ora» nelle email di rilascio (SPEC §5.10, Rev42)."""
+"""Link «Rilascia ora» nelle email di rilascio (SPEC §5.10, Rev43)."""
 
 import datetime
 import re

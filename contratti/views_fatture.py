@@ -390,6 +390,9 @@ def fattura_dettaglio(request, pk):
     iniziali_importi = {
         "valore_base": f.valore_base,
         "oneri": f.oneri,
+        "rimborso_inps": f.rimborso_inps,
+        "spese_vive": f.spese_vive,
+        "regime_forfettario": f.regime_forfettario,
         "bollo": f.bollo,
         "iva": f.iva,
         "altri_importi": f.altri_importi,
@@ -404,7 +407,7 @@ def fattura_dettaglio(request, pk):
     }
     if f.valore_base is None:
         iniziali_importi["valore_base"] = motore.valore_base_proposto(
-            f.importo_documento, f.oneri, f.bollo, f.altri_importi
+            f.importo_documento, f.oneri, f.bollo, f.altri_importi, fatture.extra_budget(f)
         )
     return render(
         request,

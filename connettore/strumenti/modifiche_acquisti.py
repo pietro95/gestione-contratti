@@ -799,8 +799,13 @@ def _importi(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:
     dati = {
         "valore_base": f.valore_base
         if f.valore_base is not None
-        else motore.valore_base_proposto(f.importo_documento, f.oneri, f.bollo, f.altri_importi),
+        else motore.valore_base_proposto(
+            f.importo_documento, f.oneri, f.bollo, f.altri_importi, fatture.extra_budget(f)
+        ),
         "oneri": f.oneri,
+        "rimborso_inps": f.rimborso_inps,
+        "spese_vive": f.spese_vive,
+        "regime_forfettario": f.regime_forfettario,
         "bollo": f.bollo,
         "iva": f.iva,
         "altri_importi": f.altri_importi,
@@ -814,6 +819,8 @@ def _importi(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:
         "wbs": f.wbs_id,
     }
     for campo, chiave in (("valore_base",) * 2, ("oneri",) * 2, ("bollo",) * 2, ("iva",) * 2,
+                          ("rimborso_inps",) * 2, ("spese_vive",) * 2,
+                          ("regime_forfettario",) * 2,
                           ("altri_importi",) * 2, ("imponibile_senza_iva",) * 2,
                           ("competenza_dal",) * 2, ("competenza_al",) * 2,
                           ("voce", "voce_id"), ("conto", "conto_id"),
@@ -1387,6 +1394,21 @@ STRUMENTI = [
                 "id": SCHEMA_ID,
                 "valore_base": SCHEMA_IMPORTO,
                 "oneri": SCHEMA_IMPORTO,
+                "rimborso_inps": {
+                    **SCHEMA_IMPORTO,
+                    "description": "Rimborso riconosciuto da contratto per costi INPS: grava "
+                    "sul budget, non è prelevato dal contratto.",
+                },
+                "spese_vive": {
+                    **SCHEMA_IMPORTO,
+                    "description": "Spese vive: gravano sul budget, non sono prelevate dal "
+                    "contratto.",
+                },
+                "regime_forfettario": {
+                    "type": "boolean",
+                    "description": "Fattura senza IVA (regime forfettario): l'IVA non si "
+                    "riconosce e il commento per PAC lo riporta.",
+                },
                 "bollo": SCHEMA_IMPORTO,
                 "iva": {
                     **SCHEMA_IMPORTO,

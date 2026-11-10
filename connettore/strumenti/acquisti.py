@@ -249,6 +249,9 @@ def fattura(ctx: Contesto, argomenti: dict) -> dict:
         **_riga_fattura(r),
         "versione": versione(f),
         "oneri": f.oneri,
+        "rimborso_inps": f.rimborso_inps,
+        "spese_vive": f.spese_vive,
+        "regime_forfettario": f.regime_forfettario,
         "bollo": f.bollo,
         "iva": f.iva,
         "altri_importi": f.altri_importi,
@@ -263,7 +266,7 @@ def fattura(ctx: Contesto, argomenti: dict) -> dict:
         if f.conto_id or f.centro_costo or f.wbs_id
         else None,
         "valore_base_proposto": motore.valore_base_proposto(
-            f.importo_documento, f.oneri, f.bollo, f.altri_importi
+            f.importo_documento, f.oneri, f.bollo, f.altri_importi, fatture.extra_budget(f)
         )
         if f.valore_base is None
         else None,

@@ -2101,6 +2101,17 @@ class Fattura(Archiviabile):
     importo_documento = importo("importo del documento")
     valore_base = importo("valore base prelevato dal contratto", null=True, blank=True)
     oneri = importo("oneri previdenziali", null=True, blank=True)
+    # Rev42: gravano sul budget (stessa voce e competenza del valore base) ma non sono
+    # prelevati dal contratto: non contano per fatturato, residuo e avanzamento.
+    rimborso_inps = importo(
+        "rimborso riconosciuto da contratto per costi INPS", null=True, blank=True
+    )
+    spese_vive = importo("spese vive", null=True, blank=True)
+    regime_forfettario = models.BooleanField(
+        "senza IVA (regime forfettario)",
+        default=False,
+        help_text="Fattura senza IVA per il regime forfettario del fornitore.",
+    )
     bollo = importo("bollo", null=True, blank=True)
     # IVA nell'importo del documento (SAP lo riporta spesso con l'IVA).
     iva = importo("IVA", null=True, blank=True)
@@ -2189,6 +2200,11 @@ class Fattura(Archiviabile):
                 & (Q(imponibile_senza_iva__isnull=True) | Q(imponibile_senza_iva__gte=0))
                 & (Q(altri_importi__isnull=True) | Q(altri_importi__gte=0)),
                 name="contratti_fattura_importi_non_negativi",
+            ),
+            models.CheckConstraint(
+                condition=(Q(rimborso_inps__isnull=True) | Q(rimborso_inps__gte=0))
+                & (Q(spese_vive__isnull=True) | Q(spese_vive__gte=0)),
+                name="contratti_fattura_extra_non_negativi",
             ),
             models.UniqueConstraint(
                 fields=["fornitore", "numero"],
