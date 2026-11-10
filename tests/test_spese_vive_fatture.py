@@ -17,7 +17,7 @@ D = Decimal
 COMPETENZA = (datetime.date(2026, 1, 1), datetime.date(2026, 1, 31))
 
 # Esempio del responsabile: base 1.666,67 + rimborso INPS 367,83 + oneri 4% su 2.034,50
-# (81,38) + spese vive 82,34 = 2.197,22, senza IVA.
+# (81,38) + spese vive 82,34 = 2.198,22, senza IVA.
 PAC_FORFETTARIO = """Contratto: 5800000013
 ODA : RDC-0001
 MAP: MAP-0001
@@ -63,9 +63,9 @@ def test_commento_pac_senza_i_dati_nuovi_e_invariato():
 
 def test_quadratura_e_proposta_con_gli_extra():
     extra = D("367.83") + D("82.34")
-    assert importo_quadra(D("2197.22"), D("1666.67"), D("81.38"), None, None, None, extra)
-    assert not importo_quadra(D("2197.22"), D("1666.67"), D("81.38"), None)
-    assert valore_base_proposto(D("2197.22"), D("81.38"), None, None, extra) == D("1666.67")
+    assert importo_quadra(D("2198.22"), D("1666.67"), D("81.38"), None, None, None, extra)
+    assert not importo_quadra(D("2198.22"), D("1666.67"), D("81.38"), None)
+    assert valore_base_proposto(D("2198.22"), D("81.38"), None, None, extra) == D("1666.67")
 
 
 @pytest.fixture
@@ -73,7 +73,7 @@ def fattura(db):
     c = f.contratto()
     return m.Fattura.objects.create(
         fornitore=c.fornitore, contratto=c, numero="FA-1", data=datetime.date(2026, 2, 3),
-        importo_documento=D("2197.22"),
+        importo_documento=D("2198.22"),
     )  # fmt: skip
 
 
@@ -100,6 +100,6 @@ def test_forfettario_con_iva_rifiutato(fattura):
 def test_budget_conta_gli_extra_il_contratto_no(fattura):
     x = _salva(fattura, regime_forfettario=True)
     # Budget: valore base + oneri + rimborso INPS + spese vive, sulla competenza della fattura.
-    assert adapters._consuntivo_fattura(x).importo == D("2197.22")
+    assert adapters._consuntivo_fattura(x).importo == D("2198.22")
     # Contratto: fatturato e residuo sul solo valore base.
     assert acquisti.riepilogo_esecuzione(x.contratto).esecuzione.fatturato == D("1666.67")
