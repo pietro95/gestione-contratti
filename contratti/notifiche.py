@@ -31,6 +31,7 @@ from django.urls import reverse
 from accounts import rubrica
 from accounts.roles import ADDETTO_AMMINISTRATIVO, ADDETTO_RILASCIO, WRITE_ROLES, role_of
 from contratti import models as m
+from contratti import rilascio_link
 from contratti.engine.acquisti import formato_euro
 
 log = logging.getLogger("contratti.notifiche")
@@ -115,6 +116,18 @@ def link(nome: str, *args) -> str:
     return f"{settings.APP_URL}{reverse(f'contratti:{nome}', args=args)}"
 
 
+def link_rilascio(tipo: str, pk: int) -> str:
+    """Link «Rilascia ora»: rilascia direttamente l'RDA o il documento (``rilascio_link``)."""
+    return link("rilascia_da_email", rilascio_link.crea(tipo, pk))
+
+
+def _azione_rilascio(tipo: str, pk: int) -> str:
+    return (
+        f"Rilascia ora (serve l'accesso al Registro, il rilascio è immediato):\n"
+        f"{link_rilascio(tipo, pk)}"
+    )
+
+
 def invia(
     tipo: str,
     destinatari: Iterable,
@@ -124,11 +137,14 @@ def invia(
     escludi=None,
     chiave: str = "",
     conoscenza: Iterable = (),
+    azione: str = "",
 ) -> int:
     """Spedisce l'email a ciascun destinatario e la registra; restituisce quante sono partite.
 
     ``conoscenza`` sono gli utenti che ricevono lo stesso messaggio per conoscenza (il referente
     della fattura): se sono già destinatari non ricevono un secondo messaggio.
+    ``azione`` è un blocco di testo (il link «Rilascia ora») accodato al corpo solo per chi può
+    agire: chi riceve il messaggio per conoscenza non lo vede.
     ``escludi`` è l'utente che ha fatto l'azione. Con una ``chiave`` il messaggio non si
     rimanda allo stesso destinatario (promemoria dello stesso giorno o della stessa settimana).
     """
@@ -156,9 +172,10 @@ def invia(
     for utente in candidati:
         email = indirizzi.get(utente.pk, "")
         cc = utente.pk in per_conoscenza
-        testo_base = (
-            f"Per conoscenza: sei il referente di questa fattura.\n\n{corpo}" if cc else corpo
-        )
+        if cc:
+            testo_base = f"Per conoscenza: sei il referente di questa fattura.\n\n{corpo}"
+        else:
+            testo_base = f"{corpo}\n\n{azione}" if azione else corpo
         oggetto_inviato = f"{oggetto} (per conoscenza)" if cc else oggetto
         if prova:
             # Modalità di prova: l'email parte davvero, ma solo all'indirizzo di prova, con
@@ -293,6 +310,7 @@ def rda_da_rilasciare(rda: m.RichiestaAcquisto, utente=None) -> int:
         f"RDA {rda.numero_rda} da rilasciare",
         corpo,
         escludi=utente,
+        azione=_azione_rilascio(rilascio_link.RDA, rda.pk),
     )
 
 
@@ -311,6 +329,7 @@ def documento_da_rilasciare(documento: m.DocumentoEsecuzione, utente=None) -> in
         corpo,
         escludi=utente,
         conoscenza=[fattura.referente] if fattura.referente_id else [],
+        azione=_azione_rilascio(rilascio_link.DOCUMENTO, documento.pk),
     )
 
 

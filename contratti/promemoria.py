@@ -9,7 +9,7 @@ import datetime
 from collections import defaultdict
 from dataclasses import dataclass
 
-from contratti import acquisti, fatture, notifiche, selettori
+from contratti import acquisti, fatture, notifiche, rilascio_link, selettori
 from contratti.engine.tipi import Alert
 
 TITOLI_ALERT = {
@@ -41,11 +41,15 @@ def messaggi_rilasci(oggi: datetime.date) -> list[Messaggio]:
         for r in rda:
             giorni = (oggi - (r.data_inserimento or oggi)).days
             righe.append(f"- {r.numero_rda} — {r.intestazione or r} (inserita da {giorni} giorni)")
+            righe.append(f"  Rilascia ora: {notifiche.link_rilascio(rilascio_link.RDA, r.pk)}")
         righe.append("")
     if documenti:
         righe.append(f"RdC e MAP da rilasciare ({len(documenti)}):")
         for d in documenti:
             righe.append(_riga_documento(d, oggi))
+            righe.append(
+                f"  Rilascia ora: {notifiche.link_rilascio(rilascio_link.DOCUMENTO, d.pk)}"
+            )
         righe.append("")
     righe.append(f"Maschera dei rilasci: {notifiche.link('rilasci')}")
     totale = len(rda) + len(documenti)

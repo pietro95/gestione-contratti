@@ -143,6 +143,8 @@ NOTIFICHE_EMAIL_ATTIVE = env.bool("NOTIFICHE_EMAIL_ATTIVE", default=bool(EMAIL_H
 NOTIFICHE_PROVA_A = env("NOTIFICHE_PROVA_A", default="")
 # URL con cui l'interfaccia è raggiunta dagli utenti: serve ai link nelle email.
 APP_URL = env("APP_URL", default="").rstrip("/")
+# Giorni di validità del link «Rilascia ora» nelle email di rilascio (SPEC §5.10, Rev43).
+RILASCIO_LINK_GIORNI = env.int("RILASCIO_LINK_GIORNI", default=7)
 
 # --- Connettore MCP (F10, docs/SPEC_MCP.md) ------------------------------------------
 # URL pubblico dell'host dedicato al connettore (es. https://mcp-contratti.esempio.it) e URL
