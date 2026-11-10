@@ -954,6 +954,8 @@ def dati_pac(fattura: m.Fattura) -> motore.DatiPAC:
         centro_costo = fattura.centro_costo
     if fattura.wbs_id:
         wbs = fattura.wbs.codice_wbs
+    # Il centro di costo è sempre valorizzato: in mancanza di altro, quello predefinito.
+    centro_costo = centro_costo or m.CentroCosto.codice_predefinito() or None
     return motore.DatiPAC(
         numero_rdc=rdc.numero if rdc else None,
         accettazione=accettazione.tipo if accettazione else documento_proposto(fattura),

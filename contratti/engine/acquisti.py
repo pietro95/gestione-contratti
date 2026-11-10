@@ -804,7 +804,10 @@ def commento_pac(d: DatiPAC) -> str:
         f"{d.accettazione}: {d.numero_accettazione or DA_REGISTRARE}",
         f"CDC: {d.centro_costo or NESSUNO}",
         f"COGE: {d.conto or NESSUNO}",
-        f"WBS: {d.wbs or NESSUNO}",
+    ]
+    if d.wbs:  # senza WBS il rigo non compare
+        righe.append(f"WBS: {d.wbs}")
+    righe += [
         "",
         f"Valore base prelevato da contratto: {_euro(d.valore_base)}",
     ]

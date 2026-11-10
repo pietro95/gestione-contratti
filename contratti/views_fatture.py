@@ -402,7 +402,7 @@ def fattura_dettaglio(request, pk):
         "voce": f.voce_id,
         "rate": [r.pk for r in f.rate.all()],
         "conto": f.conto_id,
-        "centro_costo": f.centro_costo,
+        "centro_costo": f.centro_costo or fatture.dati_pac(f).centro_costo or "",
         "wbs": f.wbs_id,
     }
     if f.valore_base is None:

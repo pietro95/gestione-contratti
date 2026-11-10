@@ -128,8 +128,10 @@ def test_commento_per_pac_senza_map_ne_oneri():
     migo = DatiPAC(None, "MIGO", None, None, None, None, None)
     assert commento_pac(migo).splitlines()[:6] == [
         "Contratto: --", "ODA : (da registrare)", "MIGO: (da registrare)", "CDC: --",
-        "COGE: --", "WBS: --",
+        "COGE: --", "",
     ]  # fmt: skip
+    assert "WBS" not in commento_pac(migo)  # senza WBS il rigo non compare
+    assert "WBS: WBS-TEST-01" in commento_pac(dati)
 
 
 def test_indicazioni_per_la_validazione():
