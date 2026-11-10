@@ -64,6 +64,7 @@ urlpatterns = [
     path("fatture/", views_fatture.fatture_elenco, name="fatture"),
     path("rilasci/", views_fatture.rilasci, name="rilasci"),
     path("rilasci/azione/", views_fatture.rilasci_azione, name="rilasci_azione"),
+    path("rilasci/email/<str:token>/", views_fatture.rilascia_da_email, name="rilascia_da_email"),
     path("rilasci/<int:pk>/annulla/", views_fatture.rilascio_annulla, name="rilascio_annulla"),
     path(
         "rilasci/rda/<int:pk>/annulla/",

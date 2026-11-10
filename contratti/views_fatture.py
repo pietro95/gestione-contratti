@@ -18,7 +18,7 @@ from django.views.decorators.http import require_POST
 
 from accounts.permissions import editor_required
 from accounts.roles import ADMIN, role_of
-from contratti import acquisti, fatture, permessi, stanziamenti
+from contratti import acquisti, fatture, permessi, rilascio_link, stanziamenti
 from contratti import forms_fatture as forms
 from contratti import models as m
 from contratti.engine import acquisti as motore
@@ -247,6 +247,46 @@ def rilasci_azione(request):
             messages.success(request, "1 RDA rilasciata." if n == 1 else f"{n} RDA rilasciate.")
         for r, motivo in esito_rda.rifiutate:
             messages.warning(request, f"RDA {r.numero_rda or r.pk}: {motivo}.")
+    return destinazione
+
+
+@login_required
+def rilascia_da_email(request, token):
+    """Link «Rilascia ora» delle email (Rev42): rilascia direttamente l'RDA o il documento
+    indicato dal token firmato. Serve il login (chi non l'ha fatto ci torna dopo l'accesso) e la
+    funzione «Addetto al rilascio»; poi si passa dagli stessi servizi della maschera."""
+    destinazione = redirect("contratti:rilasci")
+    try:
+        tipo, pk = rilascio_link.leggi(token)
+    except rilascio_link.LinkScaduto:
+        messages.error(
+            request, "Il link di rilascio è scaduto: rilascia dalla maschera dei rilasci."
+        )
+        return destinazione
+    except rilascio_link.LinkNonValido:
+        messages.error(request, "Il link di rilascio non è valido.")
+        return destinazione
+    if not fatture.puo_rilasciare(request.user):
+        raise PermissionDenied("Non sei addetto al rilascio.")
+    if tipo == rilascio_link.RDA:
+        rda = list(m.RichiestaAcquisto.objects.filter(pk=pk, archiviato=False))
+        if not rda:
+            messages.error(request, "RDA non trovata.")
+            return destinazione
+        esito = acquisti.rilascia_rda(rda, request.user)
+        for r in esito.fatte:
+            messages.success(request, f"RDA {r.numero_rda} rilasciata.")
+        for r, motivo in esito.rifiutate:
+            messages.warning(request, f"RDA {r.numero_rda or r.pk}: {motivo}.")
+    else:
+        if not m.DocumentoEsecuzione.objects.filter(pk=pk, archiviato=False).exists():
+            messages.error(request, "Documento non trovato.")
+            return destinazione
+        esito_doc = fatture.rilascia_documenti([pk], request.user)
+        for d in esito_doc.fatte:
+            messages.success(request, f"{d.get_tipo_display()} {d.numero} rilasciato.")
+        for d, motivo in esito_doc.rifiutate:
+            messages.warning(request, f"{d.get_tipo_display()} {d.numero}: {motivo}.")
     return destinazione
 
 
