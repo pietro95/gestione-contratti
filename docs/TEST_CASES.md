@@ -794,7 +794,7 @@ SPEC §4 (Fattura, Rev40). Aliquote: 22, 10, 5, 4.
 
 ## TC-28 — Spese vive, rimborso INPS e regime forfettario
 
-SPEC §4 e §5.9 (Rev42, bozza da approvare). Aggiunge un caso senza cambiare TC-18, TC-25 e TC-26; i test sono `tests/test_spese_vive_fatture.py`.
+SPEC §4 e §5.9 (Rev42, approvata il 10/11/2026). Aggiunge un caso senza cambiare TC-18, TC-25 e TC-26; i test sono `tests/test_spese_vive_fatture.py`.
 
 **Input.** Fattura di 2.198,22 senza IVA (regime forfettario), contratto n. 5800000013, RdC `RDC-0001`, MAP `MAP-0001`, CDC `C0001`, COGE `600010`, WBS `WBS-TEST-01`: valore base 1.666,67, rimborso INPS 367,83, oneri previdenziali 81,38 (4% su 1.666,67 + 367,83 = 2.034,50), spese vive 82,34.
 
