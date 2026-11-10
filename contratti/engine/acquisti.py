@@ -385,16 +385,18 @@ def importo_quadra(
     bollo: Decimal | None,
     iva: Decimal | None = None,
     altri: Decimal | None = None,
+    extra: Decimal | None = None,
 ) -> bool:
-    """Valore base + oneri + bollo + IVA + altri importi = importo del documento; senza valore
-    base non si giudica. L'IVA c'è quando SAP riporta l'importo con l'IVA; gli altri importi
-    (more, danni, ...) sono in fattura ma non imputabili all'ufficio."""
+    """Valore base + oneri + extra + bollo + IVA + altri importi = importo del documento; senza
+    valore base non si giudica. L'IVA c'è quando SAP riporta l'importo con l'IVA; gli altri
+    importi (more, danni, ...) sono in fattura ma non imputabili all'ufficio; gli «extra»
+    (Rev42: rimborso INPS e spese vive) gravano sul budget ma non sul contratto."""
     if valore_base is None:
         return True
     return (
-        valore_base + (oneri or ZERO) + (bollo or ZERO) + (iva or ZERO) + (altri or ZERO)
-        == importo_documento
-    )
+        valore_base + (oneri or ZERO) + (extra or ZERO) + (bollo or ZERO) + (iva or ZERO)
+        + (altri or ZERO) == importo_documento
+    )  # fmt: skip
 
 
 def valore_base_proposto(
@@ -402,9 +404,13 @@ def valore_base_proposto(
     oneri: Decimal | None,
     bollo: Decimal | None,
     altri: Decimal | None = None,
+    extra: Decimal | None = None,
 ) -> Decimal:
-    """Proposta: importo del documento meno oneri, bollo e altri importi (SPEC §4)."""
-    return arrotonda(importo_documento - (oneri or ZERO) - (bollo or ZERO) - (altri or ZERO))
+    """Proposta: importo del documento meno oneri, extra (rimborso INPS, spese vive), bollo e
+    altri importi (SPEC §4)."""
+    return arrotonda(
+        importo_documento - (oneri or ZERO) - (extra or ZERO) - (bollo or ZERO) - (altri or ZERO)
+    )
 
 
 TOLLERANZA_IVA = Decimal("0.01")  # l'IVA della fattura può differire di un arrotondamento
@@ -418,6 +424,7 @@ def iva_riconosciuta(
     aliquote: list[Decimal],
     altri: Decimal | None = None,
     senza_iva: Decimal | None = None,
+    extra: Decimal | None = None,
 ) -> tuple[Decimal, Decimal] | None:
     """(aliquota, IVA) se la differenza tra l'importo del documento e valore base + oneri +
     bollo è l'IVA di una delle aliquote sulla parte tassata di valore base + oneri, a meno di
@@ -426,7 +433,7 @@ def iva_riconosciuta(
     calcola l'aliquota. L'IVA restituita è la differenza esatta, così l'importo quadra."""
     if valore_base is None:
         return None
-    imponibile = valore_base + (oneri or ZERO)
+    imponibile = valore_base + (oneri or ZERO) + (extra or ZERO)
     tassabile = imponibile - (senza_iva or ZERO)
     differenza = importo_documento - imponibile - (bollo or ZERO) - (altri or ZERO)
     if differenza <= ZERO or tassabile <= ZERO:
@@ -444,6 +451,7 @@ def scorporo_iva(
     aliquota: Decimal,
     altri: Decimal | None = None,
     senza_iva: Decimal | None = None,
+    extra: Decimal | None = None,
 ) -> tuple[Decimal, Decimal]:
     """(valore base, IVA) di un importo con l'IVA: la parte tassata = (importo − bollo −
     altri importi − parte a IVA 0) / (1 + aliquota), arrotondata al centesimo; imponibile =
@@ -452,7 +460,7 @@ def scorporo_iva(
     lordo = importo_documento - (bollo or ZERO) - (altri or ZERO)
     tassabile = arrotonda((lordo - (senza_iva or ZERO)) * 100 / (100 + aliquota))
     imponibile = tassabile + (senza_iva or ZERO)
-    return imponibile - (oneri or ZERO), lordo - imponibile
+    return imponibile - (oneri or ZERO) - (extra or ZERO), lordo - imponibile
 
 
 def documento_accettazione(tipo_acquisto: str) -> str:
@@ -751,6 +759,10 @@ class DatiPAC:
     altri_importi: Decimal | None = None
     numero_contratto: str | None = None
     contratto_oda: bool = False  # Rev41: il numero dell'ODA è quello del contratto
+    # Rev42: importi che gravano sul budget ma non sono prelevati dal contratto.
+    rimborso_inps: Decimal | None = None
+    spese_vive: Decimal | None = None
+    regime_forfettario: bool = False
 
 
 def _euro(valore: Decimal | None) -> str:
@@ -773,6 +785,17 @@ def _numero_oda(d: DatiPAC) -> str:
     return d.numero_rdc or DA_REGISTRARE
 
 
+def _ribaltamento(d: DatiPAC) -> str:
+    """« (ribaltamento 4% INPS)»: con il rimborso INPS, gli oneri sono la percentuale di
+    ribaltamento su valore base + rimborso; la percentuale si ricava, non si salva."""
+    if not d.rimborso_inps or not d.oneri or d.valore_base is None:
+        return ""
+    base = d.valore_base + d.rimborso_inps
+    if base <= ZERO:
+        return ""
+    return f" (ribaltamento {formato_quantita(arrotonda(d.oneri * 100 / base))}% INPS)"
+
+
 def commento_pac(d: DatiPAC) -> str:
     """Il commento per PAC nel formato usato finora (TC-18)."""
     righe = [
@@ -785,12 +808,18 @@ def commento_pac(d: DatiPAC) -> str:
         "",
         f"Valore base prelevato da contratto: {_euro(d.valore_base)}",
     ]
+    if d.rimborso_inps:
+        righe.append(f"Rimborso riconosciuto da contratto per costi INPS: {_euro(d.rimborso_inps)}")
     if d.oneri:
-        righe.append(f"Oneri previdenziali: {_euro(d.oneri)}")
+        righe.append(f"Oneri previdenziali{_ribaltamento(d)}: {_euro(d.oneri)}")
+    if d.spese_vive:
+        righe.append(f"Spese vive: {_euro(d.spese_vive)}")
     if d.bollo:
         righe.append(f"Bollo: {_euro(d.bollo)}")
     if d.altri_importi:
         righe.append(
             f"Altri importi non imputabili all'ufficio (es. more): {_euro(d.altri_importi)}"
         )
+    if d.regime_forfettario:
+        righe.append("Senza IVA (regime forfettario)")
     return "\n".join(righe)

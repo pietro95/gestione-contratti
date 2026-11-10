@@ -788,3 +788,32 @@ SPEC §4 (Fattura, Rev40). Aliquote: 22, 10, 5, 4.
 **(c) Limiti.** Un imponibile a IVA 0 oltre valore base + oneri, o oltre l'importo del documento nello scorporo, è rifiutato. Il valore base resta l'importo che conta per fatturato e budget; l'IVA non entra nel fatturato.
 
 **(f) Per conoscenza al referente della fattura.** Convalida fatta da un Admin su una fattura in carico al referente: email all'addetto amministrativo e, per conoscenza, al referente («(per conoscenza)» nell'oggetto, «sei il referente di questa fattura» in testa); se convalida il referente non ne riceve. Registrazione di una RdC: all'addetto al rilascio e al referente. Promemoria dei rilasci: all'addetto al rilascio l'elenco completo, a ogni referente solo i documenti delle sue fatture. Un referente già destinatario riceve un solo messaggio.
+
+
+---
+
+## TC-28 — Spese vive, rimborso INPS e regime forfettario
+
+SPEC §4 e §5.9 (Rev42, approvata il 10/11/2026). Aggiunge un caso senza cambiare TC-18, TC-25 e TC-26; i test sono `tests/test_spese_vive_fatture.py`.
+
+**Input.** Fattura di 2.198,22 senza IVA (regime forfettario), contratto n. 5800000013, RdC `RDC-0001`, MAP `MAP-0001`, CDC `C0001`, COGE `600010`, WBS `WBS-TEST-01`: valore base 1.666,67, rimborso INPS 367,83, oneri previdenziali 81,38 (4% su 1.666,67 + 367,83 = 2.034,50), spese vive 82,34.
+
+**Commento per PAC.**
+```
+Contratto: 5800000013
+ODA : RDC-0001
+MAP: MAP-0001
+CDC: C0001
+COGE: 600010
+WBS: WBS-TEST-01
+
+Valore base prelevato da contratto: € 1.666,67
+Rimborso riconosciuto da contratto per costi INPS: € 367,83
+Oneri previdenziali (ribaltamento 4% INPS): € 81,38
+Spese vive: € 82,34
+Senza IVA (regime forfettario)
+```
+
+**Quadratura.** 1.666,67 + 367,83 + 81,38 + 82,34 = 2.198,22: nessuna anomalia `IMPORTO_NON_QUADRA`; senza i nuovi importi l'importo non quadra.
+
+**Budget e contratto.** Nel budget la fattura pesa 2.198,22 (valore base + oneri + rimborso + spese vive) sul periodo di competenza; il fatturato del contratto è 1.666,67. Con il regime forfettario l'IVA non si riconosce e un'IVA indicata è rifiutata.

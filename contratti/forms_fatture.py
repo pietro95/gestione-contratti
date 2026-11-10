@@ -144,7 +144,21 @@ class ImportiForm(FormBase):
     oneri = ImportoField(
         max_digits=14, decimal_places=2, min_value=0, required=False, label="Oneri previdenziali"
     )
+    rimborso_inps = ImportoField(
+        max_digits=14, decimal_places=2, min_value=0, required=False,
+        label="Rimborso riconosciuto da contratto per costi INPS",
+        help_text="Grava sul budget, non è prelevato dal contratto.",
+    )  # fmt: skip
+    spese_vive = ImportoField(
+        max_digits=14, decimal_places=2, min_value=0, required=False, label="Spese vive",
+        help_text="Gravano sul budget, non sono prelevate dal contratto.",
+    )  # fmt: skip
     bollo = ImportoField(max_digits=14, decimal_places=2, min_value=0, required=False)
+    regime_forfettario = forms.BooleanField(
+        required=False,
+        label="Senza IVA (regime forfettario)",
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
+    )
     iva = ImportoField(
         max_digits=14, decimal_places=2, min_value=0, required=False,
         label="IVA",

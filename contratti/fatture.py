@@ -112,6 +112,11 @@ def documento_proposto(fattura: m.Fattura) -> str:
     return motore.documento_accettazione(tipo)
 
 
+def extra_budget(fattura: m.Fattura) -> Decimal:
+    """Rimborso INPS e spese vive (Rev42): gravano sul budget, non sul contratto."""
+    return (fattura.rimborso_inps or ZERO) + (fattura.spese_vive or ZERO)
+
+
 def anomalie(fattura: m.Fattura) -> list[str]:
     codici = []
     if not motore.importo_quadra(
@@ -121,6 +126,7 @@ def anomalie(fattura: m.Fattura) -> list[str]:
         fattura.bollo,
         fattura.iva,
         fattura.altri_importi,
+        extra_budget(fattura),
     ):
         codici.append("IMPORTO_NON_QUADRA")
     if fattura.contratto_id and fattura.valore_base is None and not fattura.fuori_registro:
@@ -562,6 +568,9 @@ def aggiorna_importi(
     altri_importi: Decimal | None = None,
     imponibile_senza_iva: Decimal | None = None,
     competenza: tuple[datetime.date | None, datetime.date | None] | None = None,
+    rimborso_inps: Decimal | None = None,
+    spese_vive: Decimal | None = None,
+    regime_forfettario: bool = False,
 ) -> None:
     """Valore base, oneri, bollo, IVA e altri importi (e, se indicata, la competenza: dal, al);
     con il contratto anche voce e rate abbinate: una fattura può coprire più rate (il fornitore
@@ -571,15 +580,22 @@ def aggiorna_importi(
     Senza IVA indicata: se la differenza dall'importo del documento è l'IVA di un'aliquota
     della tabella (SAP riporta spesso l'importo con l'IVA), l'IVA si registra da sola. In una
     fattura con IVA mista l'aliquota vale sulla sola parte tassata: l'«imponibile a IVA 0»
-    (inversione contabile) è dentro valore base e oneri e non porta IVA."""
-    if imponibile_senza_iva is not None and imponibile_senza_iva > (valore_base or ZERO) + (
-        oneri or ZERO
+    (inversione contabile) è dentro valore base e oneri e non porta IVA.
+
+    Rev42: rimborso INPS e spese vive gravano sul budget (con la competenza del valore base) ma
+    non sul contratto; «regime forfettario» = fattura senza IVA (l'IVA non si riconosce)."""
+    extra = (rimborso_inps or ZERO) + (spese_vive or ZERO)
+    if (
+        imponibile_senza_iva is not None
+        and imponibile_senza_iva > (valore_base or ZERO) + (oneri or ZERO) + extra
     ):
         raise OperazioneNonAmmessa("L'imponibile a IVA 0 supera valore base e oneri.")
-    if iva is None:
+    if regime_forfettario and iva:
+        raise OperazioneNonAmmessa("Una fattura in regime forfettario è senza IVA.")
+    if iva is None and not regime_forfettario:
         riconosciuta = motore.iva_riconosciuta(
             fattura.importo_documento, valore_base, oneri, bollo, aliquote_iva(), altri_importi,
-            imponibile_senza_iva,
+            imponibile_senza_iva, extra,
         )  # fmt: skip
         iva = riconosciuta[1] if riconosciuta else None
     if voce is not None and voce.contratto_id != fattura.contratto_id:
@@ -589,7 +605,10 @@ def aggiorna_importi(
     fattura.iva = iva
     fattura.altri_importi = altri_importi
     fattura.imponibile_senza_iva = imponibile_senza_iva
-    campi = ["valore_base", "oneri", "bollo", "iva", "altri_importi", "imponibile_senza_iva"]
+    fattura.rimborso_inps, fattura.spese_vive = rimborso_inps, spese_vive
+    fattura.regime_forfettario = regime_forfettario
+    campi = ["valore_base", "oneri", "bollo", "iva", "altri_importi", "imponibile_senza_iva",
+             "rimborso_inps", "spese_vive", "regime_forfettario"]  # fmt: skip
     if competenza is not None:
         fattura.competenza_dal, fattura.competenza_al = competenza
         campi += ["competenza_dal", "competenza_al"]
@@ -636,14 +655,23 @@ def scorpora_iva(
     altri_importi: Decimal | None = None,
     competenza: tuple[datetime.date | None, datetime.date | None] | None = None,
     imponibile_senza_iva: Decimal | None = None,
+    rimborso_inps: Decimal | None = None,
+    spese_vive: Decimal | None = None,
 ) -> None:
     """Importo del documento con l'IVA: valore base e IVA dallo scorporo dell'aliquota, tolti
     oneri, bollo e altri importi. Con una parte a IVA 0 (inversione contabile) l'aliquota vale
     solo sul resto dell'importo."""
     if aliquota not in aliquote_iva():
         raise OperazioneNonAmmessa("Aliquota IVA non prevista dalla tabella.")
+    extra = (rimborso_inps or ZERO) + (spese_vive or ZERO)
     valore_base, iva = motore.scorporo_iva(
-        fattura.importo_documento, oneri, bollo, aliquota, altri_importi, imponibile_senza_iva
+        fattura.importo_documento,
+        oneri,
+        bollo,
+        aliquota,
+        altri_importi,
+        imponibile_senza_iva,
+        extra,
     )
     if valore_base < 0:
         raise OperazioneNonAmmessa("Oneri, bollo e altri importi superano l'importo senza IVA.")
@@ -654,6 +682,7 @@ def scorpora_iva(
     aggiorna_importi(
         fattura, valore_base, oneri, bollo, voce, rate, iva=iva, altri_importi=altri_importi,
         imponibile_senza_iva=imponibile_senza_iva, competenza=competenza,
+        rimborso_inps=rimborso_inps, spese_vive=spese_vive,
     )  # fmt: skip
 
 
@@ -668,16 +697,23 @@ def salva_importi(fattura: m.Fattura, dati: dict, aliquota_scorporo: Decimal | N
         raise OperazioneNonAmmessa(
             "Indica il periodo di competenza della fattura (dal e al): decide l'anno di budget."
         )
+    if aliquota_scorporo is not None and dati.get("regime_forfettario"):
+        raise OperazioneNonAmmessa(
+            "Una fattura in regime forfettario è senza IVA: niente scorporo."
+        )
     if aliquota_scorporo is not None:
         scorpora_iva(fattura, aliquota_scorporo, dati.get("oneri"), dati.get("bollo"),
                      dati.get("voce"), dati.get("rate") or (), dati.get("altri_importi"),
-                     competenza, dati.get("imponibile_senza_iva"))  # fmt: skip
+                     competenza, dati.get("imponibile_senza_iva"),
+                     dati.get("rimborso_inps"), dati.get("spese_vive"))  # fmt: skip
     else:
         aggiorna_importi(
             fattura, dati.get("valore_base"), dati.get("oneri"), dati.get("bollo"),
             dati.get("voce"), dati.get("rate") or (), iva=dati.get("iva"),
             altri_importi=dati.get("altri_importi"),
             imponibile_senza_iva=dati.get("imponibile_senza_iva"), competenza=competenza,
+            rimborso_inps=dati.get("rimborso_inps"), spese_vive=dati.get("spese_vive"),
+            regime_forfettario=bool(dati.get("regime_forfettario")),
         )  # fmt: skip
     imputa(fattura, dati.get("conto"), dati.get("centro_costo") or "", dati.get("wbs"))
 
@@ -931,6 +967,9 @@ def dati_pac(fattura: m.Fattura) -> motore.DatiPAC:
         altri_importi=fattura.altri_importi,
         numero_contratto=fattura.contratto.numero_contratto if fattura.contratto_id else None,
         contratto_oda=vale_come_oda(fattura),
+        rimborso_inps=fattura.rimborso_inps,
+        spese_vive=fattura.spese_vive,
+        regime_forfettario=fattura.regime_forfettario,
     )
 
 
@@ -953,7 +992,12 @@ def campi_addetto(fattura: m.Fattura) -> list[tuple[str, str]]:
         ("Conto COGE", d.conto or ""),
         ("WBS", d.wbs or ""),
         ("Valore base", importo(d.valore_base)),
+        (
+            "Rimborso INPS riconosciuto da contratto",
+            importo(d.rimborso_inps) if d.rimborso_inps else "",
+        ),
         ("Oneri previdenziali", importo(d.oneri) if d.oneri else ""),
+        ("Spese vive", importo(d.spese_vive) if d.spese_vive else ""),
         ("Bollo", importo(d.bollo) if d.bollo else ""),
         ("Altri importi non imputabili", importo(d.altri_importi) if d.altri_importi else ""),
     ]

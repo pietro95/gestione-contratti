@@ -32,6 +32,8 @@ from contratti.engine.tipi import (
 
 Chiave = m.Parametro.Chiave
 
+ZERO = Decimal("0")
+
 
 # Relazioni lette dal calcolo: da passare a prefetch_related sui contratti.
 PREFETCH_CALCOLO = (
@@ -194,8 +196,11 @@ def _consuntivo_fattura(f: m.Fattura, senza_voce: bool = False) -> Consuntivo | 
         return None
     mancante = f.competenza_dal is None
     dal, al = (f.data, f.data) if mancante else (f.competenza_dal, f.competenza_al)
+    # Rev42: oneri, rimborso INPS e spese vive gravano sul budget con la competenza del valore
+    # base; il residuo del contratto conta il solo valore base (``riepilogo_esecuzione``).
+    costo = f.valore_base + (f.oneri or ZERO) + (f.rimborso_inps or ZERO) + (f.spese_vive or ZERO)
     return Consuntivo(
-        TipoConsuntivo.FATTURA, f.valore_base, dal, al, senza_competenza=mancante,
+        TipoConsuntivo.FATTURA, costo, dal, al, senza_competenza=mancante,
         senza_voce=senza_voce, data=f.data, riferimento=f.pk,
     )  # fmt: skip
 
