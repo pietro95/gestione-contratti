@@ -535,6 +535,16 @@ class Classificazione:
         return m.Contratto.Finanziamento.ORDINARIO
 
 
+def wbs_per_natura(natura: str, wbs: m.WBS | None) -> m.WBS | None:
+    """La WBS che vale per la natura: in OPEX solo una WBS a progetto (Rev48), altrimenti nessuna.
+
+    Una voce nata CAPEX su una WBS di cluster e rinnovata in OPEX perde la WBS.
+    """
+    if wbs is not None and (natura == m.Natura.CAPEX or wbs.tipo == m.WBS.Tipo.PROGETTO):
+        return wbs
+    return None
+
+
 def classificazione(voce: m.VoceContratto) -> Classificazione:
     """La voce reale come è registrata."""
     return Classificazione(
@@ -551,22 +561,17 @@ def classificazione_prevista(
     """Come andrà in budget il rinnovo previsto della voce (F9.2).
 
     La voce può decidere natura, conto e WBS dei rinnovi; altrimenti valgono i suoi. Un rinnovo
-    in OPEX non ha WBS. Per il previsto manuale (fabbisogno nuovo, senza voci) valgono i dati
-    del fabbisogno.
+    in OPEX ha una WBS solo se è a progetto (Rev48). Per il previsto manuale (fabbisogno nuovo,
+    senza voci) valgono i dati del fabbisogno.
     """
     if voce is None:
         natura = fabbisogno.natura_previsti or m.Natura.OPEX
-        wbs = fabbisogno.wbs_previsti if natura == m.Natura.CAPEX else None
+        wbs = wbs_per_natura(natura, fabbisogno.wbs_previsti)
         return Classificazione(natura, fabbisogno.conto_previsti, wbs)
     natura = voce.natura_rinnovi or voce.natura
     conto = voce.conto_rinnovi if voce.conto_rinnovi_id else voce.conto
-    if natura == m.Natura.OPEX:
-        wbs = None
-    elif voce.wbs_rinnovi_id:
-        wbs = voce.wbs_rinnovi
-    else:
-        wbs = voce.wbs if voce.wbs_id else None
-    return Classificazione(natura, conto, wbs)
+    wbs = voce.wbs_rinnovi if voce.wbs_rinnovi_id else (voce.wbs if voce.wbs_id else None)
+    return Classificazione(natura, conto, wbs_per_natura(natura, wbs))
 
 
 def natura_previsti(fabbisogno: m.Fabbisogno, base: m.Contratto | None) -> str:

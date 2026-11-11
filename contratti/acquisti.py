@@ -382,7 +382,7 @@ def crea_richiesta(proposta: PropostaRichiesta, referente, **campi) -> m.Richies
             natura=p.natura,
             conto=p.conto,
             centro_costo=p.centro_costo,
-            wbs=p.wbs if p.natura == m.Natura.CAPEX else None,
+            wbs=adapters.wbs_per_natura(p.natura, p.wbs),
         )
         posizione.full_clean()
         posizione.save()
@@ -856,7 +856,7 @@ def registra_contratto_da_rda(
                 origine.conto,
                 origine.centro_costo,
             )
-            voce.wbs = origine.wbs if origine.natura == m.Natura.CAPEX else None
+            voce.wbs = adapters.wbs_per_natura(origine.natura, origine.wbs)
         voce.full_clean()
         voce.save()
         m.PianoFatturazione.objects.create(voce=voce, modalita=modalita, periodicita=periodicita)

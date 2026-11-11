@@ -1016,7 +1016,8 @@ SCHEMA_POSIZIONE = {
         "conto": {**SCHEMA_ID, "description": "id del conto («riferimenti»)."},
         "centro_costo": {"type": "string", "maxLength": 20,
                          "description": "Codice del centro di costo («riferimenti»)."},
-        "wbs": {**SCHEMA_ID, "description": "id della WBS, solo CAPEX («riferimenti»)."},
+        "wbs": {**SCHEMA_ID, "description": "id della WBS («riferimenti»): obbligatoria per "
+                "CAPEX; in OPEX solo una WBS a progetto."},
     },
     "additionalProperties": False,
 }  # fmt: skip

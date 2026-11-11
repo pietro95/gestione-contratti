@@ -668,12 +668,15 @@ def wbs_ammesse(cluster: m.Cluster | None):
 
 
 def verifica_natura_wbs(form, natura: str, campo_wbs: str, cluster=None) -> None:
-    """CAPEX ⇔ WBS; una WBS di cluster deve essere del cluster del fabbisogno (F9.2)."""
+    """CAPEX ⇒ WBS; OPEX con WBS solo a progetto (Rev48); WBS di cluster: del cluster giusto."""
     wbs = form.cleaned_data.get(campo_wbs)
     if natura == m.Natura.CAPEX and wbs is None:
         form.add_error(campo_wbs, "Una spesa CAPEX sta sempre su una WBS.")
-    elif natura == m.Natura.OPEX and wbs is not None:
-        form.add_error(campo_wbs, "Una spesa OPEX non ha WBS: lascia vuoto o scegli CAPEX.")
+    elif natura == m.Natura.OPEX and wbs is not None and wbs.tipo != m.WBS.Tipo.PROGETTO:
+        form.add_error(
+            campo_wbs,
+            "Una spesa OPEX può stare solo su una WBS a progetto: lascia vuoto o scegli CAPEX.",
+        )
     elif (
         wbs is not None
         and cluster is not None
@@ -771,8 +774,12 @@ class VoceForm(ModelFormBootstrap):
                 )
         rinnovi = dati.get("natura_rinnovi") or natura
         wbs_rinnovi = dati.get("wbs_rinnovi")
-        if rinnovi == m.Natura.OPEX and wbs_rinnovi is not None:
-            self.add_error("wbs_rinnovi", "Rinnovi in OPEX: nessuna WBS.")
+        if (
+            rinnovi == m.Natura.OPEX
+            and wbs_rinnovi is not None
+            and wbs_rinnovi.tipo != m.WBS.Tipo.PROGETTO
+        ):
+            self.add_error("wbs_rinnovi", "Rinnovi in OPEX: solo una WBS a progetto, o nessuna.")
         elif rinnovi == m.Natura.CAPEX and natura == m.Natura.OPEX and wbs_rinnovi is None:
             self.add_error("wbs_rinnovi", "Rinnovi in CAPEX: indica la WBS su cui andranno.")
         if (

@@ -79,10 +79,9 @@ def test_vincoli_posizioni_fatture_documenti():
             rda=rda, numero=2, descrizione_breve="B", importo_unitario=1, natura="CAPEX"
         )
     )
-    _integrity(
-        lambda: m.PosizioneRDA.objects.create(
-            rda=rda, numero=3, descrizione_breve="C", importo_unitario=1, wbs=wbs
-        )
+    # Rev48: una posizione OPEX può avere una WBS (a progetto, il tipo di default).
+    m.PosizioneRDA.objects.create(
+        rda=rda, numero=3, descrizione_breve="C", importo_unitario=1, wbs=wbs
     )
     _integrity(
         lambda: m.PosizioneRDA.objects.create(

@@ -292,7 +292,11 @@ CAMPI_VOCE = {
         "maxLength": 20,
         "description": "Codice del centro di costo («riferimenti»); di default il predefinito.",
     },
-    "wbs": {**SCHEMA_ID, "description": "id della WBS («riferimenti»); obbligatoria per CAPEX."},
+    "wbs": {
+        **SCHEMA_ID,
+        "description": "id della WBS («riferimenti»); obbligatoria per CAPEX; in OPEX solo "
+        "una WBS a progetto.",
+    },
     "autorizzazione_extra_budget": {
         **SCHEMA_ID,
         "description": "id dell'autorizzazione extra budget dell'AD: la voce esce dal budget "
