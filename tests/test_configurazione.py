@@ -43,6 +43,9 @@ def test_parametri_iniziali_provvisori():
         "fattura_ferma_giorni": Decimal("15"),
         # Stanziamenti (migration 0039, SPEC Rev22).
         "stanziamento_giorni": Decimal("15"),
+        # Allegati delle RDA (migration 0060, SPEC Rev44).
+        "allegato_max_mb": Decimal("10"),
+        "allegati_max_per_rda": Decimal("20"),
         # Budget assegnato per conto (migration 0051, SPEC Rev34).
         "budget_soglia_avvicinamento": Decimal("90"),
     }
