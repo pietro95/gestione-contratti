@@ -313,6 +313,25 @@ def test_posizione_di_una_bozza_si_rimuove_dal_form(editor, una_rda):
     assert list(rda.posizioni.values_list("pk", flat=True)) == [prima.pk]
 
 
+def test_posizione_svuotata_senza_segnale_si_rimuove(editor, una_rda):
+    """JavaScript non aggiornato: la riga arriva svuotata, ma senza il campo «elimina»."""
+    rda, prima, seconda = _rda_con_due_posizioni(una_rda)
+    dati = {
+        "pos-TOTAL_FORMS": "2",
+        "pos-INITIAL_FORMS": "2",
+        "descrizione": rda.descrizione,
+        "intestazione": rda.intestazione,
+        "richiedente": rda.richiedente_id,
+        "gruppo_acquisti": rda.gruppo_acquisti_id,
+        **_pos(0, pk=prima.pk, descrizione_breve=prima.descrizione_breve, natura="OPEX",
+               quantita="1", importo_unitario=str(prima.importo_unitario)),
+        **_pos(1, pk=seconda.pk, descrizione_breve="", natura="", quantita="",
+               importo_unitario=""),
+    }  # fmt: skip
+    assert editor.post(reverse("contratti:rda_modifica", args=[rda.pk]), dati).status_code == 302
+    assert list(rda.posizioni.values_list("pk", flat=True)) == [prima.pk]
+
+
 def test_posizione_dopo_l_invio_non_si_rimuove(editor, una_rda, make_user):
     rda, prima, seconda = _rda_con_due_posizioni(una_rda)
     acquisti.invia(rda, make_user("invia_rda", role=EDITOR))

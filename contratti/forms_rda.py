@@ -245,7 +245,13 @@ class PosizioneForm(FormBase):
         if not self.is_bound:
             return
         segnale = self.data.get(self.add_prefix("elimina"))
-        if segnale not in ("1", "true", "True", "on"):
+        svuotata = bool(self.data.get(self.add_prefix("pk"))) and not any(
+            (self.data.get(self.add_prefix(campo)) or "").strip()
+            for campo in ("descrizione_breve", "importo_unitario")
+        )
+        # «Rimuovi» svuota la riga: anche senza il segnale (JavaScript non aggiornato, in cache)
+        # una posizione salvata con descrizione e importo vuoti si considera rimossa.
+        if segnale not in ("1", "true", "True", "on") and not svuotata:
             return
         # Posizione rimossa: i suoi valori non contano, non si convalidano.
         try:
