@@ -240,8 +240,9 @@
   // <prefisso>-forms e aggiorna TOTAL_FORMS. Senza JavaScript resta la riga vuota in fondo.
   // Il modello può essere una riga di tabella (<tr>): si interpreta dentro un <template>.
   // Gli elementi con data-numero-riga mostrano il numero d'ordine della riga.
-  // «Rimuovi» (data-rimuovi-form) toglie una riga non ancora salvata: la svuota e la nasconde,
-  // così gli indici restano contigui e Django la ignora come riga vuota.
+  // «Rimuovi» (data-rimuovi-form) toglie una riga: la svuota e la nasconde, così gli indici
+  // restano contigui e Django la ignora come riga vuota. Se la riga ha un campo nascosto
+  // «<prefisso>-elimina» lo imposta a 1: il server elimina la riga già salvata (solo in bozza).
   function formset(radice) {
     radice.querySelectorAll("[data-aggiungi-form]").forEach(function (b) {
       if (b._formset) return;
@@ -280,6 +281,9 @@
           campo.classList.remove("is-invalid");
         });
         riga.querySelectorAll(".invalid-feedback").forEach(function (e) { e.remove(); });
+        // Posizioni già salvate: il campo nascosto «elimina» dice al server di toglierle.
+        var elimina = riga.querySelector('input[type=hidden][name$="-elimina"]');
+        if (elimina) elimina.value = "1";
         riga.hidden = true;
         var successiva = document.querySelector("[data-aggiungi-form]");
         if (successiva) successiva.focus();

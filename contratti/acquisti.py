@@ -6,6 +6,7 @@ stato della pratica), §5.8 (esecuzione), §5.9 (scheda SAP e proposte dal fabbi
 """
 
 import datetime
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from decimal import Decimal
 
@@ -319,7 +320,9 @@ def _posizioni_rinnovo(fabbisogno, contratto, gruppo) -> list[PosizioneProposta]
     previsto = _primo_previsto(fabbisogno, contratto)
     modelli = {v.pk: v for v in contratto.voci.all()}
     posizioni = []
-    for i, voce in enumerate(previsto.voci):
+    voci = [v for v in previsto.voci if v.importo_fisso + v.massimale_variabile > ZERO]
+    # Una voce a zero non diventa una posizione; se sono tutte a zero resta la prima.
+    for i, voce in enumerate(voci or previsto.voci[:1]):
         modello = modelli.get(voce.riferimento)
         classe = adapters.classificazione_prevista(fabbisogno, modello)
         posizioni.append(
@@ -550,16 +553,29 @@ def correzione_diretta(rda: m.RichiestaAcquisto, oggi: datetime.date | None = No
 
 
 @transaction.atomic
-def salva_richiesta(rda: m.RichiestaAcquisto, posizioni: list[dict]) -> m.RichiestaAcquisto:
+def salva_richiesta(
+    rda: m.RichiestaAcquisto, posizioni: list[dict], eliminare: Iterable[int] = ()
+) -> m.RichiestaAcquisto:
     """Salva la richiesta e le sue posizioni, numerate nell'ordine dato.
 
     ``posizioni``: dizionari con i campi della posizione e, per quelle già salvate, ``pk``.
-    Le posizioni già salvate non si cancellano (regola 8): si modificano.
+    ``eliminare``: pk delle posizioni salvate da togliere. Deroga alla regola 8, ammessa solo
+    finché la richiesta è in bozza o da correggere (la storia resta in simple-history).
+    Dopo l'invio le posizioni già salvate non si cancellano: si modificano.
     """
-    motivo = "Correzione diretta dopo l'invio" if rda.pk and correzione_diretta(rda) else ""
+    corregge = bool(rda.pk) and correzione_diretta(rda)
+    motivo = "Correzione diretta dopo l'invio" if corregge else ""
+    eliminare = set(eliminare)
+    if eliminare and corregge:
+        raise OperazioneNonAmmessa(
+            "Dopo l'invio le posizioni non si eliminano: correggile o annulla la RDA."
+        )
     rda.full_clean()
     _salva(rda, motivo)
-    esistenti = {p.pk: p for p in rda.posizioni.all()}
+    # Interrogazioni nuove: ``rda.posizioni.all()`` può essere una cache già precaricata.
+    for p in m.PosizioneRDA.objects.filter(rda=rda, pk__in=eliminare):
+        p.delete()
+    esistenti = {p.pk: p for p in m.PosizioneRDA.objects.filter(rda=rda)}
     # Numeri provvisori alti: evitano il vincolo (rda, numero) mentre si rinumera.
     for p in esistenti.values():
         p.numero += 1000

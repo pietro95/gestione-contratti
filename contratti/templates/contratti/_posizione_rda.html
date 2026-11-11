@@ -1,6 +1,6 @@
-<fieldset class="posizione-rda border rounded p-3 mb-3">
+<fieldset class="posizione-rda border rounded p-3 mb-3" data-riga-form>
   <legend class="fs-6 fw-semibold float-none w-auto px-1 mb-0">Posizione {{ numero }}</legend>
-  {{ f.pk }}
+  {{ f.pk }}{{ f.elimina }}
   {% for e in f.non_field_errors %}<div class="alert alert-danger py-1 small">{{ e }}</div>{% endfor %}
   <div class="row g-2">
     <div class="col-md-6"><label class="form-label small" for="{{ f.descrizione_breve.id_for_label }}">Descrizione breve</label>{{ f.descrizione_breve }}{% for e in f.descrizione_breve.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
@@ -13,4 +13,5 @@
     <div class="col-sm-6 col-lg-3"><label class="form-label small" for="{{ f.centro_costo.id_for_label }}">Centro di costo</label>{{ f.centro_costo }}{% for e in f.centro_costo.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
     <div class="col-sm-6 col-lg-5"><label class="form-label small" for="{{ f.wbs.id_for_label }}">WBS (solo CAPEX)</label>{{ f.wbs }}{% for e in f.wbs.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
   </div>
+  {% if not correzione or not f.initial.pk %}<div class="mt-2 text-end"><button type="button" class="btn btn-sm btn-outline-danger" data-rimuovi-form><i class="bi bi-trash" aria-hidden="true"></i> Rimuovi posizione</button></div>{% endif %}
 </fieldset>

@@ -434,6 +434,13 @@ def licenze_cad(tabelle_sap):
     return fab, c1, conti
 
 
+def test_rinnovo_non_propone_posizioni_a_zero(licenze_cad):
+    fab, c1, conti = licenze_cad
+    f.voce(c1, descrizione="Voce a zero", importo_fisso=Decimal("0.00"), conto=conti["600001"])
+    p = acquisti.proposta_richiesta(fab, D(2026, 9, 29))
+    assert [x.importo_unitario for x in p.posizioni] == [Decimal("1030.00"), Decimal("721.00")]
+
+
 def test_tc17_a_rinnovo_dal_fabbisogno(licenze_cad, referente):
     fab, c1, conti = licenze_cad
     p = acquisti.proposta_richiesta(fab, D(2026, 9, 29))

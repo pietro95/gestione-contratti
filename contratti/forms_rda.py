@@ -207,6 +207,8 @@ class PosizioneForm(FormBase):
     """Una posizione della RDA. Righe vuote ignorate; le posizioni salvate non si cancellano."""
 
     pk = forms.IntegerField(widget=forms.HiddenInput, required=False)
+    # Impostato da «Rimuovi posizione»: la posizione si toglie (ammesso solo in bozza).
+    elimina = forms.BooleanField(widget=forms.HiddenInput, required=False)
     descrizione_breve = _campo_sap("Descrizione breve")
     gruppo_merci = forms.ModelChoiceField(
         queryset=m.GruppoMerci.objects.none(), required=False, label="Gruppo merci"
@@ -238,8 +240,25 @@ class PosizioneForm(FormBase):
         attuale = (self.initial or {}).get("centro_costo") or ""
         tendina_centro_costo(self, attuale=attuale, nuovo=not (self.initial or {}).get("pk"))
 
+    def full_clean(self):
+        super().full_clean()
+        if not self.is_bound:
+            return
+        segnale = self.data.get(self.add_prefix("elimina"))
+        if segnale not in ("1", "true", "True", "on"):
+            return
+        # Posizione rimossa: i suoi valori non contano, non si convalidano.
+        try:
+            pk = self.fields["pk"].clean(self.data.get(self.add_prefix("pk")))
+        except forms.ValidationError:
+            pk = None
+        self._errors = forms.utils.ErrorDict()
+        self.cleaned_data = {"pk": pk, "elimina": True}
+
     def vuota(self) -> bool:
         d = getattr(self, "cleaned_data", {}) or {}
+        if d.get("elimina"):
+            return True
         return (
             not d.get("pk")
             and not d.get("descrizione_breve")
@@ -312,6 +331,14 @@ class PosizioniBase(forms.BaseFormSet):
 
     def posizioni(self) -> list[dict]:
         return [f.come_dati() for f in self.forms if not f.vuota()]
+
+    def da_eliminare(self) -> list[int]:
+        """pk delle posizioni salvate che l'utente ha rimosso."""
+        return [
+            f.cleaned_data["pk"]
+            for f in self.forms
+            if f.cleaned_data.get("elimina") and f.cleaned_data.get("pk")
+        ]
 
 
 PosizioniFormSet = forms.formset_factory(PosizioneForm, formset=PosizioniBase, extra=1)
