@@ -137,7 +137,7 @@ def iniziali(utente):
     return "".join(p[0] for p in nome[:2]).upper() or "?"
 
 
-LARGHI = {"descrizione", "note", "link_documenti", "fabbisogno", "fornitore"}
+LARGHI = {"descrizione", "note", "link_documenti", "fabbisogno", "fornitore", "file_allegati"}
 
 
 @register.filter

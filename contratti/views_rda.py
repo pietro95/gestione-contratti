@@ -9,11 +9,13 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Prefetch, Q
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from accounts.permissions import editor_required
-from contratti import acquisti, permessi
+from contratti import acquisti, allegati, permessi
 from contratti import forms_rda as forms
 from contratti import models as m
 from contratti.engine import acquisti as motore
@@ -165,7 +167,9 @@ def rda_nuova(request, fabbisogno_pk):
         "rup": proposta.rup,
         "cup": proposta.cup,
     }
-    form = forms.RichiestaForm(request.POST or None, instance=istanza, initial=iniziali)
+    form = forms.RichiestaForm(
+        request.POST or None, request.FILES or None, instance=istanza, initial=iniziali
+    )
     formset = forms.PosizioniFormSet(
         request.POST or None,
         initial=forms.iniziali_posizioni(proposta.posizioni),
@@ -175,6 +179,7 @@ def rda_nuova(request, fabbisogno_pk):
     if request.method == "POST" and form.is_valid() and formset.is_valid():
         try:
             rda = acquisti.salva_richiesta(form.save(commit=False), formset.posizioni())
+            allegati.aggiungi(rda, form.cleaned_data["file_allegati"], request.user)
             if "invia" in request.POST:
                 acquisti.invia(rda, request.user)
         except (acquisti.OperazioneNonAmmessa, ValidationError) as exc:
@@ -208,7 +213,7 @@ def rda_modifica(request, pk):
     if acquisti.fase(rda) in (Fase.ANNULLATA, Fase.CHIUSA):
         messages.error(request, "La RDA è annullata o chiusa: non si modifica.")
         return redirect("contratti:rda", pk=pk)
-    form = forms.RichiestaForm(request.POST or None, instance=rda)
+    form = forms.RichiestaForm(request.POST or None, request.FILES or None, instance=rda)
     formset = forms.PosizioniFormSet(
         request.POST or None,
         initial=forms.iniziali_posizioni(rda.posizioni.all()),
@@ -219,6 +224,7 @@ def rda_modifica(request, pk):
     if request.method == "POST" and form.is_valid() and formset.is_valid():
         try:
             acquisti.salva_richiesta(form.save(commit=False), formset.posizioni())
+            allegati.aggiungi(rda, form.cleaned_data["file_allegati"], request.user)
             if "invia" in request.POST:
                 acquisti.invia(rda, request.user)
         except (acquisti.OperazioneNonAmmessa, ValidationError) as exc:
@@ -297,6 +303,10 @@ def rda_dettaglio(request, pk):
             "rilasciabile": r["fase"] == Fase.INSERITA,
             "rilascio_annullabile": r["fase"] == Fase.RILASCIATA,
             "form_nota": forms.NotaForm(),
+            "allegati": allegati.attivi(rda).select_related("caricato_da"),
+            "form_allegati": forms.AllegatiForm(),
+            "tipi_allegati": allegati.elenco_tipi(),
+            "max_mb_allegato": allegati.max_byte() // (1024 * 1024),
             "form_pratica": forms.CollegaPraticaForm(
                 rda=rda,
                 utente=request.user,
@@ -307,6 +317,67 @@ def rda_dettaglio(request, pk):
             "tipi_evento": m.EventoRDA.Tipo,
         },
     )
+
+
+@editor_required
+@require_POST
+def rda_allegati_carica(request, pk):
+    """Aggiunge uno o più file alla RDA (dalla scheda «Allegati»)."""
+    rda = _rda(pk)
+    _modificabile(request, rda)
+    form = forms.AllegatiForm(request.POST, request.FILES, rda=rda)
+    if form.is_valid() and form.cleaned_data["file_allegati"]:
+        try:
+            nuovi = allegati.aggiungi(rda, form.cleaned_data["file_allegati"], request.user)
+        except (acquisti.OperazioneNonAmmessa, ValidationError) as exc:
+            _errore(request, exc)
+        else:
+            messages.success(request, f"Allegati caricati: {len(nuovi)}.")
+    elif form.errors:
+        for errore in form.errors.get("file_allegati", []):
+            messages.error(request, errore)
+    else:
+        messages.error(request, "Scegli almeno un file.")
+    return redirect(f"{rda_url(rda)}#allegati")
+
+
+def rda_url(rda) -> str:
+    return reverse("contratti:rda", args=[rda.pk])
+
+
+def _allegato(pk, allegato_pk) -> m.AllegatoRDA:
+    return get_object_or_404(
+        m.AllegatoRDA.objects.select_related("rda"), pk=allegato_pk, rda_id=pk, archiviato=False
+    )
+
+
+@login_required
+def rda_allegato_scarica(request, pk, allegato_pk):
+    """Scarica un allegato: sempre come file da salvare, mai interpretato dal browser."""
+    allegato = _allegato(pk, allegato_pk)
+    try:
+        apri = allegato.file.open("rb")
+    except FileNotFoundError as exc:
+        raise Http404("File non trovato sul server.") from exc
+    risposta = FileResponse(apri, as_attachment=True, filename=allegato.nome)
+    risposta["X-Content-Type-Options"] = "nosniff"
+    risposta["Content-Security-Policy"] = "default-src 'none'; sandbox"
+    risposta["Cache-Control"] = "private, no-store"
+    return risposta
+
+
+@editor_required
+@require_POST
+def rda_allegato_archivia(request, pk, allegato_pk):
+    allegato = _allegato(pk, allegato_pk)
+    _modificabile(request, allegato.rda)
+    try:
+        allegati.archivia(allegato)
+    except acquisti.OperazioneNonAmmessa as exc:
+        _errore(request, exc)
+    else:
+        messages.success(request, f"Allegato «{allegato.nome}» archiviato.")
+    return redirect(f"{rda_url(allegato.rda)}#allegati")
 
 
 def _stato_pratica(pratica, rda, oggi):

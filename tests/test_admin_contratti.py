@@ -114,6 +114,7 @@ def dati():
     )
     m.PosizioneRDA.objects.create(rda=rda, numero=1, descrizione_breve="Prova", importo_unitario=1)
     m.EventoRDA.objects.create(rda=rda, tipo="invio", data=D(2026, 9, 1))
+    m.AllegatoRDA.objects.create(rda=rda, file="rda/1/prova.pdf", nome="prova.pdf", dimensione=10)
     fattura = m.Fattura.objects.create(
         contratto=c, numero="FA-PROVA", data=D(2026, 3, 1), importo_documento=Decimal("100")
     )

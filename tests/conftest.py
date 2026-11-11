@@ -117,6 +117,12 @@ def ldap_down(settings, closed_port, db):
     return env
 
 
+@pytest.fixture(autouse=True)
+def _allegati_in_cartella_temporanea(settings, tmp_path):
+    """I file caricati nei test non toccano mai la cartella degli allegati dello sviluppatore."""
+    settings.MEDIA_ROOT = str(tmp_path / "allegati")
+
+
 @pytest.fixture
 def make_user(db, django_user_model):
     def _make(username, password="password-locale-di-prova", role=None, **fields):

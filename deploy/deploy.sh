@@ -74,7 +74,7 @@ main() {
   [ -z "$(git -C "$SRC" status --porcelain --untracked-files=no)" ] \
     || errore "modifiche locali in $SRC: il codice sul server non si modifica a mano."
 
-  mkdir -p "$APP_DIR"/{postgres,backup,import,config/certs}
+  mkdir -p "$APP_DIR"/{postgres,backup,import,allegati,config/certs}
 
   in_esecuzione=false
   if [ -n "$(compose ps --quiet db 2>/dev/null)" ]; then
@@ -108,7 +108,7 @@ main() {
   echo "==> Migration"
   compose run --rm --no-deps web python manage.py migrate --noinput
   echo "==> Permessi di $APP_DIR/import"
-  compose run --rm --no-deps --user 0 web chown -R 1000:1000 /import
+  compose run --rm --no-deps --user 0 web chown -R 1000:1000 /import /allegati
   compose run --rm --no-deps web python manage.py check --deploy --fail-level ERROR
   if mcp_attivo; then
     echo "==> Utente PostgreSQL del connettore MCP (privilegi limitati)"

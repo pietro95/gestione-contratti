@@ -14,6 +14,7 @@ erDiagram
     VOCE_CONTRATTO ||--o{ RATA : pianifica
     FABBISOGNO ||--o{ RDA : origina
     RDA ||--|{ POSIZIONE_RDA : contiene
+    RDA ||--o{ ALLEGATO_RDA : allega
     RDA }o--o{ CONTRATTO : genera_o_collega
     CONTRATTO ||--o{ FATTURA : riceve
     CONTRATTO ||--o{ DOCUMENTO_ESECUZIONE : documenta
@@ -56,6 +57,7 @@ Gli importi monetari usano `Decimal` e i valori derivati sono calcolati dal moto
 ### Processo d'acquisto
 
 - **RDA**: richiesta d'acquisto con fase, dati SAP e collegamenti alla pratica.
+- **Allegato della RDA** (Rev46): file caricato sulla richiesta (nome originale, dimensione, chi e quando); il file sta nel volume `allegati/`, non nel database. Si archivia, non si cancella.
 - **Posizione RDA**: riga economica e contabile della richiesta.
 - **Evento RDA**: avanzamenti e storia del processo.
 - **Fattura**: documento importato o registrato e sottoposto a presa in carico, assegnazione, convalida e trasferimento. Può coprire **più rate** dello scadenzario (il fornitore emette un'unica fattura), tutte della stessa voce; ogni rata ha al più una fattura (Rev41).

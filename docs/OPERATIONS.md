@@ -71,6 +71,8 @@ cd /appdata/gestione-contratti/app/deploy
 ./backup.sh manuale
 ```
 
+Dal Rev46 ogni backup produce anche `…_contratti_allegati.tar.gz`, l'archivio dei file allegati alle RDA (cartella `/appdata/gestione-contratti/allegati`), con la stessa rotazione dei dump. Si ripristina insieme al dump (`deploy/restore.md`). Controllare che l'archivio sia presente e di dimensione coerente con la cartella.
+
 La presenza di un dump non basta: la procedura di verifica del ripristino deve essere eseguita secondo il RUNBOOK.
 
 ## Aggiornamento

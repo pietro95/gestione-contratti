@@ -19,7 +19,7 @@
 </div>
 {% endif %}
 {% if correzione %}<div class="alert alert-warning"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> La richiesta è già stata inviata: la modifica è una <strong>correzione diretta</strong> e resta nella storia delle modifiche. In alternativa l'addetto può rimandarla al referente.</div>{% endif %}
-<form method="post" novalidate>
+<form method="post" novalidate enctype="multipart/form-data">
   {% csrf_token %}
   {% if aggiuntivo %}<input type="hidden" name="aggiuntivo" value="1">{% endif %}
   {% if proposta.contratto_in_scadenza %}<input type="hidden" name="contratto" value="{{ proposta.contratto_in_scadenza.pk|stringformat:"d" }}">{% endif %}

@@ -25,11 +25,14 @@ x-app: &app
   environment:
     APP_VERSION: ${APP_VERSION:-locale}
     TZ: Europe/Rome
+    ALLEGATI_ROOT: /allegati
     GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS:---workers 3 --timeout 60}
   volumes:
     - ${APP_DIR}/config/certs:/etc/gestione-contratti/certs:ro
     # Excel e CSV da importare; i report delle anomalie si scrivono accanto ai file.
     - ${APP_DIR}/import:/import
+    # Allegati delle RDA (SPEC Rev46): file caricati dagli utenti, inclusi nel backup.
+    - ${APP_DIR}/allegati:/allegati
   networks: [interna]
   logging: *log
 
@@ -105,6 +108,7 @@ services:
       - ./backup.sh:/scripts/backup.sh:ro
       - ./backup_pianificato.sh:/scripts/backup_pianificato.sh:ro
       - ${APP_DIR}/backup:/backup
+      - ${APP_DIR}/allegati:/allegati:ro
     depends_on:
       db:
         condition: service_healthy
