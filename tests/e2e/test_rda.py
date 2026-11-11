@@ -5,6 +5,7 @@ richiesta negli appunti.
 """
 
 import pytest
+from django.contrib.auth import get_user_model
 from playwright.sync_api import expect
 
 from contratti import models as m
@@ -113,3 +114,24 @@ def test_il_richiedente_propone_il_gruppo_acquisti(pagina, dati):
     pagina.wait_for_url("**/rda/*/")
     rda = m.RichiestaAcquisto.objects.get()
     assert (rda.richiedente_id, rda.gruppo_acquisti_id) == (altro.pk, g2.pk)
+
+
+def test_rimuovi_posizione_salvata_dal_form(pagina, dati):
+    from contratti import acquisti
+
+    fab = dati["fabbisogno"]
+    m.RichiedenteSAP.objects.create(codice="999901", descrizione="Ufficio", predefinito=True)
+    m.GruppoAcquisti.objects.create(codice="G01", predefinito=True)
+    rda = acquisti.crea_richiesta(
+        acquisti.proposta_richiesta(fab), get_user_model().objects.get(username="e2e_editor")
+    )
+    m.PosizioneRDA.objects.create(
+        rda=rda, numero=2, descrizione_breve="Da togliere", importo_unitario=0
+    )
+    pagina.goto(f"{pagina.base}/rda/{rda.pk}/modifica/")
+    assert pagina.locator("[data-riga-form]:visible").count() == 3  # 2 salvate + vuota
+    pagina.locator("[data-rimuovi-form]").nth(1).click()
+    pagina.click("button:not([name=invia])[type=submit]:has-text('Salva in bozza')")
+    pagina.wait_for_url(f"**/rda/{rda.pk}/")
+    assert list(rda.posizioni.values_list("descrizione_breve", flat=True)) != []
+    assert not rda.posizioni.filter(descrizione_breve="Da togliere").exists()
