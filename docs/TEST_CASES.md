@@ -749,7 +749,7 @@ Bollo: € 2,00
 
 ## TC-26 — Altri importi nel commento per PAC e notifiche per email
 
-SPEC §5.9 e §5.10 (Rev39, bozza da approvare). Aggiunge un caso a TC-18 e TC-25 senza cambiarli; i test sono `tests/engine/test_tc18_fatture.py`, `tests/test_tc18_fatture.py` e `tests/test_notifiche.py`.
+SPEC §5.9 e §5.10 (Rev39, approvata l'11/11/2026; (c) esteso in Rev45). Aggiunge un caso a TC-18 e TC-25 senza cambiarli; i test sono `tests/engine/test_tc18_fatture.py`, `tests/test_tc18_fatture.py` e `tests/test_notifiche.py`.
 
 **(a) Altri importi nel commento per PAC.** Stessi dati di TC-25 con altri importi (es. more) di 12,34: il commento è quello di TC-25 con in coda
 
