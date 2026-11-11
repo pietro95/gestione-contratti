@@ -44,6 +44,7 @@ class Tipo:
     RDA_INVIATA = "rda_inviata"
     RDA_RIMANDATA = "rda_rimandata"
     RDA_DA_RILASCIARE = "rda_da_rilasciare"
+    RDA_RILASCIATA = "rda_rilasciata"
     DOCUMENTO_DA_RILASCIARE = "documento_da_rilasciare"
     RILASCI_IN_ATTESA = "rilasci_in_attesa"
     CONTRATTI_IN_SCADENZA = "contratti_in_scadenza"
@@ -138,11 +139,13 @@ def invia(
     chiave: str = "",
     conoscenza: Iterable = (),
     azione: str = "",
+    motivo_conoscenza: str = "referente di questa fattura",
 ) -> int:
     """Spedisce l'email a ciascun destinatario e la registra; restituisce quante sono partite.
 
     ``conoscenza`` sono gli utenti che ricevono lo stesso messaggio per conoscenza (il referente
     della fattura): se sono già destinatari non ricevono un secondo messaggio.
+    ``motivo_conoscenza`` completa la riga «Per conoscenza: sei il …» in testa al messaggio.
     ``azione`` è un blocco di testo (il link «Rilascia ora») accodato al corpo solo per chi può
     agire: chi riceve il messaggio per conoscenza non lo vede.
     ``escludi`` è l'utente che ha fatto l'azione. Con una ``chiave`` il messaggio non si
@@ -173,7 +176,7 @@ def invia(
         email = indirizzi.get(utente.pk, "")
         cc = utente.pk in per_conoscenza
         if cc:
-            testo_base = f"Per conoscenza: sei il referente di questa fattura.\n\n{corpo}"
+            testo_base = f"Per conoscenza: sei il {motivo_conoscenza}.\n\n{corpo}"
         else:
             testo_base = f"{corpo}\n\n{azione}" if azione else corpo
         oggetto_inviato = f"{oggetto} (per conoscenza)" if cc else oggetto
@@ -297,7 +300,8 @@ def rda_rimandata(rda: m.RichiestaAcquisto, nota: str, utente=None) -> int:
 
 
 def rda_da_rilasciare(rda: m.RichiestaAcquisto, utente=None) -> int:
-    """RDA inserita in SAP, in attesa di rilascio → addetto al rilascio."""
+    """RDA inserita in SAP, in attesa di rilascio → addetto al rilascio; per conoscenza, il
+    referente della RDA (senza il link «Rilascia ora»)."""
     corpo = (
         "Una RDA inserita in SAP aspetta il rilascio.\n\n"
         f"RDA: {rda.numero_rda} — {rda.intestazione or rda}\n"
@@ -311,6 +315,28 @@ def rda_da_rilasciare(rda: m.RichiestaAcquisto, utente=None) -> int:
         corpo,
         escludi=utente,
         azione=_azione_rilascio(rilascio_link.RDA, rda.pk),
+        conoscenza=[rda.referente_utente] if rda.referente_utente_id else [],
+        motivo_conoscenza="referente di questa richiesta di RDA",
+    )
+
+
+def rda_rilasciata(rda: m.RichiestaAcquisto, utente=None) -> int:
+    """RDA rilasciata su SAP → referente della RDA (ora va al Procurement)."""
+    if rda.referente_utente_id is None:
+        return 0
+    data = f" il {rda.data_rilascio:%d/%m/%Y}" if rda.data_rilascio else ""
+    corpo = (
+        f"La tua richiesta di RDA è stata rilasciata su SAP{data}.\n\n"
+        f"RDA: {rda.numero_rda} — {rda.intestazione or rda}\n"
+        f"Importo: {_euro(_importo_rda(rda))}\n\n"
+        f"Apri la richiesta: {link('rda', rda.pk)}"
+    )
+    return invia(
+        Tipo.RDA_RILASCIATA,
+        [rda.referente_utente],
+        f"RDA {rda.numero_rda} rilasciata su SAP",
+        corpo,
+        escludi=utente,
     )
 
 

@@ -749,7 +749,7 @@ Bollo: € 2,00
 
 ## TC-26 — Altri importi nel commento per PAC e notifiche per email
 
-SPEC §5.9 e §5.10 (Rev39, bozza da approvare). Aggiunge un caso a TC-18 e TC-25 senza cambiarli; i test sono `tests/engine/test_tc18_fatture.py`, `tests/test_tc18_fatture.py` e `tests/test_notifiche.py`.
+SPEC §5.9 e §5.10 (Rev39, approvata l'11/11/2026; (c) esteso in Rev45). Aggiunge un caso a TC-18 e TC-25 senza cambiarli; i test sono `tests/engine/test_tc18_fatture.py`, `tests/test_tc18_fatture.py` e `tests/test_notifiche.py`.
 
 **(a) Altri importi nel commento per PAC.** Stessi dati di TC-25 con altri importi (es. more) di 12,34: il commento è quello di TC-25 con in coda
 
@@ -766,7 +766,8 @@ Con altri importi assenti o a zero il commento è identico a TC-25.
 |---|---|
 | il referente invia la RDA | all'addetto amministrativo |
 | l'addetto la rimanda con la nota «Manca il CIG» | al referente, con la nota |
-| l'addetto riporta il numero SAP | all'addetto al rilascio; una correzione successiva non ne manda un'altra |
+| l'addetto riporta il numero SAP | all'addetto al rilascio e, per conoscenza, al referente della RDA (senza il link «Rilascia ora»); una correzione successiva non ne manda un'altra |
+| l'addetto al rilascio rilascia la RDA | al referente della RDA («RDA <numero> rilasciata su SAP», con la data); a nessun altro; se rilascia il referente stesso, nulla; se il referente è solo testo, nessun avviso al referente |
 | la fattura diventa convalidabile | all'addetto amministrativo, una sola volta |
 | si registra una RdC o un MAP | all'addetto al rilascio; per un MIGO nessuna |
 | la fattura è riassegnata | al nuovo referente |

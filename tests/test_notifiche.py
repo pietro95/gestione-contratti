@@ -128,8 +128,15 @@ def test_rda_inserita_in_sap_va_all_addetto_al_rilascio(utenti, django_capture_o
     mail.outbox.clear()
     with django_capture_on_commit_callbacks(execute=True):
         acquisti.aggiorna_dati_sap(rda, "5100000099", D(2026, 11, 9), utenti["amm"])
-    assert destinatari() == ["ril@esempio.test"]
-    assert "5100000099" in mail.outbox[0].subject
+    # All'addetto al rilascio e, per conoscenza, al referente della RDA.
+    assert destinatari() == ["ref@esempio.test", "ril@esempio.test"]
+    assert all("5100000099" in msg.subject for msg in mail.outbox)
+    cc = next(msg for msg in mail.outbox if msg.to == ["ref@esempio.test"])
+    assert cc.subject.endswith("(per conoscenza)")
+    assert "sei il referente di questa richiesta di RDA" in cc.body
+    assert "Rilascia ora" not in cc.body  # il link per rilasciare non va a chi è in copia
+    principale = next(msg for msg in mail.outbox if msg.to == ["ril@esempio.test"])
+    assert "Rilascia ora" in principale.body
     # Una correzione successiva dei dati SAP non rimanda l'avviso.
     mail.outbox.clear()
     with django_capture_on_commit_callbacks(execute=True):
@@ -438,3 +445,47 @@ def test_per_conoscenza_in_modalita_di_prova(utenti, settings):
     notifiche.invia("prova", [utenti["amm"]], "Oggetto", "Corpo", conoscenza=[utenti["ref"]])
     assert destinatari() == ["pietro@esempio.test"] * 2
     assert any("[PROVA → ref@esempio.test]" in msg.subject for msg in mail.outbox)
+
+
+def test_rda_rilasciata_avvisa_il_referente(utenti, django_capture_on_commit_callbacks):
+    """Rev45: al rilascio su SAP il referente riceve l'avviso; non l'addetto amministrativo."""
+    rda = _rda(utenti)
+    with django_capture_on_commit_callbacks(execute=True):
+        acquisti.invia(rda, utenti["ref"])
+        acquisti.aggiorna_dati_sap(rda, "5100000099", D(2026, 11, 9), utenti["amm"])
+    mail.outbox.clear()
+    with django_capture_on_commit_callbacks(execute=True):
+        esito = acquisti.rilascia_rda([rda], utenti["ril"], D(2026, 11, 10))
+    assert [r.pk for r in esito.fatte] == [rda.pk]
+    assert destinatari() == ["ref@esempio.test"]
+    assert mail.outbox[0].subject.endswith("RDA 5100000099 rilasciata su SAP")
+    assert "10/11/2026" in mail.outbox[0].body
+    assert m.InvioEmail.objects.filter(tipo="rda_rilasciata").count() == 1
+
+
+def test_rda_rilasciata_dal_referente_stesso_non_gli_torna_indietro(
+    utenti, django_capture_on_commit_callbacks
+):
+    rda = _rda(utenti)
+    m.FunzioneUtente.objects.create(username="ref", funzione=Funzione.RILASCIO_SAP)
+    with django_capture_on_commit_callbacks(execute=True):
+        acquisti.invia(rda, utenti["ref"])
+        acquisti.aggiorna_dati_sap(rda, "5100000099", D(2026, 11, 9), utenti["amm"])
+    mail.outbox.clear()
+    with django_capture_on_commit_callbacks(execute=True):
+        acquisti.rilascia_rda([rda], utenti["ref"], D(2026, 11, 10))
+    assert mail.outbox == []
+
+
+def test_rda_senza_referente_utente_non_manda_avvisi_al_referente(
+    utenti, django_capture_on_commit_callbacks
+):
+    rda = _rda(utenti, referente_utente=None, referente="Mario Rossi", origine="manuale",
+               fabbisogno=None, scopo="")  # fmt: skip
+    with django_capture_on_commit_callbacks(execute=True):
+        acquisti.aggiorna_dati_sap(rda, "5100000099", D(2026, 11, 9), utenti["amm"])
+    assert destinatari() == ["ril@esempio.test"]  # solo l'addetto al rilascio
+    mail.outbox.clear()
+    with django_capture_on_commit_callbacks(execute=True):
+        acquisti.rilascia_rda([rda], utenti["ril"], D(2026, 11, 10))
+    assert mail.outbox == []

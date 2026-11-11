@@ -656,6 +656,7 @@ def rilascia_rda(rdas, utente, data: datetime.date | None = None):
                 rifiutate.append((rda, "; ".join(exc.messages)))
                 continue
             _salva(rda, "Rilasciata su SAP")
+            notifiche.dopo_commit(lambda rda=rda: notifiche.rda_rilasciata(rda, utente))
             fatte.append(rda)
     return EsitoRilascioRDA(fatte, rifiutate)
 
