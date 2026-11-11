@@ -1107,7 +1107,7 @@ class Fabbisogno(CompletaSottocluster, Archiviabile):
         blank=True,
         related_name="+",
         verbose_name="WBS del previsto",
-        help_text="Obbligatoria se il previsto è CAPEX.",
+        help_text="Obbligatoria se il previsto è CAPEX; in OPEX solo una WBS a progetto.",
     )
 
     history = HistoricalRecords()
@@ -1518,7 +1518,7 @@ class VoceContratto(Archiviabile):
     codice_conto_importato = models.CharField(max_length=20, blank=True)
     centro_costo = models.CharField("centro di costo", max_length=20, blank=True)
     # F9.2: natura e WBS sono della voce (in SAP ogni posizione ha la sua imputazione):
-    # un contratto può avere quote OPEX e quote CAPEX. CAPEX ⇔ WBS.
+    # un contratto può avere quote OPEX e quote CAPEX. CAPEX ⇒ WBS; OPEX con WBS solo a progetto.
     natura = models.CharField(max_length=5, choices=Natura.choices, default=Natura.OPEX)
     wbs = models.ForeignKey(
         WBS, on_delete=models.PROTECT, null=True, blank=True, related_name="voci",
@@ -1996,7 +1996,7 @@ class PosizioneRDA(models.Model):
     quantita = models.DecimalField("quantità", max_digits=12, decimal_places=3, default=1)
     importo_unitario = importo("importo unitario (imponibile)")
     di_cui_variabile = importo("di cui variabile", default=0)
-    # Campi informativi: stesse regole della voce (CAPEX ⇔ WBS).
+    # Campi informativi: stesse regole della voce (CAPEX ⇒ WBS; OPEX con WBS solo a progetto).
     natura = models.CharField(max_length=5, choices=Natura.choices, default=Natura.OPEX)
     conto = models.ForeignKey(
         ContoCoge,
@@ -2033,7 +2033,7 @@ class PosizioneRDA(models.Model):
                 name="contratti_posizione_variabile_non_negativo",
             ),
             models.CheckConstraint(
-                condition=Q(natura="OPEX", wbs__isnull=True) | Q(natura="CAPEX", wbs__isnull=False),
+                condition=Q(natura="OPEX") | Q(wbs__isnull=False),
                 name="contratti_posizione_capex_se_wbs",
             ),
         ]

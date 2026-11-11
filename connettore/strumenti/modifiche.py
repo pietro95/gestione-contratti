@@ -401,8 +401,9 @@ STRUMENTI = [
         "sottocluster (obbligatorio), la motivazione, la priorità, il tipo d'acquisto, la "
         "fonte della stima e il referente (id o nome). «una_tantum» per un acquisto unico. "
         "Per un fabbisogno nuovo, senza contratti, si può dare il previsto manuale: avvio e "
-        "durata insieme, CAPEX solo con una WBS. «stima_prossimo_importo» è l'importo "
-        "complessivo atteso (fisso e consumo): non si somma il consumo del contratto.",
+        "durata insieme, CAPEX solo con una WBS (in OPEX solo a progetto). "
+        "«stima_prossimo_importo» è l'importo complessivo atteso (fisso e consumo): non si "
+        "somma il consumo del contratto.",
         _schema(CAMPI_FABBISOGNO, ["descrizione", "sottocluster"]),
     ),
     strumento(
