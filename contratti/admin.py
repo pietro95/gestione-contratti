@@ -453,6 +453,14 @@ class PosizioneRDAInline(InlineSenzaCancellazione):
     )  # fmt: skip
     autocomplete_fields = ("gruppo_merci", "conto", "wbs")
     show_change_link = False
+    can_delete = True
+
+    def has_delete_permission(self, request, obj=None):
+        """Si elimina una posizione solo finché la RDA è in bozza o da correggere; dopo
+        l'invio resta tracciata (la storia delle modifiche conserva comunque la cancellazione)."""
+        from contratti import acquisti
+
+        return obj is not None and not acquisti.correzione_diretta(obj)
 
 
 class EventoRDAInline(InlineSenzaCancellazione):

@@ -279,6 +279,54 @@ def test_richiesta_senza_posizioni_rifiutata(editor, rinnovo):
     assert not m.RichiestaAcquisto.objects.exists()
 
 
+def _rda_con_due_posizioni(una_rda):
+    rda, _ = una_rda
+    prima = rda.posizioni.get(numero=1)
+    seconda = m.PosizioneRDA.objects.create(
+        rda=rda, numero=2, descrizione_breve="Da togliere", importo_unitario=Decimal("0")
+    )
+    return rda, prima, seconda
+
+
+def _post_modifica(client, rda, prima, seconda, elimina_seconda):
+    dati = {
+        "pos-TOTAL_FORMS": "2",
+        "pos-INITIAL_FORMS": "2",
+        "descrizione": rda.descrizione,
+        "intestazione": rda.intestazione,
+        "richiedente": rda.richiedente_id,
+        "gruppo_acquisti": rda.gruppo_acquisti_id,
+    }
+    for i, p in enumerate((prima, seconda)):
+        dati |= _pos(
+            i, pk=p.pk, descrizione_breve=p.descrizione_breve, natura="OPEX",
+            quantita="1", importo_unitario=str(p.importo_unitario),
+            elimina="1" if elimina_seconda and p is seconda else "",
+        )  # fmt: skip
+    return client.post(reverse("contratti:rda_modifica", args=[rda.pk]), dati)
+
+
+def test_posizione_di_una_bozza_si_rimuove_dal_form(editor, una_rda):
+    rda, prima, seconda = _rda_con_due_posizioni(una_rda)
+    risposta = _post_modifica(editor, rda, prima, seconda, True)
+    assert risposta.status_code == 302
+    assert list(rda.posizioni.values_list("pk", flat=True)) == [prima.pk]
+
+
+def test_posizione_dopo_l_invio_non_si_rimuove(editor, una_rda, make_user):
+    rda, prima, seconda = _rda_con_due_posizioni(una_rda)
+    acquisti.invia(rda, make_user("invia_rda", role=EDITOR))
+    risposta = _post_modifica(editor, rda, prima, seconda, True)
+    assert risposta.status_code == 200
+    assert rda.posizioni.count() == 2
+
+
+def test_form_di_bozza_offre_rimuovi_posizione(editor, una_rda):
+    rda, _ = una_rda
+    pagina = editor.get(reverse("contratti:rda_modifica", args=[rda.pk])).content.decode()
+    assert "data-rimuovi-form" in pagina and 'name="pos-0-elimina"' in pagina
+
+
 def test_scheda_sap_e_testo_copiato_uguale_a_tc17(editor, sap):
     fornitore, conti = sap
     rda = m.RichiestaAcquisto.objects.create(

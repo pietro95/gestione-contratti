@@ -178,7 +178,9 @@ def rda_nuova(request, fabbisogno_pk):
     )
     if request.method == "POST" and form.is_valid() and formset.is_valid():
         try:
-            rda = acquisti.salva_richiesta(form.save(commit=False), formset.posizioni())
+            rda = acquisti.salva_richiesta(
+                form.save(commit=False), formset.posizioni(), formset.da_eliminare()
+            )
             allegati.aggiungi(rda, form.cleaned_data["file_allegati"], request.user)
             if "invia" in request.POST:
                 acquisti.invia(rda, request.user)
@@ -223,7 +225,9 @@ def rda_modifica(request, pk):
     correzione = acquisti.correzione_diretta(rda)
     if request.method == "POST" and form.is_valid() and formset.is_valid():
         try:
-            acquisti.salva_richiesta(form.save(commit=False), formset.posizioni())
+            acquisti.salva_richiesta(
+                form.save(commit=False), formset.posizioni(), formset.da_eliminare()
+            )
             allegati.aggiungi(rda, form.cleaned_data["file_allegati"], request.user)
             if "invia" in request.POST:
                 acquisti.invia(rda, request.user)
