@@ -49,6 +49,7 @@ Storico revisioni:
 - Rev41 (09/11/2026): richiesta del responsabile del progetto, **approvata** il 09/11/2026. **Una fattura su più rate** (§4, §5.2): quando il fornitore emette un'unica fattura per più periodi, la fattura si abbina a **più rate** dello scadenzario, tutte della stessa voce; ogni rata ha al più una fattura. Il consuntivo a competenza conta il valore base della fattura una sola volta, sul suo periodo di competenza; le altre rate coperte non contano come previsione. Le rate tolte dall'abbinamento tornano alla previsione. Nessun controllo di quadratura tra la somma delle rate e il valore base; il commento per PAC non riporta il periodo delle rate.
 - Rev42 (10/11/2026): richiesta del responsabile del progetto, **approvata** il 10/11/2026. **Fattura** (§4, §5.9): tre dati facoltativi, **rimborso riconosciuto da contratto per costi INPS**, **spese vive** e **senza IVA (regime forfettario)**. Rimborso INPS e spese vive **non sono prelevati dal contratto** (non contano per fatturato, residuo e avanzamento, §5.8) ma **gravano sul budget**: insieme agli **oneri previdenziali**, che finora non entravano nel budget, si imputano alla stessa voce e con la stessa competenza del valore base, nelle tre viste. La quadratura dell'importo del documento comprende i nuovi importi; con il regime forfettario l'IVA non si riconosce né si scorpora ed è rifiutata se indicata. Il commento per PAC riporta le righe nuove; con il rimborso INPS gli oneri sono scritti «ribaltamento <p>% INPS», con la percentuale ricavata (oneri / (valore base + rimborso)), non salvata. Nuovo TC-28; TC-18, TC-25 e TC-26 invariati.
 - Rev43 (10/11/2026): richiesta del responsabile del progetto, **approvata** il 10/11/2026. **Link «Rilascia ora»** nelle email di rilascio (§5.10): le email che segnalano un'RDA, una RdC o un MAP da rilasciare (e le righe del promemoria dei rilasci) portano, oltre al link alla pagina, un link firmato che rilascia direttamente quell'elemento. Serve il login e la funzione «Addetto al rilascio» (altrimenti 403, e il referente per conoscenza non riceve il link); il link scade dopo `RILASCIO_LINK_GIORNI` giorni (7); passa dagli stessi servizi della maschera dei rilasci. Il connettore MCP già rilascia con il tool `rilascia` (stessi permessi, anteprima e conferma).
+- Rev44 (11/11/2026): richiesta del responsabile del progetto, **approvata** l'11/11/2026. **Validazione della fattura** (§5.9): scegliendo il contratto si vedono **data di stipula** e **data di inizio**; il **centro di costo** è sempre valorizzato (quello della fattura, altrimenti della voce, altrimenti il **predefinito** della tabella dei centri di costo) e precompila il form di imputazione; nel **commento per PAC** la riga `WBS:` compare solo se c'è una WBS (prima si scriveva `--`). Le indicazioni per la validazione restano invariate (`WBS: --`). TC-18, TC-25, TC-26 e TC-28 invariati: i loro casi hanno sempre una WBS.
 
 ## 1. Obiettivo
 
@@ -488,7 +489,7 @@ ODA : <numero della RdC>
 MAP: <numero del MAP>            (oppure «MIGO: <numero>» per una fornitura)
 CDC: <centro di costo>
 COGE: <conto>
-WBS: <WBS, oppure -->
+WBS: <WBS>                       (solo se c'è; Rev44)
 
 Valore base prelevato da contratto: € <valore base>
 Rimborso riconosciuto da contratto per costi INPS: € <rimborso>   (solo se c'è; Rev42)
