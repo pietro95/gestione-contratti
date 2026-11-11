@@ -107,3 +107,29 @@ def test_dal_connettore(make_user, dati):
     assert risposta["result"]["structuredContent"]["imputazione_della_fattura"] == {
         "conto": "600020", "centro_costo": "C0009", "wbs": None,
     }  # fmt: skip
+
+
+def test_commento_pac_senza_wbs_non_ha_il_rigo(dati):
+    x = dati["fattura"]
+    assert "WBS" not in fatture.commento_pac(x)
+    fatture.imputa(x, None, "", dati["wbs"])
+    assert "WBS: WBS-TEST-02" in fatture.commento_pac(fatture.QS_FATTURE.get(pk=x.pk))
+
+
+def test_centro_di_costo_predefinito_se_vuoto(dati):
+    m.CentroCosto.objects.create(codice="C0009", descrizione="Predefinito", predefinito=True)
+    voce = dati["voce"]
+    voce.centro_costo = ""
+    voce.save()
+    x = fatture.QS_FATTURE.get(pk=dati["fattura"].pk)
+    assert fatture.dati_pac(x).centro_costo == "C0009"
+    assert "CDC: C0009" in fatture.commento_pac(x)
+
+
+def test_tendina_contratto_mostra_stipula_e_inizio(dati):
+    a = dati["a"]
+    a.data_stipula, a.data_inizio = D(2026, 1, 15), D(2026, 2, 1)
+    a.save()
+    form = ff.ContrattoFatturaForm(fattura=dati["fattura"])
+    etichette = [e for _, e in form.fields["contratto"].choices]
+    assert any("stipula 15/01/2026 · inizio 01/02/2026" in e for e in etichette)

@@ -22,6 +22,15 @@ from contratti.forms import (
 Tipo = m.DocumentoEsecuzione.Tipo
 
 
+def _data(d) -> str:
+    return d.strftime("%d/%m/%Y") if d else "—"
+
+
+def _etichetta_contratto(c) -> str:
+    """Voce della tendina: il contratto con data di stipula e di inizio."""
+    return f"{c} · stipula {_data(c.data_stipula)} · inizio {_data(c.data_inizio)}"
+
+
 def _contratti_del_fornitore(fornitore_id):
     return (
         m.Contratto.objects.filter(
@@ -74,6 +83,7 @@ class ContrattoFatturaForm(FormBase):
         super().__init__(*args, **kwargs)
         self.fields["contratto"].queryset = _contratti_del_fornitore(fattura.fornitore_id)
         self.fields["contratto"].widget.attrs["class"] += " js-cerca"
+        self.fields["contratto"].label_from_instance = _etichetta_contratto
         voci = m.VoceContratto.objects.filter(
             contratto__fornitore_id=fattura.fornitore_id, archiviato=False
         ).select_related("contratto")
