@@ -31,7 +31,7 @@ x-app: &app
     - ${APP_DIR}/config/certs:/etc/gestione-contratti/certs:ro
     # Excel e CSV da importare; i report delle anomalie si scrivono accanto ai file.
     - ${APP_DIR}/import:/import
-    # Allegati delle RDA (SPEC Rev44): file caricati dagli utenti, inclusi nel backup.
+    # Allegati delle RDA (SPEC Rev46): file caricati dagli utenti, inclusi nel backup.
     - ${APP_DIR}/allegati:/allegati
   networks: [interna]
   logging: *log

@@ -37,7 +37,7 @@ la differenza corrisponde alle modifiche fatte dopo.
    3. ricrea il database vuoto;
    4. ripristina il dump scelto;
    5. riavvia l'app e controlla `/healthz`.
-4. Ripristina gli **allegati delle RDA** (Rev44) con l'archivio dello stesso backup
+4. Ripristina gli **allegati delle RDA** (Rev46) con l'archivio dello stesso backup
    (`…_contratti_allegati.tar.gz`, stessa data e ora del dump). Senza questo passo le RDA
    riportano allegati i cui file mancano (la scheda risponde «File non trovato»):
    ```bash

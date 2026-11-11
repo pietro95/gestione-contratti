@@ -53,7 +53,7 @@ Il connettore è una deroga controllata all'accesso esclusivamente interno:
 
 I risultati dei tool transitano nel servizio del fornitore del modello; la minimizzazione definita in SPEC_MCP resta obbligatoria.
 
-## Allegati delle RDA (Rev44)
+## Allegati delle RDA (Rev46)
 
 - I file caricati stanno nel volume `allegati/` (in `/allegati` nel container), mai nel repository né tra gli statici: si scaricano solo dalla vista che controlla login e permessi.
 - Sul disco hanno nome casuale; il nome originale è nel database e, nel download, passa solo come nome proposto (`Content-Disposition: attachment`), con `X-Content-Type-Options: nosniff` e `Content-Security-Policy: sandbox`, così il browser non li interpreta mai.

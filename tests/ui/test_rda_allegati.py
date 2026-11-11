@@ -1,5 +1,5 @@
 # ruff: noqa: F401, F811  (le fixture si importano da test_rda e si usano per nome)
-"""Rev44: allegati della richiesta di RDA (upload, download, archiviazione, limiti, permessi).
+"""Rev46: allegati della richiesta di RDA (upload, download, archiviazione, limiti, permessi).
 I file sono contenuti fittizi, scritti in una cartella temporanea (tests/conftest.py)."""
 
 import datetime

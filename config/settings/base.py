@@ -110,7 +110,7 @@ USE_I18N = True
 USE_TZ = True
 USE_THOUSAND_SEPARATOR = True
 
-# Allegati delle RDA (SPEC Rev44): file caricati dagli utenti, fuori dal repository e mai serviti
+# Allegati delle RDA (SPEC Rev46): file caricati dagli utenti, fuori dal repository e mai serviti
 # come statici. In produzione è il volume montato in /allegati (deploy/docker-compose.prod.yml);
 # si scaricano solo dalla vista che controlla i permessi.
 ALLEGATI_ROOT = env.path("ALLEGATI_ROOT", default=str(BASE_DIR / "allegati"))

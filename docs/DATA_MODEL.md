@@ -57,7 +57,7 @@ Gli importi monetari usano `Decimal` e i valori derivati sono calcolati dal moto
 ### Processo d'acquisto
 
 - **RDA**: richiesta d'acquisto con fase, dati SAP e collegamenti alla pratica.
-- **Allegato della RDA** (Rev44): file caricato sulla richiesta (nome originale, dimensione, chi e quando); il file sta nel volume `allegati/`, non nel database. Si archivia, non si cancella.
+- **Allegato della RDA** (Rev46): file caricato sulla richiesta (nome originale, dimensione, chi e quando); il file sta nel volume `allegati/`, non nel database. Si archivia, non si cancella.
 - **Posizione RDA**: riga economica e contabile della richiesta.
 - **Evento RDA**: avanzamenti e storia del processo.
 - **Fattura**: documento importato o registrato e sottoposto a presa in carico, assegnazione, convalida e trasferimento. Può coprire **più rate** dello scadenzario (il fornitore emette un'unica fattura), tutte della stessa voce; ogni rata ha al più una fattura (Rev41).

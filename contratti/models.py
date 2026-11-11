@@ -251,7 +251,7 @@ class Parametro(ConfigurazioneProvvisoria):
         # Processo d'acquisto (SPEC §5.7, F11).
         RDA_FERMA_GIORNI = "rda_ferma_giorni", "RDA ferma in una fase dell'addetto (giorni)"
         FATTURA_FERMA_GIORNI = "fattura_ferma_giorni", "fattura ferma da lavorare (giorni)"
-        # Allegati della RDA (SPEC §4, Rev44).
+        # Allegati della RDA (SPEC §4, Rev46).
         ALLEGATO_MAX_MB = "allegato_max_mb", "allegati RDA: dimensione massima di un file (MB)"
         ALLEGATI_MAX_PER_RDA = (
             "allegati_max_per_rda",
@@ -2093,7 +2093,7 @@ def percorso_allegato(istanza: "AllegatoRDA", nome_file: str) -> str:
 
 
 class AllegatoRDA(Archiviabile):
-    """File allegato alla richiesta di RDA (SPEC §4, Rev44).
+    """File allegato alla richiesta di RDA (SPEC §4, Rev46).
 
     Non si cancella: si archivia (l'allegato sparisce dall'elenco, il file resta sul disco e
     nella storia). Il campo di testo ``RichiestaAcquisto.allegati`` resta per le note.

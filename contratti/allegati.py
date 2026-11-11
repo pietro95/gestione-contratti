@@ -1,4 +1,4 @@
-"""Allegati delle richieste di RDA (SPEC §4, Rev44): controlli, salvataggio, archiviazione.
+"""Allegati delle richieste di RDA (SPEC §4, Rev46): controlli, salvataggio, archiviazione.
 
 I file stanno in ``settings.ALLEGATI_ROOT``, con nome casuale; il nome originale è nel database.
 Limiti di dimensione e di numero sono parametri (tabella ``Parametro``); i tipi ammessi sono una

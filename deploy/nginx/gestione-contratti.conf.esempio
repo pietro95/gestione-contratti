@@ -21,7 +21,7 @@ server {
     ssl_certificate_key __KEY__;
     ssl_protocols       TLSv1.2 TLSv1.3;
 
-    # Allegati delle RDA (Rev44): fino a 10 MB a file, più file per volta.
+    # Allegati delle RDA (Rev46): fino a 10 MB a file, più file per volta.
     client_max_body_size 50m;
 
     location / {

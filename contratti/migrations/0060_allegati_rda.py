@@ -12,7 +12,7 @@ import contratti.models
 
 
 def carica(apps, schema_editor):
-    # Valori iniziali provvisori (SPEC Rev44): 10 MB a file, 20 file per richiesta.
+    # Valori iniziali provvisori (SPEC Rev46): 10 MB a file, 20 file per richiesta.
     Parametro = apps.get_model("contratti", "Parametro")
     for chiave, valore in (("allegato_max_mb", "10"), ("allegati_max_per_rda", "20")):
         Parametro.objects.get_or_create(

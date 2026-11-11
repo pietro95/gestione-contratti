@@ -2,8 +2,8 @@
     <section class="card mb-4" aria-labelledby="t-contratto"><div class="card-body">
       <h2 class="h6 text-uppercase text-body-secondary" id="t-contratto">1 · Contratto</h2>
       {% if f.contratto %}
-        <p class="mb-2"><a href="{% url 'contratti:contratto' f.contratto.pk %}">{% include "contratti/_contratto_breve.html" with x=f.contratto %}</a>{% if f.voce %}<br><span class="small text-body-secondary">voce: {{ f.voce.descrizione }}</span>{% endif %}</p>
-      {% elif proposto %}<p class="small">Contratto proposto: {% include "contratti/_contratto_breve.html" with x=proposto %} (l'unico del fornitore in servizio alla data della fattura). Va confermato.</p>
+        <p class="mb-2"><a href="{% url 'contratti:contratto' f.contratto.pk %}">{% include "contratti/_contratto_breve.html" with x=f.contratto %}</a><br><span class="small text-body-secondary">stipula: {{ f.contratto.data_stipula|date:"d/m/Y"|default:"—" }} · inizio: {{ f.contratto.data_inizio|date:"d/m/Y"|default:"—" }}</span>{% if f.voce %}<br><span class="small text-body-secondary">voce: {{ f.voce.descrizione }}</span>{% endif %}</p>
+      {% elif proposto %}<p class="small">Contratto proposto: {% include "contratti/_contratto_breve.html" with x=proposto %} (l'unico del fornitore in servizio alla data della fattura). Stipula: {{ proposto.data_stipula|date:"d/m/Y"|default:"—" }} · inizio: {{ proposto.data_inizio|date:"d/m/Y"|default:"—" }}. Va confermato.</p>
       {% else %}<p class="small text-body-secondary">Nessun contratto proposto: il fornitore non ha contratti in servizio alla data della fattura, o ne ha più di uno.</p>{% endif %}
       {% if puo_lavorare %}
       <form method="post" action="{% url 'contratti:fattura_contratto' f.pk %}" class="row g-2">
