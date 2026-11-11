@@ -142,6 +142,17 @@ urlpatterns = [
     path("rda/<int:pk>/rimanda/", views_rda.rda_rimanda, name="rda_rimanda"),
     path("rda/<int:pk>/annulla/", views_rda.rda_annulla, name="rda_annulla"),
     path("rda/<int:pk>/dati-sap/", views_rda.rda_dati_sap, name="rda_dati_sap"),
+    path("rda/<int:pk>/allegati/", views_rda.rda_allegati_carica, name="rda_allegati_carica"),
+    path(
+        "rda/<int:pk>/allegati/<int:allegato_pk>/",
+        views_rda.rda_allegato_scarica,
+        name="rda_allegato",
+    ),
+    path(
+        "rda/<int:pk>/allegati/<int:allegato_pk>/archivia/",
+        views_rda.rda_allegato_archivia,
+        name="rda_allegato_archivia",
+    ),
     path("rda/<int:pk>/pratica/", views_rda.rda_collega_pratica, name="rda_collega_pratica"),
     path("rda/<int:pk>/collega/", views_rda.rda_collega_contratto, name="rda_collega_contratto"),
     path("rda/<int:pk>/contratto/", views_rda.rda_contratto, name="rda_contratto"),

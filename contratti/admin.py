@@ -462,6 +462,24 @@ class EventoRDAInline(InlineSenzaCancellazione):
     show_change_link = False
 
 
+@admin.register(m.AllegatoRDA)
+class AllegatoRDAAdmin(ArchiviabileAdmin):
+    """Allegati delle RDA: in sola consultazione (il caricamento passa dalla scheda della RDA,
+    che controlla tipo, dimensione e permessi)."""
+
+    list_display = ("nome", "rda", "dimensione", "caricato_da", "caricato_il", "archiviato")
+    list_filter = ("archiviato",)
+    search_fields = ("nome", "rda__descrizione", "rda__numero_rda")
+    readonly_fields = ("rda", "file", "nome", "dimensione", "caricato_da", "caricato_il")
+    fields = (*readonly_fields, "archiviato")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(m.RichiestaAcquisto)
 class RichiestaAcquistoAdmin(ArchiviabileAdmin):
     """RDA: la fase non si salva, la ricava il motore (SPEC §5.7)."""

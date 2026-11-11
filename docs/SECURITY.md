@@ -53,6 +53,15 @@ Il connettore è una deroga controllata all'accesso esclusivamente interno:
 
 I risultati dei tool transitano nel servizio del fornitore del modello; la minimizzazione definita in SPEC_MCP resta obbligatoria.
 
+## Allegati delle RDA (Rev44)
+
+- I file caricati stanno nel volume `allegati/` (in `/allegati` nel container), mai nel repository né tra gli statici: si scaricano solo dalla vista che controlla login e permessi.
+- Sul disco hanno nome casuale; il nome originale è nel database e, nel download, passa solo come nome proposto (`Content-Disposition: attachment`), con `X-Content-Type-Options: nosniff` e `Content-Security-Policy: sandbox`, così il browser non li interpreta mai.
+- Accettati solo i tipi della lista chiusa in `contratti/allegati.py`, con controllo dell'intestazione del file; dimensione e numero massimi sono parametri.
+- Non c'è antivirus nell'applicazione: la scansione dei file caricati spetta alla protezione aziendale del server. Gli allegati sono dati riservati come il resto del registro.
+- Nessuna cancellazione fisica: l'archiviazione toglie l'allegato dall'elenco, il file resta e l'operazione è nella storia. Gli allegati sono nel backup giornaliero (archivio accanto al dump).
+- Il connettore MCP non legge né scrive file; le email di avviso non contengono allegati.
+
 ## Database, backup e ripristino
 
 - PostgreSQL non espone porte verso l'host.

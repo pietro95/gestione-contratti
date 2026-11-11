@@ -10,7 +10,9 @@ Regole:
   passa da django-simple-history.
 """
 
+import os
 import re
+import uuid
 
 from django import forms as django_forms
 from django.conf import settings
@@ -249,6 +251,12 @@ class Parametro(ConfigurazioneProvvisoria):
         # Processo d'acquisto (SPEC §5.7, F11).
         RDA_FERMA_GIORNI = "rda_ferma_giorni", "RDA ferma in una fase dell'addetto (giorni)"
         FATTURA_FERMA_GIORNI = "fattura_ferma_giorni", "fattura ferma da lavorare (giorni)"
+        # Allegati della RDA (SPEC §4, Rev44).
+        ALLEGATO_MAX_MB = "allegato_max_mb", "allegati RDA: dimensione massima di un file (MB)"
+        ALLEGATI_MAX_PER_RDA = (
+            "allegati_max_per_rda",
+            "allegati RDA: numero massimo di file per richiesta",
+        )
         # Budget assegnato per conto (SPEC §5.2, Rev34).
         BUDGET_SOGLIA_AVVICINAMENTO = (
             "budget_soglia_avvicinamento",
@@ -2075,6 +2083,41 @@ class EventoRDA(models.Model):
 
     def __str__(self):
         return f"{self.get_tipo_display()} ({self.data:%d/%m/%Y})"
+
+
+def percorso_allegato(istanza: "AllegatoRDA", nome_file: str) -> str:
+    """Nome sul disco: casuale, nella cartella della RDA. Il nome originale sta nel database,
+    mai nel percorso (niente path traversal, niente collisioni, niente nomi indovinabili)."""
+    estensione = os.path.splitext(nome_file)[1].lower()[:10]
+    return f"rda/{istanza.rda_id}/{uuid.uuid4().hex}{estensione}"
+
+
+class AllegatoRDA(Archiviabile):
+    """File allegato alla richiesta di RDA (SPEC §4, Rev44).
+
+    Non si cancella: si archivia (l'allegato sparisce dall'elenco, il file resta sul disco e
+    nella storia). Il campo di testo ``RichiestaAcquisto.allegati`` resta per le note.
+    """
+
+    rda = models.ForeignKey(
+        RichiestaAcquisto, on_delete=models.PROTECT, related_name="file_allegati"
+    )
+    file = models.FileField(upload_to=percorso_allegato, max_length=255)
+    nome = models.CharField("nome del file", max_length=255)
+    dimensione = models.PositiveBigIntegerField("dimensione (byte)")
+    caricato_da = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    caricato_il = models.DateTimeField(auto_now_add=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "allegato della RDA"
+        verbose_name_plural = "allegati della RDA"
+        ordering = ["rda", "caricato_il", "id"]
+
+    def __str__(self):
+        return self.nome
 
 
 class Fattura(Archiviabile):

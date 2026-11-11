@@ -30,6 +30,16 @@ pg_restore --list "$tmp" >/dev/null
 mv "$tmp" "/backup/$nome"
 echo "Backup completato: $nome ($(du -h "/backup/$nome" | cut -f1))"
 
+# Allegati delle RDA: un archivio accanto al dump, da ripristinare insieme (restore.md §2).
+if [ -d /allegati ]; then
+  nome_allegati="${nome%.dump}_allegati.tar.gz"
+  tmp_allegati="/backup/.${nome_allegati}.parziale"
+  tar -czf "$tmp_allegati" -C /allegati .
+  tar -tzf "$tmp_allegati" >/dev/null
+  mv "$tmp_allegati" "/backup/$nome_allegati"
+  echo "Backup allegati completato: $nome_allegati ($(du -h "/backup/$nome_allegati" | cut -f1))"
+fi
+
 giorni="${BACKUP_GIORNI:-14}"
-find /backup/ -maxdepth 1 -name '*_contratti*.dump' -mtime +"$giorni" -print -delete \
-  | sed 's/^/Rimosso per rotazione: /'
+find /backup/ -maxdepth 1 \( -name '*_contratti*.dump' -o -name '*_contratti*_allegati.tar.gz' \) \
+  -mtime +"$giorni" -print -delete | sed 's/^/Rimosso per rotazione: /'

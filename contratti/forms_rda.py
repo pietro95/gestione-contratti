@@ -5,8 +5,8 @@ import json
 
 from django import forms
 
+from contratti import allegati, permessi
 from contratti import models as m
-from contratti import permessi
 from contratti.engine import acquisti as motore
 from contratti.forms import (
     FormBase,
@@ -44,14 +44,32 @@ def _campo_sap(etichetta: str, required: bool = False) -> forms.CharField:
     )
 
 
+class _InputFileMultiplo(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class CampoFileMultiplo(forms.FileField):
+    """Più file in un solo campo; restituisce la lista (vuota se non c'è nulla)."""
+
+    widget = _InputFileMultiplo
+
+    def clean(self, data, initial=None):
+        singoli = data if isinstance(data, (list, tuple)) else [data]
+        return [super(CampoFileMultiplo, self).clean(f, initial) for f in singoli if f]
+
+
 class RichiestaForm(ModelFormBootstrap):
     """Campi della richiesta di RDA, nell'ordine della scheda SAP (SPEC §5.9)."""
 
     intestazione = _campo_sap("Intestazione")
+    file_allegati = CampoFileMultiplo(label="Carica allegati", required=False)
 
     sezioni = [
         ("Richiesta", ["descrizione", "intestazione", "fornitore_proposto"]),
-        ("Campi SAP", ["richiedente", "gruppo_acquisti", "note_buyer", "allegati"]),
+        (
+            "Campi SAP",
+            ["richiedente", "gruppo_acquisti", "note_buyer", "allegati", "file_allegati"],
+        ),
         ("Riferimenti", ["percorso_file_server", "rup", "cup", "note"]),
     ]
 
@@ -85,6 +103,17 @@ class RichiestaForm(ModelFormBootstrap):
             self.fields[
                 "gruppo_acquisti"
             ].help_text = "Proposto dal richiedente: il gruppo acquisti della sua unità."
+        self.fields["allegati"].label = "Note sugli allegati"
+        self.fields[
+            "allegati"
+        ].help_text = "Facoltativo: cosa è allegato e dove si trova, per ciò che non si carica qui."
+        self.fields["file_allegati"].help_text = (
+            f"Fino a {allegati.max_byte() // (1024 * 1024)} MB a file; tipi ammessi: "
+            f"{allegati.elenco_tipi()}. Puoi scegliere più file."
+        )
+        self.fields["file_allegati"].widget.attrs["accept"] = ",".join(
+            f".{e}" for e in sorted(allegati.TIPI_AMMESSI)
+        )
         self.fields["intestazione"].help_text = (
             "Al massimo 40 caratteri (limite di SAP). Proposta: nome breve del fornitore − "
             "descrizione."
@@ -92,6 +121,11 @@ class RichiestaForm(ModelFormBootstrap):
         self.fields[
             "percorso_file_server"
         ].help_text = "Proposto dalla cartella base del cluster; crea la cartella con questo nome."
+
+    def clean_file_allegati(self):
+        files = self.cleaned_data["file_allegati"]
+        allegati.controlla(self.instance, files)
+        return files
 
     def clean(self):
         dati = super().clean()
@@ -102,6 +136,24 @@ class RichiestaForm(ModelFormBootstrap):
             if gruppo is not None and gruppo.attivo:
                 dati["gruppo_acquisti"] = gruppo
         return dati
+
+
+class AllegatiForm(FormBase):
+    """Caricamento di file dalla scheda «Allegati» della RDA."""
+
+    file_allegati = CampoFileMultiplo(label="Aggiungi allegati", required=False)
+
+    def __init__(self, *args, rda=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.rda = rda
+        self.fields["file_allegati"].widget.attrs["accept"] = ",".join(
+            f".{e}" for e in sorted(allegati.TIPI_AMMESSI)
+        )
+
+    def clean_file_allegati(self):
+        files = self.cleaned_data["file_allegati"]
+        allegati.controlla(self.rda, files)
+        return files
 
 
 class RdaManualeForm(ModelFormBootstrap):

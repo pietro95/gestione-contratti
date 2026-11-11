@@ -37,10 +37,19 @@ la differenza corrisponde alle modifiche fatte dopo.
    3. ricrea il database vuoto;
    4. ripristina il dump scelto;
    5. riavvia l'app e controlla `/healthz`.
-4. Se ripristini per un **rollback**, reinstalla la versione precedente:
+4. Ripristina gli **allegati delle RDA** (Rev44) con l'archivio dello stesso backup
+   (`…_contratti_allegati.tar.gz`, stessa data e ora del dump). Senza questo passo le RDA
+   riportano allegati i cui file mancano (la scheda risponde «File non trovato»):
+   ```bash
+   cd /appdata/gestione-contratti
+   tar -xzf backup/<AAAA.MM.GG_HHMM_contratti….>_allegati.tar.gz -C allegati
+   sudo chown -R 1000:1000 allegati
+   ```
+   L'archivio si aggiunge ai file presenti: non cancella quelli più recenti del dump.
+5. Se ripristini per un **rollback**, reinstalla la versione precedente:
    `deploy.sh <versione precedente>`
    (RUNBOOK §7).
-5. Verifica dall'app gli ultimi dati attesi: ultimi contratti inseriti, storico delle modifiche.
+6. Verifica dall'app gli ultimi dati attesi: ultimi contratti inseriti, storico delle modifiche.
 
 Se hai sbagliato dump, ripeti il punto 3 con il dump `…_prima_del_ripristino.dump`.
 

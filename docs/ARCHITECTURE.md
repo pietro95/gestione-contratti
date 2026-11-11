@@ -70,6 +70,7 @@ L'immagine applicativa contiene codice, dipendenze e file statici. In produzione
 
 - Gunicorn serve l'applicazione;
 - PostgreSQL conserva i dati;
+- il volume `allegati/` conserva i file allegati alle RDA (`contratti/allegati.py`: controlli, salvataggio, archiviazione), scaricabili solo dalla vista con i permessi;
 - WhiteNoise serve gli statici attraverso il reverse proxy;
 - un container separato esegue i backup;
 - il profilo MCP avvia l'host pubblico facoltativo;

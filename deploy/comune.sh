@@ -7,6 +7,7 @@
 #   postgres/  dati del database
 #   backup/    dump giornalieri e pre-aggiornamento
 #   import/    Excel e CSV da importare, con i report delle anomalie (in /import nel container)
+#   allegati/  file allegati alle RDA (in /allegati nel container), nel backup giornaliero
 
 PROGETTO=gestione-contratti
 DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
