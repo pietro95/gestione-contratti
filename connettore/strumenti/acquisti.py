@@ -427,6 +427,8 @@ def rilasci_da_fare(ctx: Contesto, argomenti: dict) -> dict:
                 "descrizione": r.descrizione,
                 "cluster": r.cluster.codice,
                 "inserita_il": r.data_inserimento,
+                "coge": acquisti.conti_e_wbs_rda(r)[0],
+                "wbs": acquisti.conti_e_wbs_rda(r)[1],
                 "giorni": (ctx.oggi - r.data_inserimento).days if r.data_inserimento else None,
                 "link": link("contratti:rda", r.pk),
             }
@@ -441,6 +443,8 @@ def rilasci_da_fare(ctx: Contesto, argomenti: dict) -> dict:
                 "fattura_id": d.fattura_id,
                 "numero_fattura": d.fattura.numero,
                 "fornitore": d.fattura.fornitore.ragione_sociale,
+                "coge": fatture.conto_e_wbs(d.fattura)[0],
+                "wbs": fatture.conto_e_wbs(d.fattura)[1],
                 "link": link("contratti:fattura", d.fattura_id),
             }
             for d in documenti
@@ -709,7 +713,7 @@ STRUMENTI = [
         descrizione=(
             "La coda della pagina «Rilasci SAP»: RDA inserite in SAP e RdC e MAP delle "
             "fatture da lavorare ancora da rilasciare. Visibile a tutti; rilascia solo "
-            "l'addetto al rilascio (tool «rilascia»)."
+            "l'addetto al rilascio (tool «rilascia» o «rigetta»). Ogni riga ha conti COGE e WBS."
         ),
         input_schema=_schema({"tipo": {"type": "string", "enum": ["RDA", "ODA_RDC", "MAP"]}}),
         esegui=rilasci_da_fare,
