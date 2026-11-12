@@ -191,6 +191,51 @@ def test_documento_da_rilasciare_avvisa_l_addetto_al_rilascio(
     assert mail.outbox == []  # il MIGO non si rilascia
 
 
+def test_documento_rilasciato_avvisa_l_addetto_amministrativo(
+    utenti, fattura_in_lavorazione, django_capture_on_commit_callbacks
+):
+    fa = fattura_in_lavorazione
+    with django_capture_on_commit_callbacks(execute=True):
+        doc = fatture.registra_documento(
+            fa, Tipo.ODA, "4600000001", D(2026, 11, 3), utente=utenti["amm"]
+        )
+    mail.outbox.clear()
+    with django_capture_on_commit_callbacks(execute=True):
+        esito = fatture.rilascia_documenti([doc.pk], utenti["ril"], D(2026, 11, 10))
+    assert [d.pk for d in esito.fatte] == [doc.pk]
+    assert destinatari() == ["amm@esempio.test"]
+    assert mail.outbox[0].subject.endswith("4600000001 rilasciato su SAP")
+    assert "10/11/2026" in mail.outbox[0].body
+    assert m.InvioEmail.objects.filter(tipo="documento_rilasciato").count() == 1
+
+
+def test_documento_rilasciato_dall_addetto_amministrativo_non_gli_torna_indietro(
+    utenti, fattura_in_lavorazione, django_capture_on_commit_callbacks
+):
+    m.FunzioneUtente.objects.create(username="amm", funzione=Funzione.RILASCIO_SAP)
+    with django_capture_on_commit_callbacks(execute=True):
+        doc = fatture.registra_documento(
+            fattura_in_lavorazione, Tipo.ODA, "4600000001", D(2026, 11, 3), utente=utenti["amm"]
+        )
+    mail.outbox.clear()
+    with django_capture_on_commit_callbacks(execute=True):
+        fatture.rilascia_documenti([doc.pk], utenti["amm"], D(2026, 11, 10))
+    assert mail.outbox == []
+
+
+def test_documento_non_rilasciabile_non_manda_avvisi(
+    utenti, fattura_in_lavorazione, django_capture_on_commit_callbacks
+):
+    with django_capture_on_commit_callbacks(execute=True):
+        doc = fatture.registra_documento(
+            fattura_in_lavorazione, Tipo.MIGO, "5000000001", D(2026, 11, 4), utente=utenti["amm"]
+        )
+    mail.outbox.clear()
+    with django_capture_on_commit_callbacks(execute=True):
+        esito = fatture.rilascia_documenti([doc.pk], utenti["ril"], D(2026, 11, 10))
+    assert esito.fatte == [] and mail.outbox == []
+
+
 def test_riassegnazione_avvisa_il_nuovo_referente(
     utenti, fattura_in_lavorazione, django_capture_on_commit_callbacks
 ):

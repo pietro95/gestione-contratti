@@ -46,6 +46,7 @@ class Tipo:
     RDA_DA_RILASCIARE = "rda_da_rilasciare"
     RDA_RILASCIATA = "rda_rilasciata"
     DOCUMENTO_DA_RILASCIARE = "documento_da_rilasciare"
+    DOCUMENTO_RILASCIATO = "documento_rilasciato"
     RILASCI_IN_ATTESA = "rilasci_in_attesa"
     CONTRATTI_IN_SCADENZA = "contratti_in_scadenza"
     FATTURE_NUOVE = "fatture_nuove"
@@ -356,6 +357,24 @@ def documento_da_rilasciare(documento: m.DocumentoEsecuzione, utente=None) -> in
         escludi=utente,
         conoscenza=[fattura.referente] if fattura.referente_id else [],
         azione=_azione_rilascio(rilascio_link.DOCUMENTO, documento.pk),
+    )
+
+
+def documento_rilasciato(documento: m.DocumentoEsecuzione, utente=None) -> int:
+    """RdC o MAP rilasciato su SAP → addetto amministrativo (chi ha rilasciato è escluso)."""
+    fattura = documento.fattura
+    data = f" il {documento.data_rilascio:%d/%m/%Y}" if documento.data_rilascio else ""
+    corpo = (
+        f"{documento.get_tipo_display()} {documento.numero} rilasciato su SAP{data}.\n\n"
+        f"Fattura: {fattura.numero} di {fattura.fornitore}\n\n"
+        f"Apri la fattura: {link('fattura', fattura.pk)}"
+    )
+    return invia(
+        Tipo.DOCUMENTO_RILASCIATO,
+        addetti_amministrativi(),
+        f"{documento.get_tipo_display()} {documento.numero} rilasciato su SAP",
+        corpo,
+        escludi=utente,
     )
 
 

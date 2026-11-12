@@ -871,6 +871,7 @@ def rilascia_documenti(pks: Iterable[int], utente, data: datetime.date | None = 
             d.data_rilascio, d.rilasciato_da = data, utente
             d._change_reason = f"Rilasciato su SAP ({d.fattura.numero})"[:100]
             d.save(update_fields=["data_rilascio", "rilasciato_da"])
+            notifiche.dopo_commit(lambda d=d: notifiche.documento_rilasciato(d, utente))
             fatte.append(d)
     return EsitoDocumenti(fatte, rifiutate)
 
