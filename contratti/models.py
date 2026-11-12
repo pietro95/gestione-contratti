@@ -2065,6 +2065,8 @@ class EventoRDA(models.Model):
         INVIO = "invio", "Inviata all'addetto"
         RIMANDO = "rimando", "Rimandata al referente"
         ANNULLAMENTO = "annullamento", "Annullata"
+        RIGETTO = "rigetto", "Rigettata dal rilascio"
+        RIPRESENTAZIONE = "ripresentazione", "Ripresentata al rilascio"
 
     rda = models.ForeignKey(RichiestaAcquisto, on_delete=models.PROTECT, related_name="eventi")
     tipo = models.CharField(max_length=20, choices=Tipo.choices)
@@ -2436,6 +2438,14 @@ class DocumentoEsecuzione(Archiviabile):
     rilasciato_da = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
     )
+    # Rev49: rigetto dell'addetto al rilascio. Il documento resta registrato (numero e data si
+    # conservano, i numeri si possono riciclare) ma esce dalla coda dei rilasci e la fattura
+    # riprende il passo «da fare»; la correzione dell'addetto amministrativo lo ripresenta.
+    rigettato_il = models.DateField("rigettato il", null=True, blank=True)
+    rigettato_da = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    nota_rigetto = models.TextField("nota del rigetto", blank=True)
     note = models.TextField(blank=True)
     chiave_import = models.CharField(  # noqa: DJ001
         max_length=64, unique=True, null=True, blank=True, editable=False

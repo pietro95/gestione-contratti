@@ -727,6 +727,50 @@ def _rilascia(ctx: Contesto, argomenti: dict) -> dict:
     }
 
 
+def _nota_rigetto(argomenti: dict) -> str:
+    nota = (argomenti.get("nota") or "").strip()
+    if not nota:
+        raise ErroreTool("Scrivi la «nota» del rigetto: la legge l'addetto amministrativo.")
+    return nota
+
+
+def _oggetti_rigetto(argomenti: dict) -> list:
+    _nota_rigetto(argomenti)
+    return _oggetti_rilascio(argomenti)
+
+
+def _rigetta(ctx: Contesto, argomenti: dict) -> dict:
+    """Rigetto (SPEC Rev49) elemento per elemento, come il rilascio: la conferma applica solo
+    quelli che passano; l'email agli interessati parte a conferma avvenuta."""
+    nota = _nota_rigetto(argomenti)
+    pks_documenti, pks_rda = _id_rilasci(argomenti)
+    righe, oggetti, rda_fatte = [], [], []
+    if pks_documenti:
+        esito = fatture.rigetta_documenti(pks_documenti, nota, ctx.utente)
+        for d in esito.fatte:
+            righe.append(_riga_rilascio("documento", d.pk, str(d)))
+            oggetti.append({"tipo": "fattura", "id": d.fattura_id})
+        for d, motivo in esito.rifiutate:
+            righe.append(_riga_rilascio("documento", d.pk, str(d), motivo))
+    if pks_rda:
+        richieste = list(m.RichiestaAcquisto.objects.filter(pk__in=pks_rda))
+        esito_rda = acquisti.rigetta_rda(richieste, nota, ctx.utente)
+        for r in esito_rda.fatte:
+            righe.append(_riga_rilascio("rda", r.pk, f"RDA {r.numero_rda}"))
+            oggetti.append(_rif(r))
+            rda_fatte.append(r)
+        for r, motivo in esito_rda.rifiutate:
+            righe.append(_riga_rilascio("rda", r.pk, f"RDA {r.numero_rda or r.pk}", motivo))
+    if not any(r["esito"] == "applicata" for r in righe):
+        motivi = "; ".join(f"{r['descrizione']}: {r['motivo']}" for r in righe)
+        raise ErroreTool(f"Niente da rigettare (nessuna modifica). {motivi}")
+    return {
+        "oggetti": list({(o["tipo"], o["id"]): o for o in oggetti}.values()),
+        "pratiche": _pratiche(*rda_fatte),
+        "esito_rigetti": righe,
+    }
+
+
 def _oggetto_annulla_rilascio(argomenti: dict):
     if argomenti["tipo"] == "rda":
         return _rda({"id": argomenti["id"]})
@@ -1253,6 +1297,41 @@ STRUMENTI = [
                     "description": "id delle RDA.",
                 },
             }
+        ),  # fmt: skip
+    ),
+    strumento(
+        _scrittura_rilascio("rigetta", _oggetti_rigetto, _rigetta),
+        "Rigetta il rilascio su SAP di RDA, RdC e MAP",
+        "Rigetta RDA inserite in SAP e RdC e MAP delle fatture da lavorare (la coda è in "
+        "«rilasci_da_fare»), con una nota obbligatoria: l'elemento torna all'addetto "
+        "amministrativo (la RDA «da inserire in SAP», la fattura al passo «RdC da fare» o «MAP "
+        "da fare»), numero e data restano registrati, e gli interessati ricevono un'email con la "
+        "nota. Solo gli utenti con la funzione «Addetto al rilascio». Al massimo 50 elementi: "
+        "l'anteprima elenca per ognuno se passa o è rifiutato e perché; la conferma applica "
+        "solo quelli che passano. Se un elemento cambia dopo l'anteprima, la conferma è "
+        "rifiutata per intero.",
+        _schema(
+            {
+                "documenti_ids": {
+                    "type": "array",
+                    "items": SCHEMA_ID,
+                    "maxItems": MASSIMO_FATTURE,
+                    "description": "id dei documenti di esecuzione (RdC, MAP).",
+                },
+                "rda_ids": {
+                    "type": "array",
+                    "items": SCHEMA_ID,
+                    "maxItems": MASSIMO_FATTURE,
+                    "description": "id delle RDA.",
+                },
+                "nota": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000,
+                    "description": "Motivo del rigetto, per l'addetto amministrativo.",
+                },
+            },
+            ["nota"],
         ),  # fmt: skip
     ),
     strumento(

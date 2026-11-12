@@ -953,3 +953,45 @@ def test_annulla_rilascio_via_mcp(addetto_rilascio, registro_fatture):
     conferma(editor, ok(editor, "annulla_rilascio", {"tipo": "documento", "id": doc.pk}))
     doc.refresh_from_db()
     assert doc.data_rilascio is None
+
+
+def test_rigetta_solo_per_l_addetto(editor, registro_fatture):
+    doc = _documento_da_rilasciare(registro_fatture)
+    assert "Addetto al rilascio" in errore(
+        editor, "rigetta", {"documenti_ids": [doc.pk], "nota": "No"}
+    )
+
+
+def test_rigetta_chiede_la_nota(addetto_rilascio, registro_fatture):
+    doc = _documento_da_rilasciare(registro_fatture)
+    for argomenti in ({"documenti_ids": [doc.pk]}, {"documenti_ids": [doc.pk], "nota": "  "}):
+        assert "nota" in errore(addetto_rilascio, "rigetta", argomenti).lower()
+
+
+def test_rigetta_documenti_e_rda_via_mcp(addetto_rilascio, rda_bozza, registro_fatture):
+    editor = addetto_rilascio
+    doc = _documento_da_rilasciare(registro_fatture)
+    acquisti.invia(rda_bozza, editor)
+    acquisti.aggiorna_dati_sap(rda_bozza, "5100000001", D(2026, 10, 1))
+    argomenti = {"documenti_ids": [doc.pk], "rda_ids": [rda_bozza.pk], "nota": "Conto errato"}
+    anteprima = ok(editor, "rigetta", argomenti)
+    assert {r["esito"] for r in anteprima["esito_rigetti"]} == {"applicata"}
+    doc.refresh_from_db()
+    assert doc.rigettato_il is None  # l'anteprima non scrive niente
+    conferma(editor, anteprima)
+    doc.refresh_from_db()
+    assert doc.rigettato_il is not None and doc.nota_rigetto == "Conto errato"
+    assert doc.numero == "RDC-1"
+    assert ok(editor, "rda", {"id": rda_bozza.pk})["fase"] == "inviata"
+    coda = ok(editor, "rilasci_da_fare", {})
+    assert coda["rda"] == [] and coda["documenti"] == []
+    # Una RDA già rigettata non si rigetta di nuovo.
+    assert "Niente da rigettare" in errore(
+        editor, "rigetta", {"rda_ids": [rda_bozza.pk], "nota": "Ancora"}
+    )
+
+
+def test_rilasci_da_fare_riporta_coge_e_wbs(addetto_rilascio, registro_fatture):
+    _documento_da_rilasciare(registro_fatture)
+    riga = ok(addetto_rilascio, "rilasci_da_fare", {})["documenti"][0]
+    assert "coge" in riga and "wbs" in riga

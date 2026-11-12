@@ -2,7 +2,7 @@
 
 > Specifica normativa del connettore. L'inquadramento architetturale è in [ARCHITECTURE](ARCHITECTURE.md), i principi di protezione in [SECURITY](SECURITY.md) e le procedure di esercizio in [RUNBOOK](RUNBOOK.md).
 
-Rev15 — 05/11/2026 — richiesta del responsabile del progetto, **approvata** il 05/11/2026. Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
+Rev16 — 12/11/2026 — richiesta del responsabile del progetto, **approvata** il 12/11/2026 (SPEC Rev49). Richiamato da `docs/SPEC.md` Rev10 (§8.1, §8.2) e dalle fasi F10 e F12 di `docs/ROADMAP.md`.
 
 Storico revisioni:
 - Rev00 (05/10/2026): prima bozza, raccomandata l'opzione «solo rete interna con ponte locale».
@@ -21,6 +21,7 @@ Storico revisioni:
 - Rev13 (05/11/2026): richiesta del responsabile del progetto, **approvata** il 05/11/2026 (SPEC Rev34). `budget`: argomento `viste` (fatturato_stanziato_competenza, fatturato, ordinato, competenza); **di default solo fatturato_stanziato_competenza**, come la pagina; `altre_viste_disponibili` elenca le altre. Sui gruppi per conto (OPEX) e per WBS (CAPEX; la spesa CAPEX grava sulla WBS, non sul conto), `budget_assegnato` con assegnato, speso, utilizzo in % e stato (ok, in_avvicinamento, superato, non_assegnato); la soglia è in `budget_assegnato_per_conto`. Nessun nuovo tool, nessuna scrittura.
 - Rev14 (05/11/2026): richiesta del responsabile del progetto, **approvata** il 05/11/2026 (SPEC Rev35), passo 1 di 3. `crea_fabbisogno`, `modifica_fabbisogno` e `registra_rda` non hanno più l'argomento `cluster`: si indica il **`sottocluster`** (id da `riferimenti`), obbligatorio alla creazione; il cluster se ne ricava. Il filtro `cluster` dei tool di lettura passa ai sottocluster nel passo 3.
 - Rev15 (05/11/2026): richiesta del responsabile del progetto, **approvata** il 05/11/2026 (SPEC Rev36), passo 3 di 3. **I filtri `cluster` dei tool di lettura sono sostituiti da `sottocluster`**: elenco di id da `riferimenti` (anche più d'uno), «tutti» li sceglie tutti; vuoto = i sottocluster dell'utente (tutti, se non ne ha di assegnati), come la tendina della GUI. L'argomento `cluster` non è più ammesso (errore «argomento sconosciuto»). I risultati riportano `sottocluster_filtro` (id o «tutti») al posto di `cluster_filtro`; `riferimenti` indica per ogni sottocluster se è `proprio` e, con `includi`, i sottocluster di conti e WBS. Strumenti: `scadenze`, `budget`, `piano_ordini`, `spese_wbs`, `piani_da_verificare`, `riferimenti`, `elenco_rda`, `cruscotto_acquisti`, `contratti_da_chiudere`, `stanziamenti`, `anomalie_esecuzione`.
+- Rev16 (12/11/2026): richiesta del responsabile del progetto, **approvata** il 12/11/2026 (SPEC Rev49). Nuovo tool **`rigetta`** (scrittura in due passi, scope di scrittura): rigetta RDA e RdC/MAP con `nota` obbligatoria, come la maschera dei rilasci (`rigetta_rda`, `rigetta_documenti`); solo la funzione «Addetto al rilascio»; fino a 50 elementi con esito per elemento (`esito_rigetti`); l'email agli interessati parte alla conferma. `rilasci_da_fare` aggiunge a ogni riga `coge` e `wbs`.
 
 ## 1. Obiettivo
 
@@ -340,6 +341,7 @@ Tutto il processo d'acquisto si fa dalla chat con anteprima e conferma (§8.1), 
 | | `modifica_rda` (campi e posizioni: nuove o modificate, nessuna cancellazione; dopo l'invio è una correzione diretta, segnalata) | `salva_richiesta`, `correzione_diretta` | differenze, importo |
 | | `invia_rda`, `rimanda_rda` (nota), `annulla_rda` (motivo) | `acquisti.invia`, `rimanda`, `annulla` | fase e stato della pratica risultanti |
 | | `dati_sap_rda` (numero, inserimento, rilascio) | `DatiSapForm`, `aggiorna_dati_sap` | fase, stato della pratica, contratti con lo stesso n. RDA proposti |
+| | `rilascia`, `rigetta` (**più elementi**, `documenti_ids` e `rda_ids`; `rigetta` con `nota`; solo l'addetto al rilascio, Rev16), `annulla_rilascio` | `acquisti.rilascia_rda`, `rigetta_rda`, `fatture.rilascia_documenti`, `rigetta_documenti` | per ogni elemento: applicato o rifiutato e perché |
 | | `registra_rda` (già in SAP, a mano) | `RdaManualeForm` | — |
 | | `collega_rda` (pratica, contratto generato, scollega) | `collega_pratica`, `collega_contratto`, `scollega_contratto` | stato della pratica |
 | | `registra_contratto_da_rda` | `ContrattoDaRdaForm`, `VociDaRdaFormSet`, `registra_contratto_da_rda` | contratto, voci e rate, predecessore, differenza dalla RDA, effetti di §8.1 (fine, data limite, budget, previsti) |
