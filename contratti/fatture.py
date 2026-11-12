@@ -54,7 +54,9 @@ def documenti_fattura(fattura: m.Fattura) -> list[motore.Documento]:
     return [
         (d.tipo, d.data, d.data_rilascio is not None)
         for d in fattura.documenti.all()
-        if not d.archiviato
+        # Un documento rigettato dal rilascio (Rev49) è come non registrato: il passo «da fare»
+        # torna all'addetto amministrativo finché non lo corregge.
+        if not d.archiviato and d.rigettato_il is None
     ]
 
 
@@ -765,7 +767,13 @@ def registra_documento(
         raise OperazioneNonAmmessa("Il contratto è chiuso: prima si annulla la chiusura.")
     if not numero.strip():
         raise OperazioneNonAmmessa("Indica il numero del documento.")
-    if tipo == Tipo.ODA and fattura.documenti.filter(tipo=Tipo.ODA, archiviato=False).exists():
+    esistente = fattura.documenti.filter(tipo=Tipo.ODA, archiviato=False).first()
+    if tipo == Tipo.ODA and esistente is not None:
+        if esistente.rigettato_il is not None:
+            raise OperazioneNonAmmessa(
+                "La RdC è stata rigettata dal rilascio: correggila dalla fattura "
+                "(oppure rimuovila e registrane una nuova)."
+            )
         raise OperazioneNonAmmessa("La fattura ha già la sua RdC (una per fattura).")
     doc = m.DocumentoEsecuzione(
         contratto=fattura.contratto,
@@ -800,9 +808,15 @@ def _documento_modificabile(fattura: m.Fattura, doc: m.DocumentoEsecuzione) -> N
 
 
 def modifica_documento(
-    fattura: m.Fattura, doc: m.DocumentoEsecuzione, tipo: str, numero: str, data: datetime.date
+    fattura: m.Fattura,
+    doc: m.DocumentoEsecuzione,
+    tipo: str,
+    numero: str,
+    data: datetime.date,
+    utente=None,
 ) -> m.DocumentoEsecuzione:
-    """Corregge tipo, numero e data di una RdC, MAP o MIGO già registrata."""
+    """Corregge tipo, numero e data di una RdC, MAP o MIGO già registrata. Se il documento era
+    rigettato dal rilascio, la correzione lo ripresenta (Rev49)."""
     _documento_modificabile(fattura, doc)
     if tipo not in (Tipo.ODA, Tipo.MAP, Tipo.MIGO):
         raise OperazioneNonAmmessa("Documento non previsto per la fattura.")
@@ -813,10 +827,21 @@ def modifica_documento(
     )
     if tipo == Tipo.ODA and altra_rdc:
         raise OperazioneNonAmmessa("La fattura ha già la sua RdC (una per fattura).")
+    ripresentato = doc.rigettato_il is not None
     doc.tipo, doc.numero, doc.data = tipo, numero.strip(), data
+    if ripresentato:
+        # Rev49: la correzione ripresenta il documento al rilascio; la nota del rigetto resta
+        # nella storia delle modifiche.
+        doc.rigettato_il, doc.rigettato_da, doc.nota_rigetto = None, None, ""
     doc.full_clean()
-    doc._change_reason = f"Corretto dalla fattura {fattura.numero}"[:100]
+    doc._change_reason = (
+        f"Corretto e ripresentato al rilascio ({fattura.numero})"
+        if ripresentato
+        else f"Corretto dalla fattura {fattura.numero}"
+    )[:100]
     doc.save()
+    if ripresentato and doc.tipo in TIPI_DA_RILASCIARE:
+        notifiche.dopo_commit(lambda: notifiche.documento_da_rilasciare(doc, utente))
     return doc
 
 
@@ -840,12 +865,21 @@ def documenti_da_rilasciare(tipo: str = "") -> list[m.DocumentoEsecuzione]:
     qs = m.DocumentoEsecuzione.objects.filter(
         archiviato=False,
         data_rilascio__isnull=True,
+        rigettato_il__isnull=True,
         tipo__in=[tipo] if tipo in TIPI_DA_RILASCIARE else TIPI_DA_RILASCIARE,
         fattura__isnull=False,
         fattura__archiviato=False,
         fattura__fuori_registro=False,
         fattura__data_trasferimento__isnull=True,
-    ).select_related("fattura__fornitore", "contratto__fornitore", "contratto__fabbisogno__cluster")
+    ).select_related(
+        "fattura__fornitore",
+        "fattura__conto",
+        "fattura__wbs",
+        "fattura__voce__conto",
+        "fattura__voce__wbs",
+        "contratto__fornitore",
+        "contratto__fabbisogno__cluster",
+    )
     return list(qs.order_by("data", "pk"))
 
 
@@ -880,11 +914,43 @@ def _non_rilasciabile(d: m.DocumentoEsecuzione) -> str:
         return "non è un documento da rilasciare"
     if d.data_rilascio is not None:
         return "è già rilasciato"
+    if d.rigettato_il is not None:
+        return "è stato rigettato: aspetta la correzione dell'addetto amministrativo"
     if d.fattura.data_trasferimento is not None:
         return "la fattura è già trasferita"
     if d.contratto.data_chiusura is not None:
         return "il contratto è chiuso"
     return ""
+
+
+def rigetta_documenti(pks: Iterable[int], nota: str, utente, data: datetime.date | None = None):
+    """L'addetto al rilascio rimanda all'addetto amministrativo i documenti indicati, con la
+    nota (Rev49). Il documento resta registrato con numero e data; la fattura riprende il passo
+    «RdC da fare» o «MAP da fare». I non rigettabili sono rifiutati con il motivo."""
+    if not puo_rilasciare(utente):
+        raise PermissionDenied("Non sei addetto al rilascio.")
+    if not (nota or "").strip():
+        raise OperazioneNonAmmessa("Scrivi la nota del rigetto.")
+    data = data or timezone.localdate()
+    fatte, rifiutate = [], []
+    with transaction.atomic():
+        documenti = (
+            m.DocumentoEsecuzione.objects.select_for_update(of=("self",))
+            .select_related("fattura", "contratto")
+            .filter(pk__in=list(pks))
+            .order_by("pk")
+        )
+        for d in documenti:
+            motivo = _non_rilasciabile(d)
+            if motivo:
+                rifiutate.append((d, motivo))
+                continue
+            d.rigettato_il, d.rigettato_da, d.nota_rigetto = data, utente, nota.strip()
+            d._change_reason = f"Rigettato dal rilascio SAP ({d.fattura.numero})"[:100]
+            d.save(update_fields=["rigettato_il", "rigettato_da", "nota_rigetto"])
+            notifiche.dopo_commit(lambda d=d: notifiche.documento_rigettato(d, nota, utente))
+            fatte.append(d)
+    return EsitoDocumenti(fatte, rifiutate)
 
 
 def annulla_rilascio(doc: m.DocumentoEsecuzione, utente) -> None:
@@ -937,23 +1003,30 @@ def _voce_di_riferimento(fattura: m.Fattura) -> m.VoceContratto | None:
     return voci[0] if len(voci) == 1 else None
 
 
+def conto_e_wbs(fattura: m.Fattura) -> tuple[str | None, str | None]:
+    """Codici di conto COGE e WBS della fattura: l'imputazione propria, campo per campo,
+    prevale su quella della voce di riferimento."""
+    voce = _voce_di_riferimento(fattura)
+    wbs = conto = None
+    if voce is not None:
+        wbs = voce.wbs.codice_wbs if voce.wbs_id else (voce.codice_wbs_importato or None)
+        conto = voce.conto.codice if voce.conto_id else None
+    if fattura.conto_id:
+        conto = fattura.conto.codice
+    if fattura.wbs_id:
+        wbs = fattura.wbs.codice_wbs
+    return conto, wbs
+
+
 def dati_pac(fattura: m.Fattura) -> motore.DatiPAC:
     documenti = [d for d in fattura.documenti.all() if not d.archiviato]
     rdc = next((d for d in documenti if d.tipo == Tipo.ODA), None)
     accettazione = next((d for d in documenti if d.tipo in (Tipo.MAP, Tipo.MIGO)), None)
     voce = _voce_di_riferimento(fattura)
-    wbs = conto = centro_costo = None
-    if voce is not None:
-        wbs = voce.wbs.codice_wbs if voce.wbs_id else (voce.codice_wbs_importato or None)
-        conto = voce.conto.codice if voce.conto_id else None
-        centro_costo = voce.centro_costo or None
-    # L'imputazione propria della fattura, campo per campo, prevale su quella della voce.
-    if fattura.conto_id:
-        conto = fattura.conto.codice
+    conto, wbs = conto_e_wbs(fattura)
+    centro_costo = voce.centro_costo or None if voce is not None else None
     if fattura.centro_costo:
         centro_costo = fattura.centro_costo
-    if fattura.wbs_id:
-        wbs = fattura.wbs.codice_wbs
     # Il centro di costo è sempre valorizzato: in mancanza di altro, quello predefinito.
     centro_costo = centro_costo or m.CentroCosto.codice_predefinito() or None
     return motore.DatiPAC(

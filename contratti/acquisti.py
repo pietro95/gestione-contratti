@@ -608,6 +608,8 @@ def aggiorna_dati_sap(rda, numero_rda, data_inserimento, utente=None) -> None:
     prima = (
         m.RichiestaAcquisto.objects.filter(pk=rda.pk).values_list("numero_rda", flat=True).first()
     )
+    ultimo = m.EventoRDA.objects.filter(rda=rda).order_by("-data", "-pk").first()
+    era_rigettata = ultimo is not None and ultimo.tipo == m.EventoRDA.Tipo.RIGETTO
     rda.numero_rda = (numero_rda or "").strip() or None
     rda.data_inserimento = data_inserimento
     if rda.numero_rda and rda.data_inserimento is None:
@@ -616,17 +618,35 @@ def aggiorna_dati_sap(rda, numero_rda, data_inserimento, utente=None) -> None:
         raise OperazioneNonAmmessa("La RDA è rilasciata: prima si annulla il rilascio.")
     rda.full_clean()
     _salva(rda, "Dati da SAP")
-    if not prima and rda.numero_rda and fase(rda) == motore.Fase.INSERITA:
+    if era_rigettata and rda.numero_rda:
+        # Rev49: i dati SAP riportati di nuovo ripresentano la RDA al rilascio.
+        _evento(rda, m.EventoRDA.Tipo.RIPRESENTAZIONE, None, utente)
+        notifiche.dopo_commit(lambda: notifiche.rda_da_rilasciare(rda, utente))
+    elif not prima and rda.numero_rda and fase(rda) == motore.Fase.INSERITA:
         # Inserita in SAP: ora aspetta il rilascio (SPEC §5.10).
         notifiche.dopo_commit(lambda: notifiche.rda_da_rilasciare(rda, utente))
+
+
+def conti_e_wbs_rda(rda: m.RichiestaAcquisto) -> tuple[list[str], list[str]]:
+    """Codici di conto COGE e WBS delle posizioni della RDA, senza doppioni, in ordine."""
+    conti: list[str] = []
+    wbs: list[str] = []
+    for p in rda.posizioni.all():
+        if p.conto_id and p.conto.codice not in conti:
+            conti.append(p.conto.codice)
+        if p.wbs_id and p.wbs.codice_wbs not in wbs:
+            wbs.append(p.wbs.codice_wbs)
+    return conti, wbs
 
 
 def rda_da_rilasciare() -> list[m.RichiestaAcquisto]:
     """RDA inserite in SAP (numero e data di inserimento) e non ancora rilasciate: la coda
     dell'addetto al rilascio."""
     oggi = timezone.localdate()
-    candidate = QS_RDA.filter(numero_rda__isnull=False, data_rilascio__isnull=True).select_related(
-        "cluster", "referente_utente", "fornitore_proposto"
+    candidate = (
+        QS_RDA.filter(numero_rda__isnull=False, data_rilascio__isnull=True)
+        .select_related("cluster", "referente_utente", "fornitore_proposto")
+        .prefetch_related("posizioni__conto", "posizioni__wbs")
     )
     return [
         r
@@ -643,6 +663,8 @@ def _non_rilasciabile_rda(rda: m.RichiestaAcquisto) -> str:
         return "è già rilasciata"
     if f == motore.Fase.ANNULLATA:
         return "la RDA è annullata"
+    if rigettata(rda):
+        return "è stata rigettata: aspetta la correzione dell'addetto amministrativo"
     if f in (motore.Fase.CONTRATTO_EMESSO, motore.Fase.IN_ESECUZIONE, motore.Fase.CHIUSA):
         return "la RDA ha già un contratto"
     return "la RDA non è ancora inserita in SAP"
@@ -673,6 +695,45 @@ def rilascia_rda(rdas, utente, data: datetime.date | None = None):
                 continue
             _salva(rda, "Rilasciata su SAP")
             notifiche.dopo_commit(lambda rda=rda: notifiche.rda_rilasciata(rda, utente))
+            fatte.append(rda)
+    return EsitoRilascioRDA(fatte, rifiutate)
+
+
+def rigettata(rda: m.RichiestaAcquisto, oggi: datetime.date | None = None) -> bool:
+    """La RDA è stata rigettata dal rilascio e non è ancora stata ripresentata (Rev49)."""
+    return motore.rigettata(dati_rda(rda), oggi or timezone.localdate())
+
+
+def ultimo_rigetto(rda: m.RichiestaAcquisto) -> m.EventoRDA | None:
+    """Evento del rigetto in corso (con la nota), se la RDA è rigettata."""
+    if not rigettata(rda):
+        return None
+    return rda.eventi.filter(tipo=m.EventoRDA.Tipo.RIGETTO).order_by("-data", "-pk").first()
+
+
+def rigetta_rda(rdas, nota: str, utente, data: datetime.date | None = None):
+    """L'addetto al rilascio rimanda all'addetto amministrativo le RDA indicate, con la nota.
+
+    La RDA torna «da inserire in SAP» (numero e data restano). Le RDA non rigettabili sono
+    rifiutate con il motivo, le altre vanno avanti. Email a tutti gli interessati."""
+    if not permessi.puo_rilasciare(utente):
+        raise PermissionDenied("Non sei addetto al rilascio.")
+    if not (nota or "").strip():
+        raise OperazioneNonAmmessa("Scrivi la nota del rigetto.")
+    data = data or timezone.localdate()
+    fatte, rifiutate = [], []
+    with transaction.atomic():
+        bloccate = (
+            m.RichiestaAcquisto.objects.select_for_update(of=("self",))
+            .filter(pk__in=[r.pk for r in rdas])
+            .order_by("pk")
+        )
+        for rda in bloccate:
+            if fase(rda) != motore.Fase.INSERITA:
+                rifiutate.append((rda, _non_rilasciabile_rda(rda) or "non è da rilasciare"))
+                continue
+            _evento(rda, m.EventoRDA.Tipo.RIGETTO, data, utente, nota.strip())
+            notifiche.dopo_commit(lambda rda=rda: notifiche.rda_rigettata(rda, nota, utente))
             fatte.append(rda)
     return EsitoRilascioRDA(fatte, rifiutate)
 

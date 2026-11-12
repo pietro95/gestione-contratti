@@ -46,6 +46,7 @@ class Tipo:
     RDA_DA_RILASCIARE = "rda_da_rilasciare"
     RDA_RILASCIATA = "rda_rilasciata"
     DOCUMENTO_DA_RILASCIARE = "documento_da_rilasciare"
+    RILASCIO_RIGETTATO = "rilascio_rigettato"
     RILASCI_IN_ATTESA = "rilasci_in_attesa"
     CONTRATTI_IN_SCADENZA = "contratti_in_scadenza"
     FATTURE_NUOVE = "fatture_nuove"
@@ -412,4 +413,63 @@ def fattura_convalidata(fattura: m.Fattura, utente=None) -> int:
         corpo,
         escludi=utente,
         conoscenza=[fattura.referente] if fattura.referente_id else [],
+    )
+
+
+def _chi_ha_registrato(oggetto, motivo: str):
+    """Utente dell'ultima modifica con quel motivo nella storia (chi ha registrato il documento
+    o riportato i dati SAP della RDA); ``None`` se la storia non lo dice."""
+    storico = (
+        oggetto.history.filter(history_change_reason__startswith=motivo, history_user__isnull=False)
+        .order_by("-history_date")
+        .first()
+    )
+    return storico.history_user if storico else None
+
+
+def _rigetto(
+    tipo_oggetto: str, riferimento: str, nota: str, interessati: list, pagina: str, utente
+):
+    """Email a tutti gli interessati del rigetto: addetti amministrativi, referente e chi ha
+    registrato l'elemento. Chi ha rigettato non riceve il proprio avviso."""
+    corpo = (
+        f"L'addetto al rilascio ({_nome(utente)}) ha rigettato {tipo_oggetto} {riferimento}: "
+        "torna all'addetto amministrativo.\n\n"
+        f"Note del rigetto:\n{nota.strip()}\n\n"
+        "Il numero resta registrato: va corretto e ripresentato al rilascio.\n\n"
+        f"Apri la scheda: {pagina}"
+    )
+    return invia(
+        Tipo.RILASCIO_RIGETTATO,
+        [*addetti_amministrativi(), *[u for u in interessati if u is not None]],
+        f"Rigetto dal rilascio SAP: {tipo_oggetto} {riferimento}",
+        corpo,
+        escludi=utente,
+    )
+
+
+def rda_rigettata(rda: m.RichiestaAcquisto, nota: str, utente=None) -> int:
+    """RDA rigettata dal rilascio → addetti amministrativi, referente e chi ha riportato i dati
+    SAP (Rev49)."""
+    return _rigetto(
+        "RDA",
+        f"{rda.numero_rda or rda.pk} — {rda.intestazione or rda}",
+        nota,
+        [rda.referente_utente, _chi_ha_registrato(rda, "Dati da SAP")],
+        link("rda", rda.pk),
+        utente,
+    )
+
+
+def documento_rigettato(documento: m.DocumentoEsecuzione, nota: str, utente=None) -> int:
+    """RdC o MAP rigettato dal rilascio → addetti amministrativi, referente della fattura e chi
+    l'ha registrato (Rev49)."""
+    fattura = documento.fattura
+    return _rigetto(
+        documento.get_tipo_display(),
+        f"{documento.numero} (fattura {fattura.numero} di {fattura.fornitore})",
+        nota,
+        [fattura.referente, _chi_ha_registrato(documento, "Registrato dalla fattura")],
+        link("fattura", fattura.pk),
+        utente,
     )

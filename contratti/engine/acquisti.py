@@ -49,6 +49,10 @@ class TipoEvento(StrEnum):
     INVIO = "invio"
     RIMANDO = "rimando"
     ANNULLAMENTO = "annullamento"
+    # Rev49: l'addetto al rilascio rimanda all'addetto amministrativo una RDA inserita in SAP;
+    # la RDA torna «da inserire» (numero e data restano) finché i dati SAP non sono riportati.
+    RIGETTO = "rigetto"
+    RIPRESENTAZIONE = "ripresentazione"
 
 
 @dataclass(frozen=True)
@@ -113,13 +117,27 @@ def fase(d: DatiRDA, oggi: datetime.date) -> Fase:
         return Fase.CONTRATTO_EMESSO
     if d.data_rilascio is not None and d.data_rilascio <= oggi:
         return Fase.RILASCIATA
-    if d.numero and _entro(d.data_inserimento, oggi):
+    if d.numero and _entro(d.data_inserimento, oggi) and not _rigettata(ultimo):
         return Fase.INSERITA
     if ultimo is not None and ultimo.tipo == TipoEvento.RIMANDO:
         return Fase.DA_CORREGGERE
-    if ultimo is not None and ultimo.tipo == TipoEvento.INVIO:
+    if ultimo is not None and ultimo.tipo in (
+        TipoEvento.INVIO,
+        TipoEvento.RIGETTO,
+        TipoEvento.RIPRESENTAZIONE,
+    ):
         return Fase.INVIATA
     return Fase.BOZZA
+
+
+def _rigettata(ultimo: EventoRDA | None) -> bool:
+    return ultimo is not None and ultimo.tipo == TipoEvento.RIGETTO
+
+
+def rigettata(d: DatiRDA, oggi: datetime.date) -> bool:
+    """L'ultimo fatto è il rigetto dell'addetto al rilascio: la RDA aspetta di essere
+    ripresentata dall'addetto amministrativo (Rev49)."""
+    return fase(d, oggi) == Fase.INVIATA and _rigettata(_ultimo_evento(d, oggi))
 
 
 def _minima(date: Iterable[datetime.date | None]) -> datetime.date | None:
