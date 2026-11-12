@@ -749,7 +749,7 @@ Bollo: € 2,00
 
 ## TC-26 — Altri importi nel commento per PAC e notifiche per email
 
-SPEC §5.9 e §5.10 (Rev39, approvata l'11/11/2026; (c) esteso in Rev45). Aggiunge un caso a TC-18 e TC-25 senza cambiarli; i test sono `tests/engine/test_tc18_fatture.py`, `tests/test_tc18_fatture.py` e `tests/test_notifiche.py`.
+SPEC §5.9 e §5.10 (Rev39, approvata l'11/11/2026; (c) esteso in Rev45, Rev49 e Rev50). Aggiunge un caso a TC-18 e TC-25 senza cambiarli; i test sono `tests/engine/test_tc18_fatture.py`, `tests/test_tc18_fatture.py` e `tests/test_notifiche.py`.
 
 **(a) Altri importi nel commento per PAC.** Stessi dati di TC-25 con altri importi (es. more) di 12,34: il commento è quello di TC-25 con in coda
 
@@ -770,6 +770,7 @@ Con altri importi assenti o a zero il commento è identico a TC-25.
 | l'addetto al rilascio rilascia la RDA | al referente della RDA («RDA <numero> rilasciata su SAP», con la data); a nessun altro; se rilascia il referente stesso, nulla; se il referente è solo testo, nessun avviso al referente |
 | la fattura diventa convalidabile | all'addetto amministrativo, una sola volta |
 | si registra una RdC o un MAP | all'addetto al rilascio; per un MIGO nessuna |
+| l'addetto al rilascio rilascia un ODA (o una RdC, un MAP) | agli addetti amministrativi («ODA <numero> rilasciato su SAP», con la data e il link alla fattura); a nessun altro; se rilascia l'addetto amministrativo stesso, nulla; un MIGO o un documento non rilasciabile, nessun avviso |
 | la fattura è riassegnata | al nuovo referente |
 | conferma dell'import con 3 fatture nuove e spunta | agli Admin/Editor con indirizzo, tranne chi ha caricato |
 | conferma senza spunta, o senza fatture nuove | nessuna |
