@@ -197,9 +197,23 @@ def rilasci(request):
         request,
         "contratti/rilasci.html",
         {
-            "righe": [{"d": d, "giorni": (oggi - d.data).days} for d in documenti],
+            "righe": [
+                {
+                    "d": d,
+                    "giorni": (oggi - d.data).days,
+                    "conto": (cw := fatture.conto_e_wbs(d.fattura))[0],
+                    "wbs": cw[1],
+                }
+                for d in documenti
+            ],
             "rda_righe": [
-                {"r": r, "giorni": (oggi - (r.data_inserimento or oggi)).days} for r in rda
+                {
+                    "r": r,
+                    "giorni": (oggi - (r.data_inserimento or oggi)).days,
+                    "conti": ", ".join((cw := acquisti.conti_e_wbs_rda(r))[0]),
+                    "wbs": ", ".join(cw[1]),
+                }
+                for r in rda
             ],
             "tipo": tipo,
             "tipi": [("RDA", "RDA"), *((t.value, t.label) for t in fatture.TIPI_DA_RILASCIARE)],
@@ -245,6 +259,51 @@ def rilasci_azione(request):
         if esito_rda.fatte:
             n = len(esito_rda.fatte)
             messages.success(request, "1 RDA rilasciata." if n == 1 else f"{n} RDA rilasciate.")
+        for r, motivo in esito_rda.rifiutate:
+            messages.warning(request, f"RDA {r.numero_rda or r.pk}: {motivo}.")
+    return destinazione
+
+
+@editor_required
+@require_POST
+def rilasci_rigetta(request):
+    """Rigetta le RDA e i documenti selezionati, con una nota: tornano all'addetto
+    amministrativo e gli interessati ricevono l'email (Rev49). Stessi permessi del rilascio."""
+    if not fatture.puo_rilasciare(request.user):
+        raise PermissionDenied("Non sei addetto al rilascio.")
+    pks = [int(v) for v in request.POST.getlist("documento") if v.isdigit()]
+    rda_pks = [int(v) for v in request.POST.getlist("rda") if v.isdigit()]
+    fattura = request.POST.get("fattura", "")
+    ritorno_rda = request.POST.get("ritorno_rda", "")
+    if fattura.isdigit():
+        destinazione = redirect("contratti:fattura", pk=int(fattura))
+    elif ritorno_rda.isdigit():
+        destinazione = redirect("contratti:rda", pk=int(ritorno_rda))
+    else:
+        destinazione = redirect("contratti:rilasci")
+    nota = request.POST.get("nota", "").strip()
+    if not pks and not rda_pks:
+        messages.warning(request, "Nessun documento selezionato.")
+        return destinazione
+    if not nota:
+        messages.error(request, "Scrivi la nota del rigetto: l'addetto amministrativo la legge.")
+        return destinazione
+    if pks:
+        esito = fatture.rigetta_documenti(pks, nota, request.user)
+        if esito.fatte:
+            n = len(esito.fatte)
+            messages.success(
+                request, "1 documento rigettato." if n == 1 else f"{n} documenti rigettati."
+            )
+        for d, motivo in esito.rifiutate:
+            messages.warning(request, f"{d.get_tipo_display()} {d.numero}: {motivo}.")
+    if rda_pks:
+        esito_rda = acquisti.rigetta_rda(
+            list(m.RichiestaAcquisto.objects.filter(pk__in=rda_pks)), nota, request.user
+        )
+        if esito_rda.fatte:
+            n = len(esito_rda.fatte)
+            messages.success(request, "1 RDA rigettata." if n == 1 else f"{n} RDA rigettate.")
         for r, motivo in esito_rda.rifiutate:
             messages.warning(request, f"RDA {r.numero_rda or r.pk}: {motivo}.")
     return destinazione
@@ -652,7 +711,9 @@ def fattura_documento_modifica(request, pk, documento_pk):
     d = form.cleaned_data
     return _azione(
         request, pk,
-        lambda x: fatture.modifica_documento(x, doc, d["tipo"], d["numero"], d["data"]),
+        lambda x: fatture.modifica_documento(
+            x, doc, d["tipo"], d["numero"], d["data"], request.user
+        ),
         "Documento corretto.",
     )  # fmt: skip
 

@@ -393,7 +393,7 @@ def anteprima(ctx: Contesto, scrittura: Scrittura, argomenti: dict) -> dict:
             # Operazioni su più fatture (D15): quelle che passano e quelle rifiutate.
             **{
                 k: risultato[k]
-                for k in ("esito_per_fattura", "esito_rilasci", "avvisi")
+                for k in ("esito_per_fattura", "esito_rilasci", "esito_rigetti", "avvisi")
                 if risultato.get(k)
             },
         }

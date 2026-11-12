@@ -305,6 +305,7 @@ def rda_dettaglio(request, pk):
             "form_sap": forms.DatiSapForm(instance=rda),
             "puo_rilasciare": permessi.puo_rilasciare(request.user),
             "rilasciabile": r["fase"] == Fase.INSERITA,
+            "rigetto": acquisti.ultimo_rigetto(rda),
             "rilascio_annullabile": r["fase"] == Fase.RILASCIATA,
             "form_nota": forms.NotaForm(),
             "allegati": allegati.attivi(rda).select_related("caricato_da"),

@@ -32,6 +32,7 @@
 </div></div>
 {% endif %}
 {% if r.fase == "da_correggere" %}{% with ultimo=eventi.0 %}<div class="alert alert-warning"><i class="bi bi-arrow-return-left" aria-hidden="true"></i> Rimandata al referente il {{ ultimo.data|date:"d/m/Y" }}{% if ultimo.utente %} da {{ ultimo.utente }}{% endif %}: {{ ultimo.nota }}</div>{% endwith %}{% endif %}
+{% if rigetto %}<div class="alert alert-danger"><i class="bi bi-x-octagon" aria-hidden="true"></i> <strong>Rigettata dal rilascio</strong> il {{ rigetto.data|date:"d/m/Y" }}{% if rigetto.utente %} da {{ rigetto.utente }}{% endif %}: {{ rigetto.nota }}<div class="small mt-1">Il numero RDA e la data di inserimento restano registrati: correggi in SAP e riporta di nuovo i dati qui sotto per ripresentarla al rilascio.</div></div>{% endif %}
 {% if proposti and puo_modificare %}<div class="alert alert-info small"><i class="bi bi-link-45deg" aria-hidden="true"></i> Contratti con lo stesso n. RDA scritto e senza RDA d'origine: {% for c in proposti %}<form method="post" action="{% url 'contratti:rda_collega_contratto' rda.pk %}" class="d-inline">{% csrf_token %}<input type="hidden" name="contratto" value="{{ c.pk|stringformat:"d" }}"><button class="btn btn-link btn-sm p-0 align-baseline" type="submit">collega {% include "contratti/_contratto_breve.html" with x=c %}</button></form>{% if not forloop.last %}; {% endif %}{% endfor %}</div>{% endif %}
 
 <div class="row g-3 mb-4">
@@ -69,7 +70,11 @@
         <p class="mb-2"><span class="stato stato-verde">rilasciata il {{ rda.data_rilascio|date:"d/m/Y" }}</span>{% if rda.rilasciata_da %} <span class="small text-body-secondary">({{ rda.rilasciata_da }})</span>{% endif %}</p>
         {% if puo_rilasciare and rilascio_annullabile %}<form method="post" action="{% url 'contratti:rilascio_rda_annulla' rda.pk %}" class="d-inline">{% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-secondary">Annulla il rilascio</button></form>{% endif %}
         {% elif puo_rilasciare and rilasciabile %}
-        <form method="post" action="{% url 'contratti:rilasci_azione' %}">{% csrf_token %}<input type="hidden" name="rda" value="{{ rda.pk }}"><input type="hidden" name="ritorno_rda" value="{{ rda.pk }}"><button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-patch-check" aria-hidden="true"></i> Rilascia la RDA</button></form>
+        <form method="post" action="{% url 'contratti:rilasci_azione' %}">{% csrf_token %}<input type="hidden" name="rda" value="{{ rda.pk }}"><input type="hidden" name="ritorno_rda" value="{{ rda.pk }}">
+          <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-patch-check" aria-hidden="true"></i> Rilascia la RDA</button>
+          <div class="mt-3"><label class="form-label" for="nota-rigetto">Note del rigetto</label><textarea id="nota-rigetto" name="nota" class="form-control" rows="2"></textarea><div class="form-text">Obbligatorie per rigettare: tornano all'addetto amministrativo, con un'email agli interessati.</div></div>
+          <button type="submit" formaction="{% url 'contratti:rilasci_rigetta' %}" class="btn btn-outline-danger btn-sm mt-2"><i class="bi bi-x-octagon" aria-hidden="true"></i> Rigetta</button>
+        </form>
         {% else %}<p class="small text-body-secondary mb-0">Da rilasciare dopo l'inserimento in SAP, a cura degli addetti al rilascio.</p>{% endif %}
       </div>
       {% if puo_modificare and puo_rimandare %}
