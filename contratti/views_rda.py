@@ -78,6 +78,17 @@ def riga(rda: m.RichiestaAcquisto, oggi) -> dict:
 # --- Elenco -----------------------------------------------------------------------------
 
 
+def _fasi_richieste(g) -> set[str]:
+    """Fasi da mostrare. Senza filtro (primo accesso) restano fuori quelle con contratto emesso;
+    il modulo, una volta inviato (``filtra=1``), senza fasi scelte le mostra tutte."""
+    scelte = {v for v in g.getlist("fase") if v in motore.ETICHETTE_FASE}
+    if scelte:
+        return scelte
+    if g.get("filtra"):
+        return set(motore.ETICHETTE_FASE)
+    return set(motore.ETICHETTE_FASE) - {Fase.CONTRATTO_EMESSO}
+
+
 @login_required
 def rda_elenco(request):
     oggi = oggi_richiesta(request)
@@ -98,8 +109,8 @@ def rda_elenco(request):
             | Q(referente__icontains=q)
         )
     righe = [riga(r, oggi) for r in qs.order_by("-data_creazione", "-pk")]
-    if fase := g.get("fase"):
-        righe = [r for r in righe if r["fase"] == fase]
+    fasi_scelte = _fasi_richieste(g)
+    righe = [r for r in righe if r["fase"] in fasi_scelte]
     pagina = Paginator(righe, PER_PAGINA).get_page(g.get("pagina"))
     return render(
         request,
@@ -110,12 +121,16 @@ def rda_elenco(request):
             "oggi": oggi,
             "filtri": g,
             "fasi": list(motore.ETICHETTE_FASE.items()),
+            "fasi_scelte": fasi_scelte,
             "attivi": filtri_attivi(
                 g,
                 {
                     "q": "Testo",
                     "sottocluster": _etichetta_sottocluster,
-                    "fase": lambda v: "Fase: " + motore.ETICHETTE_FASE.get(v, v),
+                    "fase": lambda v: "Fase: "
+                    + ", ".join(
+                        motore.ETICHETTE_FASE.get(x, x) for x in g.getlist("fase") if x.strip()
+                    ),
                     "mie": lambda v: "Le mie RDA",
                     "archiviate": lambda v: "Con le archiviate",
                 },

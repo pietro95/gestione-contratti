@@ -439,6 +439,29 @@ def test_annulla_e_pagine(editor, una_rda):
     )
 
 
+def test_filtro_fase_multiplo_e_default(editor, una_rda):
+    from django.http import QueryDict
+
+    from contratti.views_rda import _fasi_richieste
+
+    rda, _ = una_rda
+    # Senza filtro: tutte le fasi tranne «contratto emesso».
+    predefinite = _fasi_richieste(QueryDict(""))
+    assert Fase.CONTRATTO_EMESSO not in predefinite
+    assert Fase.BOZZA in predefinite and Fase.ANNULLATA in predefinite
+    # Modulo inviato senza fasi scelte: tutte.
+    assert Fase.CONTRATTO_EMESSO in _fasi_richieste(QueryDict("filtra=1"))
+    # Scelta multipla.
+    assert _fasi_richieste(QueryDict("fase=bozza&fase=annullata&filtra=1")) == {
+        Fase.BOZZA,
+        Fase.ANNULLATA,
+    }
+    url = reverse("contratti:rda_elenco")
+    assert [r["rda"] for r in editor.get(url).context["pagina"]] == [rda]  # bozza: visibile
+    multi = editor.get(url, {"fase": ["annullata", "inserita"], "filtra": "1"})
+    assert list(multi.context["pagina"]) == []
+
+
 def test_ricerca_per_numero_rda(editor, una_rda):
     rda, _ = una_rda
     rda.numero_rda = "5100000123"
