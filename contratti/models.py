@@ -1709,6 +1709,18 @@ class Rata(models.Model):
     # (es. fattura bimestrale posticipata di un contratto che parte l'01/12: 01/12-31/01).
     periodo_dal = models.DateField("periodo dal", null=True, blank=True)
     periodo_al = models.DateField("periodo al", null=True, blank=True)
+
+    class MotivoIgnorata(models.TextChoices):
+        FATTURATA = "fatturata", "Fatturata ma non registrata"
+        ALTRO = "altro", "Altro (indicare la nota)"
+
+    # Rev52: la rata scaduta non si propone più allo stanziamento (es. rate dei contratti
+    # storici, già fatturate ma mai registrate). Non cambia il budget: la rata conta come prima.
+    stanziamento_ignorato = models.BooleanField(default=False)
+    ignorata_motivo = models.CharField(max_length=10, choices=MotivoIgnorata.choices, blank=True)
+    ignorata_nota = models.CharField(max_length=200, blank=True)
+    ignorata_il = models.DateField(null=True, blank=True)
+    ignorata_da = models.CharField(max_length=150, blank=True)
     history = HistoricalRecords()
 
     class Meta:

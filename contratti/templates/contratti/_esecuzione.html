@@ -30,7 +30,18 @@
 {% if proposte_stanziamento %}
 <div class="alert alert-warning small"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Rate scadute senza fattura: sono proposte allo stanziamento (nel budget contano già come previsione). {% if puo_modificare %}Conferma per registrarle come stanziamenti.{% endif %}
   <ul class="mb-2 mt-1">{% for p in proposte_stanziamento %}<li>{{ p.voce.descrizione }}, rata {{ p.rata.numero }}: {{ p.importo|euro }}, competenza {{ p.dal|date:"d/m/Y" }} – {{ p.al|date:"d/m/Y" }} (fattura prevista il {{ p.rata.data_fattura|date:"d/m/Y" }}, {{ p.giorni_ritardo }} giorni fa)</li>{% endfor %}</ul>
-  {% if puo_modificare %}<form method="post" action="{% url 'contratti:stanziamenti_conferma' %}">{% csrf_token %}<input type="hidden" name="next" value="/contratti/{{ c.pk }}/#esecuzione">{% for p in proposte_stanziamento %}<input type="hidden" name="rata" value="{{ p.rata.pk }}">{% endfor %}<button class="btn btn-sm btn-outline-primary" type="submit">Stanzia {% if proposte_stanziamento|length > 1 %}le {{ proposte_stanziamento|length }} rate{% else %}la rata{% endif %}</button></form>{% endif %}</div>
+  {% if puo_modificare %}<form method="post" action="{% url 'contratti:stanziamenti_conferma' %}">{% csrf_token %}<input type="hidden" name="next" value="/contratti/{{ c.pk }}/#esecuzione">{% for p in proposte_stanziamento %}<input type="hidden" name="rata" value="{{ p.rata.pk }}">{% endfor %}<button class="btn btn-sm btn-outline-primary" type="submit">Stanzia {% if proposte_stanziamento|length > 1 %}le {{ proposte_stanziamento|length }} rate{% else %}la rata{% endif %}</button></form>
+  <form method="post" action="{% url 'contratti:stanziamenti_ignora' %}" class="d-flex flex-wrap align-items-end gap-2 mt-2">{% csrf_token %}<input type="hidden" name="next" value="/contratti/{{ c.pk }}/#esecuzione">{% for p in proposte_stanziamento %}<input type="hidden" name="rata" value="{{ p.rata.pk }}">{% endfor %}
+    <div><label class="form-label small mb-0" for="ign-motivo">Se sono già state fatturate</label><select class="form-select form-select-sm" id="ign-motivo" name="motivo">{% for v, e in motivi_ignorata %}<option value="{{ v }}">{{ e }}</option>{% endfor %}</select></div>
+    <div><label class="form-label small mb-0" for="ign-nota">Nota</label><input class="form-control form-control-sm" id="ign-nota" name="nota" maxlength="200"></div>
+    <button class="btn btn-sm btn-outline-secondary" type="submit" title="Non saranno più proposte; il budget non cambia. Si può ripristinare.">Ignora {% if proposte_stanziamento|length > 1 %}le {{ proposte_stanziamento|length }} rate{% else %}la rata{% endif %}</button>
+  </form>{% endif %}</div>
+{% endif %}
+{% if rate_ignorate %}
+<details class="small mb-3"><summary>Rate escluse dalle proposte di stanziamento ({{ rate_ignorate|length }})</summary>
+  <ul class="mb-1 mt-1">{% for r in rate_ignorate %}<li>{{ r.piano.voce.descrizione }}, rata {{ r.numero }}: {{ r.importo|euro }}, fattura prevista il {{ r.data_fattura|date:"d/m/Y" }} · {{ r.get_ignorata_motivo_display }}{% if r.ignorata_nota %} ({{ r.ignorata_nota }}){% endif %} · {{ r.ignorata_da }} il {{ r.ignorata_il|date:"d/m/Y" }}
+    {% if puo_modificare %}<form method="post" action="{% url 'contratti:stanziamenti_ripristina' %}" class="d-inline">{% csrf_token %}<input type="hidden" name="next" value="/contratti/{{ c.pk }}/#esecuzione"><input type="hidden" name="rata" value="{{ r.pk }}"><button class="btn btn-sm btn-link p-0 align-baseline" type="submit">Ripristina</button></form>{% endif %}</li>{% endfor %}</ul>
+</details>
 {% endif %}
 {% if puo_modificare and not c.data_chiusura %}
 <details class="mb-4"><summary class="small">Registra uno stanziamento</summary>

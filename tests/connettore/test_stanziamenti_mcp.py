@@ -120,3 +120,34 @@ def test_permessi_per_cluster(make_user, mensile):
     assert "Non autorizzato" in errore(altro, "annulla_stanziamento", {"id": s.pk})
     s.refresh_from_db()
     assert not s.archiviato
+
+
+def test_ignora_e_ripristina_rate(editor, mensile):
+    rata = mensile["rate"][0]
+    anteprima = ok(editor, "ignora_rate", {"rate_ids": [rata.pk], "nota": "storico"})
+    assert not m.Rata.objects.filter(stanziamento_ignorato=True).exists()  # l'anteprima non scrive
+    conferma(editor, anteprima)
+    rata.refresh_from_db()
+    assert rata.stanziamento_ignorato and rata.ignorata_nota == "storico"
+    dati = ok(editor, "stanziamenti", {"contratto_id": mensile["contratto"].pk})
+    assert rata.pk not in [r.get("rata_id") for r in dati["righe"]]
+    dati = ok(
+        editor, "stanziamenti", {"contratto_id": mensile["contratto"].pk, "con_ignorate": True}
+    )
+    ignorate = [r for r in dati["righe"] if r["tipo"] == "ignorata"]
+    assert [r["rata_id"] for r in ignorate] == [rata.pk]
+    assert "già ignorata" in errore(editor, "ignora_rate", {"rate_ids": [rata.pk]})
+    assert "nota è obbligatoria" in errore(
+        editor, "ignora_rate", {"rate_ids": [mensile["rate"][1].pk], "motivo": "altro"}
+    )
+    conferma(editor, ok(editor, "ripristina_rate", {"rate_ids": [rata.pk]}))
+    rata.refresh_from_db()
+    assert not rata.stanziamento_ignorato
+
+
+def test_ignora_rate_solo_nel_proprio_cluster(mensile, make_user):
+    m.AssegnazioneCluster.objects.create(username="altro", cluster=f.cluster("TLC"))
+    altro = make_user("altro", role=EDITOR)
+    rata = mensile["rate"][0]
+    assert "Non autorizzato" in errore(altro, "ignora_rate", {"rate_ids": [rata.pk]})
+    assert "Non autorizzato" in errore(altro, "ripristina_rate", {"rate_ids": [rata.pk]})

@@ -122,6 +122,12 @@ urlpatterns = [
     path(
         "stanziamenti/conferma/", views_fatture.stanziamenti_conferma, name="stanziamenti_conferma"
     ),
+    path("stanziamenti/ignora/", views_fatture.stanziamenti_ignora, name="stanziamenti_ignora"),
+    path(
+        "stanziamenti/ripristina/",
+        views_fatture.stanziamenti_ripristina,
+        name="stanziamenti_ripristina",
+    ),
     path(
         "stanziamenti/<int:pk>/",
         views_fatture.stanziamento_azione,

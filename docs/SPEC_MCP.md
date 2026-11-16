@@ -357,6 +357,7 @@ Tutto il processo d'acquisto si fa dalla chat con anteprima e conferma (§8.1), 
 | **Esecuzione** | `documento_esecuzione` (DDT, attestazione, modello di ricezione, finale) | `DocumentoEsecuzioneForm` | motivo «da chiudere» |
 | **Stanziamenti** (Rev09) | `registra_stanziamento` (voce, importo, competenza dal/al, rata) | `StanziamentoForm` | budget a competenza dei cluster toccati |
 | | `stanzia_rate` (fino a 50 rate) | `stanziamenti.conferma` | budget, stanziamenti creati |
+| | `ignora_rate` (fino a 50 rate; motivo, nota; Rev52), `ripristina_rate` | `stanziamenti.ignora`, `stanziamenti.ripristina` | proposte di stanziamento (il budget non cambia) |
 | | `chiudi_stanziamento` (fattura), `annulla_stanziamento` | `ChiudiStanziamentoForm`, archiviazione | budget |
 | | `chiudi_contratto`, `annulla_chiusura` | `acquisti.chiudi`, `annulla_chiusura` | fase delle RDA, anomalie (`CHIUSO_SENZA_ATTESTAZIONE`) |
 
