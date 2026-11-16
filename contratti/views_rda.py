@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Prefetch, Q
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -122,6 +122,7 @@ def rda_elenco(request):
             "filtri": g,
             "fasi": list(motore.ETICHETTE_FASE.items()),
             "fasi_scelte": fasi_scelte,
+            "fasi_predefinite": _fasi_richieste(QueryDict("")),
             "attivi": filtri_attivi(
                 g,
                 {

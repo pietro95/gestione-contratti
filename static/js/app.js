@@ -50,23 +50,34 @@
     });
   }
 
-  // Filtri a selezione multipla semplice (es. «Fase» delle RDA): chip con «Togli»; il testo
-  // mostrato senza scelte arriva da data-segnaposto. Senza JavaScript resta una select multipla.
-  function multiple(radice) {
-    if (typeof TomSelect === "undefined") return;
-    radice.querySelectorAll("select.js-multi[multiple]").forEach(function (el) {
-      if (el.tomselect) return;
-      var etichetta = el.id && document.querySelector('label[for="' + el.id + '"]');
-      if (etichetta && !el.getAttribute("aria-label")) el.setAttribute("aria-label", etichetta.textContent.trim());
-      var ts = new TomSelect(el, {
-        plugins: { remove_button: { title: "Togli" } },
-        placeholder: el.dataset.segnaposto || "Tutte",
-        hidePlaceholder: true,
-        // Come per i cluster: chiusa e senza fuoco, così il controllo non cambia altezza tra
-        // pressione e rilascio del clic su «Applica».
-        onItemAdd: function () { ts.close(); ts.blur(); },
-        onItemRemove: function () { ts.close(); ts.blur(); },
+  // Filtro a selezione multipla piatto (es. «Fase» delle RDA), con lo stesso aspetto della
+  // tendina dei sottocluster: il pulsante riassume la scelta. Nessuna casella = tutte.
+  function elencoMultiplo(radice) {
+    radice.querySelectorAll("[data-elenco-multiplo]").forEach(function (el) {
+      if (el.dataset.elencoPronto) return;
+      el.dataset.elencoPronto = "1";
+      var etichetta = el.querySelector("[data-elenco-etichetta]");
+      function caselle() { return Array.prototype.slice.call(el.querySelectorAll("input[type=checkbox][name]")); }
+      function aggiorna() {
+        var tutte = caselle();
+        var scelte = tutte.filter(function (c) { return c.checked; });
+        if (scelte.length === 0 || scelte.length === tutte.length) {
+          etichetta.textContent = el.dataset.tutte;
+        } else if (scelte.length === 1) {
+          etichetta.textContent = scelte[0].parentNode.textContent.trim();
+        } else {
+          etichetta.textContent = scelte.length + " " + el.dataset.unita + " su " + tutte.length;
+        }
+      }
+      el.addEventListener("change", aggiorna);
+      el.querySelectorAll("[data-elenco-azione]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var predefinite = b.dataset.elencoAzione === "predefinite";
+          caselle().forEach(function (c) { c.checked = predefinite ? c.dataset.predefinita === "1" : true; });
+          aggiorna();
+        });
       });
+      aggiorna();
     });
   }
 
@@ -404,7 +415,7 @@
   function inizializza(radice) {
     tendine(radice);
     cluster(radice);
-    multiple(radice);
+    elencoMultiplo(radice);
     alberoSottocluster(radice);
     date(radice);
     righe(radice);
