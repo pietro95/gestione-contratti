@@ -28,7 +28,7 @@
 <h2 class="sezione-titolo" id="fatture-da-lavorare">Fatture da lavorare</h2>
 <div class="row g-4 mb-4">
   <div class="col-xl-6"><div class="card h-100">
-    <div class="card-header">Da convalidare <span class="badge rounded-pill text-bg-light">{{ da_convalidare|length }}</span> <span class="small text-body-secondary">· sollecitare il referente</span></div>
+    <div class="card-header">Da validare <span class="badge rounded-pill text-bg-light">{{ da_convalidare|length }}</span> <span class="small text-body-secondary">· sollecitare il referente</span></div>
     {% if da_convalidare %}<ul class="list-group list-group-flush">{% for r in da_convalidare %}
       <li class="list-group-item"><a href="{% url 'contratti:fattura' r.fattura.pk %}">Fattura {{ r.fattura.numero }}</a> · {{ r.fattura.fornitore }}{% if r.ferma %} <span class="stato stato-rosso">ferma</span>{% endif %}
         <div class="small text-body-secondary">referente {{ r.fattura.referente.get_full_name|default:r.fattura.referente.username }} · {{ r.fattura.get_esito_convalida_display|lower }}{% if r.fattura.bloccata_fino_al %} · bloccata fino al {{ r.fattura.bloccata_fino_al|date:"d/m/Y" }}{% endif %} · {{ r.giorni }} giorni</div></li>

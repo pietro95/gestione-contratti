@@ -513,7 +513,6 @@ def fattura_dettaglio(request, pk):
                             Passo.RDC,
                             Passo.CONVALIDA,
                             Passo.BLOCCATA,
-                            Passo.ASSEGNAZIONE,
                             Passo.PRESA_IN_CARICO,
                         )
                         else fatture.documento_proposto(f)
@@ -909,7 +908,7 @@ def _vai_a(request, predefinita="reports:stanziamenti"):
 @editor_required
 @require_POST
 def stanziamenti_ignora(request):
-    """Esclude dalle proposte di stanziamento le rate scelte, o quelle fino a una data (Rev51)."""
+    """Esclude dalle proposte di stanziamento le rate scelte, o quelle fino a una data (Rev52)."""
     oggi = oggi_richiesta(request)
     motivo = request.POST.get("motivo", m.Rata.MotivoIgnorata.FATTURATA)
     nota = request.POST.get("nota", "")
@@ -965,7 +964,7 @@ def stanziamenti_ignora(request):
 @editor_required
 @require_POST
 def stanziamenti_ripristina(request):
-    """Rimette tra le proposte di stanziamento le rate ignorate (Rev51)."""
+    """Rimette tra le proposte di stanziamento le rate ignorate (Rev52)."""
     fatte = 0
     for rata in m.Rata.objects.filter(pk__in=request.POST.getlist("rata")).select_related(
         "piano__voce__contratto"

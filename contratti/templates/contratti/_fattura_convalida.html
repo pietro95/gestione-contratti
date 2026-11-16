@@ -3,6 +3,7 @@
       <h2 class="h6 text-uppercase text-body-secondary" id="t-convalida">3 · Convalida del referente</h2>
       <dl class="dati mb-2"><dt>Esito</dt><dd>{{ f.get_esito_convalida_display }}{% if f.data_convalida %} · {{ f.data_convalida|date:"d/m/Y" }}{% endif %}</dd>{% if f.nota_convalida %}<dt>Nota</dt><dd>{{ f.nota_convalida }}</dd>{% endif %}{% if f.bloccata_fino_al %}<dt>Bloccata fino al</dt><dd>{{ f.bloccata_fino_al|date:"d/m/Y" }}</dd>{% endif %}</dl>
       {% if puo_convalidare %}
+      {% if not f.contratto %}<p class="small text-body-secondary">Per l'esito «Convalidabile» abbina prima la fattura a un contratto.</p>{% endif %}
       <form method="post" action="{% url 'contratti:fattura_convalida' f.pk %}" class="row g-2" novalidate>
         {% csrf_token %}
         <div class="col-sm-6"><label class="form-label" for="{{ form_convalida.esito_convalida.id_for_label }}">Esito</label>{{ form_convalida.esito_convalida }}</div>

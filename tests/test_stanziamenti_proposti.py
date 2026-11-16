@@ -157,7 +157,7 @@ def test_reader_legge_ma_non_conferma(mensile, make_user):
     assert not m.Stanziamento.objects.exists()
 
 
-# --- Rev51: rate escluse dalle proposte di stanziamento ---------------------------------
+# --- Rev52: rate escluse dalle proposte di stanziamento ---------------------------------
 
 
 def _consuntivo_2026():

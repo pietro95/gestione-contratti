@@ -253,12 +253,12 @@ def rda_ferma(d: DatiRDA, oggi: datetime.date, giorni: int) -> bool:
     return inizio is not None and (oggi - inizio).days > giorni
 
 
-# Lavorazione della fattura (Rev14, Rev15): presa in carico → assegnazione al contratto →
-# convalida del referente → RdC → rilascio della RdC → MAP o MIGO → rilascio del MAP (il MIGO
-# non si rilascia) → trasferimento per il pagamento.
+# Lavorazione della fattura (Rev14, Rev15, Rev51): presa in carico → validazione del referente
+# (con l'abbinamento al contratto, obbligatorio per l'esito «Convalidabile») → RdC → rilascio
+# della RdC → MAP o MIGO → rilascio del MAP (il MIGO non si rilascia) → trasferimento per il
+# pagamento.
 class PassoFattura(StrEnum):
     PRESA_IN_CARICO = "presa_in_carico"
-    ASSEGNAZIONE = "assegnazione"
     CONVALIDA = "convalida"
     BLOCCATA = "bloccata"
     RDC = "rdc"
@@ -270,8 +270,7 @@ class PassoFattura(StrEnum):
 
 ETICHETTE_PASSO = {
     PassoFattura.PRESA_IN_CARICO: "Da prendere in carico",
-    PassoFattura.ASSEGNAZIONE: "Da assegnare",
-    PassoFattura.CONVALIDA: "Da convalidare",
+    PassoFattura.CONVALIDA: "Da validare",
     PassoFattura.BLOCCATA: "Bloccata",
     PassoFattura.RDC: "RdC da fare",
     PassoFattura.RDC_RILASCIO: "RdC da rilasciare",
@@ -288,6 +287,9 @@ class LavorazioneFattura:
     """Fatti della fattura prima dei documenti SAP (Rev15).
 
     I default descrivono una fattura già presa in carico, assegnata e convalidata (TC-15 e).
+
+    ``assegnata`` (contratto abbinato) non è più un passo (Rev51): senza contratto la fattura
+    resta «Da validare», perché non può essere «Convalidabile».
     """
 
     in_carico_dal: datetime.date | None = datetime.date.min
@@ -304,8 +306,9 @@ GIA_CONVALIDATA = LavorazioneFattura()
 
 
 def convalidata(lav: LavorazioneFattura, oggi: datetime.date) -> bool:
-    """Esito «Convalidabile» registrato entro oggi e nessun blocco ancora in corso."""
-    if lav.esito != CONVALIDABILE:
+    """Esito «Convalidabile» registrato entro oggi, contratto abbinato e nessun blocco ancora
+    in corso."""
+    if lav.esito != CONVALIDABILE or not lav.assegnata:
         return False
     if lav.convalidata_il is not None and lav.convalidata_il > oggi:
         return False
@@ -314,7 +317,7 @@ def convalidata(lav: LavorazioneFattura, oggi: datetime.date) -> bool:
 
 def bloccata(lav: LavorazioneFattura, oggi: datetime.date) -> bool:
     """Stanziata e bloccata, qualunque sia l'esito: il blocco dura fino alla data indicata
-    inclusa. Fino ad allora la fattura è «Bloccata», non «Da convalidare»."""
+    inclusa. Fino ad allora la fattura è «Bloccata», non «Da validare»."""
     return lav.bloccata_fino_al is not None and lav.bloccata_fino_al >= oggi
 
 
@@ -339,8 +342,6 @@ def passo_fattura(
         return None
     if lavorazione.in_carico_dal is None or lavorazione.in_carico_dal > oggi:
         return PassoFattura.PRESA_IN_CARICO
-    if not lavorazione.assegnata:
-        return PassoFattura.ASSEGNAZIONE
     if bloccata(lavorazione, oggi):
         return PassoFattura.BLOCCATA
     if not convalidata(lavorazione, oggi):

@@ -39,7 +39,7 @@ def genera_scadenzario(voce: m.VoceContratto) -> list[m.Rata]:
     (voce_engine,) = [v for v in voci if v.riferimento == voce.pk]
 
     # Le rate non toccate a mano sono dati generati: si sostituiscono (la storia resta).
-    # L'esclusione dalle proposte di stanziamento (Rev51) si riporta sulla rata con lo stesso
+    # L'esclusione dalle proposte di stanziamento (Rev52) si riporta sulla rata con lo stesso
     # numero e la stessa data fattura.
     ignorate = {(r.numero, r.data_fattura): r for r in esistenti if r.stanziamento_ignorato}
     for rata in esistenti:

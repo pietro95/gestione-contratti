@@ -55,7 +55,10 @@ DATI_13 = DatiPAC(
         (LavorazioneFattura(in_carico_dal=None, assegnata=False, esito="da_valutare"),
          PassoFattura.PRESA_IN_CARICO),
         (LavorazioneFattura(in_carico_dal=OGGI, assegnata=False, esito="da_valutare"),
-         PassoFattura.ASSEGNAZIONE),
+         PassoFattura.CONVALIDA),  # Rev51: senza contratto resta «Da validare»
+        # Anche con esito già «convalidabile» (dati storici) il contratto manca: da validare.
+        (LavorazioneFattura(in_carico_dal=OGGI, assegnata=False, esito="convalidabile",
+                            convalidata_il=OGGI), PassoFattura.CONVALIDA),
         (LavorazioneFattura(in_carico_dal=OGGI, esito="da_valutare"), PassoFattura.CONVALIDA),
         (LavorazioneFattura(in_carico_dal=OGGI, esito="convalidabile", convalidata_il=OGGI),
          PassoFattura.RDC),

@@ -246,7 +246,7 @@ def mie_fatture(utente, oggi: datetime.date) -> list[RigaFattura]:
         data_trasferimento__isnull=True,
     )
     righe = [r for r in _righe_fatture(qs, oggi) if r.passo is not None]
-    aspettano = {Passo.ASSEGNAZIONE, Passo.CONVALIDA}
+    aspettano = {Passo.CONVALIDA}
     return sorted(righe, key=lambda r: (r.passo not in aspettano, -r.giorni))
 
 

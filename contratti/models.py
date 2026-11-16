@@ -1714,7 +1714,7 @@ class Rata(models.Model):
         FATTURATA = "fatturata", "Fatturata ma non registrata"
         ALTRO = "altro", "Altro (indicare la nota)"
 
-    # Rev51: la rata scaduta non si propone più allo stanziamento (es. rate dei contratti
+    # Rev52: la rata scaduta non si propone più allo stanziamento (es. rate dei contratti
     # storici, già fatturate ma mai registrate). Non cambia il budget: la rata conta come prima.
     stanziamento_ignorato = models.BooleanField(default=False)
     ignorata_motivo = models.CharField(max_length=10, choices=MotivoIgnorata.choices, blank=True)

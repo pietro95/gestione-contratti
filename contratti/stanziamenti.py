@@ -112,7 +112,7 @@ def ignora(
     motivo: str = m.Rata.MotivoIgnorata.FATTURATA,
     nota: str = "",
 ) -> m.Rata:
-    """La rata non si propone più allo stanziamento (Rev51). Il budget non cambia."""
+    """La rata non si propone più allo stanziamento (Rev52). Il budget non cambia."""
     oggi = oggi or datetime.date.today()
     _verifica_ignorabile(rata, utente)
     if motivo not in m.Rata.MotivoIgnorata.values:
