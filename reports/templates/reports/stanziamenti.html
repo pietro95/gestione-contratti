@@ -18,7 +18,22 @@
   <tbody>{% for p in proposte %}<tr>{% if puo_modificare %}<td><input class="form-check-input" type="checkbox" name="rata" value="{{ p.rata.pk }}" aria-label="Stanzia la rata {{ p.rata.numero }} di {{ p.voce.descrizione }}"></td>{% endif %}<td><a href="{% url 'contratti:contratto' p.contratto.pk %}#esecuzione">{{ p.contratto.fabbisogno.descrizione }}</a></td><td>{{ p.voce.descrizione }}, rata {{ p.rata.numero }}</td><td>{{ p.rata.data_fattura|date:"d/m/Y" }}</td><td>{{ p.dal|date:"d/m/Y" }} – {{ p.al|date:"d/m/Y" }}</td><td class="text-end">{{ p.importo|euro }}</td><td class="text-end">{{ p.giorni_ritardo }}</td></tr>
   {% empty %}<tr><td colspan="7"><div class="vuoto">Nessuna rata da stanziare.</div></td></tr>{% endfor %}</tbody>
 </table></div></div>
-{% if puo_modificare and proposte %}<button class="btn btn-primary mb-4" type="submit">Stanzia le rate selezionate</button>{% endif %}
+{% if puo_modificare and proposte %}
+<div class="d-flex flex-wrap align-items-end gap-2 mb-3">
+  <button class="btn btn-primary" type="submit">Stanzia le rate selezionate</button>
+  <span class="vr d-none d-md-block"></span>
+  <div><label class="form-label small mb-0" for="ignora-motivo">Motivo</label><select class="form-select form-select-sm" id="ignora-motivo" name="motivo">{% for v, e in motivi_ignorata %}<option value="{{ v }}">{{ e }}</option>{% endfor %}</select></div>
+  <div><label class="form-label small mb-0" for="ignora-nota">Nota</label><input class="form-control form-control-sm" id="ignora-nota" name="nota" maxlength="200"></div>
+  <button class="btn btn-outline-secondary" type="submit" formaction="{% url 'contratti:stanziamenti_ignora' %}" title="Le rate selezionate non saranno più proposte; il budget non cambia. Si può ripristinare.">Ignora le rate selezionate</button>
+</div>
+<details class="mb-4"><summary class="small">Ignora in blocco le proposte fino a una data</summary>
+  <div class="d-flex flex-wrap align-items-end gap-2 mt-2">
+    <div><label class="form-label small mb-0" for="ignora-fino-al">Con fattura prevista fino al</label><input class="form-control form-control-sm" type="date" id="ignora-fino-al" name="fino_al"></div>
+    {% for sc in filtro_sottocluster %}<input type="hidden" name="sottocluster" value="{{ sc }}">{% endfor %}
+    <button class="btn btn-outline-secondary btn-sm" type="submit" formaction="{% url 'contratti:stanziamenti_ignora' %}" name="blocco" value="1" onclick="return confirm('Tutte le proposte con fattura prevista fino alla data indicata (filtro attivo) non saranno più proposte. Il budget non cambia; si può ripristinare.')">Ignora in blocco</button>
+  </div>
+</details>
+{% endif %}
 </form>
 <h2 class="h6 text-uppercase text-body-secondary">Stanziamenti registrati, in attesa di fattura</h2>
 <div class="tabella-card"><div class="table-responsive">
@@ -27,5 +42,16 @@
   <tbody>{% for s in registrati %}<tr><td><a href="{% url 'contratti:contratto' s.voce.contratto.pk %}#esecuzione">{{ s.voce.contratto.fabbisogno.descrizione }}</a></td><td>{{ s.voce.descrizione }}</td><td>{{ s.competenza_dal|date:"d/m/Y" }} – {{ s.competenza_al|date:"d/m/Y" }}</td><td class="text-end">{{ s.importo|euro }}</td></tr>
   {% empty %}<tr><td colspan="4"><div class="vuoto">Nessuno stanziamento in attesa di fattura.</div></td></tr>{% endfor %}</tbody>
 </table></div></div>
+{% if ignorate %}
+<h2 class="h6 text-uppercase text-body-secondary mt-4">Rate escluse dalle proposte ({{ ignorate|length }})</h2>
+<form method="post" action="{% url 'contratti:stanziamenti_ripristina' %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+<div class="tabella-card mb-3"><div class="table-responsive">
+<table class="table table-hover align-middle" id="stanziamenti-ignorati">
+  <thead><tr>{% if puo_modificare %}<th><span class="visually-hidden">Seleziona</span></th>{% endif %}<th>Contratto</th><th>Voce</th><th>Fattura prevista</th><th class="text-end">Importo</th><th>Motivo</th><th>Escluse da</th></tr></thead>
+  <tbody>{% for r in ignorate %}<tr>{% if puo_modificare %}<td><input class="form-check-input" type="checkbox" name="rata" value="{{ r.pk }}" aria-label="Ripristina la rata {{ r.numero }} di {{ r.piano.voce.descrizione }}"></td>{% endif %}<td><a href="{% url 'contratti:contratto' r.piano.voce.contratto.pk %}#esecuzione">{{ r.piano.voce.contratto.fabbisogno.descrizione }}</a></td><td>{{ r.piano.voce.descrizione }}, rata {{ r.numero }}</td><td>{{ r.data_fattura|date:"d/m/Y" }}</td><td class="text-end">{{ r.importo|euro }}</td><td>{{ r.get_ignorata_motivo_display }}{% if r.ignorata_nota %}<div class="small text-body-secondary">{{ r.ignorata_nota }}</div>{% endif %}</td><td class="small">{{ r.ignorata_da }} il {{ r.ignorata_il|date:"d/m/Y" }}</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% if puo_modificare %}<button class="btn btn-outline-primary mb-4" type="submit">Ripristina le rate selezionate</button>{% endif %}
+</form>
+{% endif %}
 {% endif %}
 {% endblock %}

@@ -150,6 +150,9 @@ def stanziamenti(request):
         "registrati": registrati,
         "totale_proposto": sum((p.importo for p in proposte), acquisti.ZERO),
         "totale_registrato": sum((s.importo for s in registrati), acquisti.ZERO),
+        "ignorate": servizi_stanziamenti.ignorate((), sottocluster),
+        "filtro_sottocluster": sottocluster,
+        "motivi_ignorata": m.Rata.MotivoIgnorata.choices,
         "tolleranza": servizi_stanziamenti.tolleranza(oggi),
         "puo_modificare": permessi.cluster_modificabili(request.user) != frozenset(),
     }

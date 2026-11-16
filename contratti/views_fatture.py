@@ -8,6 +8,7 @@ Admin e addetto): il Reader riceve 403.
 
 from decimal import Decimal, InvalidOperation
 
+from django import forms as django_forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -788,6 +789,8 @@ def contesto_esecuzione(contratto: m.Contratto, oggi) -> dict:
         "proposte_stanziamento": (
             [] if contratto.data_chiusura else stanziamenti.proposte(oggi, contratto=contratto)
         ),
+        "rate_ignorate": stanziamenti.ignorate(contratto=contratto),
+        "motivi_ignorata": m.Rata.MotivoIgnorata.choices,
         "form_stanziamento": forms.StanziamentoForm(contratto=contratto),
         "form_chiudi_stanziamento": forms.ChiudiStanziamentoForm(contratto=contratto),
     }  # fmt: skip
@@ -894,6 +897,91 @@ def stanziamenti_conferma(request):
     if destinazione.startswith("/") and not destinazione.startswith("//"):
         return redirect(destinazione)
     return redirect("reports:stanziamenti")
+
+
+def _vai_a(request, predefinita="reports:stanziamenti"):
+    destinazione = request.POST.get("next", "")
+    if destinazione.startswith("/") and not destinazione.startswith("//"):
+        return redirect(destinazione)
+    return redirect(predefinita)
+
+
+@editor_required
+@require_POST
+def stanziamenti_ignora(request):
+    """Esclude dalle proposte di stanziamento le rate scelte, o quelle fino a una data (Rev51)."""
+    oggi = oggi_richiesta(request)
+    motivo = request.POST.get("motivo", m.Rata.MotivoIgnorata.FATTURATA)
+    nota = request.POST.get("nota", "")
+    errori = False
+    try:
+        if request.POST.get("blocco") or request.POST.get("contratto"):
+            if not request.POST.get("fino_al"):
+                raise acquisti.OperazioneNonAmmessa("Indica la data fino alla quale ignorare.")
+            soglia = django_forms.DateField().clean(request.POST["fino_al"])
+            contratto = None
+            if request.POST.get("contratto"):
+                contratto = get_object_or_404(m.Contratto, pk=request.POST["contratto"])
+            fatte = stanziamenti.ignora_fino_al(
+                soglia,
+                request.user,
+                oggi,
+                motivo,
+                nota,
+                sottocluster=permessi.ids_sottocluster(
+                    [int(v) for v in request.POST.getlist("sottocluster") if v.isdigit()]
+                ),
+                contratto=contratto,
+            )
+        else:
+            fatte = 0
+            rate = m.Rata.objects.filter(pk__in=request.POST.getlist("rata")).select_related(
+                "piano__voce__contratto"
+            )
+            for rata in rate:
+                try:
+                    stanziamenti.ignora(rata, request.user, oggi, motivo, nota)
+                except acquisti.OperazioneNonAmmessa as exc:
+                    _errore(request, exc)
+                    errori = True
+                else:
+                    fatte += 1
+    except (acquisti.OperazioneNonAmmessa, ValidationError) as exc:
+        _errore(request, exc)
+        errori = True
+        fatte = 0
+    if fatte:
+        messages.success(
+            request,
+            "Rata esclusa dalle proposte."
+            if fatte == 1
+            else f"{fatte} rate escluse dalle proposte.",
+        )
+    elif not errori:
+        messages.info(request, "Nessuna rata da escludere.")
+    return _vai_a(request)
+
+
+@editor_required
+@require_POST
+def stanziamenti_ripristina(request):
+    """Rimette tra le proposte di stanziamento le rate ignorate (Rev51)."""
+    fatte = 0
+    for rata in m.Rata.objects.filter(pk__in=request.POST.getlist("rata")).select_related(
+        "piano__voce__contratto"
+    ):
+        try:
+            stanziamenti.ripristina(rata, request.user)
+        except acquisti.OperazioneNonAmmessa as exc:
+            _errore(request, exc)
+        else:
+            fatte += 1
+    if fatte:
+        messages.success(
+            request,
+            "Rata ripristinata." if fatte == 1 else f"{fatte} rate ripristinate.",
+        )
+    return _vai_a(request)
 
 
 @editor_required

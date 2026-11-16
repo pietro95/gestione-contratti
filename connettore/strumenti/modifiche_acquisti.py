@@ -986,6 +986,30 @@ def _stanzia_rate(ctx: Contesto, argomenti: dict) -> dict:
     return {"oggetti": [_rif(c) for c in contratti.values()]}
 
 
+def _ignora_rate(ctx: Contesto, argomenti: dict) -> dict:
+    contratti = {}
+    for rata in _oggetti_rate(argomenti):
+        servizi_stanziamenti.ignora(
+            rata,
+            ctx.utente,
+            ctx.oggi,
+            argomenti.get("motivo", m.Rata.MotivoIgnorata.FATTURATA),
+            argomenti.get("nota", ""),
+        )
+        contratto = rata.piano.voce.contratto
+        contratti[contratto.pk] = contratto
+    return {"oggetti": [_rif(c) for c in contratti.values()]}
+
+
+def _ripristina_rate(ctx: Contesto, argomenti: dict) -> dict:
+    contratti = {}
+    for rata in _oggetti_rate(argomenti):
+        servizi_stanziamenti.ripristina(rata, ctx.utente)
+        contratto = rata.piano.voce.contratto
+        contratti[contratto.pk] = contratto
+    return {"oggetti": [_rif(c) for c in contratti.values()]}
+
+
 def _stanziamento(argomenti: dict) -> m.Stanziamento:
     return trova(
         m.Stanziamento.objects.select_related("voce__contratto__fabbisogno"),
@@ -1618,6 +1642,31 @@ STRUMENTI = [
         "Conferma la proposta di stanziamento di una o più rate scadute senza fattura "
         "(«stanziamenti»): importo e competenza sono quelli proposti. Al massimo 50 rate; se "
         "una non è più da stanziare l'operazione è rifiutata.",
+        _schema(
+            {"rate_ids": {"type": "array", "items": SCHEMA_ID, "minItems": 1, "maxItems": 50}},
+            ["rate_ids"],
+        ),
+    ),
+    strumento(
+        _scrittura("ignora_rate", _oggetti_rate, _ignora_rate),
+        "Ignora le rate proposte allo stanziamento",
+        "Le rate scadute indicate non sono più proposte allo stanziamento (es. già fatturate ma "
+        "mai registrate, tipico dei contratti storici). Il budget non cambia. Motivo "
+        "«fatturata» (predefinito) o «altro» (la nota è obbligatoria). Al massimo 50 rate. "
+        "Reversibile con «ripristina_rate».",
+        _schema(
+            {
+                "rate_ids": {"type": "array", "items": SCHEMA_ID, "minItems": 1, "maxItems": 50},
+                "motivo": {"type": "string", "enum": ["fatturata", "altro"]},
+                "nota": {"type": "string", "maxLength": 200},
+            },
+            ["rate_ids"],
+        ),
+    ),
+    strumento(
+        _scrittura("ripristina_rate", _oggetti_rate, _ripristina_rate),
+        "Ripristina le rate ignorate",
+        "Le rate tornano tra le proposte di stanziamento, se ne hanno ancora i requisiti.",
         _schema(
             {"rate_ids": {"type": "array", "items": SCHEMA_ID, "minItems": 1, "maxItems": 50}},
             ["rate_ids"],

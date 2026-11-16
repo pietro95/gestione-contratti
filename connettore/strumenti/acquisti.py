@@ -503,6 +503,23 @@ def _riga_stanziamento(s: m.Stanziamento) -> dict:
     }
 
 
+def _riga_ignorata(r: m.Rata) -> dict:
+    voce = r.piano.voce
+    return {
+        "tipo": "ignorata",
+        "rata_id": r.pk,
+        "contratto": _contratto_ref(voce.contratto),
+        "voce": {"id": voce.pk, "descrizione": voce.descrizione},
+        "rata": {"numero": r.numero},
+        "data_fattura_prevista": r.data_fattura,
+        "importo": r.importo,
+        "motivo": r.ignorata_motivo,
+        "nota": r.ignorata_nota or None,
+        "ignorata_il": r.ignorata_il,
+        "ignorata_da": r.ignorata_da,
+    }
+
+
 def _riga_proposta(p) -> dict:
     return {
         "tipo": "proposto",
@@ -537,6 +554,10 @@ def stanziamenti(ctx: Contesto, argomenti: dict) -> dict:
         "voce__contratto__fabbisogno", "voce__contratto__fornitore", "rata"
     ).order_by("competenza_dal", "pk")
     righe = [_riga_proposta(p) for p in proposte] + [_riga_stanziamento(s) for s in registrati]
+    if argomenti.get("con_ignorate"):
+        righe += [
+            _riga_ignorata(r) for r in servizi_stanziamenti.ignorate((), sottocluster, contratto=c)
+        ]
     porzione, info = pagina(righe, argomenti)
     return {
         "alla_data": ctx.oggi,
@@ -684,12 +705,15 @@ STRUMENTI = [
             "Costi di competenza non ancora fatturati. «proposto»: rata scaduta senza fattura "
             "(oltre i giorni di tolleranza), con importo e competenza proposti; «registrato»: "
             "stanziamento in essere (chiuso se la fattura è arrivata). Con «contratto_id» solo "
-            "quel contratto. Per registrare usare «stanzia_rate» o «registra_stanziamento»."
+            "quel contratto. Per registrare usare «stanzia_rate» o «registra_stanziamento»; per "
+            "escludere le rate già fatturate «ignora_rate». Con «con_ignorate» si elencano anche "
+            "le rate escluse («ignorata»), ripristinabili con «ripristina_rate»."
         ),
         input_schema=_schema(
             {
                 "sottocluster": SCHEMA_SOTTOCLUSTER,
                 "contratto_id": SCHEMA_ID,
+                "con_ignorate": {"type": "boolean"},
                 **SCHEMA_PAGINA,
             }
         ),
