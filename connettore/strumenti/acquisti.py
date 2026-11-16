@@ -611,8 +611,8 @@ STRUMENTI = [
         titolo="Dettaglio di una fattura",
         descrizione=(
             "La fattura: importo del documento e valore base prelevato dal contratto (conta "
-            "per il residuo), oneri, bollo, passo da fare (da prendere in carico, da assegnare, "
-            "da convalidare, RdC, MAP/MIGO, da trasferire, trasferita) con «ferma», contratto "
+            "per il residuo), oneri, bollo, passo da fare (da prendere in carico, "
+            "da validare, RdC, MAP/MIGO, da trasferire, trasferita) con «ferma», contratto "
             "o contratto proposto, chi la ha in carico o il referente proposto, convalida, "
             "documenti SAP, anomalie. «indicazioni_validazione» e «commento_pac» sono i testi "
             "pronti da copiare: riportarli tali e quali. " + NOTA_TESTI

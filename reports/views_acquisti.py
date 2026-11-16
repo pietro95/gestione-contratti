@@ -58,7 +58,6 @@ def cruscotto_acquisti(request):
             "fatture_per_passo": [
                 (p, motore.ETICHETTE_PASSO[p], fatture[p])
                 for p in (
-                    Passo.ASSEGNAZIONE,
                     Passo.RDC,
                     Passo.RDC_RILASCIO,
                     Passo.MAP_MIGO,

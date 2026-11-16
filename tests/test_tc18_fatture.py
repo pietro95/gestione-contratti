@@ -180,7 +180,7 @@ def test_presa_in_carico(registro, tmp_path):
     esito = fatture.prendi_in_carico([f13.pk, fa1.pk], rossi, OGGI)
     assert {x.pk for x in esito.fatte} == {f13.pk, fa1.pk} and not esito.rifiutate
     fa1 = _fattura("FA-1/2026")
-    assert fatture.passo_fattura(fa1, OGGI) == Passo.ASSEGNAZIONE
+    assert fatture.passo_fattura(fa1, OGGI) == Passo.CONVALIDA
     # La 76 ora è proposta a rossi: ultima fattura di CA (proposto) in carico.
     assert fatture.referente_proposto(_fattura(f76.numero)) == rossi
     esito = fatture.prendi_in_carico([fa1.pk], bianchi, OGGI)
@@ -216,7 +216,7 @@ def test_assegna_ai_referenti_proposti(registro, tmp_path):
         "76 In attesa di nota credito": "bianchi",
     }
     for x in esito.fatte:
-        assert fatture.passo_fattura(_fattura(x.numero), OGGI) == Passo.ASSEGNAZIONE
+        assert fatture.passo_fattura(_fattura(x.numero), OGGI) == Passo.CONVALIDA
 
 
 def test_senza_referente_proposto(registro, tmp_path):

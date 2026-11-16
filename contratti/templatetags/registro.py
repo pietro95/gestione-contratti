@@ -113,8 +113,7 @@ def fase_badge(valore):
 
 PASSO_FATTURA = {
     "presa_in_carico": ("arancione", "Da prendere in carico"),
-    "assegnazione": ("giallo", "Da assegnare"),
-    "convalida": ("giallo", "Da convalidare"),
+    "convalida": ("giallo", "Da validare"),
     "bloccata": ("grigio", "Bloccata"),
     "rdc": ("blu", "RdC da fare"),
     "rdc_rilascio": ("blu", "RdC da rilasciare"),

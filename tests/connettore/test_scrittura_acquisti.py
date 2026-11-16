@@ -442,7 +442,7 @@ def test_assegna_contratto_e_scollega(client, editor, registro_fatture):
     anteprima = ok(editor, "assegna_contratto_fattura", {"id": fa.pk, "scollega": True})
     processo = anteprima["effetti"]["processo_acquisto"]
     assert processo["prima"]["fatture"][0]["passo"] == "convalida"
-    assert processo["dopo"]["fatture"][0]["passo"] == "assegnazione"
+    assert processo["dopo"]["fatture"][0]["passo"] == "convalida"
     uguale(
         client, editor, lambda cl: cl.post(f"/fatture/{fa.pk}/contratto/", {"scollega": "1"}),
         "assegna_contratto_fattura", {"id": fa.pk, "scollega": True},
