@@ -860,7 +860,7 @@ def rimuovi_documento(fattura: m.Fattura, doc: m.DocumentoEsecuzione) -> None:
 # --- Rilascio su SAP di RdC e MAP ------------------------------------------------------
 
 # Il MIGO non si rilascia: vale appena registrato.
-TIPI_DA_RILASCIARE = (Tipo.ODA, Tipo.MAP)
+TIPI_DA_RILASCIARE = (Tipo.ODA, Tipo.MAP)  # vedi DocumentoEsecuzione.soggetto_a_rilascio
 
 
 def documenti_da_rilasciare(tipo: str = "") -> list[m.DocumentoEsecuzione]:

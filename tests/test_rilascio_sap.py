@@ -186,6 +186,16 @@ def test_scheda_fattura_mostra_il_rilascio(scenario, client):
     assert "Rilascia" in html
 
 
+def test_scheda_fattura_non_offre_il_rilascio_del_migo(scenario, client):
+    fatture.registra_documento(scenario["fattura"], Tipo.MIGO, "5000000001", D(2026, 10, 4))
+    _login(client, "addetto")
+    pagina = client.get(reverse("contratti:fattura", args=[scenario["fattura"].pk]))
+    html = pagina.content.decode()
+    assert "5000000001" in html
+    assert "Rilascia" not in html and "Rigetta" not in html
+    assert "non si rilascia" in html
+
+
 # --- RDA -----------------------------------------------------------------------------------
 
 
