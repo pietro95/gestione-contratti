@@ -95,7 +95,7 @@ def test_flusso_della_fattura(pagina, tmp_path):
     pagina.goto(f"{pagina.base}/fatture/{fa.pk}/")
     assert violazioni_axe(pagina) == []
     pagina.click("button:has-text('Assegna al contratto')")
-    expect(pagina.locator(".sottotitolo .stato").first).to_have_text("Da convalidare")
+    expect(pagina.locator(".sottotitolo .stato").first).to_have_text("Da validare")
     pagina.select_option("#id_esito_convalida", "convalidabile")
     pagina.click("button:has-text('Registra l')")
     expect(pagina.locator(".sottotitolo .stato").first).to_have_text("RdC da fare")
