@@ -85,26 +85,28 @@ def test_flusso_della_richiesta_di_rda(pagina, dati):
     assert not pagina.errori, pagina.errori
 
 
-def test_filtro_fase_con_tom_select(pagina, dati):
-    """Il filtro «Fase» è una tendina multipla Tom Select: di default senza «Contratto
-    emesso»; togliendo le fasi e applicando si vedono tutte."""
+def test_filtro_fase_a_tendina_con_caselle(pagina, dati):
+    """Il filtro «Fase» è una tendina come quella dei sottocluster: il pulsante riassume la
+    scelta, di default senza «Contratto emesso»; si sceglie con le caselle e si applica."""
     pagina.goto(f"{pagina.base}/rda/")
-    contenitore = pagina.locator("#f-fase + .ts-wrapper")
-    expect(contenitore).to_be_visible()
-    assert (
-        pagina.locator("#f-fase option:checked").count()
-        == pagina.locator("#f-fase option").count() - 1
-    )
-    assert not pagina.locator("#f-fase option[value=contratto_emesso]").evaluate("o => o.selected")
+    pulsante = pagina.locator("#f-fase")
+    expect(pulsante).to_have_text("8 fasi su 9")
     assert violazioni_axe(pagina) == []
-    # Scelta di una sola fase: resta quella, nell'URL e nel chip.
-    while contenitore.locator(".item .remove").count():
-        contenitore.locator(".item .remove").first.click()
-    contenitore.click()
-    pagina.locator(".ts-dropdown .option", has_text="Contratto emesso").click()
+    pulsante.click()
+    emesso = pagina.get_by_label("Contratto emesso")
+    expect(emesso).not_to_be_checked()
+    pagina.get_by_role("button", name="Predefinite").click()
+    expect(pulsante).to_have_text("8 fasi su 9")
+    pagina.get_by_role("button", name="Tutte", exact=True).click()
+    expect(pulsante).to_have_text("Tutte le fasi")
+    pagina.locator("[data-elenco-multiplo] input:checked").evaluate_all(
+        "els => els.forEach(e => { e.checked = false; })"
+    )
+    emesso.check()
+    expect(pulsante).to_have_text("Contratto emesso")
     pagina.click("button:has-text('Applica')")
     pagina.wait_for_url("**fase=contratto_emesso**")
-    assert pagina.locator("#f-fase option:checked").count() == 1
+    expect(pagina.locator("#f-fase")).to_have_text("Contratto emesso")
     assert not pagina.errori, pagina.errori
 
 
