@@ -479,3 +479,23 @@ def test_cambio_fornitore_sbloccabile_senza_contratto(scenario, make_user):
     assert c.login(username="rossi", password=PASSWORD)
     pagina = c.get(reverse("contratti:fattura", args=[fa.pk])).content.decode()
     assert "Cambia fornitore" in pagina and 'id="cambia-fornitore"' in pagina
+
+
+def test_senza_contratto_non_si_convalida(scenario):
+    """Rev51: l'esito «Convalidabile» richiede il contratto; gli altri esiti no."""
+    fa = scenario["fattura"]
+    fa.referente = scenario["referente"]
+    fa.data_presa_in_carico = OGGI
+    fa.save()
+    assert fa.contratto_id is None
+    assert fatture.passo_fattura(fa, OGGI) == PassoFattura.CONVALIDA
+    with pytest.raises(fatture.OperazioneNonAmmessa, match="contratto"):
+        fatture.convalida(fa, "convalidabile")
+    fa.refresh_from_db()
+    assert fa.esito_convalida == "da_valutare"
+    fatture.convalida(fa, "in_attesa", "aspetto il contratto")  # altri esiti: ammessi
+    fa.contratto, fa.voce = scenario["contratto"], scenario["voce"]
+    fa.save()
+    fatture.convalida(fa, "convalidabile")
+    fa.refresh_from_db()
+    assert fa.esito_convalida == "convalidabile"

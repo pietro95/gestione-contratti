@@ -512,7 +512,6 @@ def fattura_dettaglio(request, pk):
                             Passo.RDC,
                             Passo.CONVALIDA,
                             Passo.BLOCCATA,
-                            Passo.ASSEGNAZIONE,
                             Passo.PRESA_IN_CARICO,
                         )
                         else fatture.documento_proposto(f)

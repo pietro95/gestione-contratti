@@ -495,6 +495,10 @@ def convalida(
         raise OperazioneNonAmmessa(
             "Indica nella nota perché non è convalidabile o cosa si attende."
         )
+    if esito == Esito.CONVALIDABILE and not fattura.contratto_id:
+        raise OperazioneNonAmmessa(
+            "Prima abbina la fattura a un contratto: senza contratto non è convalidabile."
+        )
     prima = (
         m.Fattura.objects.filter(pk=fattura.pk).values_list("esito_convalida", flat=True).first()
     )
