@@ -63,7 +63,6 @@ def test_flusso_della_richiesta_di_rda(pagina, dati):
     )
     pagina.fill("#id_numero_rda", "5100000001")
     pagina.fill("#id_data_inserimento", "15/06/2026")
-    pagina.keyboard.press("Escape")
     pagina.click("text=Salva i dati SAP")
     expect(pagina.locator(".sottotitolo .stato").first).to_have_text("Inserita in SAP")
     pagina.click("button:has-text('Rilascia la RDA')")
@@ -83,6 +82,29 @@ def test_flusso_della_richiesta_di_rda(pagina, dati):
     assert violazioni_axe(pagina) == []
     pagina.goto(f"{pagina.base}/rda/registra/")
     assert violazioni_axe(pagina) == []
+    assert not pagina.errori, pagina.errori
+
+
+def test_filtro_fase_con_tom_select(pagina, dati):
+    """Il filtro «Fase» è una tendina multipla Tom Select: di default senza «Contratto
+    emesso»; togliendo le fasi e applicando si vedono tutte."""
+    pagina.goto(f"{pagina.base}/rda/")
+    contenitore = pagina.locator("#f-fase + .ts-wrapper")
+    expect(contenitore).to_be_visible()
+    assert (
+        pagina.locator("#f-fase option:checked").count()
+        == pagina.locator("#f-fase option").count() - 1
+    )
+    assert not pagina.locator("#f-fase option[value=contratto_emesso]").evaluate("o => o.selected")
+    assert violazioni_axe(pagina) == []
+    # Scelta di una sola fase: resta quella, nell'URL e nel chip.
+    while contenitore.locator(".item .remove").count():
+        contenitore.locator(".item .remove").first.click()
+    contenitore.click()
+    pagina.locator(".ts-dropdown .option", has_text="Contratto emesso").click()
+    pagina.click("button:has-text('Applica')")
+    pagina.wait_for_url("**fase=contratto_emesso**")
+    assert pagina.locator("#f-fase option:checked").count() == 1
     assert not pagina.errori, pagina.errori
 
 
