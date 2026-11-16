@@ -50,6 +50,26 @@
     });
   }
 
+  // Filtri a selezione multipla semplice (es. «Fase» delle RDA): chip con «Togli»; il testo
+  // mostrato senza scelte arriva da data-segnaposto. Senza JavaScript resta una select multipla.
+  function multiple(radice) {
+    if (typeof TomSelect === "undefined") return;
+    radice.querySelectorAll("select.js-multi[multiple]").forEach(function (el) {
+      if (el.tomselect) return;
+      var etichetta = el.id && document.querySelector('label[for="' + el.id + '"]');
+      if (etichetta && !el.getAttribute("aria-label")) el.setAttribute("aria-label", etichetta.textContent.trim());
+      var ts = new TomSelect(el, {
+        plugins: { remove_button: { title: "Togli" } },
+        placeholder: el.dataset.segnaposto || "Tutte",
+        hidePlaceholder: true,
+        // Come per i cluster: chiusa e senza fuoco, così il controllo non cambia altezza tra
+        // pressione e rilascio del clic su «Applica».
+        onItemAdd: function () { ts.close(); ts.blur(); },
+        onItemRemove: function () { ts.close(); ts.blur(); },
+      });
+    });
+  }
+
   // Tendina «Sottocluster» (Rev36): cluster espandibili in sottocluster, selezione multipla.
   // La casella del cluster sceglie tutti i suoi sottocluster ed è «parziale» se ne mancano;
   // resta sempre almeno un sottocluster scelto. Senza JavaScript restano le caselle dei
@@ -384,6 +404,7 @@
   function inizializza(radice) {
     tendine(radice);
     cluster(radice);
+    multiple(radice);
     alberoSottocluster(radice);
     date(radice);
     righe(radice);
