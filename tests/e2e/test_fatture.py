@@ -127,6 +127,14 @@ def test_flusso_della_fattura(pagina, tmp_path):
     pagina.click("button:has-text('Registra il trasferimento')")
     expect(pagina.locator(".sottotitolo .stato").first).to_have_text("Trasferita")
 
+    # Annullo del trasferimento dalla finestra modale: il pulsante «annulla» deve arrivare
+    # alla vista anche dopo la conferma, poi si ritrasferisce.
+    pagina.get_by_role("button", name="Annulla il trasferimento").click()
+    pagina.locator("#modale-conferma [data-conferma-ok]").click()
+    expect(pagina.locator(".sottotitolo .stato").first).to_have_text("Da trasferire")
+    pagina.click("button:has-text('Registra il trasferimento')")
+    expect(pagina.locator(".sottotitolo .stato").first).to_have_text("Trasferita")
+
     # Esecuzione del contratto e chiusura in finestra modale.
     pagina.goto(f"{pagina.base}/contratti/{cs.pk}/#esecuzione")
     expect(pagina.locator("#esecuzione").get_by_text("1.504,17 €").first).to_be_visible()
