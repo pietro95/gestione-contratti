@@ -173,11 +173,14 @@
     if (!modale || typeof bootstrap === "undefined") return;
     var istanza = bootstrap.Modal.getOrCreateInstance(modale);
     var inAttesa = null;
+    var pulsante = null;
     document.addEventListener("submit", function (e) {
       var form = e.target;
       if (!form.dataset.conferma || form._confermato) return;
       e.preventDefault();
       inAttesa = form;
+      // Il pulsante che ha inviato il form: il suo name/value va reinviato (es. «annulla»).
+      pulsante = e.submitter && e.submitter.form === form ? e.submitter : null;
       modale.querySelector(".modal-body").textContent = form.dataset.conferma;
       var bottone = modale.querySelector("[data-conferma-ok]");
       bottone.textContent = form.dataset.confermaEtichetta || "Conferma";
@@ -188,7 +191,18 @@
       if (!inAttesa) return;
       inAttesa._confermato = true;
       istanza.hide();
-      inAttesa.requestSubmit ? inAttesa.requestSubmit() : inAttesa.submit();
+      if (inAttesa.requestSubmit) {
+        inAttesa.requestSubmit(pulsante || undefined);
+      } else {
+        if (pulsante && pulsante.name) {
+          var nascosto = document.createElement("input");
+          nascosto.type = "hidden";
+          nascosto.name = pulsante.name;
+          nascosto.value = pulsante.value;
+          inAttesa.appendChild(nascosto);
+        }
+        inAttesa.submit();
+      }
     });
   }
 
