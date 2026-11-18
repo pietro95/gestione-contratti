@@ -5,6 +5,9 @@
   le fatture registrate per data documento e, per il residuo, rate a mano o quote (Rev29).
 - Competenza: ripartizione a mesi frazionati sul periodo di servizio, indipendente dalla
   fatturazione.
+- Costi accessori previsti (Rev53): rimborso INPS, oneri previdenziali e spese vive stimate
+  si aggiungono agli importi previsti di cassa, consuntivo e competenza, non all'impegno
+  (``contratti.engine.accessori``).
 - Consuntivo a competenza (Rev21): fatture registrate e stanziamenti al posto delle rate,
   imputati a mesi frazionati al periodo di competenza; le rate senza fattura né stanziamento
   restano la previsione.
@@ -16,7 +19,7 @@ from collections.abc import Iterable
 from dataclasses import replace
 from decimal import Decimal
 
-from contratti.engine import mesi_frazionati, sal
+from contratti.engine import accessori, mesi_frazionati, sal
 from contratti.engine.date import giorni
 from contratti.engine.importi import ZERO, arrotonda, ripartisci
 from contratti.engine.scadenzario import genera_rate, quote_valide
@@ -39,6 +42,18 @@ def quota_variabile(voce: Voce, livello: Livello) -> Decimal:
 def valore(voce: Voce, livello: Livello = Livello.FISSO) -> Decimal:
     """Valore della voce al livello (TC-05): fisso + variabile del livello."""
     return arrotonda(voce.importo_fisso) + quota_variabile(voce, livello)
+
+
+def accessori_voce(voce: Voce, livello: Livello) -> Decimal:
+    """Costi accessori previsti sull'intera voce al livello (Rev53): maggiorazione del fisso e
+    del variabile più le spese vive stimate."""
+    if not accessori.ha_accessori(voce):
+        return ZERO
+    return (
+        accessori.maggiorazione(voce, arrotonda(voce.importo_fisso))
+        + accessori.maggiorazione(voce, quota_variabile(voce, livello))
+        + arrotonda(voce.spese_vive_stimate or ZERO)
+    )
 
 
 def competenza_per_anno(voce: Voce, importo: Decimal) -> dict[int, Decimal]:
@@ -78,8 +93,17 @@ def ripartizione_sal(
     voce: Voce, livello: Livello, vista: str
 ) -> tuple[sal.RipartoSal, list[Esito]]:
     """Consuntivo, previsto e non pianificato di una voce a SAL (vista ``cassa`` o
-    ``consuntivo``), con gli avvisi relativi."""
+    ``consuntivo``), con gli avvisi relativi. Il previsto porta i costi accessori (Rev53)."""
     ripartizione = sal.ripartisci_sal(voce, quota_variabile(voce, livello), vista)
+    if accessori.ha_accessori(voce) and ripartizione.previsto:
+        anni = sorted(ripartizione.previsto)
+        importi = [ripartizione.previsto[a] for a in anni]
+        spese = accessori.spese_vive(voce, importi, valore(voce, livello))
+        previsto = {
+            a: i + accessori.maggiorazione(voce, i) + s
+            for a, i, s in zip(anni, importi, spese, strict=True)
+        }
+        ripartizione = replace(ripartizione, previsto=previsto)
     esiti = list(ripartizione.esiti)
     for c in ripartizione.consuntivi_usati:
         # Nella cassa conta la data documento: la competenza mancante non è un problema.
@@ -124,11 +148,12 @@ def cassa_per_anno(voce: Voce, livello: Livello, esiti: list[Esito]) -> dict[int
                     f"({modalita or 'piano assente'}).",
                 )
             )
-        return competenza_per_anno(voce, valore(voce, livello))
+        return competenza_per_anno(voce, valore(voce, livello) + accessori_voce(voce, livello))
 
-    for rata in rate:
+    extra = accessori.per_rate(voce, [r.importo for r in rate])
+    for rata, accessorio in zip(rate, extra, strict=True):
         risultato[rata.data_fattura.year] = (
-            risultato.get(rata.data_fattura.year, ZERO) + rata.importo
+            risultato.get(rata.data_fattura.year, ZERO) + rata.importo + accessorio
         )
 
     if variabile:
@@ -142,7 +167,9 @@ def cassa_per_anno(voce: Voce, livello: Livello, esiti: list[Esito]) -> dict[int
             ]
         for rata, quota in zip(rate, ripartisci(variabile, pesi), strict=True):
             anno = rata.data_fattura.year
-            risultato[anno] = risultato.get(anno, ZERO) + quota
+            risultato[anno] = (
+                risultato.get(anno, ZERO) + quota + accessori.maggiorazione(voce, quota)
+            )
     return risultato
 
 
@@ -194,18 +221,20 @@ def consuntivo_per_anno(voce: Voce, livello: Livello, esiti: list[Esito]) -> dic
     if not rate:
         # Stesso caso della cassa (CASSA_PRO_RATA): un solo avviso.
         _aggiungi(risultato, competenza_fisso(voce, []))
-    for rata in rate:
+        _aggiungi(risultato, competenza_per_anno(voce, accessori_voce(voce, Livello.FISSO)))
+    # Rev53: la rata prevista porta i suoi accessori; la fattura che la sostituisce, i suoi.
+    extra = accessori.per_rate(voce, [r.importo for r in rate])
+    for rata, accessorio in zip(rate, extra, strict=True):
         c = rata.consuntivo
+        previsto = rata.importo + accessorio
         if c is not None:
             _segnala_consuntivo(c, esiti)
             _aggiungi(risultato, _a_competenza(c.importo, c.inizio, c.fine))
         elif rata.periodo_inizio and rata.periodo_fine:
-            _aggiungi(
-                risultato, _a_competenza(rata.importo, rata.periodo_inizio, rata.periodo_fine)
-            )
+            _aggiungi(risultato, _a_competenza(previsto, rata.periodo_inizio, rata.periodo_fine))
         else:
             anno = rata.data_fattura.year
-            risultato[anno] = risultato.get(anno, ZERO) + rata.importo
+            risultato[anno] = risultato.get(anno, ZERO) + previsto
     for c in voce.consuntivi:
         _segnala_consuntivo(c, esiti)
         _aggiungi(risultato, _a_competenza(c.importo, c.inizio, c.fine))
@@ -217,7 +246,10 @@ def consuntivo_per_anno(voce: Voce, livello: Livello, esiti: list[Esito]) -> dic
                 "abbinali alla rata per evitare il doppio conteggio.",
             )
         )
-    _aggiungi(risultato, competenza_per_anno(voce, quota_variabile(voce, livello)))
+    variabile = quota_variabile(voce, livello)
+    _aggiungi(
+        risultato, competenza_per_anno(voce, variabile + accessori.maggiorazione(voce, variabile))
+    )
     return risultato
 
 
@@ -239,7 +271,9 @@ def calcola(voci: Iterable[Voce]) -> tuple[dict[str, Totali], list[Esito]]:
             for anno, importo in consuntivo_per_anno(voce, livello, esiti).items():
                 viste["consuntivo"].aggiungi(anno, livello, importo)
             fisso = competenza_fisso(voce, esiti)
-            var = competenza_per_anno(voce, quota_variabile(voce, livello))
+            var = competenza_per_anno(
+                voce, quota_variabile(voce, livello) + accessori_voce(voce, livello)
+            )
             for anno in sorted(set(fisso) | set(var)):
                 viste["competenza"].aggiungi(
                     anno, livello, fisso.get(anno, ZERO) + var.get(anno, ZERO)

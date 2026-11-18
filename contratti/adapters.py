@@ -198,10 +198,10 @@ def _consuntivo_fattura(f: m.Fattura, senza_voce: bool = False) -> Consuntivo | 
     dal, al = (f.data, f.data) if mancante else (f.competenza_dal, f.competenza_al)
     # Rev42: oneri, rimborso INPS e spese vive gravano sul budget con la competenza del valore
     # base; il residuo del contratto conta il solo valore base (``riepilogo_esecuzione``).
-    costo = f.valore_base + (f.oneri or ZERO) + (f.rimborso_inps or ZERO) + (f.spese_vive or ZERO)
+    extra = (f.oneri or ZERO) + (f.rimborso_inps or ZERO) + (f.spese_vive or ZERO)
     return Consuntivo(
-        TipoConsuntivo.FATTURA, costo, dal, al, senza_competenza=mancante,
-        senza_voce=senza_voce, data=f.data, riferimento=f.pk,
+        TipoConsuntivo.FATTURA, f.valore_base + extra, dal, al, senza_competenza=mancante,
+        senza_voce=senza_voce, data=f.data, riferimento=f.pk, accessori=extra,
     )  # fmt: skip
 
 
@@ -288,6 +288,9 @@ def voce_engine(
         massimale_variabile=voce.massimale_variabile,
         stima_consumo_pct=voce.stima_consumo_pct,
         stima_consumo_importo=voce.stima_consumo_importo,
+        rimborso_inps_pct=voce.rimborso_inps_pct or ZERO,
+        oneri_pct=voce.oneri_pct or ZERO,
+        spese_vive_stimate=voce.spese_vive_stimate or ZERO,
         rate=_rate_salvate(voce, consuntivi_rata, periodi_generati) if con_rate_salvate else None,
         quote=tuple(
             Quota(q.dal, q.al, q.importo) for q in sorted(voce.quote.all(), key=lambda q: q.dal)

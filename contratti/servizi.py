@@ -255,6 +255,10 @@ def registra_rinnovo(
             voce.conto = voce.conto or classe.conto
             voce.wbs = voce.wbs or classe.wbs
             voce.centro_costo = voce.centro_costo or origine.centro_costo
+            # Costi accessori previsti (Rev53): li riporta il rinnovo, si correggono sulla voce.
+            voce.rimborso_inps_pct = origine.rimborso_inps_pct
+            voce.oneri_pct = origine.oneri_pct
+            voce.spese_vive_stimate = origine.spese_vive_stimate
         voce.full_clean()
         voce.save()
         _copia_piano(getattr(origine, "piano_fatturazione", None), voce)

@@ -95,6 +95,12 @@ def _voce(voce: m.VoceContratto, valori: dict | None) -> dict:
         "massimale_variabile": voce.massimale_variabile,
         "stima_consumo_pct": voce.stima_consumo_pct,
         "stima_consumo_importo": voce.stima_consumo_importo,
+        # Rev53: costi accessori previsti, a budget ma non nel valore della voce.
+        "costi_accessori_previsti": {
+            "rimborso_inps_pct": voce.rimborso_inps_pct,
+            "oneri_pct": voce.oneri_pct,
+            "spese_vive_stimate": voce.spese_vive_stimate,
+        },
         "quote_per_periodo": [
             {"dal": q.dal, "al": q.al, "importo": q.importo} for q in voce.quote.all()
         ],

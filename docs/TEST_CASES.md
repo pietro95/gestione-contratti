@@ -819,3 +819,21 @@ Senza IVA (regime forfettario)
 **Quadratura.** 1.666,67 + 367,83 + 81,38 + 82,34 = 2.198,22: nessuna anomalia `IMPORTO_NON_QUADRA`; senza i nuovi importi l'importo non quadra.
 
 **Budget e contratto.** Nel budget la fattura pesa 2.198,22 (valore base + oneri + rimborso + spese vive) sul periodo di competenza; il fatturato del contratto è 1.666,67. Con il regime forfettario l'IVA non si riconosce e un'IVA indicata è rifiutata.
+
+## TC-29 — Costi accessori previsti di una voce
+
+SPEC §4 e §5.2 (Rev53, **bozza da approvare**). I test sono `tests/engine/test_tc29_accessori.py`.
+
+**Input.** Voce di 12.000,00 dal 01/01/2027 al 31/12/2027, posticipata trimestrale (4 rate da 3.000,00 al 31/03, 30/06, 30/09, 31/12), **oneri previdenziali previsti 4%**, **spese vive stimate 400,00**, nessun rimborso INPS.
+
+**(a) Previsione.** Accessori di ogni rata: 3.000,00 × 4% = 120,00 di oneri + 400,00 / 4 = 100,00 di spese vive = 220,00. Nel 2027: cassa, fatturato e stanziato e competenza = **12.880,00**; impegno = **12.000,00** (gli accessori non entrano nell'impegno né nel valore del contratto).
+
+**(b) Fattura sulla prima rata.** Valore base 3.000,00, oneri 120,00, spese vive 57,30: nel budget pesa 3.177,30 e prende il posto della rata e dei suoi accessori. Fatturato e stanziato 2027 = 3.177,30 + 3 × 3.220,00 = **12.837,30**; impegno invariato.
+
+**(c) Rimborso INPS 2%.** Sulla rata da 3.000,00: rimborso 60,00, oneri (3.000,00 + 60,00) × 4% = 122,40, totale 182,40. Cassa 2027 = 4 × (3.000,00 + 182,40 + 100,00) = **13.129,60**.
+
+**(d) Voce a SAL.** Fisso 10.000,00 dal 01/01/2027 al 31/12/2028, oneri 4%, spese vive stimate 500,00; fattura del 31/05/2027 di valore base 4.000,00 + oneri 160,00; rata a mano di 6.000,00 al 30/06/2028. Il fisso lo consuma il solo valore base: residuo **6.000,00** (non 5.840,00). Cassa: 2027 = 4.160,00 (consuntivo); 2028 previsto = 6.000,00 + 240,00 + 500,00 × 6.000/10.000 = **6.540,00**; non pianificato zero.
+
+**(e) Rinnovo previsto** (adeguamento 0%): eredita le percentuali e la stima; 2028: impegno 12.000,00, cassa 12.880,00.
+
+**(f) Voce senza accessori:** nessuna differenza rispetto a prima (cassa 12.000,00).

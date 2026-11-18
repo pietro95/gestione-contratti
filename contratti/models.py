@@ -1553,6 +1553,20 @@ class VoceContratto(Archiviabile):
     massimale_variabile = importo("massimale variabile", default=0)
     stima_consumo_pct = percentuale("stima di consumo (%)", null=True, blank=True)
     stima_consumo_importo = importo("stima di consumo (importo)", null=True, blank=True)
+    # Rev53: costi accessori previsti (professionisti). Non prelevati dal contratto, gravano sul
+    # budget come quelli delle fatture (Rev42); non entrano nell'impegno.
+    rimborso_inps_pct = percentuale(
+        "rimborso INPS previsto (%)", default=0,
+        help_text="Rimborso dei costi INPS riconosciuto da contratto, sul valore previsto.",
+    )  # fmt: skip
+    oneri_pct = percentuale(
+        "oneri previdenziali previsti (%)", default=0,
+        help_text="Es. 4 (cassa professionale), su valore previsto + rimborso INPS.",
+    )  # fmt: skip
+    spese_vive_stimate = importo(
+        "spese vive stimate", default=0,
+        help_text="Stima forfettaria sull'intera voce, ripartita sulle rate.",
+    )  # fmt: skip
     chiave_import = models.CharField(  # noqa: DJ001
         max_length=64, unique=True, null=True, blank=True, editable=False
     )
@@ -1586,6 +1600,12 @@ class VoceContratto(Archiviabile):
             models.CheckConstraint(
                 condition=Q(stima_consumo_pct__isnull=True) | Q(stima_consumo_importo__isnull=True),
                 name="contratti_voce_una_sola_stima",
+            ),
+            models.CheckConstraint(
+                condition=Q(rimborso_inps_pct__gte=0, rimborso_inps_pct__lte=100)
+                & Q(oneri_pct__gte=0, oneri_pct__lte=100)
+                & Q(spese_vive_stimate__gte=0),
+                name="contratti_voce_accessori_validi",
             ),
         ]
 
