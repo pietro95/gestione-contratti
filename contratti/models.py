@@ -2445,7 +2445,7 @@ class DocumentoEsecuzione(Archiviabile):
     fattura = models.ForeignKey(
         Fattura, on_delete=models.PROTECT, null=True, blank=True, related_name="documenti"
     )
-    # Rilascio su SAP di RdC, MAP e MIGO della fattura: data e utente dell'addetto al rilascio.
+    # Rilascio su SAP di RdC e MAP della fattura: data e utente dell'addetto al rilascio.
     data_rilascio = models.DateField("rilasciato su SAP il", null=True, blank=True)
     rilasciato_da = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
@@ -2482,6 +2482,11 @@ class DocumentoEsecuzione(Archiviabile):
     def __str__(self):
         numero = f" {self.numero}" if self.numero else ""
         return f"{self.get_tipo_display()}{numero} ({self.data:%d/%m/%Y})"
+
+    @property
+    def soggetto_a_rilascio(self) -> bool:
+        """RdC e MAP si rilasciano su SAP; il MIGO no (SPEC §5.9, Rev38)."""
+        return self.tipo in (self.Tipo.ODA, self.Tipo.MAP)
 
     def clean(self):
         super().clean()
