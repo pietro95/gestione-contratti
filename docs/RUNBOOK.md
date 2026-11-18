@@ -423,11 +423,17 @@ per dismetterli compila `valido_al` (conti) o metti `No` in `attiva` (WBS).
 
 ## 7. Aggiornamento e rollback
 
-**Aggiornamento**:
+**Aggiornamento** (dopo l'installazione del §7.1), con il proprio utente:
 
 ```bash
-/appdata/gestione-contratti/app/deploy/deploy.sh v1.1
+gestione-contratti aggiorna latest
 ```
+
+Installa l'ultimo tag `vX.Y.Z` (i tag malformati come `v.2.5.0` si ignorano) dopo aver
+mostrato versione attuale e nuova e chiesto conferma. Per un tag preciso, anche per il rollback:
+`gestione-contratti aggiorna v1.1`. Lanciarlo dentro `tmux`: se la connessione SSH cade, il
+deploy continua. L'output va anche in `log/AAAA.MM.GG_HHMM_aggiorna_<tag>.log`, con il nome di
+chi l'ha lanciato. Sotto, il comando esegue `deploy.sh <tag>` come utente di servizio.
 
 Prima di tutto fa un dump `..._pre_v1.1.dump` in `backup/`. Se un passo fallisce lo script si
 ferma:
@@ -447,6 +453,39 @@ ferma:
   2. reinstalla la versione precedente: `deploy.sh v1.0`.
 
   I dati inseriti dopo l'aggiornamento si perdono: annotali prima.
+
+### 7.1 Utente di servizio e comando `gestione-contratti` (una volta)
+
+Il codice, la configurazione e la deploy key appartengono all'utente di sistema `gestcontratti`
+(senza login, nel gruppo `docker`), non a una persona. Chiunque abbia `sudo` sul server gestisce
+l'app con `gestione-contratti <comando>`: il comando chiede la password di `sudo` e poi esegue
+tutto come `gestcontratti`, quindi nessun file finisce a root o a un utente personale. Un
+cambio di utente amministratore non blocca più i deploy.
+
+Installazione (idempotente):
+
+```bash
+sudo /appdata/gestione-contratti/app/deploy/installa_utente_servizio.sh
+```
+
+Lo script crea l'utente (UID di sistema diverso da 999 e 1000, che sono gli UID dei container),
+gli copia la deploy key `gestione-contratti_deploy` trovata in `/root/.ssh` o `/home/*/.ssh`
+(se ce n'è più d'una o nessuna: `--chiave <file>`), gli assegna `app/`, `config/` e `log/`,
+verifica che legga il `.env`, usi Docker e scarichi da GitHub, e crea
+`/usr/local/bin/gestione-contratti`. Non tocca `postgres/`, `import/`, `allegati/`, `static/` e
+`backup/`.
+
+| Comando | Effetto |
+|---|---|
+| `gestione-contratti stato` | versione installata e container |
+| `gestione-contratti aggiorna latest\|<tag> [--si]` | aggiornamento o rollback (§7) |
+| `gestione-contratti backup [etichetta]` | dump manuale (§8) |
+| `gestione-contratti manage <comando> [argomenti]` | comandi di Django (§10) |
+| `gestione-contratti ripristina <file.dump>` | ripristino (`deploy/restore.md`) |
+| `gestione-contratti log [servizio]` | log in tempo reale |
+
+Gli script in `app/deploy/` restano utilizzabili, ma vanno lanciati come `gestcontratti`
+(`sudo -u gestcontratti …`), non come root.
 
 ## 8. Backup
 
