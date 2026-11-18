@@ -822,7 +822,7 @@ Senza IVA (regime forfettario)
 
 ## TC-29 — Costi accessori previsti di una voce
 
-SPEC §4 e §5.2 (Rev53, **bozza da approvare**). I test sono `tests/engine/test_tc29_accessori.py`.
+SPEC §4 e §5.2 (Rev53, approvata il 18/11/2026). I test sono `tests/engine/test_tc29_accessori.py`.
 
 **Input.** Voce di 12.000,00 dal 01/01/2027 al 31/12/2027, posticipata trimestrale (4 rate da 3.000,00 al 31/03, 30/06, 30/09, 31/12), **oneri previdenziali previsti 4%**, **spese vive stimate 400,00**, nessun rimborso INPS.
 
