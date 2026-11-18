@@ -58,7 +58,7 @@ uv run python manage.py crea_client_mcp claude|claude-code   # client OAuth del 
 uv run python manage.py ruolo_db_mcp      # utente PostgreSQL limitato (MCP_DATABASE_URL)
 ```
 
-Sul server di produzione gli stessi comandi passano da `deploy/manage.sh` (es. `deploy/manage.sh import_excel /import/<file> --area IT`).
+Sul server di produzione gli stessi comandi passano da `gestione-contratti manage` (es. `gestione-contratti manage import_excel /import/<file> --area IT`); aggiornamenti con `gestione-contratti aggiorna latest` (RUNBOOK §7.1).
 
 Nelle sessioni cloud PostgreSQL è installato ma spento. Lo avvia `scripts/cloud_session_start.sh` (hook SessionStart); se non è attivo: `service postgresql start`.
 
