@@ -75,6 +75,9 @@ class Consuntivo:
     data: datetime.date | None = None
     # Identificativo della fattura, per attribuirne l'importo (es. a una WBS) fuori dal motore.
     riferimento: object = None
+    # Rev53: parte di ``importo`` non prelevata dal contratto (oneri previdenziali, rimborso INPS,
+    # spese vive, Rev42): grava sul budget ma non consuma il fisso di una voce a SAL.
+    accessori: Decimal = Decimal("0")
 
 
 @dataclass(frozen=True)
@@ -121,6 +124,12 @@ class Voce:
     # Per un SAL la previsione resta a ripartizione a mesi frazionati, dichiarata come tale (Rev29).
     previsto: bool = False
     riferimento: object = None
+    # Rev53: costi accessori previsti, non prelevati dal contratto ma a carico del budget.
+    # Percentuali (0–100) su fisso e variabile previsti; spese vive come stima forfettaria
+    # sull'intera voce. Non entrano nell'impegno.
+    rimborso_inps_pct: Decimal = Decimal("0")
+    oneri_pct: Decimal = Decimal("0")
+    spese_vive_stimate: Decimal = Decimal("0")
 
 
 @dataclass(frozen=True)

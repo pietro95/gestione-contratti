@@ -207,7 +207,9 @@ def ripartisci_sal(voce: Voce, variabile: Decimal, vista: str) -> RipartoSal:
                     c.importo, c.inizio, c.fine
                 ).items()
             ]
-    consumato = sum((r.importo for r in righe), ZERO)
+    # Il fisso lo consuma il solo valore base: gli accessori della fattura (Rev42) gravano sul
+    # budget ma non sul contratto (Rev53).
+    consumato = sum((r.importo for r in righe), ZERO) - sum((c.accessori for c in usati), ZERO)
     ultimo_anno = max(
         [r.anno for r in righe] if cassa else [c.fine.year for c in usati], default=None
     )

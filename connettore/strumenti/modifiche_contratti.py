@@ -306,6 +306,23 @@ CAMPI_VOCE = {
     "massimale_variabile": SCHEMA_IMPORTO,
     "stima_consumo_pct": {"type": "string", "maxLength": 10},
     "stima_consumo_importo": SCHEMA_IMPORTO,
+    "rimborso_inps_pct": {
+        "type": "string",
+        "maxLength": 10,
+        "description": "Rimborso INPS previsto (%, 0–100) sul valore previsto: costo accessorio "
+        "a budget, non prelevato dal contratto (Rev53).",
+    },
+    "oneri_pct": {
+        "type": "string",
+        "maxLength": 10,
+        "description": "Oneri previdenziali previsti (%, 0–100) su valore previsto + rimborso "
+        "INPS: a budget, non prelevati dal contratto (Rev53).",
+    },
+    "spese_vive_stimate": {
+        **SCHEMA_IMPORTO,
+        "description": "Spese vive stimate sull'intera voce (forfait): a budget, non prelevate "
+        "dal contratto (Rev53).",
+    },
     "natura_rinnovi": {"type": "string", "enum": list(m.Natura.values)},
     "conto_rinnovi": SCHEMA_ID,
     "wbs_rinnovi": SCHEMA_ID,

@@ -686,6 +686,9 @@ def verifica_natura_wbs(form, natura: str, campo_wbs: str, cluster=None) -> None
         form.add_error(campo_wbs, f"La WBS {wbs.codice_wbs} è di un altro cluster.")
 
 
+CAMPI_ACCESSORI = ("rimborso_inps_pct", "oneri_pct", "spese_vive_stimate")
+
+
 class VoceForm(ModelFormBootstrap):
     sezioni = [
         ("Voce", ["descrizione", "proroga"]),
@@ -694,6 +697,10 @@ class VoceForm(ModelFormBootstrap):
         (
             "Importi",
             ["importo_fisso", "massimale_variabile", "stima_consumo_pct", "stima_consumo_importo"],
+        ),
+        (
+            "Costi accessori previsti (professionisti: non prelevati dal contratto, a budget)",
+            ["rimborso_inps_pct", "oneri_pct", "spese_vive_stimate"],
         ),
         (
             "Nei rinnovi previsti (solo se cambia, es. nata CAPEX e rinnovata in OPEX)",
@@ -715,6 +722,9 @@ class VoceForm(ModelFormBootstrap):
             "massimale_variabile",
             "stima_consumo_pct",
             "stima_consumo_importo",
+            "rimborso_inps_pct",
+            "oneri_pct",
+            "spese_vive_stimate",
             "natura_rinnovi",
             "conto_rinnovi",
             "wbs_rinnovi",
@@ -739,6 +749,21 @@ class VoceForm(ModelFormBootstrap):
         tendina_centro_costo(
             self, attuale=self.instance.centro_costo, nuovo=self.instance.pk is None
         )
+        # Rev53: facoltativi, vuoto = nessun costo accessorio.
+        for campo in CAMPI_ACCESSORI:
+            self.fields[campo].required = False
+
+    def _zero_se_vuoto(self, campo):
+        return self.cleaned_data.get(campo) or Decimal("0")
+
+    def clean_rimborso_inps_pct(self):
+        return self._zero_se_vuoto("rimborso_inps_pct")
+
+    def clean_oneri_pct(self):
+        return self._zero_se_vuoto("oneri_pct")
+
+    def clean_spese_vive_stimate(self):
+        return self._zero_se_vuoto("spese_vive_stimate")
 
     def clean(self):
         dati = super().clean()

@@ -112,6 +112,7 @@
             <div><div class="small text-body-secondary">Massimale variabile</div><div class="fw-semibold">{{ voce.massimale_variabile|euro }}</div></div>
             {% if valori %}<div><div class="small text-body-secondary">Probabile</div><div class="fw-semibold">{{ valori.probabile|euro }}</div></div>
             <div><div class="small text-body-secondary">Massimo</div><div class="fw-semibold">{{ valori.massimo|euro }}</div></div>{% endif %}
+            {% if voce.rimborso_inps_pct or voce.oneri_pct or voce.spese_vive_stimate %}<div><div class="small text-body-secondary">Costi accessori previsti (a budget, fuori contratto)</div><div class="fw-semibold">{% if voce.rimborso_inps_pct %}rimborso INPS {{ voce.rimborso_inps_pct|floatformat:"-2" }}% {% endif %}{% if voce.oneri_pct %}oneri {{ voce.oneri_pct|floatformat:"-2" }}% {% endif %}{% if voce.spese_vive_stimate %}spese vive {{ voce.spese_vive_stimate|euro }}{% endif %}</div></div>{% endif %}
           </div>
           {% if voce.quote.all %}<p class="small mb-3"><strong>Quote per periodo:</strong> {% for q in voce.quote.all %}{{ q.dal|date:"d/m/Y" }}–{{ q.al|date:"d/m/Y" }} {{ q.importo|euro }}{% if not forloop.last %}; {% endif %}{% endfor %}</p>{% endif %}
           {% with rate=voce.piano_fatturazione.rate.all %}
