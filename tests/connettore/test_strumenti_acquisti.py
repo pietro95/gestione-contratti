@@ -261,3 +261,57 @@ def test_riferimenti_e_tools_list(tabelle_sap, lettore):  # noqa: F811
     }  # fmt: skip
     assert nuovi <= nomi
     assert errore(lettore, "rda", {"id": 999999}).startswith("Nessun RDA con id 999999")
+
+
+# --- Allegati della RDA (SPEC_MCP Rev19) -----------------------------------------------
+
+
+def _pdf(nome="preventivo.pdf"):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    return SimpleUploadedFile(nome, b"%PDF-1.4\n% prova\n", content_type="application/pdf")
+
+
+def test_rda_elenca_gli_allegati_senza_contenuto(rda_tc17, lettore):
+    from contratti import allegati
+
+    (a,) = allegati.aggiungi(rda_tc17, [_pdf()], rda_tc17.referente_utente)
+    (b,) = allegati.aggiungi(rda_tc17, [_pdf("vecchio.pdf")], rda_tc17.referente_utente)
+    allegati.archivia(b)
+    dati = esegui(lettore, "rda", {"id": rda_tc17.pk})
+    (voce,) = dati["file_allegati"]
+    assert voce["nome"] == "preventivo.pdf" and voce["caricato_da"] == "Mario Rossi"
+    assert voce["dimensione_byte"] == a.dimensione
+    assert voce["link"].endswith(f"/rda/{rda_tc17.pk}/allegati/{a.pk}/")
+    assert "PDF-1.4" not in str(dati)
+
+
+def test_carica_allegati_rda_link_e_limiti(rda_tc17):
+    from contratti import allegati
+
+    allegati.aggiungi(rda_tc17, [_pdf()], rda_tc17.referente_utente)
+    dati = esegui(rda_tc17.referente_utente, "carica_allegati_rda", {"id": rda_tc17.pk})
+    assert dati["link_caricamento"].endswith(f"/rda/{rda_tc17.pk}/#allegati")
+    assert dati["limiti"]["file_per_rda"] == allegati.max_per_rda()
+    assert dati["caricabili"] == allegati.max_per_rda() - 1
+    assert "pdf" in dati["limiti"]["tipi_ammessi"]
+    assert [x["nome"] for x in dati["file_allegati"]] == ["preventivo.pdf"]
+
+
+def test_carica_allegati_rda_negato(rda_tc17, lettore, make_user):
+    # Reader: il tool non c'è (come la pagina, 403).
+    testo = errore(lettore, "carica_allegati_rda", {"id": rda_tc17.pk})
+    assert "riservato ad Admin ed Editor" in testo
+    risposta, _ = protocollo.gestisci(
+        {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, Contesto(lettore, OGGI)
+    )
+    assert "carica_allegati_rda" not in {t["name"] for t in risposta["result"]["tools"]}
+    # RDA annullata: niente nuovi allegati.
+    acquisti.annulla(rda_tc17, "Non serve più", rda_tc17.referente_utente)
+    testo = errore(rda_tc17.referente_utente, "carica_allegati_rda", {"id": rda_tc17.pk})
+    assert "annullata o chiusa" in testo
+    # Editor di un altro cluster: come la pagina (verifica_oggetto).
+    altro = make_user("editor_tlc", role=EDITOR)
+    m.AssegnazioneCluster.objects.create(username=altro.username, cluster=f.cluster("TLC"))
+    testo = errore(altro, "carica_allegati_rda", {"id": rda_tc17.pk})
+    assert "non può modificare" in testo
