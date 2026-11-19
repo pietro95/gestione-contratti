@@ -906,9 +906,15 @@ def _trasferisci(ctx: Contesto, f: m.Fattura, argomenti: dict) -> None:
     if argomenti.get("annulla"):
         fatture.annulla_trasferimento(f)
         return
-    form = ff.TrasferimentoForm({"data": argomenti.get("data", ctx.oggi)})
+    form = ff.TrasferimentoForm(
+        {
+            "data": argomenti.get("data", ctx.oggi),
+            "giustificazione": argomenti.get("giustificazione", ""),
+        }
+    )
     valida(form)
-    fatture.trasferisci(f, ctx.utente, form.cleaned_data["data"])
+    d = form.cleaned_data
+    fatture.trasferisci(f, ctx.utente, d["data"], d["giustificazione"])
 
 
 # --- Esecuzione del contratto ------------------------------------------------------------------
@@ -1595,8 +1601,17 @@ STRUMENTI = [
         _scrittura("trasferisci_fattura", _oggetti_fattura, _azione_fattura(_trasferisci)),
         "Trasferisci la fattura",
         "Ultimo passo: fattura trasferita per il pagamento (data, di default oggi); con "
-        "«annulla» toglie il trasferimento.",
-        _schema({"id": SCHEMA_ID, "data": SCHEMA_DATA, "annulla": {"type": "boolean"}}, ["id"]),
+        "«annulla» toglie il trasferimento. Se mancano RdC o MAP/MIGO, o non sono rilasciati "
+        "su SAP, serve «giustificazione».",
+        _schema(
+            {
+                "id": SCHEMA_ID,
+                "data": SCHEMA_DATA,
+                "annulla": {"type": "boolean"},
+                "giustificazione": {"type": "string", "maxLength": 2000},
+            },
+            ["id"],
+        ),
     ),
     # --- Esecuzione ---
     strumento(

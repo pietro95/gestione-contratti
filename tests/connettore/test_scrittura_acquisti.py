@@ -481,8 +481,9 @@ def test_convalida_importi_documenti_trasferimento(client, editor, registro_fatt
     )  # fmt: skip
     data = oggi().strftime("%d/%m/%Y")
     uguale(
-        client, editor, lambda cl: cl.post(f"/fatture/{fa.pk}/trasferimento/", {"data": data}),
-        "trasferisci_fattura", {"id": fa.pk},
+        client, editor, lambda cl: cl.post(f"/fatture/{fa.pk}/trasferimento/",
+                           {"data": data, "giustificazione": "MAP in arrivo"}),
+        "trasferisci_fattura", {"id": fa.pk, "giustificazione": "MAP in arrivo"},
     )  # fmt: skip
     uguale(
         client, editor,
@@ -829,7 +830,7 @@ def test_con_l_utente_postgresql_del_container_mcp(editor, rda_bozza, registro_f
         ("importi_fattura", {"id": fa.pk, "competenza_dal": "2026-10-01",
                              "competenza_al": "2026-10-31"}),
         ("documento_fattura", {"id": fa.pk, "tipo": "ODA_RDC", "numero": "RDC-1"}),
-        ("trasferisci_fattura", {"id": fa.pk}),
+        ("trasferisci_fattura", {"id": fa.pk, "giustificazione": "MAP in arrivo"}),
         ("documento_esecuzione", {"contratto_id": c.pk, "tipo": "DDT", "data": "2026-10-01"}),
         ("chiudi_contratto", {"contratto_id": c.pk}),
     ]  # fmt: skip

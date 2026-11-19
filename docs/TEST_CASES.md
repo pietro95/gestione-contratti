@@ -837,3 +837,19 @@ SPEC §4 e §5.2 (Rev53, approvata il 18/11/2026). I test sono `tests/engine/tes
 **(e) Rinnovo previsto** (adeguamento 0%): eredita le percentuali e la stima; 2028: impegno 12.000,00, cassa 12.880,00.
 
 **(f) Voce senza accessori:** nessuna differenza rispetto a prima (cassa 12.000,00).
+
+## TC-30 — Trasferimento senza documenti SAP completi
+
+SPEC §5.7 e §5.9 (Rev54, approvata il 19/11/2026). I test sono `tests/test_trasferimento_senza_documenti.py`.
+
+**(a)** Fattura convalidata senza documenti: mancanze «manca la RdC (ODA/RDC)» e «manca il MAP o il MIGO»; il trasferimento senza giustificazione (o con solo spazi) è rifiutato; con «Pagamento urgente» è registrato e la giustificazione è salvata.
+
+**(b)** RdC e MAP registrati ma non rilasciati: «la RdC non è rilasciata su SAP», «il MAP non è rilasciato su SAP».
+
+**(c)** RdC rilasciata e MIGO registrato (non rilasciato): nessuna mancanza. Contratto che vale come ODA con MAP rilasciato: nessuna mancanza.
+
+**(d)** RdC rigettata dal rilascio: conta come mancante.
+
+**(e)** RdC e MAP rilasciati: nessun avviso; una giustificazione eventualmente inviata non si salva.
+
+**(f)** Annullamento del trasferimento: la giustificazione si azzera.

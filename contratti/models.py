@@ -2254,6 +2254,10 @@ class Fattura(Archiviabile):
     trasferita_da = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
     )
+    # Trasferimento senza RdC/MAP/MIGO, o con documenti non rilasciati su SAP: perché.
+    giustificazione_trasferimento = models.TextField(
+        "giustificazione del trasferimento senza documenti", blank=True
+    )
     note = models.TextField(blank=True)
     chiave_import = models.CharField(  # noqa: DJ001
         max_length=64, unique=True, null=True, blank=True, editable=False

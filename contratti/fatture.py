@@ -977,14 +977,32 @@ class EsitoDocumenti:
     rifiutate: list[tuple[m.DocumentoEsecuzione, str]]
 
 
-def trasferisci(fattura: m.Fattura, utente=None, data=None) -> None:
-    """Ultimo passo: la fattura è trasferita per il pagamento (solo data)."""
+def mancanze_trasferimento(fattura: m.Fattura) -> list[str]:
+    """Cosa manca, tra RdC e MAP/MIGO registrati e rilasciati, per trasferire la fattura."""
+    return motore.mancanze_trasferimento(documenti_fattura(fattura), vale_come_oda(fattura))
+
+
+def trasferisci(fattura: m.Fattura, utente=None, data=None, giustificazione: str = "") -> None:
+    """Ultimo passo: la fattura è trasferita per il pagamento (solo data). Senza i documenti
+    SAP, o con documenti non rilasciati, serve la giustificazione."""
     if fattura.data_trasferimento is not None:
         raise OperazioneNonAmmessa("La fattura è già trasferita.")
+    mancanze = mancanze_trasferimento(fattura)
+    giustificazione = (giustificazione or "").strip()
+    if mancanze and not giustificazione:
+        raise OperazioneNonAmmessa(
+            "Trasferimento senza documenti SAP completi ("
+            + "; ".join(mancanze)
+            + "): scrivi la giustificazione."
+        )
     fattura.data_trasferimento = data or timezone.localdate()
     fattura.trasferita_da = utente
-    _salva(fattura, "Trasferita per il pagamento", update_fields=["data_trasferimento",
-                                                                    "trasferita_da"])  # fmt: skip
+    fattura.giustificazione_trasferimento = giustificazione if mancanze else ""
+    _salva(
+        fattura,
+        "Trasferita senza documenti SAP completi" if mancanze else "Trasferita per il pagamento",
+        update_fields=["data_trasferimento", "trasferita_da", "giustificazione_trasferimento"],
+    )
 
 
 def annulla_trasferimento(fattura: m.Fattura) -> None:
@@ -992,8 +1010,12 @@ def annulla_trasferimento(fattura: m.Fattura) -> None:
         raise OperazioneNonAmmessa("La fattura non è trasferita.")
     fattura.data_trasferimento = None
     fattura.trasferita_da = None
-    _salva(fattura, "Trasferimento annullato", update_fields=["data_trasferimento",
-                                                               "trasferita_da"])  # fmt: skip
+    fattura.giustificazione_trasferimento = ""
+    _salva(
+        fattura,
+        "Trasferimento annullato",
+        update_fields=["data_trasferimento", "trasferita_da", "giustificazione_trasferimento"],
+    )
 
 
 # --- Indicazioni per la validazione e commento per PAC (SPEC §5.9) -------------------------

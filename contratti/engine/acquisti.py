@@ -362,6 +362,29 @@ def passo_fattura(
     return PassoFattura.TRASFERIMENTO
 
 
+def mancanze_trasferimento(
+    documenti: Iterable[Documento], contratto_oda: bool = False
+) -> list[str]:
+    """Documenti SAP che mancano o non sono rilasciati al trasferimento per il pagamento.
+
+    Lista vuota se la fattura ha la RdC rilasciata (non serve se il contratto vale come ODA)
+    e un MIGO o un MAP rilasciato. Altrimenti il trasferimento richiede una giustificazione.
+    """
+    mancanze = []
+    if not contratto_oda:
+        rdc = [d for d in documenti if d[0] == "ODA_RDC"]
+        if not rdc:
+            mancanze.append("manca la RdC (ODA/RDC)")
+        elif not any(_rilasciato(d) for d in rdc):
+            mancanze.append("la RdC non è rilasciata su SAP")
+    accettazione = [d for d in documenti if d[0] in TIPI_ACCETTAZIONE]
+    if not accettazione:
+        mancanze.append("manca il MAP o il MIGO")
+    elif not any(d[0] == "MIGO" or _rilasciato(d) for d in accettazione):
+        mancanze.append("il MAP non è rilasciato su SAP")
+    return mancanze
+
+
 def fattura_da_lavorare(
     documenti: Iterable[Documento],
     oggi: datetime.date,
