@@ -22,8 +22,9 @@
     {% include "contratti/_riga_sap.html" with etichetta="File server" valore=scheda.percorso %}
   </tbody>
 </table></div></div>
-<div class="mb-3">
-  <label class="form-label" for="testo-richiesta">Testo della richiesta (come la mail usata finora)</label>
-  <textarea id="testo-richiesta" class="form-control font-monospace small" rows="12" readonly>{{ testo }}</textarea>
+<details class="testo-mail mb-3">
+  <summary class="small text-body-secondary">Testo della richiesta (come la mail usata finora)</summary>
+  <label class="visually-hidden" for="testo-richiesta">Testo della richiesta</label>
+  <textarea id="testo-richiesta" class="form-control font-monospace small mt-2" rows="12" readonly>{{ testo }}</textarea>
   <button type="button" class="btn btn-sm btn-outline-primary mt-2" data-copia="testo-richiesta"><i class="bi bi-clipboard" aria-hidden="true"></i> Copia testo della richiesta</button>
-</div>
+</details>
