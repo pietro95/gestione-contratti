@@ -41,6 +41,7 @@ def test_flusso_della_richiesta_di_rda(pagina, dati):
     assert violazioni_axe(pagina) == []
 
     # «Copia testo della richiesta»: negli appunti il testo della mail.
+    pagina.click("details.testo-mail summary")  # il riquadro parte chiuso
     pagina.click("text=Copia testo della richiesta")
     expect(pagina.locator("button.copiato")).to_be_visible()
     appunti = pagina.evaluate("navigator.clipboard.readText()")
