@@ -7,7 +7,8 @@ all'interfaccia, in campi propri (D17); i testi del flusso in ``testo_libero``.
 
 from decimal import Decimal
 
-from contratti import acquisti, adapters, fatture
+from accounts.roles import WRITE_ROLES
+from contratti import acquisti, adapters, allegati, fatture, permessi
 from contratti import models as m
 from contratti import stanziamenti as servizi_stanziamenti
 from contratti.engine import acquisti as motore
@@ -172,9 +173,53 @@ def rda(ctx: Contesto, argomenti: dict) -> dict:
             for e in r.eventi.select_related("utente").order_by("-data", "-pk")
         ],
         "testo_libero": {"note_buyer": r.note_buyer or None, "allegati": r.allegati or None},
+        "file_allegati": [_allegato(a) for a in allegati.attivi(r).select_related("caricato_da")],
         "scheda_sap": _scheda(scheda),
         "testo_richiesta": motore.componi_testo_richiesta(scheda),
     }
+
+
+def _allegato(a: m.AllegatoRDA) -> dict:
+    """Solo i dati del file, mai il contenuto: si scarica dall'app (SPEC_MCP Rev19)."""
+    return {
+        "id": a.pk,
+        "nome": a.nome,
+        "dimensione_byte": a.dimensione,
+        "caricato_il": a.caricato_il,
+        "caricato_da": nome(a.caricato_da),
+        "link": link("contratti:rda_allegato", a.rda_id, a.pk),
+    }
+
+
+def carica_allegati_rda(ctx: Contesto, argomenti: dict) -> dict:
+    """Link alla scheda «Allegati» della RDA, dopo gli stessi controlli della pagina.
+
+    Il file non passa dal connettore (SPEC_MCP Rev19): l'utente lo carica dal browser.
+    """
+    r = oggetto(m.RichiestaAcquisto.objects.all(), argomenti["id"], "RDA")
+    if not permessi.puo_modificare_oggetto(ctx.utente, r):
+        raise ErroreTool("La RDA è di un cluster che l'utente non può modificare.")
+    if not allegati.modificabile(r):
+        raise ErroreTool("La RDA è annullata o chiusa: niente nuovi allegati.")
+    caricati = list(allegati.attivi(r).select_related("caricato_da"))
+    massimo = allegati.max_per_rda()
+    return {
+        "alla_data": ctx.oggi,
+        "rda": {"id": r.pk, "numero_rda": r.numero_rda, "descrizione": r.intestazione
+                or r.descrizione},
+        "caricabili": max(massimo - len(caricati), 0),
+        "limiti": {
+            "file_per_rda": massimo,
+            "mb_per_file": allegati.max_byte() // (1024 * 1024),
+            "tipi_ammessi": sorted(allegati.TIPI_AMMESSI),
+        },
+        "file_allegati": [_allegato(a) for a in caricati],
+        "link_caricamento": link("contratti:rda", r.pk) + "#allegati",
+        "istruzioni": (
+            "Aprire «link_caricamento» dalla rete aziendale e caricare i file dalla scheda "
+            "«Allegati». Il connettore non riceve file."
+        ),
+    }  # fmt: skip
 
 
 def elenco_rda(ctx: Contesto, argomenti: dict) -> dict:
@@ -590,12 +635,28 @@ STRUMENTI = [
             "La richiesta di RDA: fase (bozza, inviata, da correggere, inserita, rilasciata, "
             "contratto emesso, in esecuzione, chiusa, annullata) con i giorni e «ferma», "
             "pratica e suo stato, referente, posizioni con importo, contratti generati con la "
-            "differenza dalla RDA, storico (invio, rimando, annullamento). «scheda_sap» sono i "
+            "differenza dalla RDA, storico (invio, rimando, annullamento), «file_allegati» "
+            "(nome, dimensione, link per scaricarli dall'app; per caricarne usare "
+            "«carica_allegati_rda»). «scheda_sap» sono i "
             "campi nell'ordine di SAP («sap»: da inserire; altrimenti informativi); "
             "«testo_richiesta» è il testo della mail: riportarli tali e quali. " + NOTA_TESTI
         ),
         input_schema=_schema({"id": SCHEMA_ID}, ["id"]),
         esegui=rda,
+    ),
+    Strumento(
+        nome="carica_allegati_rda",
+        titolo="Caricare allegati su una RDA",
+        descrizione=(
+            "Per allegare file (preventivi, offerte, email) a una richiesta di RDA. Il "
+            "connettore non riceve file: il tool verifica che l'utente possa modificare la RDA "
+            "e che sia aperta, e restituisce «link_caricamento», la scheda «Allegati» dell'app "
+            "da cui caricarli, con i limiti (numero, MB, tipi ammessi) e i file già presenti. "
+            "Dare il link all'utente. Riservato ad Admin ed Editor."
+        ),
+        input_schema=_schema({"id": SCHEMA_ID}, ["id"]),
+        esegui=carica_allegati_rda,
+        ruoli=WRITE_ROLES,
     ),
     Strumento(
         nome="elenco_rda",
