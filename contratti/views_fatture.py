@@ -521,6 +521,7 @@ def fattura_dettaglio(request, pk):
                 }
             ),  # fmt: skip
             "form_trasferimento": forms.TrasferimentoForm(initial={"data": oggi}),
+            "mancanze_trasferimento": fatture.mancanze_trasferimento(f),
             "form_riassegna": forms.RiassegnaForm(),
             "storico": storico(f),
             "Passo": Passo,
@@ -731,9 +732,11 @@ def fattura_trasferisci(request, pk):
     if request.POST.get("annulla"):
         return _azione(request, pk, fatture.annulla_trasferimento, "Trasferimento annullato.")
     form = forms.TrasferimentoForm(request.POST)
-    data = form.cleaned_data["data"] if form.is_valid() else timezone.localdate()
+    valido = form.is_valid()
+    data = form.cleaned_data["data"] if valido else timezone.localdate()
+    giustificazione = form.cleaned_data["giustificazione"] if valido else ""
     return _azione(
-        request, pk, lambda x: fatture.trasferisci(x, request.user, data),
+        request, pk, lambda x: fatture.trasferisci(x, request.user, data, giustificazione),
         "Fattura trasferita per il pagamento.",
     )  # fmt: skip
 

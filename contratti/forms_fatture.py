@@ -268,6 +268,11 @@ class DocumentoFatturaForm(FormBase):
 
 class TrasferimentoForm(FormBase):
     data = forms.DateField(label="Trasferita per il pagamento il")
+    giustificazione = forms.CharField(
+        label="Giustificazione del trasferimento senza documenti",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
 
 
 class RiassegnaForm(FormBase):

@@ -302,7 +302,7 @@ def test_rimozione_archivia_e_si_puo_registrare_di_nuovo(editor, con_documento):
 
 def test_dopo_il_trasferimento_non_si_modifica(editor, con_documento):
     fa, doc = con_documento
-    fatture.trasferisci(fa, data=D(2026, 3, 20))
+    fatture.trasferisci(fa, data=D(2026, 3, 20), giustificazione="MAP non rilasciato")
     editor.post(reverse("contratti:fattura_documento_rimuovi", args=[fa.pk, doc.pk]))
     doc.refresh_from_db()
     assert not doc.archiviato

@@ -208,7 +208,7 @@ def test_lavorazione_completa(scenario, make_user):
     client.login(username="rossi", password=PASSWORD)
     client.post(
         reverse("contratti:fattura_trasferisci", args=[fa.pk]),
-        {"data": OGGI.strftime("%d/%m/%Y")},
+        {"data": OGGI.strftime("%d/%m/%Y"), "giustificazione": "RdC e MAP in arrivo"},
     )
     fa.refresh_from_db()
     assert fa.data_trasferimento == OGGI and fa.trasferita_da == rossi

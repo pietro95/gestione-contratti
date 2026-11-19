@@ -6,11 +6,19 @@
       <button type="button" class="btn btn-sm btn-outline-primary mt-2 mb-3" data-copia="commento-pac"><i class="bi bi-clipboard" aria-hidden="true"></i> Copia il commento per PAC</button>
       {% if f.data_trasferimento %}
         <p class="mb-2">Trasferita il {{ f.data_trasferimento|date:"d/m/Y" }}{% if f.trasferita_da %} da {{ f.trasferita_da }}{% endif %}.</p>
+        {% if f.giustificazione_trasferimento %}<div class="alert alert-warning py-2 small" role="status"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Trasferita senza documenti SAP completi. Giustificazione: {{ f.giustificazione_trasferimento|linebreaksbr }}</div>{% endif %}
         {% if puo_lavorare %}<form method="post" action="{% url 'contratti:fattura_trasferisci' f.pk %}" data-conferma="La fattura torna da trasferire." data-conferma-etichetta="Annulla il trasferimento">{% csrf_token %}<button class="btn btn-sm btn-outline-danger" type="submit" name="annulla" value="1">Annulla il trasferimento</button></form>{% endif %}
       {% elif puo_lavorare and f.contratto %}
       <form method="post" action="{% url 'contratti:fattura_trasferisci' f.pk %}" class="row g-2" novalidate>
         {% csrf_token %}
         <div class="col-sm-6"><label class="form-label" for="{{ form_trasferimento.data.id_for_label }}">Trasferita il</label>{{ form_trasferimento.data }}</div>
+        {% if mancanze_trasferimento %}
+        <div class="col-12"><div class="alert alert-warning py-2 mb-0" role="alert" id="avviso-trasferimento">
+          <i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Documenti SAP incompleti: {{ mancanze_trasferimento|join:"; " }}. Per trasferire scrivi la giustificazione.
+        </div></div>
+        <div class="col-12"><label class="form-label" for="{{ form_trasferimento.giustificazione.id_for_label }}">Giustificazione del trasferimento senza documenti</label>
+          <textarea name="giustificazione" id="{{ form_trasferimento.giustificazione.id_for_label }}" class="form-control" rows="3" required aria-describedby="avviso-trasferimento"></textarea></div>
+        {% endif %}
         <div class="col-12"><button class="btn btn-primary" type="submit">Registra il trasferimento</button></div>
       </form>
       {% endif %}
