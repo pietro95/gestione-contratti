@@ -1,6 +1,7 @@
 {% load registro %}
     <section class="card mb-4" aria-labelledby="t-sap"><div class="card-body">
       <h2 class="h6 text-uppercase text-body-secondary" id="t-sap">RdC e {{ documento_proposto }}</h2>
+      {% if f.imponibile_senza_iva %}<div class="alert alert-warning d-flex gap-2" role="alert"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i><div><strong>Fattura con IVA mista: parte a IVA 0 ({{ f.imponibile_senza_iva|euro }}).</strong> Nell'emissione della RdC crea più di una riga, una per ogni tipo di IVA (una per la parte a IVA 0, una per la parte con aliquota).</div></div>{% endif %}
       {% if not mostra_validatore %}{% include "contratti/_fattura_oda.html" %}{% elif vale_come_oda %}<p class="small mb-3"><span class="stato stato-blu">vale come ODA</span> La RdC non serve: si passa a {{ documento_proposto }}.</p>{% endif %}
       <div class="mb-3">
         <label class="form-label" for="indicazioni">Indicazioni per la validazione</label>
