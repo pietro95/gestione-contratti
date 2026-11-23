@@ -572,6 +572,22 @@ class DocumentoEsecuzioneAdmin(ArchiviabileAdmin):
     raw_id_fields = ("voce", "fattura")
 
 
+@admin.register(m.RichiestaAnnullamentoRilascio)
+class RichiestaAnnullamentoRilascioAdmin(BaseAdmin):
+    """Consultazione: le richieste si fanno e si decidono dalle schede e dai Rilasci SAP."""
+
+    list_display = ("richiesta_il", "documento", "rda", "richiesta_da", "stato", "chiusa_il")
+    list_filter = ("stato",)
+    search_fields = ("documento__numero", "rda__numero_rda", "motivazione")
+    raw_id_fields = ("documento", "rda")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(m.Proroga)
 class ProrogaAdmin(BaseAdmin):
     list_display = ("contratto", "data_atto", "nuova_data_fine", "riferimento")

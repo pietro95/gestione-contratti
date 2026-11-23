@@ -965,10 +965,18 @@ def annulla_rilascio(doc: m.DocumentoEsecuzione, utente) -> None:
         raise OperazioneNonAmmessa("Il documento non è rilasciato.")
     if doc.fattura_id and doc.fattura.data_trasferimento is not None:
         raise OperazioneNonAmmessa("La fattura è trasferita: prima si annulla il trasferimento.")
-    doc.data_rilascio = None
-    doc.rilasciato_da = None
-    doc._change_reason = "Rilascio annullato"
-    doc.save(update_fields=["data_rilascio", "rilasciato_da"])
+    from contratti import annullamenti  # importa questo modulo
+
+    with transaction.atomic():
+        motivazione = annullamenti.chiudi_dopo_annullamento(doc, utente)
+        doc.data_rilascio = None
+        doc.rilasciato_da = None
+        doc._change_reason = (
+            f"Rilascio annullato su richiesta: {motivazione}"
+            if motivazione
+            else "Rilascio annullato"
+        )[:100]
+        doc.save(update_fields=["data_rilascio", "rilasciato_da"])
 
 
 @dataclass

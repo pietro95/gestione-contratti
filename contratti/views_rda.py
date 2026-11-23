@@ -15,7 +15,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from accounts.permissions import editor_required
-from contratti import acquisti, allegati, permessi
+from contratti import acquisti, allegati, annullamenti, permessi
 from contratti import forms_rda as forms
 from contratti import models as m
 from contratti.engine import acquisti as motore
@@ -300,6 +300,7 @@ def rda_dettaglio(request, pk):
     scheda = acquisti.scheda(rda)
     pratica = rda.contratto_in_scadenza or rda.fabbisogno
     generati = list(rda.contratti_generati.filter(archiviato=False).select_related("fornitore"))
+    annullamento = annullamenti.aperta(rda)
     return render(
         request,
         "contratti/rda_dettaglio.html",
@@ -323,6 +324,10 @@ def rda_dettaglio(request, pk):
             "rilasciabile": r["fase"] == Fase.INSERITA,
             "rigetto": acquisti.ultimo_rigetto(rda),
             "rilascio_annullabile": r["fase"] == Fase.RILASCIATA,
+            "annullamento_aperto": annullamento,
+            "puo_chiedere_annullamento": r["fase"] == Fase.RILASCIATA
+            and annullamento is None
+            and annullamenti.puo_chiedere(request.user, rda),
             "form_nota": forms.NotaForm(),
             "allegati": allegati.attivi(rda).select_related("caricato_da"),
             "form_allegati": forms.AllegatiForm(),

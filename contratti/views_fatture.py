@@ -19,7 +19,7 @@ from django.views.decorators.http import require_POST
 
 from accounts.permissions import editor_required
 from accounts.roles import ADMIN, role_of
-from contratti import acquisti, fatture, permessi, rilascio_link, stanziamenti
+from contratti import acquisti, annullamenti, fatture, permessi, rilascio_link, stanziamenti
 from contratti import forms_fatture as forms
 from contratti import models as m
 from contratti.engine import acquisti as motore
@@ -216,6 +216,7 @@ def rilasci(request):
                 }
                 for r in rda
             ],
+            "annullamenti": list(annullamenti.aperte()),
             "tipo": tipo,
             "tipi": [("RDA", "RDA"), *((t.value, t.label) for t in fatture.TIPI_DA_RILASCIARE)],
             "puo_rilasciare": fatture.puo_rilasciare(request.user),
@@ -364,7 +365,7 @@ def rilascio_annulla(request, pk):
         _errore(request, exc)
     else:
         messages.success(request, "Rilascio annullato.")
-    if doc.fattura_id:
+    if doc.fattura_id and request.POST.get("ritorno") != "rilasci":
         return redirect("contratti:fattura", pk=doc.fattura_id)
     return redirect("contratti:rilasci")
 
@@ -381,7 +382,64 @@ def rilascio_rda_annulla(request, pk):
         _errore(request, exc)
     else:
         messages.success(request, "Rilascio annullato.")
+    if request.POST.get("ritorno") == "rilasci":
+        return redirect("contratti:rilasci")
     return redirect("contratti:rda", pk=pk)
+
+
+def _chiedi_annullamento(request, oggetto, destinazione):
+    try:
+        annullamenti.chiedi(oggetto, request.POST.get("motivazione", ""), request.user)
+    except acquisti.OperazioneNonAmmessa as exc:
+        _errore(request, exc)
+    else:
+        messages.success(request, "Richiesta di annullamento inviata agli addetti al rilascio.")
+    return destinazione
+
+
+@editor_required
+@require_POST
+def rilascio_chiedi_annullamento(request, pk):
+    """Il referente o l'addetto amministrativo chiede di annullare il rilascio di una RdC o di
+    un MAP, con motivazione (Rev56). 403 per chi non lavora la fattura."""
+    doc = get_object_or_404(
+        m.DocumentoEsecuzione.objects.select_related("fattura__contratto__fabbisogno"),
+        pk=pk,
+        archiviato=False,
+    )
+    if not annullamenti.puo_chiedere(request.user, doc):
+        raise PermissionDenied("Non puoi chiedere l'annullamento di questo rilascio.")
+    if doc.fattura_id:
+        destinazione = redirect("contratti:fattura", pk=doc.fattura_id)
+    else:
+        destinazione = redirect("contratti:rilasci")
+    return _chiedi_annullamento(request, doc, destinazione)
+
+
+@editor_required
+@require_POST
+def rilascio_rda_chiedi_annullamento(request, pk):
+    """Come sopra, per una RDA rilasciata (Rev56)."""
+    rda = get_object_or_404(m.RichiestaAcquisto, pk=pk, archiviato=False)
+    if not annullamenti.puo_chiedere(request.user, rda):
+        raise PermissionDenied("Non puoi chiedere l'annullamento di questo rilascio.")
+    return _chiedi_annullamento(request, rda, redirect("contratti:rda", pk=pk))
+
+
+@editor_required
+@require_POST
+def annullamento_respingi(request, pk):
+    """L'addetto al rilascio respinge la richiesta di annullamento, con una nota (Rev56)."""
+    if not fatture.puo_rilasciare(request.user):
+        raise PermissionDenied("Non sei addetto al rilascio.")
+    richiesta = get_object_or_404(m.RichiestaAnnullamentoRilascio, pk=pk)
+    try:
+        annullamenti.respingi(richiesta, request.POST.get("nota", ""), request.user)
+    except acquisti.OperazioneNonAmmessa as exc:
+        _errore(request, exc)
+    else:
+        messages.success(request, "Richiesta di annullamento respinta: il rilascio resta.")
+    return redirect("contratti:rilasci")
 
 
 def _url_elenco():
@@ -441,6 +499,18 @@ def fattura_dettaglio(request, pk):
     r = _riga(f, oggi, proposto, referente)
     puo_lavorare = fatture.puo_lavorare(request.user, f)
     documenti = list(f.documenti.all())
+    # Rev56: richiesta di annullamento del rilascio in attesa e possibilità di chiederla.
+    aperte = {
+        a.documento_id: a
+        for a in annullamenti.aperte().filter(documento__in=[d.pk for d in documenti])
+    }
+    for d in documenti:
+        d.annullamento_aperto = aperte.get(d.pk)
+        d.puo_chiedere_annullamento = (
+            d.annullamento_aperto is None
+            and not annullamenti.motivo_non_annullabile(d)
+            and annullamenti.puo_chiedere(request.user, d)
+        )
     # Due schede: l'addetto vede solo RdC/MAP e trasferimento, il validatore il resto (con
     # un riepilogo in sola lettura di quanto compila l'addetto). L'Admin vede tutto.
     addetto = fatture.e_addetto_fatture(request.user)

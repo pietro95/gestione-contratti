@@ -11,6 +11,25 @@
   </div>
 </form>
 
+{% if annullamenti %}
+<section class="mb-4" aria-labelledby="t-annullamenti">
+  <h2 class="h6 text-uppercase text-body-secondary" id="t-annullamenti">Richieste di annullamento del rilascio</h2>
+  <div class="tabella-card mb-3"><div class="table-responsive"><table class="table table-sm align-middle">
+    <thead><tr><th>Elemento</th><th>Rilasciato il</th><th>Richiesta</th><th>Motivazione</th>{% if puo_rilasciare %}<th><span class="visually-hidden">Decisione</span></th>{% endif %}</tr></thead>
+    <tbody>{% for a in annullamenti %}<tr>
+      <td>{% if a.documento %}<a href="{% url 'contratti:fattura' a.documento.fattura_id %}">{{ a.descrizione_elemento }}</a><div class="small text-body-secondary">fattura {{ a.documento.fattura.numero }} di {{ a.documento.fattura.fornitore }}</div>{% else %}<a href="{% url 'contratti:rda' a.rda.pk %}">{{ a.descrizione_elemento }}</a><div class="small text-body-secondary">{{ a.rda.descrizione }}</div>{% endif %}</td>
+      <td>{{ a.elemento.data_rilascio|date:"d/m/Y"|default:"—" }}</td>
+      <td>{{ a.richiesta_da }}<div class="small text-body-secondary">{{ a.richiesta_il|date:"d/m/Y" }}</div></td>
+      <td>{{ a.motivazione|linebreaksbr }}</td>
+      {% if puo_rilasciare %}<td class="text-nowrap">
+        <form method="post" action="{% if a.documento %}{% url 'contratti:rilascio_annulla' a.documento.pk %}{% else %}{% url 'contratti:rilascio_rda_annulla' a.rda.pk %}{% endif %}" class="d-inline">{% csrf_token %}<input type="hidden" name="ritorno" value="rilasci"><button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Annulla il rilascio</button></form>
+        <form method="post" action="{% url 'contratti:annullamento_respingi' a.pk %}" class="d-inline">{% csrf_token %}<input type="text" name="nota" class="form-control form-control-sm d-inline-block w-auto ms-1" placeholder="Nota" aria-label="Nota per respingere la richiesta su {{ a.descrizione_elemento }}" maxlength="2000" required><button type="submit" class="btn btn-sm btn-outline-danger ms-1"><i class="bi bi-x-circle" aria-hidden="true"></i> Respingi</button></form>
+      </td>{% endif %}
+    </tr>{% endfor %}</tbody>
+  </table></div></div>
+</section>
+{% endif %}
+
 {% if righe or rda_righe %}
 <form method="post" action="{% url 'contratti:rilasci_azione' %}">
   {% csrf_token %}

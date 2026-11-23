@@ -745,9 +745,18 @@ def annulla_rilascio_rda(rda: m.RichiestaAcquisto, utente) -> None:
         raise OperazioneNonAmmessa(
             "Il rilascio si annulla solo per una RDA rilasciata, senza contratto."
         )
-    rda.data_rilascio = None
-    rda.rilasciata_da = None
-    _salva(rda, "Rilascio annullato")
+    from contratti import annullamenti  # importa questo modulo
+
+    with transaction.atomic():
+        motivazione = annullamenti.chiudi_dopo_annullamento(rda, utente)
+        rda.data_rilascio = None
+        rda.rilasciata_da = None
+        _salva(
+            rda,
+            f"Rilascio annullato su richiesta: {motivazione}"
+            if motivazione
+            else "Rilascio annullato",
+        )
 
 
 @dataclass

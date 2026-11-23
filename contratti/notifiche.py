@@ -48,6 +48,8 @@ class Tipo:
     DOCUMENTO_DA_RILASCIARE = "documento_da_rilasciare"
     DOCUMENTO_RILASCIATO = "documento_rilasciato"
     RILASCIO_RIGETTATO = "rilascio_rigettato"
+    ANNULLAMENTO_RICHIESTO = "annullamento_richiesto"
+    ANNULLAMENTO_DECISO = "annullamento_deciso"
     RILASCI_IN_ATTESA = "rilasci_in_attesa"
     CONTRATTI_IN_SCADENZA = "contratti_in_scadenza"
     FATTURE_NUOVE = "fatture_nuove"
@@ -492,3 +494,62 @@ def documento_rigettato(documento: m.DocumentoEsecuzione, nota: str, utente=None
         link("fattura", fattura.pk),
         utente,
     )
+
+
+def _riferimento_annullamento(richiesta: m.RichiestaAnnullamentoRilascio) -> tuple[str, str]:
+    """Descrizione dell'elemento e link alla sua scheda."""
+    if richiesta.documento_id:
+        d = richiesta.documento
+        fattura = d.fattura
+        if fattura is None:
+            return richiesta.descrizione_elemento, link("rilasci")
+        return (
+            f"{richiesta.descrizione_elemento} (fattura {fattura.numero} di {fattura.fornitore})",
+            link("fattura", fattura.pk),
+        )
+    rda = richiesta.rda
+    return f"{richiesta.descrizione_elemento} — {rda.intestazione or rda}", link("rda", rda.pk)
+
+
+def annullamento_richiesto(richiesta: m.RichiestaAnnullamentoRilascio) -> int:
+    """Richiesta di annullare un rilascio → addetti al rilascio (Rev56)."""
+    riferimento, pagina = _riferimento_annullamento(richiesta)
+    corpo = (
+        f"{_nome(richiesta.richiesta_da)} chiede di annullare il rilascio su SAP di "
+        f"{riferimento}.\n\n"
+        f"Motivazione:\n{richiesta.motivazione}\n\n"
+        f"Decidi dalla maschera dei rilasci: {link('rilasci')}\n"
+        f"Apri la scheda: {pagina}"
+    )
+    return invia(
+        Tipo.ANNULLAMENTO_RICHIESTO,
+        addetti_al_rilascio(),
+        f"Richiesta di annullamento del rilascio: {richiesta.descrizione_elemento}",
+        corpo,
+        escludi=richiesta.richiesta_da,
+    )
+
+
+def annullamento_deciso(richiesta: m.RichiestaAnnullamentoRilascio, utente=None) -> int:
+    """Esito della richiesta (rilascio annullato o richiesta respinta) → chi l'ha chiesta."""
+    riferimento, pagina = _riferimento_annullamento(richiesta)
+    if richiesta.stato == m.RichiestaAnnullamentoRilascio.Stato.ESEGUITA:
+        esito = "annullato"
+        corpo = (
+            f"L'addetto al rilascio ({_nome(utente)}) ha annullato il rilascio su SAP di "
+            f"{riferimento}, come richiesto. L'elemento torna da rilasciare.\n\n"
+        )
+    else:
+        esito = "respinta"
+        corpo = (
+            f"L'addetto al rilascio ({_nome(utente)}) ha respinto la richiesta di annullare il "
+            f"rilascio su SAP di {riferimento}: il rilascio resta.\n\n"
+            f"Nota:\n{richiesta.nota_esito}\n\n"
+        )
+    corpo += f"La tua motivazione:\n{richiesta.motivazione}\n\nApri la scheda: {pagina}"
+    oggetto = (
+        f"Rilascio annullato: {richiesta.descrizione_elemento}"
+        if esito == "annullato"
+        else f"Annullamento del rilascio respinto: {richiesta.descrizione_elemento}"
+    )
+    return invia(Tipo.ANNULLAMENTO_DECISO, [richiesta.richiesta_da], oggetto, corpo, escludi=utente)
