@@ -93,3 +93,19 @@ def test_il_campo_e_nel_modulo_del_contratto(scenario):  # noqa: F811
     pagina = _client("rossi").get(reverse("contratti:contratto_modifica", args=[c.pk]))
     assert pagina.status_code == 200
     assert "vale_come_oda" in pagina.content.decode()
+
+
+def test_iva_mista_avvisa_di_dividere_la_rdc_per_tipo_di_iva(scenario, make_user):  # noqa: F811
+    make_user("addetto", role=EDITOR)
+    m.FunzioneUtente.objects.create(
+        username="addetto", funzione=m.FunzioneUtente.Funzione.AMMINISTRAZIONE_ACQUISTI
+    )
+    fa, c = scenario["fattura"], scenario["contratto"]
+    fa = _convalidata(fa, c, scenario["referente"])
+    url = reverse("contratti:fattura", args=[fa.pk])
+    avviso = "una per ogni tipo di IVA"
+    assert avviso not in _client("addetto").get(url).content.decode()
+    m.Fattura.objects.filter(pk=fa.pk).update(imponibile_senza_iva="100.00")
+    pagina = _client("addetto").get(url).content.decode()
+    assert avviso in pagina
+    assert "più di una riga" in pagina
