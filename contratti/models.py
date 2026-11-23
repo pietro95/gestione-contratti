@@ -2525,6 +2525,89 @@ class DocumentoEsecuzione(Archiviabile):
 # ---------------------------------------------------------------------------
 
 
+class RichiestaAnnullamentoRilascio(models.Model):
+    """Richiesta di annullare il rilascio su SAP di una RDA, una RdC (ODA/RDC) o un MAP, con
+    motivazione (SPEC §5.9, Rev56).
+
+    La chiede il referente (chi modifica nel cluster) o l'addetto amministrativo; la decide
+    l'addetto al rilascio, che annulla il rilascio (stato ``eseguita``) o la respinge con una
+    nota. Una sola richiesta aperta per elemento. Non si cancella: resta come fatto nello
+    storico.
+    """
+
+    class Stato(models.TextChoices):
+        APERTA = "aperta", "In attesa"
+        ESEGUITA = "eseguita", "Rilascio annullato"
+        RESPINTA = "respinta", "Respinta"
+
+    documento = models.ForeignKey(
+        DocumentoEsecuzione,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="richieste_annullamento",
+    )
+    rda = models.ForeignKey(
+        RichiestaAcquisto,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="richieste_annullamento",
+    )
+    motivazione = models.TextField()
+    richiesta_il = models.DateField("richiesta il")
+    richiesta_da = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    stato = models.CharField(max_length=10, choices=Stato.choices, default=Stato.APERTA)
+    chiusa_il = models.DateField("decisa il", null=True, blank=True)
+    chiusa_da = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
+    )
+    nota_esito = models.TextField("nota dell'addetto al rilascio", blank=True)
+    registrato_il = models.DateTimeField(auto_now_add=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = "richiesta di annullamento del rilascio"
+        verbose_name_plural = "richieste di annullamento del rilascio"
+        ordering = ["-richiesta_il", "-pk"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(Q(documento__isnull=False) & Q(rda__isnull=True))
+                | (Q(documento__isnull=True) & Q(rda__isnull=False)),
+                name="contratti_annullamento_un_elemento",
+            ),
+            models.CheckConstraint(
+                condition=~Q(motivazione=""), name="contratti_annullamento_con_motivazione"
+            ),
+            models.UniqueConstraint(
+                fields=["documento"],
+                condition=Q(stato="aperta", documento__isnull=False),
+                name="contratti_annullamento_una_aperta_per_documento",
+            ),
+            models.UniqueConstraint(
+                fields=["rda"],
+                condition=Q(stato="aperta", rda__isnull=False),
+                name="contratti_annullamento_una_aperta_per_rda",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Annullamento del rilascio di {self.elemento} ({self.get_stato_display()})"
+
+    @property
+    def elemento(self):
+        return self.documento if self.documento_id else self.rda
+
+    @property
+    def descrizione_elemento(self) -> str:
+        if self.documento_id:
+            d = self.documento
+            return f"{d.get_tipo_display()} {d.numero}".strip()
+        return f"RDA {self.rda.numero_rda or self.rda.pk}"
+
+
 class StatoProposta(models.TextChoices):
     PROPOSTA = "proposta", "Da valutare"
     CONFERMATA = "confermata", "Confermata"

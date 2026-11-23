@@ -72,6 +72,21 @@ urlpatterns = [
         views_fatture.rilascio_rda_annulla,
         name="rilascio_rda_annulla",
     ),
+    path(
+        "rilasci/<int:pk>/chiedi-annullamento/",
+        views_fatture.rilascio_chiedi_annullamento,
+        name="rilascio_chiedi_annullamento",
+    ),
+    path(
+        "rilasci/rda/<int:pk>/chiedi-annullamento/",
+        views_fatture.rilascio_rda_chiedi_annullamento,
+        name="rilascio_rda_chiedi_annullamento",
+    ),
+    path(
+        "rilasci/annullamenti/<int:pk>/respingi/",
+        views_fatture.annullamento_respingi,
+        name="annullamento_respingi",
+    ),
     path("fatture/azione/", views_fatture.fatture_azione, name="fatture_azione"),
     path("fatture/nuova/", views_fatture.fattura_nuova, name="fattura_nuova"),
     path("fatture/<int:pk>/", views_fatture.fattura_dettaglio, name="fattura"),

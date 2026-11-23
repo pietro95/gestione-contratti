@@ -68,7 +68,12 @@
         <h2 class="h6 text-uppercase text-body-secondary mt-3">Rilascio su SAP</h2>
         {% if rda.data_rilascio %}
         <p class="mb-2"><span class="stato stato-verde">rilasciata il {{ rda.data_rilascio|date:"d/m/Y" }}</span>{% if rda.rilasciata_da %} <span class="small text-body-secondary">({{ rda.rilasciata_da }})</span>{% endif %}</p>
+        {% if annullamento_aperto %}<div class="small mb-2"><span class="stato stato-giallo">annullamento richiesto</span> da {{ annullamento_aperto.richiesta_da }} il {{ annullamento_aperto.richiesta_il|date:"d/m/Y" }}: {{ annullamento_aperto.motivazione }}</div>{% endif %}
         {% if puo_rilasciare and rilascio_annullabile %}<form method="post" action="{% url 'contratti:rilascio_rda_annulla' rda.pk %}" class="d-inline">{% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-secondary">Annulla il rilascio</button></form>{% endif %}
+        {% if puo_chiedere_annullamento and not puo_rilasciare %}<form method="post" action="{% url 'contratti:rilascio_rda_chiedi_annullamento' rda.pk %}" class="mt-2">{% csrf_token %}
+          <label class="form-label" for="motivazione-annullamento">Motivazione</label><textarea id="motivazione-annullamento" name="motivazione" class="form-control" rows="2" required maxlength="2000"></textarea><div class="form-text">Gli addetti al rilascio ricevono un'email e decidono se annullare il rilascio.</div>
+          <button type="submit" class="btn btn-sm btn-outline-secondary mt-2"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Chiedi l'annullamento del rilascio</button>
+        </form>{% endif %}
         {% elif puo_rilasciare and rilasciabile %}
         <form method="post" action="{% url 'contratti:rilasci_azione' %}">{% csrf_token %}<input type="hidden" name="rda" value="{{ rda.pk }}"><input type="hidden" name="ritorno_rda" value="{{ rda.pk }}">
           <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-patch-check" aria-hidden="true"></i> Rilascia la RDA</button>
