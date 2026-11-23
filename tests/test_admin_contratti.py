@@ -118,8 +118,14 @@ def dati():
     fattura = m.Fattura.objects.create(
         contratto=c, numero="FA-PROVA", data=D(2026, 3, 1), importo_documento=Decimal("100")
     )
-    m.DocumentoEsecuzione.objects.create(
-        contratto=c, tipo="MAP", data=D(2026, 3, 5), fattura=fattura
+    documento = m.DocumentoEsecuzione.objects.create(
+        contratto=c, tipo="MAP", data=D(2026, 3, 5), fattura=fattura, data_rilascio=D(2026, 3, 6)
+    )
+    m.RichiestaAnnullamentoRilascio.objects.create(
+        documento=documento,
+        motivazione="Prova",
+        richiesta_il=D(2026, 3, 7),
+        richiesta_da=get_user_model().objects.create_user("richiedente_prova"),
     )
     m.Stanziamento.objects.create(
         voce=v, importo=Decimal("50"), competenza_dal=D(2026, 4, 1), competenza_al=D(2026, 4, 30)
